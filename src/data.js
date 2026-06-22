@@ -31,7 +31,7 @@ export var API_PROVIDERS = {
     name: '硅基流动 (SiliconFlow)',
     endpoint: 'https://api.siliconflow.cn/v1',
     model: 'deepseek-ai/DeepSeek-V3',
-    supportsJson: false,
+    supportsJson: true,
     models: [
       { value: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek-V3' },
       { value: 'deepseek-ai/DeepSeek-V4-Pro', label: 'DeepSeek-V4 Pro' },

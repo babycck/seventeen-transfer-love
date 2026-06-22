@@ -464,12 +464,12 @@ export async function loadTestScene(type) {
 export async function testAPIConnection(apiKey, providerKey) {
   try {
     var cfg = getProviderConfig(providerKey);
-  var model = pickModel(sceneType);
+    var model = GS.apiModel || cfg.model;
     var requestBody = {
       model: model,
       messages: [{ role: 'user', content: '请回复"连接成功"' }],
       max_tokens: 10,
-    temperature: temperature !== undefined ? temperature : 1
+      temperature: 1
     };
     var resp = await fetch(cfg.endpoint + '/chat/completions', {
       method: 'POST',
