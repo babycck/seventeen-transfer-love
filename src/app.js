@@ -1,0 +1,13 @@
+﻿import './style.css';
+import './core.js';
+import './parser.js';
+import './memory.js';
+import './formatters.js';
+import './prompts.js';
+import './x-archive.js';
+import './affection.js';
+import './promises.js';
+import './ui-renderer.js';
+import './game-engine.js';
+import './modals.js';
+import './init.js';

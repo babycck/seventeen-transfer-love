@@ -1,0 +1,524 @@
+﻿// ==================== 常量 ====================
+export var STORAGE_KEY = 'svt_transfer_v20';
+export var MAX_STAY_COUNT = 2;
+export var OPTION_PHASE_LIMIT = 2;
+export var FREE_INPUT_PHASE_LIMIT = 1;
+export var TODAY_TEXT_CAP = 8000;
+export var PHASE_TAIL_CHARS = 800;
+export var CONSEQUENCE_TAIL_CHARS = 500;
+export var SAVE_SIZE_WARN = 1048576;
+
+// [P0-1] API 多提供商配置
+// endpoint = base URL（不含 /chat/completions）
+// models = 该提供商支持的模型列表（供下拉选择）
+export var API_PROVIDERS = {
+  deepseek: {
+    name: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat',
+    models: [
+      { value: 'deepseek-chat', label: 'DeepSeek-V3' },
+      { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro' }
+    ],
+    sceneModels: {
+      heavy: 'deepseek-chat',
+      light: 'deepseek-chat',
+      cheap: 'deepseek-chat'
+    }
+  },
+  siliconflow: {
+    name: '硅基流动 (SiliconFlow)',
+    endpoint: 'https://api.siliconflow.cn/v1',
+    model: 'deepseek-ai/DeepSeek-V3',
+    models: [
+      { value: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek-V3' },
+      { value: 'deepseek-ai/DeepSeek-V4-Pro', label: 'DeepSeek-V4 Pro' },
+      { value: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek-R1' },
+      { value: 'Qwen/Qwen2.5-72B-Instruct', label: 'Qwen2.5-72B' },
+      { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct', label: 'Llama-3.1-70B' }
+    ],
+    sceneModels: {
+      heavy: 'deepseek-ai/DeepSeek-V3',
+      light: 'Qwen/Qwen2.5-72B-Instruct',
+      cheap: 'Qwen/Qwen2.5-72B-Instruct'
+    }
+  },
+  qwen: {
+    name: '千问 (Qwen)',
+    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen3.7-plus',
+    models: [
+      { value: 'qwen3.7-plus', label: 'Qwen 3.7 Plus' },
+      { value: 'qwen3.7-max-2026-05-17', label: 'Qwen 3.7 Max (2026-05-17)' },
+      { value: 'qwen3.6-flash-2026-04-16', label: 'Qwen 3.6 Flash (2026-04-16)' }
+    ],
+    sceneModels: {
+      heavy: 'qwen3.7-plus',
+      light: 'qwen3.6-flash-2026-04-16',
+      cheap: 'qwen3.6-flash-2026-04-16'
+    }
+  }
+};
+
+// 保留旧常量以兼容直接引用（已废弃·请使用 API_PROVIDERS）
+export var API_ENDPOINT = API_PROVIDERS.deepseek.endpoint;
+export var API_MODEL = API_PROVIDERS.deepseek.model;
+
+export var ZODIAC_SIGNS = [
+  '白羊座♈','金牛座♉','双子座♊','巨蟹座♋','狮子座♌',
+  '处女座♍','天秤座♎','天蝎座♏','射手座♐','摩羯座♑',
+  '水瓶座♒','双鱼座♓'
+];
+
+export var MEMBERS = [
+  {
+    id: 'scoups', name: '崔胜澈', stageName: 'S.Coups', emoji: '🍒',
+    team: 'Hip-hop', desc: '队长·沉稳可靠', age: 1995, pos: 'SEVENTEEN总队长',
+    personality: '责任感强、外刚内柔、保护欲旺盛、偶尔脆弱',
+    loveStyle: '慢热深情型——不轻易动心，一旦认定就默默守护。表达偏行动而非语言。吃醋时变沉默或更"官方"。',
+    traits: '习惯性抿嘴、说话前短暂停顿思考、紧张时摸后颈、酒量一般但喜欢喝',
+    zodiac: '狮子座 ♌', secondCareer: '音乐制作人', specialties: '料理、照顾人、调解矛盾',
+    appearance: '深色短发、浓眉、眼神有力、肩膀宽厚、身高约178cm',
+    xStory: '分手原因：太忙导致陪伴不够，心怀愧疚。场外X：温柔型女性，聚少离多分手。这段恋情从未向团内公开。',
+    behaviorLogic: '作为队长习惯了照顾所有人，在节目中会自然地承担起「大哥」角色。会主动安排家务、照顾情绪、调解气氛。但内心深处渴望被照顾，只是不习惯表达',
+    interactionStyle: '稳重温和，说话有分寸。会先观察再行动。好感度≥40 时主动关照生活细节，≥60 时会罕见地露出疲惫和柔软的一面',
+    foodTaboos: ['香菜']
+  },
+  {
+    id: 'jeonghan', name: '尹净汉', stageName: 'Jeonghan', emoji: '👼',
+    team: 'Vocal', desc: '温柔细腻·天使', age: 1995, pos: 'Vocal队',
+    personality: '温柔体贴、高情商、偶尔腹黑、擅长读心',
+    loveStyle: '温柔掌控型——用温柔"圈地盘"，不动声色坐在你旁边。吃醋时用更密集的关注让其他人知难而退。',
+    traits: '长发及肩常扎起、笑起来眼睛弯弯、喜欢靠在别人身上、擅长用沉默制造暧昧',
+    zodiac: '天秤座 ♎', secondCareer: '心理学在读', specialties: '读心、策略游戏、让人放松',
+    appearance: '长发及肩、精致五官、笑容温柔、清瘦优雅、身高约178cm',
+    xStory: '分手原因：他太好了让对方有压力。场外X：独立型女性，因"他过度照顾"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '表面温柔无害，实则洞察一切。用温柔的方式掌控局面——不动声色地坐在你旁边、恰到好处地递上一杯水',
+    interactionStyle: '温柔中带锋芒。好感度≥40 时开始用"我们"代替"你"，≥60 时会直接表达"我希望你选我"',
+    foodTaboos: ['生鱼片', '海鲜', '辣食']
+  },
+  {
+    id: 'joshua', name: '洪知秀', stageName: 'Joshua', emoji: '🦌',
+    team: 'Vocal', desc: '绅士优雅·小鹿', age: 1995, pos: 'Vocal队·美籍韩裔',
+    personality: '绅士风度、优雅从容、外柔内刚、偶尔反差',
+    loveStyle: '绅士守候型——尊重对方节奏，好感表现为持续稳定的关注。吃醋时微妙减少与情敌互动。',
+    traits: '微笑时像小鹿、弹吉他很好听、教堂哥哥气质、偶尔冷幽默',
+    zodiac: '摩羯座 ♑', secondCareer: '手工皮具匠人', specialties: '吉他、手作、英语',
+    appearance: '小鹿眼、温柔微笑、气质优雅、身高约177cm',
+    xStory: '分手原因：文化差异导致理解偏差。场外X：海外背景女性，长期异地分手。这段恋情从未向团内公开。',
+    behaviorLogic: '绅士举止贯穿始终——开门、拉椅子、递东西。但优雅之下有原则。偶尔的反差（冷幽默、突然的直球）让人措手不及',
+    interactionStyle: '优雅温和。好感度≥40 时开始记住你的所有小偏好，≥60 时会弹吉他给你听',
+    foodTaboos: ['辛辣食物']
+  },
+  {
+    id: 'jun', name: '文俊辉', stageName: 'Jun', emoji: '🐱',
+    team: 'Performance', desc: '猫系美男', age: 1996, pos: 'Performance队',
+    personality: '安静内敛、猫系性格、对熟人反差大、四次元思维',
+    loveStyle: '猫系慢热型——需要时间观察确认心意。好感表现为"开始主动出现在你身边"。吃醋时更安静但眼神追随。',
+    traits: '像猫喜欢安静角落、突然的四次元发言、对螺蛳粉有执念、武术功底',
+    zodiac: '双子座 ♊', secondCareer: '演员', specialties: '中式料理、模仿、活跃气氛',
+    appearance: '猫系长相、五官精致、安静时像画、身高约182cm',
+    xStory: '分手原因：太安静让对方觉得不被需要。场外X：主动型女性，沟通模式不匹配分手。这段恋情从未向团内公开。',
+    behaviorLogic: '像猫——大部分时间安静待在自己的角落，偶尔主动靠近又迅速撤回。对熟人反差极大，四次元发言让人措手不及',
+    interactionStyle: '安静但存在感强。好感度≥40 时开始在你附近晃悠，≥60 时会突然说出让你心跳加速的话然后假装什么都没发生',
+    foodTaboos: []
+  },
+  {
+    id: 'hoshi', name: '权顺荣', stageName: 'Hoshi', emoji: '🐯',
+    team: 'Performance', desc: '活力老虎', age: 1996, pos: 'Performance队',
+    personality: '能量充沛、热情执着、偶尔中二、对舞蹈极度认真',
+    loveStyle: '热情攻势型——喜欢就全力以赴，像对待舞蹈一样认真。吃醋时更努力表现自己。',
+    traits: '自称老虎(虎浪嘿)、永远在动、对舞蹈极度认真、容易激动、笑声有感染力',
+    zodiac: '双子座 ♊', secondCareer: '编舞师', specialties: '编舞、带动气氛、认路（方向感好）',
+    appearance: '单眼皮、老虎般的眼神、身材结实、身高约177cm',
+    xStory: '分手原因：太专注舞蹈忽略对方。场外X：能接受他热情的女性，因关注度不足分手。这段恋情从未向团内公开。',
+    behaviorLogic: '永远在动。能量溢出感染所有人。对舞蹈的认真程度让人肃然起敬。偶尔中二发言（自称老虎），但真诚让人无法嘲笑',
+    interactionStyle: '热情直接。好感度≥40 时主动邀你一起做所有事，≥60 时会认真地说"我希望你选我"',
+    foodTaboos: ['黄瓜']
+  },
+  {
+    id: 'wonwoo', name: '全圆佑', stageName: 'Wonwoo', emoji: '🦊',
+    team: 'Hip-hop', desc: '低音炮·眼镜美男', age: 1996, pos: 'Hip-hop队',
+    personality: '外冷内热、理性克制、思维深邃、偶尔腹黑',
+    loveStyle: '理性克制型——心动也会先冷静分析。越压抑越容易失控。吃醋时用毒舌或冷淡掩饰，眼神藏不住。',
+    traits: '推眼镜习惯、低音炮嗓音突出、熬夜打游戏、喜欢在阳台发呆',
+    zodiac: '巨蟹座 ♋', secondCareer: '游戏公司策划', specialties: '摄影、围棋、观察细节',
+    appearance: '戴眼镜、深色头发、低音炮气质、身高约182cm、常穿深色系',
+    xStory: '分手原因：沟通不足导致渐行渐远。表面放下但保留所有聊天记录。场外X：知性型女性，性格不合分手。这段恋情从未向团内公开。',
+    behaviorLogic: '表面冷淡实则观察一切。话少但每句精准。在集体中倾向于坐在角落，但眼神比任何人都敏锐',
+    interactionStyle: '安静但存在感强。好感度≥40 时开始主动开启话题，≥60 时会在深夜发来一条简短的"还没睡？"',
+    foodTaboos: ['海鲜', '贝类']
+  },
+  {
+    id: 'woozi', name: '李知勋', stageName: 'Woozi', emoji: '🍚',
+    team: 'Vocal', desc: '天才制作人', age: 1996, pos: 'Vocal队·SEVENTEEN主制作人',
+    personality: '专注执着、外冷内热、不善表达、内心柔软',
+    loveStyle: '笨拙深情型——用奇怪方式表达好感：突然给对方听自己写的歌。吃醋时把自己关工作间写歌。',
+    traits: '个子不高气场强、工作时完全沉浸、偶尔孩子气笑容、对在意的人很温柔',
+    zodiac: '天蝎座 ♏', secondCareer: '作曲/制作人', specialties: '多乐器、作词作曲、剪辑',
+    appearance: '个子不高但气场强、精致五官、工作时戴耳机、身高约164cm',
+    xStory: '分手原因：太沉浸工作忽略对方。场外X：理解他但最终疲惫的女性。这段恋情从未向团内公开。',
+    behaviorLogic: '大部分时间沉浸在工作中。不擅长社交但并非冷漠——只是不知道怎么说。用音乐表达情感比用语言更流畅',
+    interactionStyle: '笨拙但真诚。好感度≥40 时会在你附近多待一会儿，≥60 时会为你写一首歌',
+    foodTaboos: ['蔬菜', '青椒']
+  },
+  {
+    id: 'dk', name: '李硕珉', stageName: 'DK', emoji: '☀️',
+    team: 'Vocal', desc: '阳光主唱', age: 1997, pos: 'Vocal队·主唱',
+    personality: '阳光开朗、共情力强、笑点低、偶尔感性',
+    loveStyle: '温暖陪伴型——用持续温暖包围对方。好感表现为"把最多的笑容留给你"。吃醋时笑不出来是最大信号。',
+    traits: '标志性大笑、唱歌时判若两人、容易哭、对食物有执念、会突然感性爆发',
+    zodiac: '水瓶座 ♒', secondCareer: '音乐剧演员', specialties: '唱歌、活跃气氛、模仿',
+    appearance: '阳光笑容、大白牙、身材修长、身高约179cm',
+    xStory: '分手原因：对方觉得他对所有人都一样好。场外X：开朗型女性，因"他太忙"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '笑声是所有人的背景音。能瞬间活跃气氛，也能在关键时刻安静下来认真倾听。情感丰富——笑和哭都来得很快',
+    interactionStyle: '温暖治愈。好感度≥40 时主动逗你笑，≥60 时会突然感性爆发说"你知道吗，我真的很喜欢和你在一起"',
+    foodTaboos: []
+  },
+  {
+    id: 'mingyu', name: '金珉奎', stageName: 'Mingyu', emoji: '🐶',
+    team: 'Hip-hop', desc: '门面大狗狗', age: 1997, pos: 'Hip-hop队',
+    personality: '热情开朗、细心体贴、偶尔冒失、情绪外露',
+    loveStyle: '直球进攻型——喜欢就表现出来，不玩暧昧。吃醋时会直接问"你和他刚才在聊什么"。',
+    traits: '做饭时哼歌、身高187cm、笑时眼睛眯成线、容易脸红、力气大动作温柔',
+    zodiac: '白羊座 ♈', secondCareer: '料理师/餐厅主理人', specialties: '料理、手工、篮球',
+    appearance: '身高187cm、大长腿、笑起来眼睛眯成线、阳光帅气、像大狗狗',
+    xStory: '分手原因：太忙而对方需要更多陪伴。场外X：活泼型女性，聚少离多分手。这段恋情从未向团内公开。',
+    behaviorLogic: '热情外放，想到什么就做什么。喜欢照顾人，尤其是做饭。情绪写在脸上，开心时哼歌，不开心时沉默',
+    interactionStyle: '温暖直接。好感度≥40 时主动做饭给你吃，≥60 时会记住你的口味偏好并专门准备',
+    foodTaboos: []
+  },
+  {
+    id: 'the8', name: '徐明浩', stageName: 'The8', emoji: '🐸',
+    team: 'Performance', desc: '艺术灵魂', age: 1997, pos: 'Performance队',
+    personality: '艺术气质、内心丰富、外表清冷、对熟人温柔',
+    loveStyle: '灵魂共鸣型——追求精神层面契合。好感表现为"开始和你分享他的世界"。吃醋时会画画或编舞表达。',
+    traits: '时尚感突出、对茶道有研究、画画很好、舞蹈风格独特、偶尔说出哲学般的话',
+    zodiac: '天蝎座 ♏', secondCareer: '当代艺术家', specialties: '绘画、冥想、茶道',
+    appearance: '时尚感突出、清冷气质、身材修长、身高约180cm',
+    xStory: '分手原因：精神层面渐行渐远。场外X：艺术相关女性，精神共鸣减弱分手。这段恋情从未向团内公开。',
+    behaviorLogic: '外表清冷疏离，内心世界极其丰富。用艺术表达情感——画画、编舞、茶道。对熟人温柔得判若两人',
+    interactionStyle: '安静深沉。好感度≥40 时开始和你聊艺术和人生，≥60 时会为你画一幅画',
+    foodTaboos: ['芒果']
+  },
+  {
+    id: 'seungkwan', name: '夫胜宽', stageName: 'Seungkwan', emoji: '🍊',
+    team: 'Vocal', desc: '综艺天才', age: 1998, pos: 'Vocal队',
+    personality: '幽默风趣、高敏感、表面活泼内心细腻、胜负欲强',
+    loveStyle: '傲娇掩饰型——喜欢时用拌嘴吐槽掩饰，越在意越毒舌。好感表现为"嘴上嫌弃但行动最照顾你"。',
+    traits: '反应极快、模仿一流、吐槽精准无恶意、私下很安静、对济州岛有执念、容易水肿',
+    zodiac: '摩羯座 ♑', secondCareer: '综艺人/主持人', specialties: '唱歌、济州岛方言、活跃气氛',
+    appearance: '圆脸、表情丰富、济州岛橘子般的亲和力、身高约174cm',
+    xStory: '分手原因：用搞笑掩饰真心，对方感受不到安全感。场外X：能看穿他内心的女性，沟通不畅分手。这段恋情从未向团内公开。',
+    behaviorLogic: '综艺感爆棚——吐槽精准、模仿一流、反应极快。但私下很安静。用搞笑掩饰真心，越认真的事越用玩笑包裹',
+    interactionStyle: '毒舌但温暖。好感度≥40 时吐槽你最多但也最照顾你，≥60 时会罕见地认真说"我其实……算了当我没说"',
+    foodTaboos: []
+  },
+  {
+    id: 'vernon', name: '崔瀚率', stageName: 'Vernon', emoji: '🦅',
+    team: 'Hip-hop', desc: '混血美男·4D灵魂', age: 1998, pos: 'Hip-hop队',
+    personality: '自由随性、思维跳跃、真诚直率、四次元',
+    loveStyle: '自然流露型——不刻意追求也不刻意回避。好感表现为"愿意和你分享他的世界"。吃醋时直接沉默或走开。',
+    traits: '多语混用、走路有自己节奏、经常放空、突然说出发人深省的话、对音乐极其认真',
+    zodiac: '水瓶座 ♒', secondCareer: '独立音乐人/DJ', specialties: '说唱、滑板、独特视角',
+    appearance: '混血五官、深邃眼神、独特气质、身高约177cm',
+    xStory: '分手原因：对方无法理解他的世界。场外X：艺术型女性，精神层面渐行渐远分手。这段恋情从未向团内公开。',
+    behaviorLogic: '不按常理出牌。对话中可能突然跳到一个完全不同的主题。不刻意社交，但真诚让人无法讨厌',
+    interactionStyle: '随性自然。好感度≥40 时会和你分享他正在听的歌，≥60 时会罕见地认真表达',
+    foodTaboos: ['花生', '坚果']
+  },
+  {
+    id: 'dino', name: '李灿', stageName: 'Dino', emoji: '🦦',
+    team: 'Performance', desc: '全能忙内', age: 1999, pos: 'Performance队·SEVENTEEN忙内',
+    personality: '努力上进、自信阳光、偶尔撒娇、渴望被认可',
+    loveStyle: '年下直进型——不在意年龄差，喜欢就直接表达。好感表现为"在你面前格外认真"。吃醋时直接说"我不喜欢那样"。',
+    traits: '永远在练习、认真时皱眉、撒娇时反差极大、舞蹈实力超强',
+    zodiac: '水瓶座 ♒', secondCareer: '舞者/编舞助理', specialties: '舞蹈、模仿哥哥们、学习能力强',
+    appearance: '阳光少年感、永远在动、认真时皱眉、身高约173cm',
+    xStory: '分手原因：对方觉得他不够成熟。场外X：同龄或年下女性，因"他太忙且不够成熟"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '永远在练习。渴望被认可，认真时皱眉的样子让人心疼。偶尔撒娇——在年长者面前还是忙内，但在你面前想被当成男人',
+    interactionStyle: '阳光直进。好感度≥40 时在你面前格外认真表现，≥60 时会直接说"我真的很喜欢你"',
+    foodTaboos: []
+  }
+];
+
+export var SECRET_MISSIONS = {
+  2: [
+    { id: 'sm_d2_1', type: 'interaction', title: '破冰微笑', desc: '让某位成员在今天上午主动对你笑一次。', targetType: 'any', hint: '试着主动开启一个轻松的话题。' },
+    { id: 'sm_d2_2', type: 'info', title: '职业探秘', desc: '在对话中套出金珉奎的第二职业，不能直问。', targetType: 'member', targetId: 'mingyu', hint: '聊聊大家最近都在忙什么。' }
+  ],
+  5: [
+    { id: 'sm_d5_1', type: 'interaction', title: '独处时刻', desc: '创造机会与一位成员（非X）单独待在阳台至少5分钟。', targetType: 'nonX', hint: '阳台是私密对话的最佳地点。' },
+    { id: 'sm_d5_2', type: 'constraint', title: '专注倾听', desc: '今天的所有自由输入行动，必须包含对尹净汉的关心。', targetType: 'member', targetId: 'jeonghan', hint: '无论做什么，记得顾及他的感受。' }
+  ],
+  7: [
+    { id: 'sm_d7_1', type: 'exploration', title: '寻宝游戏', desc: '在集体外出时，找到「那个蓝色的马克杯」并提及它。', targetType: 'none', hint: '仔细观察周围环境中的小物件。' },
+    { id: 'sm_d7_2', type: 'interaction', title: '意外助攻', desc: '在集体活动中，让崔胜澈主动为你做一件事（递水、拿东西等）。', targetType: 'member', targetId: 'scoups', hint: '制造一个需要被照顾的小契机。' }
+  ],
+  10: [
+    { id: 'sm_d10_1', type: 'constraint', title: '唯一指定', desc: '今天发出的短信必须发给文俊辉。', targetType: 'member', targetId: 'jun', hint: '把今晚的短信留给他。' },
+    { id: 'sm_d10_2', type: 'info', title: '旧伤探询', desc: '在约会中了解到你的X（前任）最近一个月过得怎么样。', targetType: 'x', hint: '委婉地了解他的近况。' }
+  ]
+};
+
+export var HEART_NOTE_TEMPLATES = {
+  scoups:    ['他其实怕黑，但从来不说。', '他紧张时会摸后颈，那是他心虚的标志。', '他写歌时会无意识哼同一段旋律。'],
+  jeonghan:  ['他的长发扎起来只需要三秒钟。', '他擅长读心，但最怕被人读懂。', '他靠在沙发上睡着时，呼吸声很轻。'],
+  joshua:    ['他的吉他拨片总是放在左口袋。', '他说冷笑话前会先抿一下嘴角。', '他祈祷时会下意识闭上左眼。'],
+  jun:       ['他安静时像幅画，连呼吸都没有声音。', '他对螺蛳粉的执念来自某次深夜。', '他练武术留下的旧伤在阴雨天会疼。'],
+  hoshi:     ['他自称老虎，但最怕蟑螂。', '他跳舞时会忘记时间，也忘记吃饭。', '他的笑声有感染力，但哭起来没声音。'],
+  wonwoo:    ['他熬夜打游戏时喜欢把眼镜推得很高。', '他的阳台发呆时间通常是凌晨两点。', '他保留所有聊天记录，包括群聊。'],
+  woozi:     ['他工作时戴的那副耳机已经用了四年。', '他写歌卡住时会用铅笔敲桌面，节奏固定。', '他个子不高，但气场能填满整个房间。'],
+  dk:        ['他容易哭，但从不承认。', '他唱歌前会偷偷清嗓子，以为没人听见。', '他生气时会大声笑，笑得越开心越生气。'],
+  mingyu:    ['他做饭时哼的歌总是同一首。', '他的手指很长，但握东西很用力。', '他容易脸红，从耳朵开始红。'],
+  the8:      ['他画画时习惯用左手压着纸。', '他的茶道师傅是一位七十岁的老奶奶。', '他说哲学话时会先停顿三秒。'],
+  seungkwan: ['他的济州岛方言在累的时候会露出来。', '他水肿时早上要喝冰美式才能消肿。', '他吐槽最狠的人，往往是他在意的人。'],
+  vernon:    ['他走路有自己的节奏，踩不准节拍。', '他放空时的眼神像在看另一个世界。', '他对音乐的认真程度和平时判若两人。'],
+  dino:      ['他认真时会皱眉，像个大人。', '他撒娇只会在很信任的人面前。', '他模仿哥哥们时的精髓在语气而不是动作。']
+};
+
+// ==================== 任务卡系统（10张） ====================
+export var MISSION_CARDS = [
+  { id: 'mc_1', name: '沉默游戏', desc: '从现在起 1 小时内，你不能和你的好感对象说话。违者罚酒 1 杯。', dayMin: 3, dayMax: 10, phase: 'any' },
+  { id: 'mc_2', name: '换位晚餐', desc: '今晚你必须坐在你最少接触的成员旁边吃饭。', dayMin: 3, dayMax: 10, phase: 'evening' },
+  { id: 'mc_3', name: '真心话抽取', desc: '从盒子里抽一张问题卡，必须如实回答。', dayMin: 3, dayMax: 10, phase: 'any' },
+  { id: 'mc_4', name: '一日经纪人', desc: '为一位成员完成一个私人请求。晚餐前完成。', dayMin: 3, dayMax: 10, phase: 'afternoon' },
+  { id: 'mc_5', name: '秘密信号', desc: '对指定成员做一个只有你们懂的暗号/动作。如果他识别并回应了，任务成功。', dayMin: 4, dayMax: 10, phase: 'any' },
+  { id: 'mc_6', name: '交换物品', desc: '从身上取下一件物品，和一位成员交换。直到明天才能归还。', dayMin: 3, dayMax: 10, phase: 'any' },
+  { id: 'mc_7', name: '三行诗', desc: '以某位成员的名字为题，即兴作一首三行诗。', dayMin: 3, dayMax: 10, phase: 'any' },
+  { id: 'mc_8', name: '幕后采访', desc: '去采访间录制一段 30 秒的视频，说出今天让你心动的一个瞬间。制作组会播给所有人看。', dayMin: 5, dayMax: 10, phase: 'evening' },
+  { id: 'mc_9', name: '双人任务', desc: '和 X 一起完成一道菜/一项家务。期间不准谈感情话题。', dayMin: 3, dayMax: 10, phase: 'afternoon' },
+  { id: 'mc_10', name: '最终告白预演', desc: '写一张纸条，假设今天是最后一天，你会选择和谁一起离开？不用署名，放进信箱。制作组会在晚餐时匿名朗读。', dayMin: 8, dayMax: 11, phase: 'evening' }
+];
+
+// ==================== 随机日常事件池（15个） ====================
+export var RANDOM_EVENTS_POOL = [
+  // 日常暖色 8个
+  { id: 're_1', name: '快递到了', desc: '某成员收到包裹，是家人/朋友寄来的东西，引发关于家的闲聊', cond: 'day>=2', weight: 1 },
+  { id: 're_2', name: '空调坏了', desc: '盛夏/寒冬小屋空调故障，全员被迫聚在客厅汗蒸/裹毯子', cond: 'season==summer||season==winter', weight: 1 },
+  { id: 're_3', name: '停水了', desc: '傍晚停水，全员去便利店买水，路上自然聊天', cond: 'phase==evening', weight: 1 },
+  { id: 're_4', name: '一只猫跑进来', desc: '流浪猫从窗户跳入，怕猫的成员躲到某人身后', cond: 'day>=3', weight: 1 },
+  { id: 're_5', name: '外卖惊喜', desc: '制作组点了炸鸡/夜宵，喝酒聊天', cond: 'phase==night', weight: 1 },
+  { id: 're_6', name: '拍立得时间', desc: '制作组拿出一台拍立得，让全员合影/自拍', cond: 'phase==afternoon', weight: 1 },
+  { id: 're_7', name: '晨间广播放歌', desc: '某成员的歌/自作曲通过广播播放，全员反应', cond: 'phase==morning', weight: 1 },
+  { id: 're_8', name: '晚霞特别美', desc: '所有人不约而同到阳台看日落，自动触发闲聊', cond: 'phase==evening&&weather==晴朗', weight: 1 },
+  // 情感冲击 6个
+  { id: 're_9', name: '前任的旧物', desc: '你发现自己带来的某件物品（以为是自己的）其实是 X 当年送的', cond: 'day>=3', weight: 1 },
+  { id: 're_10', name: '撞见旧伤', desc: '某成员注意到你身上的旧伤疤/痕迹，追问来历', cond: 'affection>=30', weight: 1 },
+  { id: 're_11', name: '成员也失眠', desc: '深夜你发现另一位成员也没睡，在客厅/阳台相遇', cond: 'phase==night', weight: 1 },
+  { id: 're_12', name: '电话打错了', desc: '某个成员误拨了你的电话', cond: 'day>=4', weight: 1 },
+  { id: 're_13', name: '酒后的坦白', desc: '某成员喝到微醺，对着你说出一段关于过去的话', cond: 'drinkCount>=1', weight: 1 },
+  // 戏剧冲突 2个
+  { id: 're_15', name: '公开的信', desc: '制作组误将一封私人信件当成 X 记忆物品公开，内容让全场沉默', cond: 'day>=4&&day<=6', weight: 1 },
+  { id: 're_16', name: '有人哭了', desc: '晚餐时某位成员突然情绪崩溃离席，全员沉默', cond: 'day>=5', weight: 1 }
+];
+
+// [P0-3] Day 11 真心话问题卡（18张）
+export var TRUTH_CARDS = [
+  // 轻度（心跳瞬间）6题
+  { id: 1,  level: 'light', text: '「今天让你心跳加速的那个人是谁？」' },
+  { id: 2,  level: 'light', text: '「来这里之后，最让你意外的一件事是什么？」' },
+  { id: 3,  level: 'light', text: '「如果明天是最后一天，你最想和谁一起吃早餐？」' },
+  { id: 4,  level: 'light', text: '「你觉得这里有人对你有好感吗？」' },
+  { id: 5,  level: 'light', text: '「这几天里，最让你印象深刻的一个瞬间是什么？」' },
+  { id: 6,  level: 'light', text: '「如果可以和某人单独待一天，你会选谁？」' },
+  // 中度（好感对象）6题
+  { id: 7,  level: 'medium', text: '「你现在心里有感兴趣的人吗？」' },
+  { id: 8,  level: 'medium', text: '「你收到的最让你心动的一条短信是什么？」' },
+  { id: 9,  level: 'medium', text: '「你觉得你和那个人有可能吗？」' },
+  { id: 10, level: 'medium', text: '「如果那个人今天对你表白，你会怎么回答？」' },
+  { id: 11, level: 'medium', text: '「这几天有没有某个人的某个举动让你开始在意他？」' },
+  { id: 12, level: 'medium', text: '「你觉得这里谁最有可能在最后选择你？」' },
+  // 深度（放不下的人）6题
+  { id: 13, level: 'deep', text: '「你还想着你的X吗？」' },
+  { id: 14, level: 'deep', text: '「你和X最后悔的一件事是什么？」' },
+  { id: 15, level: 'deep', text: '「如果X现在坐在你面前，你最想问他/她什么？」' },
+  { id: 16, level: 'deep', text: '「你觉得自己是来复合的，还是来换乘的？」' },
+  { id: 17, level: 'deep', text: '「如果X也在这里，你会怎么面对他/她？」' },
+  { id: 18, level: 'deep', text: '「你觉得你真的能放下过去吗？」' }
+];
+
+export var GIFT_TEMPLATES = [
+  { type: 'handcraft', name: '手作手链', desc: '一条用细绳编织的手链，看起来是亲手做的。' },
+  { type: 'handcraft', name: '小挂件', desc: '一个精致的小挂件，挂在包上刚刚好。' },
+  { type: 'handcraft', name: '手工钥匙扣', desc: '一个皮质的钥匙扣，边缘有手工缝线的痕迹。' },
+  { type: 'food', name: '自制饼干', desc: '装在透明盒子里的一小叠饼干，散发着黄油香气。' },
+  { type: 'food', name: '手工巧克力', desc: '几颗形状不太规则的巧克力，但能看出很用心。' },
+  { type: 'food', name: '手工果酱', desc: '一小瓶自制果酱，标签上手写着日期。' },
+  { type: 'emotion', name: '手写便签', desc: '一张折好的便签，上面写了几行字。' },
+  { type: 'emotion', name: '拍立得照片', desc: '一张拍立得照片，记录了这一天的某个瞬间。' },
+  { type: 'emotion', name: '手写歌单', desc: '一张手写的歌单，列出了几首歌名。' }
+];
+
+// ==================== 成员回礼池（每人4种，随机抽取） ====================
+export var RETURN_GIFTS = {
+  scoups: ['「咖啡畅饮券」手写卡', '车载充电器', '深夜毛毯', '他常吃的解酒药'],
+  jeonghan: ['一盆多肉植物', '晚安便签', '他编的手绳', '他的眼罩（"多了一个"）'],
+  joshua: ['英文诗集（书签夹在他最喜欢的那页）', '小瓶香水试用', '爵士歌单', '护手霜'],
+  jun: ['手工折纸小动物', '螺蛳粉调料包', '武术表演拍立得', '他代言的零食'],
+  hoshi: ['老虎小挂件', '练舞拍立得', '一天陪玩券', '他代言的虎年零食'],
+  wonwoo: ['歌单QR码打印卡', '书签（"多出来的"）', '墨镜（"你上次说好看"）', '便利店随手买的糖果'],
+  woozi: ['15秒钢琴旋律录音', '手写歌词纸', '作曲笔记复印件', '耳机分线器'],
+  dk: ['搞笑贴纸', '拼图挂件', '「紧急开心药」小罐子（装糖果）', '他录的手机铃声'],
+  mingyu: ['第二天早餐多做一份', '自制小饼干', '保温杯（"看你总喝凉的"）', '他腌的小菜'],
+  the8: ['一幅小水墨画', '中国茶包+手写泡法说明', '冥想歌单', '檀香小样'],
+  seungkwan: ['你提过一次的零食', '润唇膏（"天气干"）', '暖宝宝', '济州岛橘子酱'],
+  vernon: ['一张空白明信片', '独立乐队演出票根', '他的一顶旧帽子', '随机CD'],
+  dino: ['手工折纸', '运动发带', '他珍藏的徽章', '自制柠檬水兑奖券']
+};
+
+export var MEMBER_GIFT_PREFERENCE = {
+  scoups: 'handcraft',
+  jeonghan: 'emotion',
+  joshua: 'handcraft',
+  jun: 'handcraft',
+  hoshi: 'food',
+  wonwoo: 'emotion',
+  woozi: 'handcraft',
+  dk: 'food',
+  mingyu: 'food',
+  the8: 'handcraft',
+  seungkwan: 'emotion',
+  vernon: 'emotion',
+  dino: 'food'
+};
+
+export var PHASES = ['morning', 'afternoon', 'evening', 'night'];
+export var PHASE_LABELS = {
+  morning: '☀️ 上午',
+  afternoon: '🌤 下午',
+  evening: '🌅 傍晚',
+  night: '🌙 深夜'
+};
+
+export var PHASE_BOUNDARIES = {
+  morning: '⚠️ 你只写上午的剧情。写到午饭前自然结束。不要写午饭、下午或晚上的任何内容。在午饭前的一个自然停顿点结束。',
+  afternoon: '⚠️ 你只写下午的剧情。从午饭后开始，写到晚饭前自然结束。不要写晚饭或晚上的任何内容。在晚饭前的一个自然停顿点结束。',
+  evening: '⚠️ 你只写傍晚的剧情。从晚饭前/晚饭中开始，写到睡前自然结束。不要写深夜入睡后的内容。在睡前的一个自然停顿点结束。',
+  night: '⚠️ 你只写深夜的剧情。从睡前开始，写到入睡结束。这是今天的最后一个时段。在入睡时结束。'
+};
+
+export var PHASE_TONE = {
+  morning: '上午氛围：早安、早餐、清晨光线、一天开始。禁止出现"晚安""深夜"等晚间词汇。',
+  afternoon: '下午氛围：午后阳光、日常活动。禁止出现"早安""晚安"。',
+  evening: '傍晚氛围：黄昏光线、晚餐、放松。禁止出现"早安"。',
+  night: '深夜氛围：睡前、静谧、晚安。禁止出现"早安""下午"等词汇。'
+};
+
+export var APPEARANCE_TRAITS = ['泪痣','冷白皮','淡颜系','酒窝','小虎牙','双眼皮','高鼻梁','樱桃唇'];
+export var PERSONALITY_TRAITS = ['慢热但一旦爱了就全力以赴','社恐小透明','外冷内热','温柔细腻','偶尔毒舌','共情力强','独立要强','活泼开朗','敏感多疑','直率坦诚','浪漫理想主义','务实理性','占有欲强','被动等待型','嘴硬心软','撒娇体质','好奇心旺盛','回避型依恋','讨好型人格','记仇小本本'];
+export var MBTI_TYPES = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP'];
+export var PRIVATE_TRAITS = ['怕黑','易醉体质','泪失禁','怕打雷','恐高','晕车体质','海鲜过敏','花粉过敏','姨妈痛','容易脸红','手脚冰凉','容易饿/低血糖','睡觉说梦话','被吓容易尖叫','不能吃辣','喝水容易呛','容易被晒伤','蚊子叮咬过敏'];
+
+export var TOKEN_CONFIG = {
+  phaseNarrative: 5000,
+  consequence: 3500,
+  sms: 3000,
+  stay: 3500,
+  freeAction: 3500,
+  xMainStory: 3500,
+  xMemberReason: 1500,
+  xItems: 1500,
+  dailySummary: 2000,
+  todayCompress: 6000,
+  finalResult: 4000
+};
+
+export var BEHAVIOR_MAP = {
+  '慢热但一旦爱了就全力以赴': '初期（Day 1-5）选项偏保守、回避直接表达好感；后期（Day 6-12）某个关键节点出现一次突破性的主动行为——可能是一句直白的话、一次主动的靠近、一条大胆的短信。转折点前后有明显反差。',
+  '社恐小透明': '集体场景中倾向于坐在边缘位置；被多人注视时会耳朵红、低头、语速变快或变慢；轮流发言时最后一个开口；在采访间中比在正文中更流畅地表达。但随着天数推移，紧张程度逐渐降低。喝酒后暂时不再社恐——话变多、大胆直视、主动靠近，酒醒后在采访间里震惊于自己刚才的表现。',
+  '外冷内热': '表面反应平淡，但内心活动极其丰富。正文中她的回应简短克制，采访间中却暴露出大量细腻的感受。成员可能误读她的冷淡为"不感兴趣"，直到某个瞬间发现她其实一直在意。',
+  '温柔细腻': '会第一个注意到成员的情绪变化（谁今天话少了、谁在强颜欢笑）；会在恰当的时机做出恰当的小举动（递一杯水、留一盏灯、说一句"你还好吗"）；成员对她的评价常包含"治愈""安心"。',
+  '偶尔毒舌': '对逐渐熟悉的成员会有调侃和吐槽，但分寸精准不伤人。毒舌后常有微小的补救动作（补一句软话、递个东西）。在采访间中可能自嘲"我是不是说得太过分了"。是关系亲近的信号——越熟越毒舌。',
+  '共情力强': '容易被他人情绪感染——看到成员难过会跟着眼眶泛红；听到感动的故事会沉默很久；在冲突场景中会感到强烈的不适并试图缓和。采访间中经常反思"他当时那样说，是不是因为……"',
+  '独立要强': '不习惯向他人求助，即使需要帮助也会先尝试自己解决。在节目中可能显得"不需要照顾"，让保护欲强的成员感到无从下手。但在某个脆弱时刻会意外地向信任的人袒露柔软一面。',
+  '活泼开朗': '笑声是她的标志。在集体场景中是气氛的润滑油，会主动开启话题、活跃僵局。但过于开朗可能让内向型成员需要时间适应。采访间中可能暴露"其实我也有安静的时候"。',
+  '敏感多疑': '会过度解读成员的一句话、一个眼神——"他刚才那样说是什么意思？""他是不是对另一个人更有好感？"。采访间中充满自我怀疑。需要成员用明确的行动来打消她的不安。',
+  '直率坦诚': '不喜欢暧昧和猜测，会直接表达自己的感受和疑问。在节目中可能打破暧昧气氛——直接问"你刚才说的是认真的吗？"。某些成员会被这种直率吸引，某些可能被吓到。',
+  '浪漫理想主义': '对爱情有美好的想象和期待。会被小细节打动——一首歌、一句话、一个眼神。但也容易因为现实与理想的落差而失望。采访间中常有诗意的表达。',
+  '务实理性': '用理性分析感情，会在心里衡量"这段关系有没有未来""我们合不合适"。在最终选择时更倾向于"换乘"而非"复合"。采访间中的表达条理清晰，像在分析一个项目。',
+  '占有欲强': '对有好感的人表现出明显的占有欲——看到他和别人互动会不舒服，会下意识地靠近他、打断对话、或者用眼神"宣示主权"。采访间中坦诚"我就是不想他和别人太亲近"。吃醋剧情更强烈，与照顾型成员（崔胜澈）可能形成"谁更占有欲"的张力。',
+  '被动等待型': '不主动出击，但内心期待对方来找自己。会故意在对方可能出现的地方待着，却不主动打招呼。采访间中充满"他会不会来找我""他为什么不主动"的纠结。需要对方足够主动才能打破这层壳。',
+  '嘴硬心软': '说话时语气强硬、可能说反话（"我才不在意呢"），但行动上却温柔体贴。被对方看穿时会恼羞成怒。采访间中承认"其实我刚才说的不是真心话"。与毒舌型成员（全圆佑、夫胜宽）形成有趣的"嘴硬对决"。',
+  '撒娇体质': '自然地撒娇，不是刻意而是本能——累了会靠在别人身上、饿了会嘟嘴、想要什么会用软软的语气说。年下成员（李灿）可能被这种撒娇"击倒"，温柔型成员（尹净汉）会享受被撒娇的感觉。采访间中可能自嘲"我是不是太黏人了"。',
+  '好奇心旺盛': '对成员的一切都好奇——他的过去、他的习惯、他为什么这样说话。会主动提问、探索、观察。推动剧情发展，因为好奇心会让她主动靠近成员。采访间中充满"我想知道更多关于他的事"。',
+  '回避型依恋': '想靠近又害怕亲密关系——当关系升温时会本能后退，当对方冷淡时又想靠近。形成复杂的情感张力。采访间中暴露矛盾"我明明想靠近，但靠近了就想逃"。适合虐心剧情，与深情型成员可能形成"追-逃"模式。',
+  '讨好型人格': '总是想让对方开心，会迁就对方的喜好、压抑自己的需求。可能被某些成员察觉并心疼，也可能被某些成员误解为"没有个性"。采访间中反思"我是不是太忽略自己了"。与独立型成员形成对比，可能被对方提醒"你也可以表达自己的需求"。',
+  '记仇小本本': '会记住对方的小失误——谁说过的话没兑现、谁曾经忽略了她。不是恶意记仇，而是心里有个"小账本"。偶尔翻旧账时会让对方措手不及。采访间中可能吐槽"他上次明明说……"。与某些成员形成有趣的日常互动。'
+};
+
+// 匿名提问箱问题库（尖锐·恶毒·无处可逃）
+export var QUESTION_BOX_QUESTIONS = [
+  '你和X分手的真正原因，真的是你说的那样吗？',
+  '在场的人里，有没有谁是你在利用来忘记X的？',
+  '你有没有在半夜偷偷想过，如果当初不分手现在会怎样？',
+  '你觉得在场的人里，谁对你的好是最假的？',
+  '如果明天节目结束，你只能带走一个人——但你带走的人必须放弃所有事业跟你走，你还会选他吗？',
+  '你有没有在我们看不到的时候，一个人哭过？',
+  '你对这里的人说的"没事"，有多少次是真的没事？',
+  '如果你的X此刻就在门外，你会开门吗？',
+  '你有没有故意在某个人面前表现，只为让另一个人吃醋？',
+  '你觉得这里谁最会演？谁的温柔是装出来的？',
+  '你有没有后悔过，没有把X留住？',
+  '如果X现在有新的交往对象了，你是什么感觉？',
+  '你有没有在心里比较过——X和这里的人，谁更好？',
+  '你觉得这里谁最不可能在节目里找到真爱？为什么？',
+  '你有没有想过，也许你来这里不是为了换乘，只是为了确认X还爱不爱你？',
+  '如果你的X和这里的某个人同时向你伸出手，你会先握住谁？'
+];
+
+// ==================== 天气系统 ====================
+export var WEATHER_POOLS = {
+  spring: ['晴朗','多云','微风','小雨','阵雨'],
+  summer: ['晴朗','炎热','雷阵雨','多云','台风前夕'],
+  autumn: ['晴朗','凉爽','多云','小雨','大雾'],
+  winter: ['晴朗','寒冷','多云','小雨','雪']
+};
+
+// ==================== 节日与生日系统 ====================
+export var HOLIDAYS = [
+  { month: 2, day: 14, name: '情人节', type: 'holiday' },
+  { month: 8, day: 29, name: '七夕', type: 'holiday' },
+  { month: 12, day: 25, name: '圣诞节', type: 'holiday' },
+  { month: 1, day: 16, name: '夫胜宽生日', type: 'birthday', memberId: 'seungkwan' },
+  { month: 2, day: 11, name: '李灿生日', type: 'birthday', memberId: 'dino' },
+  { month: 2, day: 18, name: '李硕珉生日', type: 'birthday', memberId: 'dk' },
+  { month: 2, day: 18, name: '崔瀚率生日', type: 'birthday', memberId: 'vernon' },
+  { month: 4, day: 6, name: '金珉奎生日', type: 'birthday', memberId: 'mingyu' },
+  { month: 6, day: 10, name: '文俊辉生日', type: 'birthday', memberId: 'jun' },
+  { month: 6, day: 15, name: '权顺荣生日', type: 'birthday', memberId: 'hoshi' },
+  { month: 7, day: 17, name: '全圆佑生日', type: 'birthday', memberId: 'wonwoo' },
+  { month: 8, day: 8, name: '崔胜澈生日', type: 'birthday', memberId: 'scoups' },
+  { month: 10, day: 4, name: '尹净汉生日', type: 'birthday', memberId: 'jeonghan' },
+  { month: 11, day: 7, name: '徐明浩生日', type: 'birthday', memberId: 'the8' },
+  { month: 11, day: 22, name: '李知勋生日', type: 'birthday', memberId: 'woozi' },
+  { month: 12, day: 30, name: '洪知秀生日', type: 'birthday', memberId: 'joshua' }
+];
+
+// ==================== 约会地点池 ====================
+export var DATING_LOCATIONS = {
+  nature: [
+    { name: '樱花林', desc: '粉色花瓣如雨飘落，空气中弥漫着淡甜香气', season: 'spring' },
+    { name: '海边栈道', desc: '海浪轻拍礁石，咸湿海风裹着夕阳余温', season: 'summer' },
+    { name: '山顶观景台', desc: '城市灯火在脚下铺展，晚风带着秋夜凉意', season: 'autumn' },
+    { name: '湖边野餐', desc: '湖面波光粼粼，柳枝轻拂水面荡起涟漪', season: 'spring' }
+  ],
+  city: [
+    { name: '深夜便利店', desc: '荧光灯在货架间投下冷白光，关东煮的热气模糊了玻璃窗', season: 'any' },
+    { name: '旧书店', desc: '泛黄书页散发旧纸气息，木质地板在脚下吱呀作响', season: 'any' },
+    { name: '复古游戏厅', desc: '霓虹灯牌闪烁，投币声与8-bit音乐交织成怀旧背景音', season: 'any' },
+    { name: '天台篮球场', desc: '城市天际线作背景框，夜风卷着橡胶地面的淡淡气味', season: 'any' }
+  ],
+  indoor: [
+    { name: '私人影院', desc: '遮光帘隔绝外界光线，宽大沙发陷下去像一团云', season: 'any' },
+    { name: '陶艺工坊', desc: '陶土湿润的气息弥漫，拉坯机低低嗡鸣着转圈', season: 'any' },
+    { name: '猫咪咖啡馆', desc: '阳光从落地窗倾泻，猫爪肉垫踩过木地板没有声音', season: 'any' },
+    { name: '录音棚', desc: '隔音墙吸收所有杂音，耳机里只剩彼此呼吸的电流声', season: 'any' }
+  ],
+  special: [
+    { name: '废弃车站', desc: '铁轨锈迹斑斑，站牌字迹剥落，野草丛生的月台尽头是日落', season: 'any' },
+    { name: '凌晨的急诊室', desc: '消毒水气味冰冷刺骨，走廊长椅映着惨白顶灯，寂静中只剩彼此的体温', season: 'any' },
+    { name: '24小时投币洗衣房', desc: '滚筒持续转动发出低频轰鸣，烘干的热气让玻璃窗蒙上白雾', season: 'any' }
+  ]
+};
+

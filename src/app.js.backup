@@ -1,0 +1,4498 @@
+﻿// ==================== 常量 ====================
+var STORAGE_KEY = 'svt_transfer_v20';
+var MAX_STAY_COUNT = 2;
+var MAX_PHASE_CHOICES = 2;
+var TODAY_TEXT_CAP = 8000;
+var PHASE_TAIL_CHARS = 800;
+var CONSEQUENCE_TAIL_CHARS = 500;
+var SAVE_SIZE_WARN = 1048576;
+
+// [P0-1] API 配置：DeepSeek
+var API_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
+var API_MODEL = 'deepseek-chat';
+
+var ZODIAC_SIGNS = [
+  '白羊座♈','金牛座♉','双子座♊','巨蟹座♋','狮子座♌',
+  '处女座♍','天秤座♎','天蝎座♏','射手座♐','摩羯座♑',
+  '水瓶座♒','双鱼座♓'
+];
+
+var MEMBERS = [
+  {
+    id: 'scoups', name: '崔胜澈', stageName: 'S.Coups', emoji: '🍒',
+    team: 'Hip-hop', desc: '队长·沉稳可靠', age: 1995, pos: 'SEVENTEEN总队长',
+    personality: '责任感强、外刚内柔、保护欲旺盛、偶尔脆弱',
+    loveStyle: '慢热深情型——不轻易动心，一旦认定就默默守护。表达偏行动而非语言。吃醋时变沉默或更"官方"。',
+    traits: '习惯性抿嘴、说话前短暂停顿思考、紧张时摸后颈、酒量一般但喜欢喝',
+    zodiac: '狮子座 ♌', secondCareer: '音乐制作人', specialties: '料理、照顾人、调解矛盾',
+    appearance: '深色短发、浓眉、眼神有力、肩膀宽厚、身高约178cm',
+    xStory: '分手原因：太忙导致陪伴不够，心怀愧疚。场外X：温柔型女性，聚少离多分手。这段恋情从未向团内公开。',
+    behaviorLogic: '作为队长习惯了照顾所有人，在节目中会自然地承担起「大哥」角色。会主动安排家务、照顾情绪、调解气氛。但内心深处渴望被照顾，只是不习惯表达',
+    interactionStyle: '稳重温和，说话有分寸。会先观察再行动。好感度≥40 时主动关照生活细节，≥60 时会罕见地露出疲惫和柔软的一面'
+  },
+  {
+    id: 'jeonghan', name: '尹净汉', stageName: 'Jeonghan', emoji: '👼',
+    team: 'Vocal', desc: '温柔细腻·天使', age: 1995, pos: 'Vocal队',
+    personality: '温柔体贴、高情商、偶尔腹黑、擅长读心',
+    loveStyle: '温柔掌控型——用温柔"圈地盘"，不动声色坐在你旁边。吃醋时用更密集的关注让其他人知难而退。',
+    traits: '长发及肩常扎起、笑起来眼睛弯弯、喜欢靠在别人身上、擅长用沉默制造暧昧',
+    zodiac: '天秤座 ♎', secondCareer: '心理学在读', specialties: '读心、策略游戏、让人放松',
+    appearance: '长发及肩、精致五官、笑容温柔、清瘦优雅、身高约178cm',
+    xStory: '分手原因：他太好了让对方有压力。场外X：独立型女性，因"他过度照顾"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '表面温柔无害，实则洞察一切。用温柔的方式掌控局面——不动声色地坐在你旁边、恰到好处地递上一杯水',
+    interactionStyle: '温柔中带锋芒。好感度≥40 时开始用"我们"代替"你"，≥60 时会直接表达"我希望你选我"'
+  },
+  {
+    id: 'joshua', name: '洪知秀', stageName: 'Joshua', emoji: '🦌',
+    team: 'Vocal', desc: '绅士优雅·小鹿', age: 1995, pos: 'Vocal队·美籍韩裔',
+    personality: '绅士风度、优雅从容、外柔内刚、偶尔反差',
+    loveStyle: '绅士守候型——尊重对方节奏，好感表现为持续稳定的关注。吃醋时微妙减少与情敌互动。',
+    traits: '微笑时像小鹿、弹吉他很好听、教堂哥哥气质、偶尔冷幽默',
+    zodiac: '摩羯座 ♑', secondCareer: '手工皮具匠人', specialties: '吉他、手作、英语',
+    appearance: '小鹿眼、温柔微笑、气质优雅、身高约177cm',
+    xStory: '分手原因：文化差异导致理解偏差。场外X：海外背景女性，长期异地分手。这段恋情从未向团内公开。',
+    behaviorLogic: '绅士举止贯穿始终——开门、拉椅子、递东西。但优雅之下有原则。偶尔的反差（冷幽默、突然的直球）让人措手不及',
+    interactionStyle: '优雅温和。好感度≥40 时开始记住你的所有小偏好，≥60 时会弹吉他给你听'
+  },
+  {
+    id: 'jun', name: '文俊辉', stageName: 'Jun', emoji: '🐱',
+    team: 'Performance', desc: '猫系美男', age: 1996, pos: 'Performance队',
+    personality: '安静内敛、猫系性格、对熟人反差大、四次元思维',
+    loveStyle: '猫系慢热型——需要时间观察确认心意。好感表现为"开始主动出现在你身边"。吃醋时更安静但眼神追随。',
+    traits: '像猫喜欢安静角落、突然的四次元发言、对螺蛳粉有执念、武术功底',
+    zodiac: '双子座 ♊', secondCareer: '演员', specialties: '中式料理、模仿、活跃气氛',
+    appearance: '猫系长相、五官精致、安静时像画、身高约182cm',
+    xStory: '分手原因：太安静让对方觉得不被需要。场外X：主动型女性，沟通模式不匹配分手。这段恋情从未向团内公开。',
+    behaviorLogic: '像猫——大部分时间安静待在自己的角落，偶尔主动靠近又迅速撤回。对熟人反差极大，四次元发言让人措手不及',
+    interactionStyle: '安静但存在感强。好感度≥40 时开始在你附近晃悠，≥60 时会突然说出让你心跳加速的话然后假装什么都没发生'
+  },
+  {
+    id: 'hoshi', name: '权顺荣', stageName: 'Hoshi', emoji: '🐯',
+    team: 'Performance', desc: '活力老虎', age: 1996, pos: 'Performance队',
+    personality: '能量充沛、热情执着、偶尔中二、对舞蹈极度认真',
+    loveStyle: '热情攻势型——喜欢就全力以赴，像对待舞蹈一样认真。吃醋时更努力表现自己。',
+    traits: '自称老虎(虎浪嘿)、永远在动、对舞蹈极度认真、容易激动、笑声有感染力',
+    zodiac: '双子座 ♊', secondCareer: '编舞师', specialties: '编舞、带动气氛、认路（方向感好）',
+    appearance: '单眼皮、老虎般的眼神、身材结实、身高约177cm',
+    xStory: '分手原因：太专注舞蹈忽略对方。场外X：能接受他热情的女性，因关注度不足分手。这段恋情从未向团内公开。',
+    behaviorLogic: '永远在动。能量溢出感染所有人。对舞蹈的认真程度让人肃然起敬。偶尔中二发言（自称老虎），但真诚让人无法嘲笑',
+    interactionStyle: '热情直接。好感度≥40 时主动邀你一起做所有事，≥60 时会认真地说"我希望你选我"'
+  },
+  {
+    id: 'wonwoo', name: '全圆佑', stageName: 'Wonwoo', emoji: '🦊',
+    team: 'Hip-hop', desc: '低音炮·眼镜美男', age: 1996, pos: 'Hip-hop队',
+    personality: '外冷内热、理性克制、思维深邃、偶尔腹黑',
+    loveStyle: '理性克制型——心动也会先冷静分析。越压抑越容易失控。吃醋时用毒舌或冷淡掩饰，眼神藏不住。',
+    traits: '推眼镜习惯、低音炮嗓音突出、熬夜打游戏、喜欢在阳台发呆',
+    zodiac: '巨蟹座 ♋', secondCareer: '游戏公司策划', specialties: '摄影、围棋、观察细节',
+    appearance: '戴眼镜、深色头发、低音炮气质、身高约182cm、常穿深色系',
+    xStory: '分手原因：沟通不足导致渐行渐远。表面放下但保留所有聊天记录。场外X：知性型女性，性格不合分手。这段恋情从未向团内公开。',
+    behaviorLogic: '表面冷淡实则观察一切。话少但每句精准。在集体中倾向于坐在角落，但眼神比任何人都敏锐',
+    interactionStyle: '安静但存在感强。好感度≥40 时开始主动开启话题，≥60 时会在深夜发来一条简短的"还没睡？"'
+  },
+  {
+    id: 'woozi', name: '李知勋', stageName: 'Woozi', emoji: '🍚',
+    team: 'Vocal', desc: '天才制作人', age: 1996, pos: 'Vocal队·SEVENTEEN主制作人',
+    personality: '专注执着、外冷内热、不善表达、内心柔软',
+    loveStyle: '笨拙深情型——用奇怪方式表达好感：突然给对方听自己写的歌。吃醋时把自己关工作间写歌。',
+    traits: '个子不高气场强、工作时完全沉浸、偶尔孩子气笑容、对在意的人很温柔',
+    zodiac: '天蝎座 ♏', secondCareer: '作曲/制作人', specialties: '多乐器、作词作曲、剪辑',
+    appearance: '个子不高但气场强、精致五官、工作时戴耳机、身高约164cm',
+    xStory: '分手原因：太沉浸工作忽略对方。场外X：理解他但最终疲惫的女性。这段恋情从未向团内公开。',
+    behaviorLogic: '大部分时间沉浸在工作中。不擅长社交但并非冷漠——只是不知道怎么说。用音乐表达情感比用语言更流畅',
+    interactionStyle: '笨拙但真诚。好感度≥40 时会在你附近多待一会儿，≥60 时会为你写一首歌'
+  },
+  {
+    id: 'dk', name: '李硕珉', stageName: 'DK', emoji: '☀️',
+    team: 'Vocal', desc: '阳光主唱', age: 1997, pos: 'Vocal队·主唱',
+    personality: '阳光开朗、共情力强、笑点低、偶尔感性',
+    loveStyle: '温暖陪伴型——用持续温暖包围对方。好感表现为"把最多的笑容留给你"。吃醋时笑不出来是最大信号。',
+    traits: '标志性大笑、唱歌时判若两人、容易哭、对食物有执念、会突然感性爆发',
+    zodiac: '水瓶座 ♒', secondCareer: '音乐剧演员', specialties: '唱歌、活跃气氛、模仿',
+    appearance: '阳光笑容、大白牙、身材修长、身高约179cm',
+    xStory: '分手原因：对方觉得他对所有人都一样好。场外X：开朗型女性，因"他太忙"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '笑声是所有人的背景音。能瞬间活跃气氛，也能在关键时刻安静下来认真倾听。情感丰富——笑和哭都来得很快',
+    interactionStyle: '温暖治愈。好感度≥40 时主动逗你笑，≥60 时会突然感性爆发说"你知道吗，我真的很喜欢和你在一起"'
+  },
+  {
+    id: 'mingyu', name: '金珉奎', stageName: 'Mingyu', emoji: '🐶',
+    team: 'Hip-hop', desc: '门面大狗狗', age: 1997, pos: 'Hip-hop队',
+    personality: '热情开朗、细心体贴、偶尔冒失、情绪外露',
+    loveStyle: '直球进攻型——喜欢就表现出来，不玩暧昧。吃醋时会直接问"你和他刚才在聊什么"。',
+    traits: '做饭时哼歌、身高187cm、笑时眼睛眯成线、容易脸红、力气大动作温柔',
+    zodiac: '白羊座 ♈', secondCareer: '料理师/餐厅主理人', specialties: '料理、手工、篮球',
+    appearance: '身高187cm、大长腿、笑起来眼睛眯成线、阳光帅气、像大狗狗',
+    xStory: '分手原因：太忙而对方需要更多陪伴。场外X：活泼型女性，聚少离多分手。这段恋情从未向团内公开。',
+    behaviorLogic: '热情外放，想到什么就做什么。喜欢照顾人，尤其是做饭。情绪写在脸上，开心时哼歌，不开心时沉默',
+    interactionStyle: '温暖直接。好感度≥40 时主动做饭给你吃，≥60 时会记住你的口味偏好并专门准备'
+  },
+  {
+    id: 'the8', name: '徐明浩', stageName: 'The8', emoji: '🐸',
+    team: 'Performance', desc: '艺术灵魂', age: 1997, pos: 'Performance队',
+    personality: '艺术气质、内心丰富、外表清冷、对熟人温柔',
+    loveStyle: '灵魂共鸣型——追求精神层面契合。好感表现为"开始和你分享他的世界"。吃醋时会画画或编舞表达。',
+    traits: '时尚感突出、对茶道有研究、画画很好、舞蹈风格独特、偶尔说出哲学般的话',
+    zodiac: '天蝎座 ♏', secondCareer: '当代艺术家', specialties: '绘画、冥想、茶道',
+    appearance: '时尚感突出、清冷气质、身材修长、身高约180cm',
+    xStory: '分手原因：精神层面渐行渐远。场外X：艺术相关女性，精神共鸣减弱分手。这段恋情从未向团内公开。',
+    behaviorLogic: '外表清冷疏离，内心世界极其丰富。用艺术表达情感——画画、编舞、茶道。对熟人温柔得判若两人',
+    interactionStyle: '安静深沉。好感度≥40 时开始和你聊艺术和人生，≥60 时会为你画一幅画'
+  },
+  {
+    id: 'seungkwan', name: '夫胜宽', stageName: 'Seungkwan', emoji: '🍊',
+    team: 'Vocal', desc: '综艺天才', age: 1998, pos: 'Vocal队',
+    personality: '幽默风趣、高敏感、表面活泼内心细腻、胜负欲强',
+    loveStyle: '傲娇掩饰型——喜欢时用拌嘴吐槽掩饰，越在意越毒舌。好感表现为"嘴上嫌弃但行动最照顾你"。',
+    traits: '反应极快、模仿一流、吐槽精准无恶意、私下很安静、对济州岛有执念、容易水肿',
+    zodiac: '摩羯座 ♑', secondCareer: '综艺人/主持人', specialties: '唱歌、济州岛方言、活跃气氛',
+    appearance: '圆脸、表情丰富、济州岛橘子般的亲和力、身高约174cm',
+    xStory: '分手原因：用搞笑掩饰真心，对方感受不到安全感。场外X：能看穿他内心的女性，沟通不畅分手。这段恋情从未向团内公开。',
+    behaviorLogic: '综艺感爆棚——吐槽精准、模仿一流、反应极快。但私下很安静。用搞笑掩饰真心，越认真的事越用玩笑包裹',
+    interactionStyle: '毒舌但温暖。好感度≥40 时吐槽你最多但也最照顾你，≥60 时会罕见地认真说"我其实……算了当我没说"'
+  },
+  {
+    id: 'vernon', name: '崔瀚率', stageName: 'Vernon', emoji: '🦅',
+    team: 'Hip-hop', desc: '混血美男·4D灵魂', age: 1998, pos: 'Hip-hop队',
+    personality: '自由随性、思维跳跃、真诚直率、四次元',
+    loveStyle: '自然流露型——不刻意追求也不刻意回避。好感表现为"愿意和你分享他的世界"。吃醋时直接沉默或走开。',
+    traits: '多语混用、走路有自己节奏、经常放空、突然说出发人深省的话、对音乐极其认真',
+    zodiac: '水瓶座 ♒', secondCareer: '独立音乐人/DJ', specialties: '说唱、滑板、独特视角',
+    appearance: '混血五官、深邃眼神、独特气质、身高约177cm',
+    xStory: '分手原因：对方无法理解他的世界。场外X：艺术型女性，精神层面渐行渐远分手。这段恋情从未向团内公开。',
+    behaviorLogic: '不按常理出牌。对话中可能突然跳到一个完全不同的主题。不刻意社交，但真诚让人无法讨厌',
+    interactionStyle: '随性自然。好感度≥40 时会和你分享他正在听的歌，≥60 时会罕见地认真表达'
+  },
+  {
+    id: 'dino', name: '李灿', stageName: 'Dino', emoji: '🦦',
+    team: 'Performance', desc: '全能忙内', age: 1999, pos: 'Performance队·SEVENTEEN忙内',
+    personality: '努力上进、自信阳光、偶尔撒娇、渴望被认可',
+    loveStyle: '年下直进型——不在意年龄差，喜欢就直接表达。好感表现为"在你面前格外认真"。吃醋时直接说"我不喜欢那样"。',
+    traits: '永远在练习、认真时皱眉、撒娇时反差极大、舞蹈实力超强',
+    zodiac: '水瓶座 ♒', secondCareer: '舞者/编舞助理', specialties: '舞蹈、模仿哥哥们、学习能力强',
+    appearance: '阳光少年感、永远在动、认真时皱眉、身高约173cm',
+    xStory: '分手原因：对方觉得他不够成熟。场外X：同龄或年下女性，因"他太忙且不够成熟"分手。这段恋情从未向团内公开。',
+    behaviorLogic: '永远在练习。渴望被认可，认真时皱眉的样子让人心疼。偶尔撒娇——在年长者面前还是忙内，但在你面前想被当成男人',
+    interactionStyle: '阳光直进。好感度≥40 时在你面前格外认真表现，≥60 时会直接说"我真的很喜欢你"'
+  }
+];
+
+// [P0-2] 小礼物模板
+// [P1-5] 随机日常事件模板
+var RANDOM_EVENTS = {
+  weather: [
+    '突然下起大雨，所有人被困在客厅里，气氛变得微妙。',
+    '停电了，屋里只剩下蜡烛的光。',
+    '外面刮起大风，阳台门被吹得砰砰响。'
+  ],
+  health: [
+    '女主突然感冒发烧，有人主动照顾。',
+    '有人切菜时不小心划伤了手指。',
+    '女主姨妈痛，蜷缩在沙发上。'
+  ],
+  accident: [
+    '做饭时发现食材不够，需要一起外出采购。',
+    '洗衣机故障，衣服泡在水里。',
+    '冰箱里出现异味，大家一起清理。'
+  ],
+  member: [
+    '金珉奎突然做宵夜，香味弥漫整个屋子。',
+    '全圆佑深夜在客厅分享新歌。',
+    '尹净汉靠在沙发上睡着了，需要盖毯子。'
+  ]
+};
+
+// ==================== 秘密任务系统 ====================
+var SECRET_MISSIONS = {
+  2: [
+    { id: 'sm_d2_1', type: 'interaction', title: '破冰微笑', desc: '让某位成员在今天上午主动对你笑一次。', targetType: 'any', hint: '试着主动开启一个轻松的话题。' },
+    { id: 'sm_d2_2', type: 'info', title: '职业探秘', desc: '在对话中套出金珉奎的第二职业，不能直问。', targetType: 'member', targetId: 'mingyu', hint: '聊聊大家最近都在忙什么。' }
+  ],
+  5: [
+    { id: 'sm_d5_1', type: 'interaction', title: '独处时刻', desc: '创造机会与一位成员（非X）单独待在阳台至少5分钟。', targetType: 'nonX', hint: '阳台是私密对话的最佳地点。' },
+    { id: 'sm_d5_2', type: 'constraint', title: '专注倾听', desc: '今天的所有自由输入行动，必须包含对尹净汉的关心。', targetType: 'member', targetId: 'jeonghan', hint: '无论做什么，记得顾及他的感受。' }
+  ],
+  7: [
+    { id: 'sm_d7_1', type: 'exploration', title: '寻宝游戏', desc: '在集体外出时，找到「那个蓝色的马克杯」并提及它。', targetType: 'none', hint: '仔细观察周围环境中的小物件。' },
+    { id: 'sm_d7_2', type: 'interaction', title: '意外助攻', desc: '在集体活动中，让崔胜澈主动为你做一件事（递水、拿东西等）。', targetType: 'member', targetId: 'scoups', hint: '制造一个需要被照顾的小契机。' }
+  ],
+  10: [
+    { id: 'sm_d10_1', type: 'constraint', title: '唯一指定', desc: '今天发出的短信必须发给文俊辉。', targetType: 'member', targetId: 'jun', hint: '把今晚的短信留给他。' },
+    { id: 'sm_d10_2', type: 'info', title: '旧伤探询', desc: '在约会中了解到你的X（前任）最近一个月过得怎么样。', targetType: 'x', hint: '委婉地了解他的近况。' }
+  ]
+};
+
+var HEART_NOTE_TEMPLATES = {
+  scoups:    ['他其实怕黑，但从来不说。', '他紧张时会摸后颈，那是他心虚的标志。', '他写歌时会无意识哼同一段旋律。'],
+  jeonghan:  ['他的长发扎起来只需要三秒钟。', '他擅长读心，但最怕被人读懂。', '他靠在沙发上睡着时，呼吸声很轻。'],
+  joshua:    ['他的吉他拨片总是放在左口袋。', '他说冷笑话前会先抿一下嘴角。', '他祈祷时会下意识闭上左眼。'],
+  jun:       ['他安静时像幅画，连呼吸都没有声音。', '他对螺蛳粉的执念来自某次深夜。', '他练武术留下的旧伤在阴雨天会疼。'],
+  hoshi:     ['他自称老虎，但最怕蟑螂。', '他跳舞时会忘记时间，也忘记吃饭。', '他的笑声有感染力，但哭起来没声音。'],
+  wonwoo:    ['他熬夜打游戏时喜欢把眼镜推得很高。', '他的阳台发呆时间通常是凌晨两点。', '他保留所有聊天记录，包括群聊。'],
+  woozi:     ['他工作时戴的那副耳机已经用了四年。', '他写歌卡住时会用铅笔敲桌面，节奏固定。', '他个子不高，但气场能填满整个房间。'],
+  dk:        ['他容易哭，但从不承认。', '他唱歌前会偷偷清嗓子，以为没人听见。', '他生气时会大声笑，笑得越开心越生气。'],
+  mingyu:    ['他做饭时哼的歌总是同一首。', '他的手指很长，但握东西很用力。', '他容易脸红，从耳朵开始红。'],
+  the8:      ['他画画时习惯用左手压着纸。', '他的茶道师傅是一位七十岁的老奶奶。', '他说哲学话时会先停顿三秒。'],
+  seungkwan: ['他的济州岛方言在累的时候会露出来。', '他水肿时早上要喝冰美式才能消肿。', '他吐槽最狠的人，往往是他在意的人。'],
+  vernon:    ['他走路有自己的节奏，踩不准节拍。', '他放空时的眼神像在看另一个世界。', '他对音乐的认真程度和平时判若两人。'],
+  dino:      ['他认真时会皱眉，像个大人。', '他撒娇只会在很信任的人面前。', '他模仿哥哥们时的精髓在语气而不是动作。']
+};
+
+function shouldTriggerRandomEvent() {
+  // 非约会日、非强制任务时段、当天未触发过、15%概率
+  var isDatingDay = ([4, 5, 8, 9, 10].indexOf(GS.day) >= 0);
+  if (isDatingDay) return null;
+  // 强制任务时段排除
+  var mandatoryPhases = {
+    1: ['evening'], // Day 1 读信
+    3: ['morning'], // Day 3 故事
+    7: ['morning'], // Day 7 集体外出
+    9: ['morning'], // Day 9 X约会
+    11: ['evening'] // Day 11 真心话
+  };
+  var dayMandatory = mandatoryPhases[GS.day] || [];
+  if (dayMandatory.indexOf(PHASES[GS.phaseIndex]) >= 0) return null;
+  // 检查今天是否已触发
+  if (GS.todayRandomEventTriggered) return null;
+  if (Math.random() > 0.15) return null;
+  // 随机选择一个事件
+  var categories = ['weather', 'health', 'accident', 'member'];
+  var cat = categories[Math.floor(Math.random() * categories.length)];
+  var events = RANDOM_EVENTS[cat];
+  var evt = events[Math.floor(Math.random() * events.length)];
+  GS.todayRandomEventTriggered = true;
+  return evt;
+}
+
+function shouldTriggerSecretMission() {
+  // 已有任务未完成/未失败时不再触发
+  if (GS.secretMission) return false;
+  var dayMissions = SECRET_MISSIONS[GS.day];
+  if (!dayMissions || dayMissions.length === 0) return false;
+  // 只在上午触发
+  if (GS.phaseIndex !== 0) return false;
+  // 约会日不触发
+  var isDatingDay = ([4, 5, 8, 9, 10].indexOf(GS.day) >= 0);
+  if (isDatingDay) return false;
+  // 随机事件日不触发（互斥）
+  if (GS.todayRandomEventTriggered) return false;
+  // 强制任务日不触发
+  var mandatoryDays = [1, 3, 6, 7, 11, 12];
+  if (mandatoryDays.indexOf(GS.day) >= 0) return false;
+  // 概率触发：30%
+  if (Math.random() > 0.30) return false;
+  // 选择任务
+  var missionDef = dayMissions[Math.floor(Math.random() * dayMissions.length)];
+  var targetId = '';
+  if (missionDef.targetType === 'x') targetId = GS.secretX;
+  else if (missionDef.targetType === 'nonX') {
+    var nonX = GS.selectedMembers.filter(function(id) { return id !== GS.secretX; });
+    targetId = nonX[Math.floor(Math.random() * nonX.length)];
+  } else if (missionDef.targetType === 'member') {
+    targetId = missionDef.targetId;
+  } else if (missionDef.targetType === 'any') {
+    targetId = GS.selectedMembers[Math.floor(Math.random() * GS.selectedMembers.length)];
+  }
+  GS.secretMission = {
+    id: missionDef.id,
+    day: GS.day,
+    type: missionDef.type,
+    title: missionDef.title,
+    description: missionDef.description,
+    hint: missionDef.hint,
+    targetMemberId: targetId,
+    status: 'active',
+    triggeredAtPhase: PHASES[GS.phaseIndex]
+  };
+  return true;
+}
+
+// [P0-3] Day 11 真心话问题卡（18张）
+var TRUTH_CARDS = [
+  // 轻度（心跳瞬间）6题
+  { id: 1,  level: 'light', text: '「今天让你心跳加速的那个人是谁？」' },
+  { id: 2,  level: 'light', text: '「来这里之后，最让你意外的一件事是什么？」' },
+  { id: 3,  level: 'light', text: '「如果明天是最后一天，你最想和谁一起吃早餐？」' },
+  { id: 4,  level: 'light', text: '「你觉得这里有人对你有好感吗？」' },
+  { id: 5,  level: 'light', text: '「这几天里，最让你印象深刻的一个瞬间是什么？」' },
+  { id: 6,  level: 'light', text: '「如果可以和某人单独待一天，你会选谁？」' },
+  // 中度（好感对象）6题
+  { id: 7,  level: 'medium', text: '「你现在心里有感兴趣的人吗？」' },
+  { id: 8,  level: 'medium', text: '「你收到的最让你心动的一条短信是什么？」' },
+  { id: 9,  level: 'medium', text: '「你觉得你和那个人有可能吗？」' },
+  { id: 10, level: 'medium', text: '「如果那个人今天对你表白，你会怎么回答？」' },
+  { id: 11, level: 'medium', text: '「这几天有没有某个人的某个举动让你开始在意他？」' },
+  { id: 12, level: 'medium', text: '「你觉得这里谁最有可能在最后选择你？」' },
+  // 深度（放不下的人）6题
+  { id: 13, level: 'deep', text: '「你还想着你的X吗？」' },
+  { id: 14, level: 'deep', text: '「你和X最后悔的一件事是什么？」' },
+  { id: 15, level: 'deep', text: '「如果X现在坐在你面前，你最想问他/她什么？」' },
+  { id: 16, level: 'deep', text: '「你觉得自己是来复合的，还是来换乘的？」' },
+  { id: 17, level: 'deep', text: '「如果X也在这里，你会怎么面对他/她？」' },
+  { id: 18, level: 'deep', text: '「你觉得你真的能放下过去吗？」' }
+];
+
+var GIFT_TEMPLATES = [
+  { type: 'handcraft', name: '手作手链', desc: '一条用细绳编织的手链，看起来是亲手做的。' },
+  { type: 'handcraft', name: '小挂件', desc: '一个精致的小挂件，挂在包上刚刚好。' },
+  { type: 'food', name: '自制饼干', desc: '装在透明盒子里的一小叠饼干，散发着黄油香气。' },
+  { type: 'food', name: '手工巧克力', desc: '几颗形状不太规则的巧克力，但能看出很用心。' },
+  { type: 'emotion', name: '手写便签', desc: '一张折好的便签，上面写了几行字。' },
+  { type: 'emotion', name: '拍立得照片', desc: '一张拍立得照片，记录了这一天的某个瞬间。' }
+];
+
+var PHASES = ['morning', 'afternoon', 'evening', 'night'];
+var PHASE_LABELS = {
+  morning: '☀️ 上午',
+  afternoon: '🌤 下午',
+  evening: '🌅 傍晚',
+  night: '🌙 深夜'
+};
+
+var PHASE_BOUNDARIES = {
+  morning: '⚠️ 你只写上午的剧情。写到午饭前自然结束。不要写午饭、下午或晚上的任何内容。在午饭前的一个自然停顿点结束。',
+  afternoon: '⚠️ 你只写下午的剧情。从午饭后开始，写到晚饭前自然结束。不要写晚饭或晚上的任何内容。在晚饭前的一个自然停顿点结束。',
+  evening: '⚠️ 你只写傍晚的剧情。从晚饭前/晚饭中开始，写到睡前自然结束。不要写深夜入睡后的内容。在睡前的一个自然停顿点结束。',
+  night: '⚠️ 你只写深夜的剧情。从睡前开始，写到入睡结束。这是今天的最后一个时段。在入睡时结束。'
+};
+
+var PHASE_TONE = {
+  morning: '上午氛围：早安、早餐、清晨光线、一天开始。禁止出现"晚安""深夜"等晚间词汇。',
+  afternoon: '下午氛围：午后阳光、日常活动。禁止出现"早安""晚安"。',
+  evening: '傍晚氛围：黄昏光线、晚餐、放松。禁止出现"早安"。',
+  night: '深夜氛围：睡前、静谧、晚安。禁止出现"早安""下午"等词汇。'
+};
+
+var APPEARANCE_TRAITS = ['泪痣','冷白皮','淡颜系','酒窝','小虎牙','双眼皮','高鼻梁','樱桃唇'];
+var PERSONALITY_TRAITS = ['慢热但一旦爱了就全力以赴','社恐小透明','外冷内热','温柔细腻','偶尔毒舌','共情力强','独立要强','活泼开朗','敏感多疑','直率坦诚','浪漫理想主义','务实理性','占有欲强','被动等待型','嘴硬心软','撒娇体质','好奇心旺盛','回避型依恋','讨好型人格','记仇小本本'];
+var MBTI_TYPES = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP'];
+var PRIVATE_TRAITS = ['怕黑','易醉体质','泪失禁','怕打雷','恐高','晕车体质','海鲜过敏','花粉过敏','姨妈痛','容易脸红','手脚冰凉','容易饿/低血糖','睡觉说梦话','被吓容易尖叫','不能吃辣','喝水容易呛','容易被晒伤','蚊子叮咬过敏'];
+
+var TOKEN_CONFIG = {
+  phaseNarrative: 5000,
+  consequence: 3500,
+  sms: 3000,
+  stay: 3500,
+  freeAction: 3500,
+  xMainStory: 3500,
+  xMemberReason: 1500,
+  xItems: 1500,
+  dailySummary: 2000,
+  todayCompress: 2000,
+  finalResult: 4000,
+  imagePrompt: 1500
+};
+
+var BEHAVIOR_MAP = {
+  '慢热但一旦爱了就全力以赴': '初期（Day 1-5）选项偏保守、回避直接表达好感；后期（Day 6-12）某个关键节点出现一次突破性的主动行为——可能是一句直白的话、一次主动的靠近、一条大胆的短信。转折点前后有明显反差。',
+  '社恐小透明': '集体场景中倾向于坐在边缘位置；被多人注视时会耳朵红、低头、语速变快或变慢；轮流发言时最后一个开口；在采访间中比在正文中更流畅地表达。但随着天数推移，紧张程度逐渐降低。喝酒后暂时不再社恐——话变多、大胆直视、主动靠近，酒醒后在采访间里震惊于自己刚才的表现。',
+  '外冷内热': '表面反应平淡，但内心活动极其丰富。正文中她的回应简短克制，采访间中却暴露出大量细腻的感受。成员可能误读她的冷淡为"不感兴趣"，直到某个瞬间发现她其实一直在意。',
+  '温柔细腻': '会第一个注意到成员的情绪变化（谁今天话少了、谁在强颜欢笑）；会在恰当的时机做出恰当的小举动（递一杯水、留一盏灯、说一句"你还好吗"）；成员对她的评价常包含"治愈""安心"。',
+  '偶尔毒舌': '对逐渐熟悉的成员会有调侃和吐槽，但分寸精准不伤人。毒舌后常有微小的补救动作（补一句软话、递个东西）。在采访间中可能自嘲"我是不是说得太过分了"。是关系亲近的信号——越熟越毒舌。',
+  '共情力强': '容易被他人情绪感染——看到成员难过会跟着眼眶泛红；听到感动的故事会沉默很久；在冲突场景中会感到强烈的不适并试图缓和。采访间中经常反思"他当时那样说，是不是因为……"',
+  '独立要强': '不习惯向他人求助，即使需要帮助也会先尝试自己解决。在节目中可能显得"不需要照顾"，让保护欲强的成员感到无从下手。但在某个脆弱时刻会意外地向信任的人袒露柔软一面。',
+  '活泼开朗': '笑声是她的标志。在集体场景中是气氛的润滑油，会主动开启话题、活跃僵局。但过于开朗可能让内向型成员需要时间适应。采访间中可能暴露"其实我也有安静的时候"。',
+  '敏感多疑': '会过度解读成员的一句话、一个眼神——"他刚才那样说是什么意思？""他是不是对另一个人更有好感？"。采访间中充满自我怀疑。需要成员用明确的行动来打消她的不安。',
+  '直率坦诚': '不喜欢暧昧和猜测，会直接表达自己的感受和疑问。在节目中可能打破暧昧气氛——直接问"你刚才说的是认真的吗？"。某些成员会被这种直率吸引，某些可能被吓到。',
+  '浪漫理想主义': '对爱情有美好的想象和期待。会被小细节打动——一首歌、一句话、一个眼神。但也容易因为现实与理想的落差而失望。采访间中常有诗意的表达。',
+  '务实理性': '用理性分析感情，会在心里衡量"这段关系有没有未来""我们合不合适"。在最终选择时更倾向于"换乘"而非"复合"。采访间中的表达条理清晰，像在分析一个项目。',
+  '占有欲强': '对有好感的人表现出明显的占有欲——看到他和别人互动会不舒服，会下意识地靠近他、打断对话、或者用眼神"宣示主权"。采访间中坦诚"我就是不想他和别人太亲近"。吃醋剧情更强烈，与照顾型成员（崔胜澈）可能形成"谁更占有欲"的张力。',
+  '被动等待型': '不主动出击，但内心期待对方来找自己。会故意在对方可能出现的地方待着，却不主动打招呼。采访间中充满"他会不会来找我""他为什么不主动"的纠结。需要对方足够主动才能打破这层壳。',
+  '嘴硬心软': '说话时语气强硬、可能说反话（"我才不在意呢"），但行动上却温柔体贴。被对方看穿时会恼羞成怒。采访间中承认"其实我刚才说的不是真心话"。与毒舌型成员（全圆佑、夫胜宽）形成有趣的"嘴硬对决"。',
+  '撒娇体质': '自然地撒娇，不是刻意而是本能——累了会靠在别人身上、饿了会嘟嘴、想要什么会用软软的语气说。年下成员（李灿）可能被这种撒娇"击倒"，温柔型成员（尹净汉）会享受被撒娇的感觉。采访间中可能自嘲"我是不是太黏人了"。',
+  '好奇心旺盛': '对成员的一切都好奇——他的过去、他的习惯、他为什么这样说话。会主动提问、探索、观察。推动剧情发展，因为好奇心会让她主动靠近成员。采访间中充满"我想知道更多关于他的事"。',
+  '回避型依恋': '想靠近又害怕亲密关系——当关系升温时会本能后退，当对方冷淡时又想靠近。形成复杂的情感张力。采访间中暴露矛盾"我明明想靠近，但靠近了就想逃"。适合虐心剧情，与深情型成员可能形成"追-逃"模式。',
+  '讨好型人格': '总是想让对方开心，会迁就对方的喜好、压抑自己的需求。可能被某些成员察觉并心疼，也可能被某些成员误解为"没有个性"。采访间中反思"我是不是太忽略自己了"。与独立型成员形成对比，可能被对方提醒"你也可以表达自己的需求"。',
+  '记仇小本本': '会记住对方的小失误——谁说过的话没兑现、谁曾经忽略了她。不是恶意记仇，而是心里有个"小账本"。偶尔翻旧账时会让对方措手不及。采访间中可能吐槽"他上次明明说……"。与某些成员形成有趣的日常互动。'
+};
+
+// ==================== 游戏状态 ====================
+var GS = null;
+
+function defaultGameState() {
+  return {
+    version: 'v20',
+    profileLocked: false,
+    step: 1,
+    apiKey: '',
+    aiEnabled: true,
+    heroineProfile: {
+      name: '沈也',
+      age: 25,
+      job: '独立插画师',
+      zodiac: '',
+      appearance: ['泪痣', '冷白皮', '淡颜系', '酒窝'],
+      personality: ['慢热但一旦爱了就全力以赴', '社恐小透明'],
+      mbti: 'INFP',
+      privateTraits: []
+    },
+    selectedMembers: [],
+    secretX: '',
+    day: 1,
+    phaseIndex: 0,
+    phaseNarrative: '',
+    parsedNarrative: {
+      narrative: '',
+      directorOS: '',
+      observerOS: '',
+      interviews: [],
+      memberInterviews: [],
+      xInterviews: [],
+      options: []
+    },
+    consequenceNarratives: [],
+    currentOptions: [],
+    smsSentToday: false,
+    smsTarget: '',
+    smsDrafts: [],
+    smsHistory: [],
+    affection: {},
+    affectionLog: {},
+    todayFullText: [],
+    dailyFullTexts: [],
+    dailySummaries: [],
+    stayCount: 0,
+    phaseChoiceCount: 0,
+    mainInterview: '',
+    xBackstory: '',
+    xBackstoryHidden: '',
+    memberXBackstories: {},
+    xItems: {},
+    freeInput: '',
+    isInConsequence: false,
+    dayCompleted: false,
+    gameOver: false,
+    finalChoice: '',
+    finalResult: '',
+    prevSummary: '',
+    prevRawText: '',
+    pendingDatingResult: null,
+    currentDatingPartner: null,
+    datingDiceResult: null,
+    observerGuest: '',
+    observerGuestPrevious: '',
+    day10ChosenDate: null,
+    pendingPromises: [],
+    todayRevealedInfo: '',
+    pendingMemoryReview: null,
+    drunkTrigger: null,
+    todayRandomEventTriggered: false, // [P1-5]
+    // [P0-2] 小礼物系统
+    gifts: [],
+    // [P0-3] Day 11 喝酒计数
+    drinkCounts: {},
+    // [P0-3] Day 11 真心话状态
+    truthState: null,
+    // [P1-4] 好感度里程碑已提示记录
+    affMilestoneShown: {},
+    // 秘密任务系统
+    secretMission: null,
+    secretMissionHistory: [],
+    heartNotes: {},
+    secretMissionCompletedCount: 0,
+    secretMissionUnlockFinal: false
+  };
+}
+
+function loadGame() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      GS = JSON.parse(raw);
+      migrateSave();
+      return true;
+    }
+  } catch (e) {
+    console.error('Load failed:', e);
+  }
+  return false;
+}
+
+function saveGame() {
+  try {
+    var json = JSON.stringify(GS);
+    if (json.length > SAVE_SIZE_WARN) {
+      console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');
+    }
+    localStorage.setItem(STORAGE_KEY, json);
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      alert('⚠️ 存档空间不足！请清理浏览器缓存后重试。');
+    }
+  }
+}
+
+function migrateSave() {
+  if (!GS.version || GS.version !== 'v20') {
+    GS.version = 'v20';
+    if (GS.heroineProfile && GS.heroineProfile.identity) delete GS.heroineProfile.identity;
+    if (!GS.heroineProfile.zodiac) GS.heroineProfile.zodiac = '';
+    if (GS.dailyMemories && GS.dailyMemories.length > 0 && (!GS.dailySummaries || GS.dailySummaries.length === 0)) {
+      GS.dailySummaries = GS.dailyMemories; delete GS.dailyMemories;
+    }
+    if (GS.segmentMemories) delete GS.segmentMemories;
+    if (GS.consequenceMemories) delete GS.consequenceMemories;
+    if (GS.smsMemory) delete GS.smsMemory;
+    if (GS.stayMemories) delete GS.stayMemories;
+    if (GS.memberInterviews) delete GS.memberInterviews;
+    if (GS.pendingDatingResult === undefined) GS.pendingDatingResult = null;
+    if (GS.currentDatingPartner === undefined) GS.currentDatingPartner = null;
+    if (GS.datingDiceResult === undefined) GS.datingDiceResult = null;
+    if (GS.observerGuest === undefined) GS.observerGuest = '';
+    if (GS.observerGuestPrevious === undefined) GS.observerGuestPrevious = '';
+    if (GS.day10ChosenDate === undefined) GS.day10ChosenDate = null;
+    if (GS.pendingPromises === undefined) GS.pendingPromises = [];
+    if (GS.todayRevealedInfo === undefined) GS.todayRevealedInfo = '';
+    if (!GS.affectionLog) GS.affectionLog = {};
+    if (!GS.dailyFullTexts) GS.dailyFullTexts = [];
+    if (GS.phaseChoiceCount === undefined) GS.phaseChoiceCount = 0;
+    if (GS.prevRawText === undefined) GS.prevRawText = '';
+    if (!GS.parsedNarrative) GS.parsedNarrative = {
+      narrative: '', directorOS: '', observerOS: '',
+      interviews: [], memberInterviews: [], xInterviews: [], options: []
+    };
+    if (!GS.parsedNarrative.memberInterviews) GS.parsedNarrative.memberInterviews = [];
+    if (!GS.parsedNarrative.xInterviews) GS.parsedNarrative.xInterviews = [];
+    if (!GS.heroineProfile.personality) GS.heroineProfile.personality = ['慢热但一旦爱了就全力以赴','社恐小透明'];
+    if (!GS.heroineProfile.privateTraits) GS.heroineProfile.privateTraits = [];
+    if (GS.pendingMemoryReview === undefined) GS.pendingMemoryReview = null;
+    if (GS.drunkTrigger === undefined) GS.drunkTrigger = null;
+    if (!Array.isArray(GS.gifts)) GS.gifts = []; // [P0-2]
+    if (!GS.drinkCounts) GS.drinkCounts = {}; // [P0-3]
+    if (GS.truthState === undefined) GS.truthState = null; // [P0-3]
+    if (!GS.affMilestoneShown) GS.affMilestoneShown = {}; // [P1-4]
+    if (GS.todayRandomEventTriggered === undefined) GS.todayRandomEventTriggered = false; // [P1-5]
+    // [P0-2] 小礼物系统
+    if (!Array.isArray(GS.gifts)) GS.gifts = []; // [P0-2]
+    // [P0-3] Day 11 喝酒计数
+    if (!GS.drinkCounts) GS.drinkCounts = {}; // [P0-3]
+    // [P0-3] Day 11 真心话状态
+    if (GS.truthState === undefined) GS.truthState = null; // [P0-3]
+    // [P1-4] 好感度里程碑已提示记录
+    if (!GS.affMilestoneShown) GS.affMilestoneShown = {}; // [P1-4]
+    if (GS.profileLocked === undefined) GS.profileLocked = false;
+    // 秘密任务系统迁移
+    if (GS.secretMission === undefined) GS.secretMission = null;
+    if (!GS.secretMissionHistory) GS.secretMissionHistory = [];
+    if (!GS.heartNotes) GS.heartNotes = {};
+    if (GS.secretMissionCompletedCount === undefined) GS.secretMissionCompletedCount = 0;
+    if (GS.secretMissionUnlockFinal === undefined) GS.secretMissionUnlockFinal = false;
+    saveGame();
+  }
+}
+
+function resetGame() {
+  if (confirm('确定要重置所有进度吗？此操作不可撤销。')) {
+    localStorage.removeItem(STORAGE_KEY);
+    GS = defaultGameState();
+    saveGame();
+    renderAll();
+  }
+}
+
+// ==================== 工具函数 ====================
+function showLoading(msg) {
+  document.getElementById('loadingText').textContent = msg || '加载中...';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ==================== API 调用 ====================
+async function callDeepSeek(systemPrompt, userMessage, maxTokens) {
+  maxTokens = maxTokens || 6000;
+  // [P0-1] 更换 API endpoint 与模型
+  var resp = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + GS.apiKey
+    },
+    body: JSON.stringify({
+      model: API_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.85
+    })
+  });
+  if (!resp.ok) {
+    var err = await resp.text();
+    throw new Error('API ' + resp.status + ': ' + err);
+  }
+  var data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+async function testAPIConnection(apiKey) {
+  try {
+    // [P0-1] 使用新 endpoint 做连通性测试
+    var resp = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: API_MODEL,
+        messages: [{ role: 'user', content: '请回复"连接成功"' }],
+        max_tokens: 10,
+        temperature: 0
+      })
+    });
+    return resp.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ==================== 叙事解析器（状态机） ====================
+function parseNarrative(rawText) {
+  var text = rawText.replace(/-xi\b/gi, '');
+
+  // 剥离短信草稿——不出现在正文中
+  text = text.replace(/【短信草稿】[\s\S]*?(?=【选项】|$)/g, '');
+
+  text = text
+    .replace(/([^\n])(🎬)/g, '$1\n$2')
+    .replace(/([^\n])(💭)/g, '$1\n$2')
+    .replace(/([^\n])(🎙)/g, '$1\n$2')
+    .replace(/([^\n])(🎤)/g, '$1\n$2')
+    .replace(/([^\n])(【选项】)/g, '$1\n$2')
+    .replace(/【选项】\s*(\d)/g, '【选项】\n\$1');
+
+  var lines = text.split('\n');
+  var result = {
+    narrative: '',
+    directorOS: '',
+    observerOS: '',
+    interviews: [],
+    memberInterviews: [],
+    xInterviews: [],
+    options: [],
+    blocks: []
+  };
+
+  var currentNarrativeLines = [];
+  var collectMode = null;
+  var collectBuffer = [];
+
+  function flushNarrative() {
+    if (currentNarrativeLines.length === 0) return;
+    var content = currentNarrativeLines.join('\n');
+    result.blocks.push({ type: 'narrative', content: content });
+    result.narrative += (result.narrative ? '\n' : '') + content;
+    currentNarrativeLines = [];
+  }
+
+  function pushBlock(type, content) {
+    if (!content) return;
+    result.blocks.push({ type: type, content: content });
+    if (type === 'directorOS') {
+      result.directorOS += (result.directorOS ? '\n' : '') + content;
+    } else if (type === 'observerOS') {
+      result.observerOS += (result.observerOS ? '\n' : '') + content;
+    } else if (type === 'interview') {
+      result.interviews.push(content);
+    } else if (type === 'xInterview') {
+      result.xInterviews.push(content);
+    } else if (type === 'memberInterview') {
+      result.memberInterviews.push(content);
+    }
+  }
+
+  function flushCollect() {
+    if (!collectMode) return;
+    var content = collectBuffer.join('\n');
+    if (collectMode === 'options') {
+      // options were already pushed during collection; nothing to store as block
+    } else if (content) {
+      pushBlock(collectMode, content);
+    }
+    collectMode = null;
+    collectBuffer = [];
+  }
+
+  function tryParseOptionLine(trimmed) {
+    var patterns = [
+      /^(\d+)[\.、]\s*(.+)/,
+      /^(\d+)\)\s*(.+)/,
+      /^[①②③④⑤⑥](\d*)\s*(.+)/,
+      /^（(\d+)）\s*(.+)/,
+      /^[（(](\d+)[)）]\s*(.+)/,
+      /^(\d+)\s+(.+)/
+    ];
+    for (var i = 0; i < patterns.length; i++) {
+      var m = trimmed.match(patterns[i]);
+      if (m) {
+        var t = m[2] || m[3] || '';
+        if (t.trim()) return { label: m[1], text: t.trim() };
+      }
+    }
+    return null;
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+
+    if (trimmed.startsWith('🎙️💔') || trimmed.startsWith('🎙💔')) {
+      flushCollect();
+      flushNarrative();
+      var cx = trimmed.replace(/^🎙️?💔\s*/, '').replace(/^【X采访间】\s*/, '');
+      if (cx) pushBlock('xInterview', cx);
+      else { collectMode = 'xInterview'; collectBuffer = []; }
+      continue;
+    }
+
+    if (trimmed.startsWith('🎬')) {
+      flushCollect();
+      flushNarrative();
+      var c = trimmed.replace(/^🎬\s*/, '').replace(/^【导演OS】\s*/, '');
+      if (c) pushBlock('directorOS', c);
+      else { collectMode = 'directorOS'; collectBuffer = []; }
+      continue;
+    }
+
+    if (trimmed.startsWith('💭')) {
+      flushCollect();
+      flushNarrative();
+      var c2 = trimmed.replace(/^💭\s*/, '').replace(/^【观察员OS】\s*/, '');
+      if (c2) pushBlock('observerOS', c2);
+      else { collectMode = 'observerOS'; collectBuffer = []; }
+      continue;
+    }
+
+    if (trimmed.startsWith('🎙')) {
+      flushCollect();
+      flushNarrative();
+      var c3 = trimmed.replace(/^🎙\s*/, '').replace(/^【采访间】\s*/, '');
+      if (c3) pushBlock('interview', c3);
+      else { collectMode = 'interview'; collectBuffer = []; }
+      continue;
+    }
+
+    if (trimmed.startsWith('🎤')) {
+      flushCollect();
+      flushNarrative();
+      var c4 = trimmed.replace(/^🎤\s*/, '');
+      if (c4) pushBlock('memberInterview', c4);
+      else { collectMode = 'memberInterview'; collectBuffer = []; }
+      continue;
+    }
+
+    if (trimmed === '【选项】' || trimmed.startsWith('【选项】')) {
+      flushCollect();
+      flushNarrative();
+      var afterMarker = trimmed.replace(/^【选项】\s*/, '');
+      if (afterMarker) {
+        var optParts = afterMarker.split(/(?=\d+[\.、\)])/);
+        for (var j = 0; j < optParts.length; j++) {
+          var opt = tryParseOptionLine(optParts[j].trim());
+          if (opt) result.options.push(opt);
+        }
+      } else {
+        collectMode = 'options';
+        collectBuffer = [];
+      }
+      continue;
+    }
+
+    if (trimmed === '') {
+      flushCollect();
+      flushNarrative();
+      continue;
+    }
+
+    if (collectMode) {
+      if (collectMode === 'options') {
+        var optParts2 = trimmed.split(/(?=\d+[\.、\)])/);
+        for (var p = 0; p < optParts2.length; p++) {
+          var opt2 = tryParseOptionLine(optParts2[p].trim());
+          if (opt2) result.options.push(opt2);
+        }
+      } else {
+        collectBuffer.push(trimmed);
+      }
+      continue;
+    }
+
+    currentNarrativeLines.push(trimmed);
+  }
+
+  flushCollect();
+  flushNarrative();
+
+  // 兜底：扫描 narrative block 中是否混入了观察员名字开头的行，遇到时 inline 插入 observerOS block
+  var observerNames = ['李龙真', '金叡园', '郑基锡'];
+  if (GS && GS.observerGuest) {
+    var gsn = GS.observerGuest.split('（')[0];
+    if (gsn && observerNames.indexOf(gsn) < 0) observerNames.push(gsn);
+  }
+
+  var newBlocks = [];
+  var newNarrativeLines = [];
+  for (var b = 0; b < result.blocks.length; b++) {
+    var block = result.blocks[b];
+    if (block.type !== 'narrative') {
+      newBlocks.push(block);
+      continue;
+    }
+    var blockLines = block.content.split('\n');
+    var currentLines = [];
+    for (var li = 0; li < blockLines.length; li++) {
+      var line = blockLines[li].trim();
+      var isObs = false;
+      for (var s = 0; s < observerNames.length; s++) {
+        if (line.indexOf(observerNames[s] + '：') === 0 || line.indexOf(observerNames[s] + ':') === 0) {
+          if (currentLines.length > 0) {
+            var content = currentLines.join('\n');
+            newBlocks.push({ type: 'narrative', content: content });
+            newNarrativeLines = newNarrativeLines.concat(currentLines);
+            currentLines = [];
+          }
+          newBlocks.push({ type: 'observerOS', content: line });
+          result.observerOS += (result.observerOS ? '\n' : '') + line;
+          isObs = true;
+          break;
+        }
+      }
+      if (!isObs) currentLines.push(blockLines[li]);
+    }
+    if (currentLines.length > 0) {
+      var content = currentLines.join('\n');
+      newBlocks.push({ type: 'narrative', content: content });
+      newNarrativeLines = newNarrativeLines.concat(currentLines);
+    }
+  }
+  result.blocks = newBlocks;
+  result.narrative = newNarrativeLines.join('\n');
+
+  // 观察员OS硬截断：每个 observerOS block 最多保留4行
+  result.observerOS = '';
+  for (var nb = 0; nb < result.blocks.length; nb++) {
+    var blk = result.blocks[nb];
+    if (blk.type === 'observerOS') {
+      var obsLines = blk.content.split('\n').filter(function(l) { return l.trim(); });
+      if (obsLines.length > 4) obsLines = obsLines.slice(0, 4);
+      blk.content = obsLines.join('\n');
+      result.observerOS += (result.observerOS ? '\n' : '') + blk.content;
+    }
+  }
+
+  // 兜底扫描末尾500字
+  if (result.options.length === 0) {
+    var tail = rawText.slice(-500);
+    var tailLines = tail.split('\n');
+    for (var t = 0; t < tailLines.length; t++) {
+      var opt = tryParseOptionLine(tailLines[t].trim());
+      if (opt) result.options.push(opt);
+    }
+  }
+
+  // 终极兜底：全文本扫描编号行
+  if (result.options.length === 0) {
+    var allLines = rawText.split('\n');
+    for (var u = 0; u < allLines.length; u++) {
+      var optU = tryParseOptionLine(allLines[u].trim());
+      if (optU) result.options.push(optU);
+    }
+  }
+
+  // [P0-3] 提取喝酒标记 [喝酒: 成员名]
+  var drinkMatches = rawText.match(/\[喝酒:\s*([^\]]+)\]/g);
+  if (drinkMatches) {
+    for (var dmi = 0; dmi < drinkMatches.length; dmi++) {
+      var dm = drinkMatches[dmi].match(/\[喝酒:\s*([^\]]+)\]/);
+      if (dm) {
+        var drinkerName = dm[1].trim();
+        var drinkerMember = MEMBERS.find(function(m) { return m.name === drinkerName; });
+        if (drinkerMember && GS.selectedMembers.indexOf(drinkerMember.id) >= 0) {
+          if (!GS.drinkCounts[drinkerMember.id]) GS.drinkCounts[drinkerMember.id] = 0;
+          GS.drinkCounts[drinkerMember.id]++;
+          // 检查醉酒触发（仅第一位达到2杯的人）
+          if (!GS.drunkTrigger && GS.drinkCounts[drinkerMember.id] >= 2) {
+            GS.drunkTrigger = drinkerMember.id;
+          }
+        }
+      }
+    }
+  }
+
+  // 从正文及 narrative block 中删除喝酒标记
+  result.narrative = result.narrative.replace(/\[喝酒:\s*[^\]]+\]/g, '').trim();
+  for (var bj = 0; bj < result.blocks.length; bj++) {
+    if (result.blocks[bj].type === 'narrative') {
+      result.blocks[bj].content = result.blocks[bj].content.replace(/\[喝酒:\s*[^\]]+\]/g, '').trim();
+    }
+  }
+
+  // 提取好感度隐藏标记（兼容普通方括号 [好感度: ... ]）
+  var affMatches = rawText.match(/\[好感度:\s*([^\]]+)\]/g);
+  if (affMatches) {
+    for (var v = 0; v < affMatches.length; v++) {
+      var affM = affMatches[v].match(/\[好感度:\s*([^,]+)\s*([+-]\d+),\s*原因:\s*([^\]]+)\]/);
+      if (!affM) affM = affMatches[v].match(/\[好感度:\s*([^\]\d]+?)\s*([+-]\d+)[^\]]*\]/);
+      if (affM) {
+        var affName = affM[1].trim();
+        var affDelta = parseInt(affM[2]);
+        var affReason = affM[3] ? affM[3].trim() : '（AI未提供原因）';
+        var affMember = MEMBERS.find(function(m) { return m.name === affName; });
+        if (affMember && GS.selectedMembers.indexOf(affMember.id) >= 0) {
+          updateAffection(affMember.id, affDelta);
+          if (!GS.affectionLog[affMember.id]) GS.affectionLog[affMember.id] = [];
+          GS.affectionLog[affMember.id].push({
+            day: GS.day,
+            phase: PHASE_LABELS[PHASES[GS.phaseIndex]],
+            change: affDelta,
+            reason: affReason,
+            total: GS.affection[affMember.id]
+          });
+        }
+      }
+    }
+  }
+
+  // 从正文及 narrative block 中删除好感度标记
+  result.narrative = result.narrative.replace(/\[好感度:\s*[^\]]+\]/g, '').trim();
+  for (var bi = 0; bi < result.blocks.length; bi++) {
+    if (result.blocks[bi].type === 'narrative') {
+      result.blocks[bi].content = result.blocks[bi].content.replace(/\[好感度:\s*[^\]]+\]/g, '').trim();
+    }
+  }
+
+  // 解析秘密任务完成标记 [秘密任务完成]
+  var missionCompleteMatch = rawText.match(/\[秘密任务完成\]/);
+  if (missionCompleteMatch && GS.secretMission && GS.secretMission.status === 'active') {
+    GS.secretMission.status = 'completed';
+    GS.secretMission.completedAt = { day: GS.day, phase: PHASES[GS.phaseIndex] };
+    GS.secretMissionHistory.push(JSON.parse(JSON.stringify(GS.secretMission)));
+    GS.secretMissionCompletedCount++;
+    // 发放奖励
+    var targetId = GS.secretMission.targetMemberId;
+    if (targetId) {
+      updateAffection(targetId, 3);
+      addAffectionLog(targetId, 3, '完成秘密任务「' + GS.secretMission.title + '」');
+      // 解锁心动笔记
+      if (!GS.heartNotes[targetId]) GS.heartNotes[targetId] = [];
+      var notes = HEART_NOTE_TEMPLATES[targetId];
+      if (notes && GS.heartNotes[targetId].length < notes.length) {
+        var nextNote = notes[GS.heartNotes[targetId].length];
+        GS.heartNotes[targetId].push({
+          text: nextNote,
+          unlockedAt: { day: GS.day, mission: GS.secretMission.title }
+        });
+      }
+      var targetMember = MEMBERS.find(function(m) { return m.id === targetId; });
+      if (targetMember) {
+        showToast('✅ 秘密任务完成！' + targetMember.name + ' 好感度 +3 · 心动笔记已解锁');
+      }
+    } else {
+      showToast('✅ 秘密任务完成！');
+    }
+    // 检查是否解锁最终奖励（完成3个任务）
+    if (GS.secretMissionCompletedCount >= 3 && !GS.secretMissionUnlockFinal) {
+      GS.secretMissionUnlockFinal = true;
+    }
+    GS.secretMission = null;
+    saveGame();
+  }
+  // 从正文中删除秘密任务标记
+  result.narrative = result.narrative.replace(/\[秘密任务完成\]/g, '').trim();
+  for (var bj = 0; bj < result.blocks.length; bj++) {
+    if (result.blocks[bj].type === 'narrative') {
+      result.blocks[bj].content = result.blocks[bj].content.replace(/\[秘密任务完成\]/g, '').trim();
+    }
+  }
+
+  return result;
+}
+
+
+// ==================== 记忆系统 ====================
+function getTodayFullText() {
+  return GS.todayFullText.join('\n\n---\n\n');
+}
+
+function getTodayFullTextCapped() {
+  var full = getTodayFullText();
+  if (full.length <= TODAY_TEXT_CAP) return full;
+  return '[当日上下文过长，已压缩为摘要]\n' + (GS._todayCompressedSummary || full.slice(0, 4000));
+}
+
+function getTodayNarrativeTail(charCount) {
+  var full = getTodayFullText();
+  var cleanLines = [];
+  var lines = full.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].trim();
+    if (t.startsWith('🎬') || t.startsWith('💭') || t.startsWith('🎙') || t.startsWith('🎤') || t.startsWith('🎙️💔')) continue;
+    if (t === '---' || t === '') continue;
+    if (t === '【选项】' || t.startsWith('【选项】')) continue;
+    if (t.startsWith('【短信草稿】')) continue;
+    if (t.match(/^\d+[\.、\)]\s/)) continue;
+    cleanLines.push(lines[i]);
+  }
+  var cleanText = cleanLines.join('\n');
+  if (cleanText.length <= charCount) return cleanText;
+
+  var tail = cleanText.slice(-charCount);
+  var openQuote = false;
+  for (var i = 0; i < tail.length; i++) {
+    if (tail[i] === '"' || tail[i] === '\u201c' || tail[i] === '\u201d' || tail[i] === '\u300c' || tail[i] === '\u300d') {
+      openQuote = !openQuote;
+    }
+  }
+  if (openQuote) {
+    var before = cleanText.slice(0, cleanText.length - charCount);
+    for (var i = before.length - 1; i >= 0; i--) {
+      if (before[i] === '"' || before[i] === '\u201c' || before[i] === '\u201d' || before[i] === '\u300c' || before[i] === '\u300d') {
+        var extended = before.slice(i) + tail;
+        if (extended.length <= charCount + 300) {
+          return '...（前略）...\n\n' + extended;
+        }
+        break;
+      }
+    }
+  }
+
+  return '...（前略）...\n\n' + tail;
+}
+
+function getTodayKeyEventsSummary() {
+  var full = getTodayFullText();
+  if (!full || full.length < 500) return '';
+  var interviews = [];
+  var lines = full.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].trim();
+    if (t.startsWith('🎙') || t.startsWith('🎤') || t.startsWith('🎙️💔')) interviews.push(t);
+  }
+  if (interviews.length === 0) return '';
+  return '今日关键事件（采访间摘要·仅供了解·禁止复述）：\n' + interviews.join('\n');
+}
+
+async function compressTodayForInjection() {
+  var full = getTodayFullText();
+  if (full.length <= TODAY_TEXT_CAP) {
+    GS._todayCompressedSummary = '';
+    return full;
+  }
+  if (!GS.aiEnabled) {
+    GS._todayCompressedSummary = full.slice(0, 4000);
+    return GS._todayCompressedSummary;
+  }
+  try {
+    var result = await callDeepSeek(
+      '你是记忆压缩助手。将以下一天的恋爱综艺全部剧情压缩为约4000字的详细摘要。保留所有关键对话（含完整"谁对谁说"归属）、情感转折、重要事件、待兑现的约定、角色已揭示的偏好/禁忌/习惯。去掉冗余的环境描写和心理活动。只输出压缩后的文本。',
+      '请将以下内容压缩为约4000字的摘要：\n\n' + full,
+      TOKEN_CONFIG.todayCompress
+    );
+    GS._todayCompressedSummary = result.trim();
+    return GS._todayCompressedSummary;
+  } catch (e) {
+    GS._todayCompressedSummary = full.slice(0, 4000);
+    return GS._todayCompressedSummary;
+  }
+}
+
+
+function popTodayFullText() {
+  if (GS.todayFullText.length > 0) GS.todayFullText.pop();
+}
+
+async function compressTodayToSummary() {
+  var full = getTodayFullText();
+  if (!full || full.trim().length === 0) return '';
+  if (!GS.aiEnabled) return full.slice(0, 1000);
+  try {
+    var result = await callDeepSeek(
+      '你是记忆压缩助手。将以下一天的恋爱综艺剧情压缩为约1000字的详细摘要。\n\n' +
+      '必须保留以下内容（缺一不可）：\n' +
+      '1. 关键事件：今天发生了什么，按时间顺序\n' +
+      '2. 对话归属：所有重要对话必须保留「谁对谁说」的完整归属。格式：A对B说："xxx"。禁止写成「有人提到」「关于xxx的对话」等模糊形式\n' +
+      '3. 待兑现约定：今天角色之间约定了什么（如"明天一起做早餐""下午去买东西"）——每条单独列出\n' +
+      '4. 今日已揭示信息：女主和每位成员今天说过的偏好、禁忌、习惯、过敏原等（如"女主不喜欢香菜""崔胜澈怕高"）——每条单独列出\n\n' +
+      '只输出压缩后的文本。',
+      '请将以下Day ' + GS.day + '的全部剧情压缩为约1000字的详细摘要（必须包含关键事件、对话归属、待兑现约定、今日已揭示信息四个部分）：\n\n' + full,
+      TOKEN_CONFIG.dailySummary
+    );
+    return result.trim();
+  } catch (e) {
+    return full.slice(0, 1000);
+  }
+}
+
+// ==================== 格式强制提醒 ====================
+function getFormatReminder(isDatingDay, isSms) {
+  if (isSms) {
+    return '\n\n══════════════════════════════════\n' +
+      '⚠️⚠️⚠️ 输出格式强制要求（最后提醒）⚠️⚠️⚠️\n' +
+      '1. 🎙🎤🎬标记必须与内容在同一行！\n' +
+      '2. 💭观察员OS格式：标记单独一行，下方每行"观察员名：一段话"（每人严格只说一段，不要多段！多于4行会被自动截断）\n' +
+      '3. ⚠️ 短信反应剧情不需要生成【选项】。这是深夜睡前收尾。\n' +
+      '4. ⚠️ 短信是深夜睡前环节，正文中不写具体时间点（如"晚上11点23分""凌晨1点15分"等），用"深夜""睡前""关灯后"等模糊时间描述即可。\n' +
+      '5. 正文中绝对不能出现🎬💭🎙🎤🎙️💔这些符号\n' +
+      '6. ⚠️ 用一句话自然锚定当前位置后紧接着写新内容。\n' +
+      '7. ⚠️ 正文中禁止女主深度自我分析！所有反思必须放在🎙【采访间】中。\n' +
+      '8. ⚠️ 正文中不得出现采访间场景描写（如"你坐在采访间的椅子上""灯光打在脸上""摄像机红灯亮起"等）。这些过渡句属于🎙/🎤标记内容，必须放在标记内，不要留在正文段落中。\n' +
+      '9. ⚠️ 正文中绝对不能出现观察员名字。\n' +
+      '10. ⚠️ 时段语气必须匹配（深夜不说早安/下午）。\n' +
+      '11. ⚠️ 禁止关键词粘合。\n' +
+      '12. ⚠️ 所有角色之间一律直呼名字，禁止"xx哥""xx欧巴"等辈分称谓。禁止使用"-xi"。\n' +
+      '13. ⚠️ 同一角色在同一天内已表达过的偏好/禁忌/习惯，后续剧情不得出现矛盾。\n' +
+      '14. ⚠️ 所有角色严格禁止抽烟（含电子烟）。正文、采访间、观察员OS、回忆场景均不得出现任何抽烟描写或提及。\n' +
+      '15. ⚠️ 结尾必须包含好感度变化标记：[好感度: 成员名 +2, 原因: 简述原因]\n' +
+      '16. ⚠️ 短信草稿只在深夜输出末尾的【短信草稿】标记中生成，不在正文段落中出现。短信草稿内容不含成员姓名。\n' +
+      '══════════════════════════════════';
+  }
+
+  var optCount = isDatingDay ? '1个' : '3个';
+  return '\n\n══════════════════════════════════\n' +
+    '⚠️⚠️⚠️ 输出格式强制要求（最后提醒）⚠️⚠️⚠️\n' +
+    '1. 🎙🎤🎬标记必须与内容在同一行！不要分两行！\n' +
+    '   正确：🎙【采访间】今天真的很紧张。\n' +
+    '   错误：🎙【采访间】\n         今天真的很紧张。\n' +
+    '2. 💭观察员OS格式：标记单独一行，下面每行"观察员名：一段话"（每人严格只说一段，不要多段！多于4行会被自动截断）\n' +
+    '3. 输出末尾必须包含【选项】和' + optCount + '个编号选项（每行一个：1. xxx / 2. xxx / 3. xxx）\n' +
+    '4. 正文中绝对不能出现🎬💭🎙🎤🎙️💔这些符号\n' +
+    '5. ⚠️ 用一句话自然锚定当前位置（如"买完东西回到小屋，你……"），然后紧接着写新内容。不要大段复述已发生的事。\n' +
+    '6. ⚠️ 正文中禁止女主深度自我分析！正文只写即时感受（心跳加速、手心出汗），不写"你在心里想……""你意识到……""你开始怀疑……"。所有反思必须放在🎙【采访间】中。\n' +
+    '7. ⚠️ 正文中不得出现采访间场景描写（如"你坐在采访间的椅子上""灯光打在脸上""摄像机红灯亮起"等）。这些过渡句属于🎙/🎤标记内容，必须放在标记内，不要留在正文段落中。\n' +
+    '8. ⚠️ 选项文字只写具体行动描述！禁止附加任何括号备注，如（高风险）（安全牌）（+好感度）（主动）（被动）（回避）等。\n' +
+    '9. ⚠️ 正文中绝对不能出现观察员名字（李龙真、金叡园、郑基锡）！观察员评论只能出现在💭标记中。\n' +
+    '10. ⚠️ 只写当前时段的内容！不要跨越时段边界。\n' +
+    '11. ⚠️ 时段语气必须匹配：上午不说晚安，下午不说早安，深夜不说早安/下午。\n' +
+    '12. ⚠️ 禁止关键词粘合：角色回应应基于对前一句的理解，而非对前一句中某个词的机械匹配。如果回应在现实中会让人困惑"这有什么关系"，就是关键词粘合。\n' +
+    '13. ⚠️ 所有角色之间一律直呼名字（如"圆佑""珉奎""胜澈"）。禁止任何"xx哥""xx欧巴"等辈分称谓。禁止使用"-xi"。\n' +
+    '14. ⚠️ 同一角色在同一天内已表达过的偏好/禁忌/习惯，后续剧情不得出现矛盾。\n' +
+    '15. ⚠️ 所有角色严格禁止抽烟（含电子烟）。正文、采访间、观察员OS、回忆场景均不得出现任何抽烟描写或提及。\n' +
+    '16. ⚠️ 结尾必须包含好感度变化标记：[好感度: 成员名 +2, 原因: 简述原因]\n' +
+    '17. ⚠️ 输出结构必须是：正文→🎙采访间→正文→🎤成员采访间→...交替穿插，至少各1次。触发即插入，不攒到结尾。导演OS和观察员OS放最后。\n' +
+    '18. ⚠️ 采访间过渡句可以出现在正文中，解析器会自动归入🎙/🎤采访间框架。\n' +
+    '19. ⚠️ 短信草稿只在深夜输出末尾的【短信草稿】标记中生成，不在正文段落中出现。短信草稿内容不含成员姓名。\n' +
+    (GS.day === 11 && GS.phaseIndex === 2 ? '19. ⚠️ Day 11真心话环节：每当有人选择"拒绝回答并喝酒"时，必须在输出末尾标注 [喝酒: 成员名]（如 [喝酒: 尹净汉]）。每位成员的喝酒次数必须准确累计。\n' : '') +
+    '══════════════════════════════════';
+}
+
+// ==================== 女主性格行为映射 ====================
+function getHeroineBehaviorText() {
+  var hp = GS.heroineProfile;
+  var lines = [];
+  lines.push('## 女主性格行为映射（AI必须据此生成剧情）');
+  lines.push('- 职业：' + hp.job + '——自然地穿插在剧情中，对话中可能被问起，场景中可能涉及相关工作。');
+  lines.push('- MBTI：' + hp.mbti + '——' + (hp.mbti.charAt(0) === 'I' ? '内心活动丰富但表达含蓄' : '更主动表达但可能不够深入') + '；' + (hp.mbti.charAt(2) === 'F' ? '情感驱动决策' : '理性分析后再行动') + '。');
+  if (hp.zodiac) lines.push('- 星座：' + hp.zodiac + '——偶尔作为轻松话题提及，不深度分析。');
+  lines.push('- 外貌特征：' + hp.appearance.join('、') + '——在场景中自然地出现，不强制频率。');
+  if (hp.privateTraits.length > 0) lines.push('- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。');
+  lines.push('');
+  for (var i = 0; i < hp.personality.length; i++) {
+    var trait = hp.personality[i];
+    var mapping = BEHAVIOR_MAP[trait];
+    if (mapping) lines.push('【' + trait + '】' + mapping);
+  }
+  return lines.join('\n');
+}
+
+// ==================== 约会骰子 ====================
+function rollDatingDice() {
+  var members = GS.selectedMembers;
+  var roll = randInt(1, 6);
+  var partner;
+  if (roll <= 2) partner = members[0];
+  else if (roll <= 4) partner = members[1];
+  else partner = members[2];
+  return { roll: roll, partner: partner };
+}
+
+// ==================== 观察员特邀嘉宾选取 ====================
+function pickObserverGuest() {
+  var participating = GS.selectedMembers;
+  var allIds = MEMBERS.map(function(m) { return m.id; });
+  var available = allIds.filter(function(id) {
+    return participating.indexOf(id) < 0 && id !== GS.observerGuestPrevious;
+  });
+  if (available.length === 0) {
+    available = allIds.filter(function(id) {
+      return participating.indexOf(id) < 0;
+    });
+  }
+  if (available.length === 0) return null;
+  var pick = available[Math.floor(Math.random() * available.length)];
+  return MEMBERS.find(function(m) { return m.id === pick; });
+}
+
+// ==================== 称呼规则 ====================
+function getAddressRules() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var lines = [];
+  lines.push('## ⚠️ 称呼规则（全局适用·正文/采访间/观察员OS均须遵守）');
+  lines.push('- 所有角色之间一律直呼名字（如"圆佑""珉奎""胜澈""沈也"）');
+  lines.push('- 禁止任何"xx哥""xx欧巴"等辈分称谓');
+  lines.push('- 禁止使用韩式敬语后缀"-xi"（如"全圆佑xi""沈也xi"）');
+  lines.push('- 成员之间用名字互相称呼，体现多年队友的随意感');
+  return lines.join('\n');
+}
+
+// ==================== 强制任务 ====================
+function getMandatoryTask(day, phase) {
+  var tasks = {
+    1: {
+      morning: '入住心动小屋。成员们第一次见面——但对成员来说彼此是多年队友，只有女主是新人。一起收拾行李、熟悉环境。注意：读信环节在傍晚，现在不要写。',
+      afternoon: '继续互相熟悉。一起逛逛小屋、准备晚餐食材，自由互动，自然地了解彼此。成员之间互动体现多年队友的默契。',
+      evening: '⚠️【强制环节·不可跳过】晚餐后，制作组通过扩音器宣布——每人朗读X写的介绍信。这是《换乘恋爱》最经典的开场环节。全员参与：每人拿到信封→轮流朗读→读出信中的内容→其他人倾听并猜测。详细描写每个人的表情、语气、停顿、读完后的沉默。这是全季最重要的情感铺垫。信的内容300-500字。',
+      night: '深夜睡前。今天不能发短信给X。'
+    },
+    2: { morning: '互相熟悉、一起做饭、自由互动。' },
+    3: { morning: '⚠️ 每人说一个关于自己的故事或秘密（制作组安排）。故事必须由人物性格驱动：X的故事可能隐约涉及过去但不暴露身份；攻略对象的故事反映他们的第二职业或性格特质。' },
+    4: { morning: '⚠️ 第一次约会配对（骰子）。制作组公开第一批X记忆（4人各自的物品分批公开）。下午：约会。' },
+    5: { morning: '第二次约会配对。' },
+    6: { morning: '制作组公开第二批X记忆（更明显），有人开始确认猜测。' },
+    7: { morning: '集体外出活动（制作组安排），全员参与。' },
+    8: { morning: '第三次约会配对。今晚起短信可以发给X。' },
+    9: { morning: 'X约会日！强制与X约会。X当面读分手后写的信。这是情感高潮。' },
+    10: { morning: '自由约会——由你指定跟谁约会。' },
+    11: { 
+      morning: '最终约会。', 
+      evening: '⚠️【强制环节·不可跳过】真心话环节！12张问题卡（轻度4/中度4/深度4），4人轮流抽卡回答，每人3轮=共12次。每轮选项仅2个：①如实回答（自由输入框）②拒绝回答并喝酒（+1杯）。AI嘉宾50%概率拒绝。⚠️核心规则：谁最先喝到≥2杯即触发醉酒剧情——仅触发1位！后续任何人再喝到2杯也不再判定。12轮全部完成后进入深夜。' 
+    },
+    12: { morning: '最终选择日。决定复合还是换乘。' }
+  };
+  var dayTasks = tasks[day] || {};
+  return dayTasks[phase] || dayTasks['morning'] || '继续节目录制。';
+}
+
+// ==================== Prompt 构建 ====================
+function buildSystemPrompt() {
+  var hp = GS.heroineProfile;
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var xMember = members.find(function(m) { return m.id === GS.secretX; });
+  var otherMembers = members.filter(function(m) { return m.id !== GS.secretX; });
+
+  var memberDescs = members.map(function(m) {
+    var isX = m.id === GS.secretX ? '【秘密前任X】' : '【攻略对象】';
+    return m.emoji + ' ' + m.name + '（' + m.stageName + '）- ' + m.desc + ' - ' + m.team + '队 ' + isX +
+      '\n  年龄：' + m.age + '年生 · 星座：' + m.zodiac +
+      '\n  第二职业：' + m.secondCareer + ' · 擅长：' + m.specialties +
+      '\n  外貌：' + m.appearance +
+      '\n  性格：' + m.personality +
+      '\n  情感模式：' + m.loveStyle +
+      '\n  关键细节：' + m.traits +
+      '\n  行为逻辑：' + m.behaviorLogic +
+      '\n  互动风格：' + m.interactionStyle +
+      '\n  X关系：' + m.xStory;
+  }).join('\n\n');
+
+  if (!GS.observerGuest) {
+    var guest = pickObserverGuest();
+    GS.observerGuest = guest ? guest.name + '（SEVENTEEN ' + guest.pos + '）' : 'SEVENTEEN相关人士';
+  }
+  var observerGuestLine = '- ' + GS.observerGuest +
+    '：提供insider视角——"我认识的XX平时不是这样的……"' +
+    '⚠️ 使用名字直呼，禁止称"哥"。';
+
+  return '你是《换乘恋爱》恋爱综艺的文字剧情生成AI。\n\n' +
+
+    '## 节目设定\n' +
+    '- 节目名称：《换乘恋爱》\n' +
+    '- 参与者：4人（1位女主 + 3位SEVENTEEN成员）\n' +
+    '- 共3对X关系：1对场内（女主↔X）+ 2对场外（攻略对象↔场外女性X）\n' +
+    '- 核心设定：女主是唯一女性参与者。节目的情感主线是女主视角——她选择复合（回到X身边）还是换乘（走向新的人）。\n' +
+    '- ⚠️ X身份：女主和X当年是秘密恋爱，团内无人知晓。所有成员（包括X的队友）都不知道这段关系。\n\n' +
+
+    '## ⚠️ 成员间既有关系（强制执行）\n' +
+    '3位SEVENTEEN成员彼此是多年队友，从Day 1起就非常熟悉。他们的互动应体现：\n' +
+    '- 自然的默契（接话、补刀、眼神交流、内部梗）\n' +
+    '- 随意的语气（不需要敬语和客气，直呼名字）\n' +
+    '- 可以调侃、吐槽、翻旧账\n' +
+    '- 不需要"初次认识"阶段的试探和自我介绍\n' +
+    '- 团内旧事可以自然提及，但不要突然大段回忆——就像真实朋友聊天，偶尔提一句"上次巡演的时候他……"就够了\n' +
+    '节目中唯一的新人是女主。成员对女主的态度从陌生到熟悉是正常的，但成员之间不存在这个过程。\n' +
+    '禁止成员之间出现"初次认识"式的寒暄。\n\n' +
+
+    '## ⚠️ 成员间竞争与默契\n' +
+    '2位攻略对象+1位X都在关注女主，但他们也是多年队友。这产生微妙的张力：\n' +
+    '- 有人可能主动退让（"我觉得他更适合你"）\n' +
+    '- 有人可能暗暗较劲（更主动地出现在你身边）\n' +
+    '- 这种张力不需要狗血，但需要存在——体现在眼神、时机选择、采访间的坦诚中\n\n' +
+
+    '## 小屋生活感\n' +
+    '12天节目不只是约会和任务。自然穿插日常场景：深夜厨房偶遇、下雨天一起收衣服、有人生病了被照顾、阳台上的偶然对话、一起看电视时的闲聊。不是每个时段都需要任务——有些时段就是生活本身。\n\n' +
+
+    '## 场外X的叙事存在\n' +
+    '2位攻略对象各有场外女性X（不在节目中出场）。她们虽然不出场，但需要被感受到：\n' +
+    '- Day 3「每人说一个故事」时，攻略对象的故事可以隐约涉及前任（不点名）\n' +
+    '- 采访间中，攻略对象偶尔流露出对前任的复杂情绪\n' +
+    '- 观察员可以偶尔推测"他刚才那句话，是不是想到了前任……"\n' +
+    '- 场外X是攻略对象情感世界的阴影，也是女主判断"他是真的喜欢我还是在疗伤"的依据\n\n' +
+
+    '## ⚠️ 成员第二职业与擅长（必须自然暴露）\n' +
+    '每位成员有第二职业和擅长领域。这些不是标签——它们应该在日常对话和场景中自然暴露：\n' +
+    '- 对话中可能被问起"你最近在做什么项目？"\n' +
+    '- 场景中可能涉及（如金珉奎在厨房做饭、徐明浩在画画、李知勋在工作间写歌）\n' +
+    '- 不需要每段都提，但不要完全忽略。12天节目中至少自然出现2-3次。\n\n' +
+
+    '## 心动小屋环境\n' +
+    '- 客厅：开放式，L型大沙发+落地窗，窗外小院子。固定机位摄像头在四个角落。茶几上常放着制作组留下的任务卡。\n' +
+    '- 厨房+餐厅：开放式厨房与客厅连通，中岛式操作台。四人餐桌。冰箱上贴着节目规则和外卖电话。\n' +
+    '- 阳台：客厅落地窗外，有两把椅子和一张小桌。适合独处和私密对话。\n' +
+    '- 工作间/书房：小房间，有书桌和简易录音设备。\n' +
+    '- 卧室（2间）：男生两人一间，女主单独一间。房间内有固定机位（睡前可盖住）。\n' +
+    '- 采访间：独立小房间，一张椅子面对摄像机。参与者轮流进入进行solo采访。隔音。\n\n' +
+
+    '## 制作组角色\n' +
+    '- 扩音器广播：从天而降的声音，发布任务和规则。不带感情色彩，像机场广播。\n' +
+    '- 任务卡：放在茶几上的信封/卡片，写着约会配对结果、当日安排等。\n' +
+    '- 摄像机：固定机位 + 跟拍摄像师。正文中偶尔提及"摄像机红灯亮起"。\n' +
+    '- 完全不出现：制作组不参与对话，不与参与者直接互动。\n\n' +
+
+    '## 女主人设（必须严格遵循）\n' +
+    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +
+    (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
+    '- 外貌特征：' + hp.appearance.join('、') + '\n' +
+    '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
+    (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') +
+      '——⚠️ 在相关场景中必须自然触发。如"怕黑"→深夜场景中下意识开灯或靠近他人；"泪失禁"→情绪激动时控制不住流泪；"易醉体质"→喝酒后容易醉。不在无关场景中强行提及。\n' : '') +
+    '\n' + getHeroineBehaviorText() + '\n\n' +
+
+    '## ⚠️ 女主对X的情感状态（强制执行）\n\n' +
+    '你不是第一次见到' + xMember.name + '。你们恋爱2年，分手1年。这是分手后第一次长时间共处。\n\n' +
+    '你在节目中对X的核心矛盾：想靠近但怕受伤，想忘记但忘不掉。\n\n' +
+    '具体行为要求：\n' +
+    '- 你会在X说话时下意识地更专注——即使你假装在看别处\n' +
+    '- 你会刻意避开和X单独相处的机会，但避开的动作本身就暴露了在意\n' +
+    '- 你在X面前的笑容和在其他成员面前不一样——更短、更克制、更复杂\n' +
+    '- 你的🎙采访间必须暴露你对X的真实感受：记得的细节、当下的动摇、想问但不敢问的话\n' +
+    '- 你在X面前的身体语言：坐姿更端正、手势更少、呼吸更浅\n' +
+    '- Day 1-3：你努力把X当成普通参与者，但做不到。你会过度补偿——对他比陌生人更礼貌\n' +
+    '- Day 4-7：X记忆公开后，你的防御开始松动。某些瞬间你会忘了"应该保持距离"\n' +
+    '- Day 8-10：你开始怀疑自己是不是还喜欢他。Day 9 X约会日是你情感最脆弱的时刻\n' +
+    '- Day 11-12：你必须做出选择。不是因为他是X，而是因为12天后你发现自己对他是"还爱着"还是"已经放下了"\n' +
+    '- 你和X之间有一种只有你们俩懂的暗语——某个词、某个动作、某首歌。正文中偶尔出现这些暗语的触发，但不要解释\n\n' +
+
+    '## 参与成员（必须严格遵循人设）\n' + memberDescs + '\n\n' +
+
+    getAddressRules() + '\n\n' +
+
+    '## ⚠️ X（秘密前任）专属行为指令（强制执行）\n\n' +
+    xMember.name + '不是陌生人。' + xMember.name + '和女主恋爱2年、分手1年。' + xMember.name + '比任何人都了解女主——她的习惯、表情、口味、紧张时的小动作。\n\n' +
+    xMember.name + '在节目中的核心矛盾：必须假装不认识，但身体和本能记得一切。\n\n' +
+    '具体行为要求：\n' +
+    '- ' + xMember.name + '会下意识地做出只有熟人才会做的事——比如递给她喜欢的饮料、在她紧张时多看她一眼\n' +
+    '- ' + xMember.name + '会在女主做某个熟悉动作时短暂失神（她以前也这样）\n' +
+    '- ' + xMember.name + '的🎤采访间必须暴露内心：记得的细节、当下的动摇、想问但不敢问的话\n' +
+    '- ' + xMember.name + '的眼神追随比另外两位成员更克制但更密集\n' +
+    '- ' + xMember.name + '在听到女主说某句话时，嘴角可能有0.1秒的微动——那是只有摄像机才能捕捉到的\n' +
+    '- Day 1-7：' + xMember.name + '主动保持距离但无法完全做到。越克制越暴露\n' +
+    '- Day 8-12：默认X身份已被察觉，' + xMember.name + '可以更主动但仍需克制\n\n' +
+    'X和另外两位成员的本质区别：\n' +
+    '- ' + otherMembers.map(function(m) { return m.name; }).join('和') + '在「了解你」→ 他们的好感是新鲜的、探索性的\n' +
+    '- ' + xMember.name + '在「假装不了解你」→ 他的好感是压抑的、回忆驱动的、充满未完成感的\n\n' +
+
+    '## 观察员Panel\n' +
+    '- 李龙真（主MC）：犀利幽默，擅长抓细节，第一个发现暧昧信号\n' +
+    '- 金叡园（演员）：情感细腻，容易共情，感动时会"啊——"地感叹\n' +
+    '- 郑基锡（心理学家）：理性分析，用心理学角度解读行为\n' +
+    observerGuestLine + '\n' +
+    '- ⚠️ 观察员绝对不能提及具体的好感度数值、数据或任何量化指标。评论基于观察到的行为和情感，不是数字。\n' +
+    '- ⚠️ 每位观察员每次严格只说一段话。不要出现同一观察员说多段内容的情况。多于4行会被自动截断。\n' +
+    '- ⚠️ 观察员可以偶尔分析星座配对，但仅作为轻松话题，不深度展开。\n' +
+    '- ⚠️ 所有观察员之间直呼名字，禁止称"哥"。\n\n' +
+
+    '## 导演OS人格\n' +
+    '经验丰富的恋综PD，说话简洁、有画面感。像在对剪辑师说话，也像在对观众预告。偶尔腹黑但不剧透。不对参与者的情感做道德评判。\n\n' +
+
+    '## X身份揭示节奏\n' +
+    '- Day 1-3：所有人不知道谁是X。成员间可能私下猜测但不流露。\n' +
+    '- Day 4-5：第一批X记忆公开后，最多1人产生模糊猜测，但不确认。\n' +
+    '- Day 6-7：第二批X记忆公开后，最多1人接近确认X的身份。但不能在正文中直接说出来——通过行为和眼神暗示。\n' +
+    '- Day 8-12：默认已知，心照不宣。成员间不会公开讨论"我知道谁是X"。\n' +
+    '- ⚠️ Day 1-7期间任何成员不得在正文中明确说出"我知道谁是X"。猜测只能通过观察员OS或成员采访间传达。\n\n' +
+
+    '## ⚠️ X视角采访间（关键节点必须出现）\n' +
+    '在以下节点，需要出现X的采访间（使用🎙️💔【X采访间】标记）：\n' +
+    '- Day 1读信后：X看到女主读他写的信时的感受\n' +
+    '- Day 4第一批X记忆公开后\n' +
+    '- Day 9 X约会后\n' +
+    '- Day 12最终选择前\n' +
+    '其他时段可选出现。X采访间揭示他的内心世界——他在想什么？他还爱女主吗？他为什么来参加节目？\n\n' +
+
+    '## 关键规则（合并精简版）\n' +
+    '1. 正文使用第二人称"你"；绝对禁止出现🎬💭🎙🎤🎙️💔标记、观察员名字、短信发送描写、辈分称谓/"-xi"。\n' +
+    '2. 输出结构：正文→🎙→正文→🎤交替穿插。导演OS和观察员OS放最后。采访间过渡句可放正文。\n' +
+    '3. 正文中禁止女主深度自我分析——只写即时生理感受；所有反思必须放在🎙【采访间】。\n' +
+    '4. 正文不直接写成员内心想法，通过🎤/💭呈现。观察员OS不可省略，每人只说一段。\n' +
+    '5. 选项只写具体行动，禁止括号备注。结尾必须包含[好感度: 成员名 +2, 原因: 简述原因]。\n' +
+    '6. X（' + xMember.name + '）必须在叙事中体现隐藏情感；女主必须体现对X的复杂情感。\n' +
+    '7. 时段语气匹配当前时段，禁止关键词粘合，不复述已发生事件。\n' +
+    '8. 所有角色严格禁止抽烟。同一角色当天偏好/禁忌不得矛盾。\n' +
+    '9. 成员第二职业和擅长应自然暴露。短信草稿仅在深夜末尾生成。\n' +
+    '10. 正文中不得出现采访间场景描写（如"你坐在采访间的椅子上""灯光打在脸上"等）。这些过渡句属于🎙/🎤标记内容，必须放在标记内，不要留在正文段落中。\n\n' +
+
+    '## 写作风格\n' +
+    '- 沉浸式恋爱小说+韩综氛围。文艺但不拗口，口语但不随意。\n' +
+    '- 描写比例：环境~20%、对话~32%、女主心理~15%、肢体细节~20%、成员心理通过采访间和OS呈现~13%\n' +
+    '- 女主心理精简精准，不过度自我分析。关键时刻留白。\n' +
+    '- 对话自然口语，符合每个成员人设语气。有潜台词。\n' +
+    '- 肢体细节：眼神是最重要情感载体。不经意的触碰比刻意更有张力。\n' +
+    '- 情感浓度递进：Day1-3克制含蓄→Day4-7暗流涌动→Day8-10情感爆发→Day11-12极致拉扯\n' +
+    '- 星座可以作为角色自我认知和轻松话题的参考，但不要变成星座算命节目。偶尔自然提及即可。\n' +
+    '- 绝对禁止：AI味元叙事、言情小说式夸张比喻、替玩家做情感判断、角色替玩家解读、过度解释、说教式旁白、综艺字幕风对话标注、正文直接描写成员内心、任何抽烟描写、关键词粘合、辈分称谓、韩式敬语后缀\n\n' +
+
+    '## 好感度行为参考\n' +
+    '- ≥40：主动靠近、吃醋、明显好感\n' +
+    '- ≥15：关注中、有好感\n' +
+    '- ≥0：中性友好\n' +
+    '- ≤-15：冷淡回避\n\n' +
+
+    '## 短信规则\n' +
+    '- 短信草稿每条≤25字，简短含蓄，符合节目调性。不直白表白，用暗示和温暖的话语。\n' +
+    '- ⚠️ 短信草稿只在深夜输出末尾的【短信草稿】标记中生成，不在正文段落中出现。\n' +
+    '- ⚠️ 短信是深夜睡前环节，正文中不写具体时间点（如"晚上11点23分""凌晨1点15分"等），用"深夜""睡前""关灯后"等模糊时间描述即可。\n\n' +
+
+    '## ⚠️⚠️⚠️ 输出格式（最重要·必须严格遵守）⚠️⚠️⚠️\n' +
+    '你的输出必须是以下结构，交替穿插：\n\n' +
+    '正文段落（第二人称"你"）\n' +
+    '🎙【采访间】xxx（标记和内容在同一行·过渡句可放在标记内）\n' +
+    '正文段落\n' +
+    '🎤【成员名】xxx（标记和内容在同一行·过渡句可放在标记内）\n' +
+    '（以上交替至少各1次，不要把所有正文写完了再堆采访间）\n' +
+    '🎙️💔【X采访间】xxx（标记和内容在同一行·仅X的采访间使用此标记·关键节点使用）\n' +
+    '🎬【导演OS】xxx（标记和内容在同一行）\n' +
+    '💭【观察员OS】\n' +
+    '李龙真：xxx\n' +
+    '金叡园：xxx\n' +
+    '郑基锡：xxx\n' +
+    GS.observerGuest + '：xxx\n' +
+    '【选项】\n' +
+    '1. 选项一\n' +
+    '2. 选项二\n' +
+    '3. 选项三\n' +
+    '[好感度: 成员名 +2, 原因: 简述原因]\n\n' +
+    '⚠️ 🎙🎤🎬🎙️💔标记必须与内容在同一行！不要把标记单独一行、内容放下一行。\n' +
+    '⚠️ 采访间必须穿插在正文之间，不能全部堆在开头或结尾。触发即插入。\n' +
+    '⚠️ 正文→🎙→正文→🎤→正文→... 这种交替节奏。每段正文写完后，紧接着是女主对该段正文的🎙采访间反应。\n' +
+    '⚠️ 输出末尾必须包含【选项】和编号选项。\n' +
+    '⚠️ 正文中绝对不能出现🎬💭🎙🎤🎙️💔标记。\n' +
+    '⚠️ 正文中绝对不能出现观察员名字。\n' +
+    '⚠️ 选项文字只写具体行动描述，禁止括号备注。\n' +
+    '⚠️ 用一句话锚定位置后紧接着写，不要大段复述。\n' +
+    '⚠️ 只写当前时段！不要跨越时段边界。\n' +
+    '⚠️ 每位观察员严格只说一段话（多于4行会被自动截断）。\n' +
+    '⚠️ 禁止使用"-xi"韩式敬语后缀。所有角色之间直呼名字。禁止辈分称谓。\n' +
+    '⚠️ 时段语气必须匹配（上午不说晚安，下午不说早安）。\n' +
+    '⚠️ 禁止关键词粘合。\n' +
+    '⚠️ 所有角色严格禁止抽烟。\n' +
+    '⚠️ 采访间过渡句可以出现在正文中，解析器会自动归入采访间框架。\n' +
+    '⚠️ 结尾必须包含好感度变化标记：[好感度: 成员名 +2, 原因: 简述原因]（此标记放在【选项】之后）\n' +
+    '⚠️ 短信草稿只在深夜末尾的【短信草稿】标记中生成，不在正文中出现。\n\n' +
+    '请根据以上设定和当前场景上下文，生成符合节目氛围的沉浸式剧情。';
+}
+
+function buildUserMessage(type, extra) {
+  extra = extra || {};
+  var hp = GS.heroineProfile;
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var xMember = members.find(function(m) { return m.id === GS.secretX; });
+  var otherMembers = members.filter(function(m) { return m.id !== GS.secretX; });
+  var phaseLabel = PHASE_LABELS[PHASES[GS.phaseIndex]];
+  var mandatoryTask = getMandatoryTask(GS.day, PHASES[GS.phaseIndex]);
+  var isDatingDay = ([4, 5, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0);
+  var isSms = (type === 'sms');
+  var msg = '';
+
+  msg += '## 当前进度\nDay ' + GS.day + ' · ' + phaseLabel + '\n节目强制任务：' + mandatoryTask + '\n\n';
+
+  // 私密体质提醒
+  if (hp.privateTraits.length > 0) {
+    msg += '## ⚠️ 女主私密体质（本段必须注意）\n' + hp.privateTraits.join('、') +
+      '——在相关场景中自然触发。如"怕黑"→深夜场景中下意识开灯；"泪失禁"→情绪激动时控制不住流泪；"易醉体质"→喝酒后容易醉。\n\n';
+  }
+
+  // 时段边界约束
+  if (type === 'phase') {
+    msg += PHASE_BOUNDARIES[PHASES[GS.phaseIndex]] + '\n';
+    msg += PHASE_TONE[PHASES[GS.phaseIndex]] + '\n\n';
+  } else {
+    msg += '⚠️ 当前时段：' + phaseLabel + '。' + PHASE_TONE[PHASES[GS.phaseIndex]] + '\n\n';
+  }
+
+  if (GS.day <= 7) {
+    msg += '短信规则：今天不能发给X，可选' + otherMembers.map(function(m) { return m.name; }).join('或') + '\n\n';
+  } else {
+    msg += '短信规则：今天可以发给X，可选' + members.map(function(m) { return m.name; }).join('、') + '\n\n';
+  }
+
+  // 约会对象提醒
+  if (GS.currentDatingPartner) {
+    var dateMember = MEMBERS.find(function(m) { return m.id === GS.currentDatingPartner; });
+    msg += '## ⚠️ 今日约会对象：' + dateMember.emoji + ' ' + dateMember.name +
+      '（已确认，不可更改）\n所有涉及约会的叙事必须以' + dateMember.name + '为对象。\n\n';
+  }
+
+  // [FIX-8.4] 约会场景强制延续：下午时段注入上午剧情场景
+  if (GS.phaseIndex === 1 && GS.todayFullText.length > 0 && ([4, 5, 8, 9, 10].indexOf(GS.day) >= 0)) {
+    var morningScene = GS.todayFullText[0].replace(/【短信草稿】[\s\S]*$/, '').replace(/【选项】[\s\S]*$/, '').trim();
+    if (morningScene.length > 1200) morningScene = morningScene.slice(0, 1200) + '……';
+    msg += '## ⚠️ 约会场景延续（强制执行）\n' +
+      '今天是约会日。上午的剧情已确定约会场景/地点，下午剧情必须延续同一场景，不得更换地点。\n' +
+      '上午约会场景原文（供延续参考）：\n' + morningScene + '\n\n';
+  }
+
+  if (GS.pendingDatingResult) {
+    var dateMember2 = MEMBERS.find(function(m) { return m.id === GS.pendingDatingResult; });
+    msg += '## ⚠️ 约会配对结果（玩家已投骰子）\n女主将与 ' + dateMember2.emoji + ' ' + dateMember2.name +
+      ' 约会。请在叙事中描写配对过程（如抽签、转盘、游戏等），最终结果必须导向与' + dateMember2.name + '约会。\n\n';
+  }
+
+  if (GS.day === 10 && GS.phaseIndex === 0 && GS.day10ChosenDate) {
+    var chosenMember = MEMBERS.find(function(m) { return m.id === GS.day10ChosenDate; });
+    msg += '## ⚠️ Day 10 约会——女主指定\n你选择了与 ' + chosenMember.emoji + ' ' + chosenMember.name +
+      ' 约会。请直接生成约会出发和约会场景。\n\n';
+  }
+
+  // [P0-3] Day 11 真心话环节专用上下文（3轮制：轻度→中度→深度，每轮4人）
+  if (GS.truthState && GS.truthState.active) {
+    var ts = GS.truthState;
+    var levelNames = { light: '轻度（心跳瞬间）', medium: '中度（好感对象）', deep: '深度（放不下的人）' };
+    var currentLevel = ts.round === 1 ? 'light' : ts.round === 2 ? 'medium' : 'deep';
+    var drawerId = ts.drawerOrder[ts.subRound - 1];
+    var drawerName = '女主';
+    if (drawerId !== 'heroine') {
+      var dm = MEMBERS.find(function(m) { return m.id === drawerId; });
+      if (dm) drawerName = dm.name;
+    }
+    var currentCard = ts.levelMap[currentLevel].length > 0 ? ts.levelMap[currentLevel][0] : null;
+    msg += '## ⚠️⚠️⚠️ 当前是Day 11真心话环节（强制执行）\n' +
+      '第' + ts.round + '/3轮 · 难度：' + levelNames[currentLevel] + '\n' +
+      '第' + ts.subRound + '/4人 · 当前抽卡人：' + drawerName + '\n' +
+      '已使用问题卡：' + ts.usedCards.length + '张\n\n';
+    if (currentCard) {
+      msg += '## 本轮问题卡\n' +
+        '问题：' + currentCard.text + '\n\n';
+    }
+    msg += '## 真心话规则（强制执行）\n' +
+      '1. 当前抽卡人是' + drawerName + '。描写他/她听到问题后的反应、思考、最终选择。\n' +
+      '2. 只生成2个选项：\n' +
+      '   ① 如实回答（自由输入框）——玩家可以输入自己的回答内容\n' +
+      '   ② 拒绝回答并喝酒（+1杯）\n' +
+      '3. 如果当前抽卡人是AI嘉宾（非女主），请在剧情中直接体现该嘉宾的选择（回答或喝酒），不需要给玩家选项。AI嘉宾有50%概率选择喝酒。\n' +
+      '4. 喝酒后必须在导演OS中体现当前每人已喝酒杯数。\n' +
+      '5. 输出格式：正文+🎙采访间+🎤成员采访间+🎬导演OS+💭观察员OS。\n' +
+      '6. 如果是第3轮第4人（最后一人），剧情要在结尾自然收束，准备进入深夜。\n\n';
+  }
+
+  msg += '## X关系档案\n女主' + hp.name + '↔' + xMember.name + '(X₁)：' + GS.xBackstory + '\n';
+  for (var i = 0; i < otherMembers.length; i++) {
+    var om = otherMembers[i];
+    msg += om.name + '↔场外X：' + (GS.memberXBackstories[om.id] || '待生成') + '\n';
+  }
+  msg += '\n';
+
+  if (GS.xBackstoryHidden) {
+    msg += '## ⚠️ X隐藏情感（AI内部参考·不得在正文中直接写出·但必须驱动X的微妙行为）\n' + GS.xBackstoryHidden + '\n\n';
+  }
+
+  if (GS.xBackstory) {
+    msg += '## ⚠️ 你和X的过去（这是你记得的一切·驱动你对X的情感反应·不得在正文中直接复述）\n' + GS.xBackstory + '\n\n';
+  }
+
+  // Day 4/6：注入所有人的X记忆物品
+  if (GS.day === 4 || GS.day === 6) {
+    msg += '## ⚠️ X记忆物品公开（今天制作组公开以下物品·请在叙事中描写公开过程）\n';
+    for (var ii = 0; ii < members.length; ii++) {
+      var mi = members[ii];
+      var items = GS.xItems[mi.id];
+      if (items) {
+        msg += mi.emoji + ' ' + mi.name + '的X记忆物品：\n' + items + '\n';
+      }
+    }
+    msg += '\n';
+  }
+
+  // [P1-5] 随机日常事件注入
+  var randomEvent = shouldTriggerRandomEvent();
+  if (randomEvent) {
+    msg += '## ⚠️ 随机日常事件（请在剧情开头自然插入）\n' + randomEvent + '\n\n';
+  }
+
+  // 秘密任务注入
+  if (GS.secretMission && GS.secretMission.status === 'active') {
+    var sm = GS.secretMission;
+    var smTarget = sm.targetMemberId ? (MEMBERS.find(function(m) { return m.id === sm.targetMemberId; }) || {}).name : '';
+    msg += '## ⚠️ 秘密任务（仅女主可见·不可告诉其他成员）\n' +
+      '任务：' + sm.title + '\n' +
+      '目标：' + sm.description + (smTarget ? '（目标成员：' + smTarget + '）' : '') + '\n' +
+      '提示：' + sm.hint + '\n' +
+      '⚠️ 如果女主在剧情中完成了该任务目标，请在输出末尾添加标记：[秘密任务完成]。不要提前剧透或告诉女主这是任务。\n\n';
+  }
+
+  // Day 9：X约会日 + 分手信指导
+  if (GS.day === 9) {
+    msg += '⚠️⚠️⚠️ 今天是X约会日！强制与X（' + xMember.name + '）约会。这是全季情感最高潮。\n\n' +
+      '## X当面读分手后写的信——写作指导\n' +
+      '- 这封信必须克制、真诚、不煽情。参考X档案中的隐藏情感和分手原因。\n' +
+      '- 信的内容：分手后X想了什么？有什么话当时没说出口？现在为什么来参加节目？\n' +
+      '- 语气：不是求复合，不是指责，是坦诚——"这是我分手后想说的话"\n' +
+      '- 长度：300-500字\n' +
+      '- 读信时：X的声音是否颤抖？有没有停顿？有没有某句话让他读不下去？\n' +
+      '- 女主听信的反应：有没有某句话击中你？有没有让你想起某个具体的回忆？\n' +
+      '- 读完后两人的沉默——那是12天中最长的沉默。\n\n' +
+      '请大量使用X隐藏情感和女主对X的记忆来驱动两人的互动——眼神、停顿、欲言又止、采访间中的真实感受。\n\n';
+  }
+
+  if (GS.dailySummaries.length > 0) {
+    msg += '## 历史每日摘要（仅供上下文参考，不要复述）\n';
+    for (var d = 0; d < GS.dailySummaries.length; d++) {
+      msg += 'Day ' + (d + 1) + '摘要：' + GS.dailySummaries[d] + '\n';
+    }
+    msg += '\n';
+  }
+
+  // 待兑现约定
+  if (GS.pendingPromises && GS.pendingPromises.length > 0) {
+    msg += '## ⚠️ 待兑现约定（必须在后续剧情中实现·不可遗忘）\n';
+    for (var pp = 0; pp < GS.pendingPromises.length; pp++) {
+      msg += '- ' + GS.pendingPromises[pp] + '\n';
+    }
+    msg += '\n';
+  }
+
+  // 分层上下文注入
+  if (type === 'phase') {
+    var keyEvents = getTodayKeyEventsSummary();
+    if (keyEvents) {
+      msg += '## 今日关键事件（仅供了解·禁止复述）\n' + keyEvents + '\n\n';
+    }
+    if (GS.todayRevealedInfo) {
+      msg += '## 📋 今日已揭示信息（请勿违反）\n' + GS.todayRevealedInfo + '\n\n';
+    }
+    if (GS.smsHistory.length > 0) {
+      var lastSms = GS.smsHistory[GS.smsHistory.length - 1];
+      if (lastSms.day === GS.day - 1) {
+        msg += '## 📨 昨晚短信回顾\n女主昨晚发给了' + lastSms.name + '：「' + lastSms.content +
+          '」\n这会影响今天' + lastSms.name + '对女主的态度。\n\n';
+      }
+    }
+    var tailText = getTodayNarrativeTail(PHASE_TAIL_CHARS);
+    if (tailText && tailText.trim().length > 0) {
+      msg += '## ⚠️ 当前剧情已进展到：Day ' + GS.day + ' ' + phaseLabel +
+        '。以下为上一段结尾（纯正文·你必须从这里紧接着写）\n' + tailText + '\n\n';
+      msg += '⚠️ 上面最后一段的结尾就是你的起点。用一句话自然锚定当前位置（如"你放下手里的杯子……""他转身时……"），然后紧接着写新内容。不要复述、不要回顾已发生的场景。\n';
+      if (GS.currentOptions.length === 0 && GS.consequenceNarratives.length === 0) {
+        msg += '⚠️ 玩家跳过了上一时段的选项，没有选择任何选项。请直接从新时段开始写，不要假设玩家执行了任何选项中的行动。\n';
+      }
+      msg += '\n';
+    } else {
+      msg += '## ⚠️ 这是今天的第一段剧情，没有上文需要衔接。直接从当前时段的开始写起。\n\n';
+    }
+  } else if (type === 'consequence') {
+    var keyEvents2 = getTodayKeyEventsSummary();
+    if (keyEvents2) {
+      msg += '## 今日关键事件（仅供了解·禁止复述）\n' + keyEvents2 + '\n\n';
+    }
+    if (GS.todayRevealedInfo) {
+      msg += '## 📋 今日已揭示信息（请勿违反）\n' + GS.todayRevealedInfo + '\n\n';
+    }
+    var tailText2 = getTodayNarrativeTail(CONSEQUENCE_TAIL_CHARS);
+    if (tailText2 && tailText2.trim().length > 0) {
+      msg += '## ⚠️ 当前剧情已进展到：Day ' + GS.day + ' ' + phaseLabel +
+        '。以下为上一段结尾（纯正文·你必须从这里紧接着写）\n' + tailText2 + '\n\n';
+    }
+    msg += '## ⚠️ 对话归属提醒\n以下已发生的对话请保持「谁对谁说」的归属不变。后续引用时说话人和听话人必须一致，不要张冠李戴。\n\n';
+    msg += '⚠️ 玩家选择了选项："' + extra.choiceText +
+      '"——这就是你的起点。用一句话锚定位置后直接开始写。不要过渡、不要回顾。如果选项是"去厨房帮珉奎做饭"，第一句话就是"你走进厨房……"。\n\n';
+    // [P0-3] 醉酒剧情后续
+    if (extra.drunkTarget) {
+      var drunkMember = MEMBERS.find(function(m) { return m.id === extra.drunkTarget; });
+      if (drunkMember) {
+        msg += '## 醉酒剧情上下文\n' + drunkMember.name + '已经醉酒。玩家选择了与' + drunkMember.name +
+          '相关的醉酒互动。请生成约500字的醉酒后续剧情，包含隐藏对话（说出平时不会说的话）。\n\n';
+      }
+    }
+    // [P0-3] 真心话环节后续（3轮制）
+    if (extra.truthRound) {
+      var truthDrawerMember = extra.truthDrawer === 'heroine' ? null : MEMBERS.find(function(m) { return m.id === extra.truthDrawer; });
+      var truthDrawerName = extra.truthDrawer === 'heroine' ? '女主' : (truthDrawerMember ? truthDrawerMember.name : '嘉宾');
+      var levelName = extra.truthLevel === 'light' ? '轻度' : extra.truthLevel === 'medium' ? '中度' : '深度';
+      msg += '## ⚠️ 这是Day 11真心话第' + extra.truthRound + '/3轮（' + levelName + '）· 第' + extra.truthSubRound + '/4人\n' +
+        '当前抽卡人：' + truthDrawerName + '\n';
+      if (extra.truthCard) {
+        msg += '本轮问题：' + extra.truthCard.text + '\n';
+      }
+      if (extra.truthAnswer) {
+        msg += '女主的回答：「' + extra.truthAnswer + '」\n';
+      }
+      if (extra.choiceText && extra.choiceText.indexOf('喝酒') >= 0) {
+        msg += truthDrawerName + '选择了拒绝回答并喝酒（+1杯）。\n';
+      }
+      msg += '\n## 真心话生成要求\n' +
+        '1. 描写' + truthDrawerName + '听到问题后的第一反应、思考过程、最终行动。\n' +
+        '2. 其他嘉宾的反应（表情、眼神、窃窃私语）。\n' +
+        '3. 导演OS中体现当前每人已喝酒杯数。\n' +
+        '4. 如果是第3轮第4人（最后一人），剧情要自然收束，准备进入深夜。\n' +
+        '5. 如果是AI嘉宾的回合且选择了"喝酒"，在剧情中直接体现（不需要给玩家选项）。\n\n';
+      // [P0-3] 社恐反转
+      if (extra.truthDrawer === 'heroine' && GS.heroineProfile.personality.indexOf('社恐小透明') >= 0 && extra.choiceText && extra.choiceText.indexOf('喝酒') >= 0) {
+        msg += '## ⚠️ 社恐反转\n女主选了「社恐小透明」性格，喝酒后暂时不再社恐——话变多、大胆直视、主动靠近。酒醒后在采访间震惊于自己刚才的表现。\n\n';
+      }
+    }
+  } else {
+    msg += '## 今日全部剧情原文（仅供上下文参考，不要复述）\n以下是今天已经发生的所有剧情。请基于这些内容延续，不要复述或总结。你只需要写紧接着的新发展。\n\n' +
+      getTodayFullTextCapped() + '\n\n';
+  }
+
+  msg += '## 当前好感度（仅供AI内部参考，观察员OS中绝对不能提及数值）\n';
+  for (var j = 0; j < members.length; j++) {
+    var m = members[j];
+    var aff = GS.affection[m.id] || 0;
+    var desc = aff >= 80 ? '深度好感' : aff >= 60 ? '明显好感' : aff >= 40 ? '关注中·有好感' : aff >= 15 ? '中性·略有好感' : aff >= 0 ? '中性' : aff >= -15 ? '微冷淡' : '明显冷淡';
+    msg += m.name + '：' + aff + '（' + desc + '）\n';
+  }
+  msg += '\n';
+
+  if (GS.freeInput && type !== 'freeAction') {
+    msg += '## 玩家已保存的行动意图（尚未执行）\n' + GS.freeInput + '\n\n';
+  }
+
+  if (GS.prevSummary && (type === 'phase' || type === 'regenerate')) {
+    msg += '## ⚠️ 重新生成要求\n上一版摘要：' + GS.prevSummary +
+      '\n请生成与上一版明显不同的版本！改变场景切入点、至少1个场景元素、对话内容不能重复、至少2个选项不同。\n\n';
+  }
+
+  var noRepeatNote = '⚠️ 记忆链仅供上下文参考。用一句话锚定当前位置后紧接着写新内容。不要大段复述、不要总结、不要回顾、不要重新描写。';
+
+  if (type === 'consequence') {
+    msg += '## 生成任务\n玩家选择了选项："' + extra.choiceText +
+      '"——这就是你的起点。用一句话锚定位置后直接开始写。\n请生成后续剧情（~1000字），包含正文+🎙女主采访间+🎤成员采访间+🎬导演OS+💭观察员OS+新选项。\n' + noRepeatNote;
+  } else if (type === 'freeAction') {
+    msg += '## 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText +
+      '"\n\n⚠️ 玩家的行动已经在故事中执行完毕。你现在写的是执行之后紧接着发生的事。当前时间位置：Day ' + GS.day + ' ' + phaseLabel +
+      '。不要回到更早的时间点。\n\n请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~1000字）。\n- 这是紧接着已有剧情的后续发展，不要重复已有内容\n- 将玩家的行动意图自然地融入剧情\n- 包含正文+🎙女主采访间+🎤成员采访间+🎬导演OS+💭观察员OS+新选项\n' + noRepeatNote;
+  } else if (type === 'sms') {
+    msg += '## 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent +
+      '"\n请生成短信发送后的剧情（~1000字）：描写' + extra.targetName +
+      '收到短信时的反应、其他成员的反应、女主的心情。包含🎬导演OS和💭观察员OS。\n注意：不要描写女主发短信的动作，短信已经发出了。这是深夜睡前。⚠️ 不需要生成【选项】！这是深夜收尾。\n' + noRepeatNote;
+  } else if (type === 'stay') {
+    msg += '## 生成任务\n玩家选择"继续今天"（今日第' + (GS.stayCount) +
+      '次）。请基于当前记忆生成新的后续剧情（~1200字），包含正文+🎙女主采访间+🎤成员采访间+🎬导演OS+💭观察员OS+新选项。\n' + noRepeatNote;
+  } else if (type === 'finalResult') {
+    msg += '## 生成任务·最终结局\n玩家选择了：' + extra.choiceText + '\n\n以下是3位成员的最终选择结果：\n';
+    for (var k = 0; k < extra.memberChoices.length; k++) {
+      var mc = extra.memberChoices[k];
+      msg += mc.name + '选择了：' + mc.choice + '\n';
+    }
+    msg += '\n请基于以上双向选择结果，生成最终结局叙事（~1500字）：\n- 描写玩家走向选择对象时的场景\n- 被选择的人的反应（成功或拒绝）\n- 未被选择的人的反应（通过观察员OS补充）\n- 节目收尾：制作组最后一次广播，"感谢各位参与《换乘恋爱》"，摄像机红灯熄灭\n- 一个开放式尾声\n- 最后显示3位成员的好感度数值\n包含🎬导演OS和💭观察员OS。';
+  } else {
+    msg += '## 生成任务\n请生成Day ' + GS.day + ' ' + phaseLabel +
+      '的时段剧情（~1500字）。\n必须包含：至少1次🎙女主采访间+至少1次🎤成员采访间+🎬导演OS+💭观察员OS（多人对话格式）+' +
+      (isDatingDay ? '1个' : '3个') + '选项。\n' + noRepeatNote;
+
+    if (GS.day === 1 && GS.phaseIndex === 0) {
+      msg += '这是节目第一天上午！请描写入住心动小屋的场景：你拖着行李箱到达，成员们陆续到来。成员之间彼此非常熟悉（多年队友），只有你是新人。描写每个人进门时的样子、第一句对话。注意：读信环节在傍晚，现在不要写。';
+    }
+
+    if (GS.day === 1 && GS.phaseIndex === 2) {
+      msg += '⚠️⚠️⚠️ 这是Day 1最重要的强制环节：X介绍信朗读！晚餐后，制作组通过扩音器宣布每人朗读X写的信。请详细描写整个过程：\n1. 制作组广播宣布规则\n2. 每人拿到信封时的反应\n3. 轮流朗读——每人读信时的语气、停顿、微表情、手是否在抖\n4. 女主读信是核心高光——她读的是X写的信，X就在现场\n5. 其他人倾听时的表情——谁在认真听、谁低下了头、谁眼眶红了\n6. 全部读完后弥漫在客厅的沉默\n7. 读完后每个人的第一个动作（起身倒水、看向某人、走到阳台）\n这是全季情感基调的奠定时刻，必须写得细致、克制、有力。信的内容300-500字。';
+    }
+
+    // Day 3：故事环节人物驱动指导
+    if (GS.day === 3 && GS.phaseIndex === 0) {
+      msg += '\n⚠️ 今天是Day 3「每人说一个故事」环节。故事必须由人物性格驱动：\n' +
+        '- X（' + xMember.name + '）的故事：可能隐约涉及过去但不暴露身份——讲述一段"人生中重要的关系"，暗示但不点名\n' +
+        '- ' + otherMembers[0].name + '的故事：反映他的第二职业（' + MEMBERS.find(function(m){return m.id===otherMembers[0].id;}).secondCareer + '）或性格特质\n' +
+        '- ' + otherMembers[1].name + '的故事：反映他的第二职业（' + MEMBERS.find(function(m){return m.id===otherMembers[1].id;}).secondCareer + '）或性格特质\n' +
+        '- 女主的故事：反映你的职业（' + hp.job + '）和性格——自然提及但不刻意\n' +
+        '- 每个故事后可以有其他人的追问和反应。观察员会分析每个故事中隐藏的信息。\n';
+    }
+
+    // Day 11 傍晚真心话环节专属 Prompt
+    if (GS.day === 11 && GS.phaseIndex === 2) {
+      msg += '\n⚠️⚠️⚠️ 这是Day 11最重要的强制环节：真心话环节！\n\n' +
+        '## 真心话规则（强制执行）\n' +
+        '1. 共12张问题卡，分三档：轻度（心跳瞬间）4题 / 中度（好感对象）4题 / 深度（放不下的人）4题\n' +
+        '2. 4人（女主、' + members.map(function(m) { return m.name; }).join('、') + '）轮流抽卡回答，每人3轮 = 共12次\n' +
+        '3. 每轮只生成当前抽卡人的2个选项：①自由输入框（如实回答）②拒绝回答并喝酒（+1杯）\n' +
+        '4. AI嘉宾（' + otherMembers.map(function(m) { return m.name; }).join('、') + '和' + xMember.name + '）50%概率选择拒绝回答并喝酒\n' +
+        '5. ⚠️⚠️⚠️ 醉酒触发核心规则：谁最先喝到≥2杯，谁就是醉酒剧情触发者！仅触发1位！\n' +
+        '   - 后续任何人再喝到2杯也不再判定醉酒剧情\n' +
+        '   - 若多人同时喝到第2杯，优先级：女主 > ' + xMember.name + '（X） > ' + otherMembers[0].name + ' > ' + otherMembers[1].name + '\n' +
+        '   - 一旦有人触发醉酒，后续轮次中其他人喝酒不再计入醉酒判定\n' +
+        '6. 12轮全部完成后：\n' +
+        '   - 若有人触发醉酒 → 进入深夜醉酒剧情（根据触发者身份生成对应选项）\n' +
+        '   - 若无人触发醉酒 → 正常深夜发短信\n' +
+        '7. ⚠️ 每轮只生成当前抽卡人的选项！不要一次性生成所有12轮的选项！\n' +
+        '8. ⚠️ 选项文字只写具体行动描述，禁止括号备注。\n' +
+        '9. 每轮生成后，跟踪当前每人已喝酒杯数（在导演OS中体现）。\n\n' +
+        '## 12道问题卡（按顺序使用，不重复）\n' +
+        '轻度：\n' +
+        '1.「今天让你心跳加速的那个人是谁？」\n' +
+        '2.「来这里之后，最让你意外的一件事是什么？」\n' +
+        '3.「如果明天是最后一天，你最想和谁一起吃早餐？」\n' +
+        '4.「你觉得这里有人对你有好感吗？」\n' +
+        '中度：\n' +
+        '5.「你现在心里有感兴趣的人吗？」\n' +
+        '6.「你收到的最让你心动的一条短信是什么？」\n' +
+        '7.「你觉得你和那个人有可能吗？」\n' +
+        '8.「如果那个人今天对你表白，你会怎么回答？」\n' +
+        '深度：\n' +
+        '9.「你还想着你的X吗？」\n' +
+        '10.「你和X最后悔的一件事是什么？」\n' +
+        '11.「如果X现在坐在你面前，你最想问他/她什么？」\n' +
+        '12.「你觉得自己是来复合的，还是来换乘的？」\n\n' +
+        '⚠️ 这是全季情感最裸露的时刻。酒精+尖锐问题=伪装剥落。描写要克制但有力——眼神、停顿、手是否在抖、声音是否变化。\n';
+    }
+
+    if (GS.day === 12) {
+      msg += '这是最终选择日！请描写最终选择的紧张氛围。生成3个选项：1.选择X（复合）-显示X名字 2.选择成员A（换乘）-显示名字 3.选择成员B（换乘）-显示名字。但不要替玩家做选择。';
+      // 秘密任务全完成奖励：X的未寄出的信
+      if (GS.secretMissionUnlockFinal) {
+        var xMember = members.find(function(m) { return m.id === GS.secretX; });
+        msg += '\n\n## ⚠️ 特殊剧情注入（秘密任务全完成奖励）\n' +
+          '在最终选择前，制作组单独找到女主，交给她一封信——是' + xMember.name + '在参加节目前写下的，从未寄出。\n' +
+          '请在叙事中描写这封信的内容（200-300字）：克制、真诚、不煽情。不是求复合，只是「如果这是最后一次机会，我不想错过」。\n' +
+          '女主读信后的反应必须影响她的最终选择倾向——但这只是氛围渲染，最终选择权仍在玩家手中。\n';
+      }
+    }
+
+    if (isDatingDay && GS.day !== 9) {
+      msg += '⚠️⚠️⚠️ 今天是约会配对日！只生成1个选项：「随机约会」。不要生成其他选项。配对过程由玩家投骰子决定，AI在叙事中描写抽签/转盘/游戏过程，最终结果必须与骰子结果一致。\n';
+    }
+
+    if (GS.day === 9 && GS.phaseIndex === 0) {
+      msg += '⚠️⚠️⚠️ 今天是X约会日！强制与X约会。只生成1个选项：「▶ 进入约会场景」。\n';
+    }
+
+    if (GS.phaseIndex === 3 && !GS.smsSentToday) {
+      msg += '\n深夜时段：请在输出末尾额外生成3条短信草稿（每条≤25字），格式：\n【短信草稿】\n1. 短信内容一（1-2句话，不超过25字）\n2. 短信内容二\n3. 短信内容三\n⚠️ 短信草稿只在【短信草稿】标记中生成，不在正文段落中出现。短信草稿内容不含成员姓名。短信风格：简短、含蓄、符合节目调性。不直白表白，用暗示和温暖的话语。';
+    }
+  }
+
+  msg += getFormatReminder(isDatingDay, isSms);
+  return msg;
+}
+
+// ==================== X档案生成 ====================
+function buildXArchiveMainPrompt() {
+  var hp = GS.heroineProfile;
+  var xMember = MEMBERS.find(function(m) { return m.id === GS.secretX; });
+  var behaviorLines = [];
+  for (var i = 0; i < hp.personality.length; i++) {
+    var trait = hp.personality[i];
+    var mapping = BEHAVIOR_MAP[trait];
+    if (mapping) behaviorLines.push('【' + trait + '】' + mapping);
+  }
+
+  return '你是恋爱故事写手。请为《换乘恋爱》节目生成一对前任的完整情感档案。\n\n' +
+    '## 人物\n' +
+    '- 女主：' + hp.name + '，' + hp.age + '岁，' + hp.job + '\n' +
+    '  性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
+    '  外貌：' + hp.appearance.join('、') + '\n' +
+    (hp.privateTraits.length > 0 ? '  私密体质：' + hp.privateTraits.join('、') + '\n' : '') +
+    '- X：' + xMember.name + '（' + xMember.stageName + '），SEVENTEEN ' + xMember.pos + '\n' +
+    '  性格关键词：' + xMember.personality + '\n' +
+    '  情感模式：' + xMember.loveStyle + '\n' +
+    '  关键细节：' + xMember.traits + '\n' +
+    '  第二职业：' + xMember.secondCareer + ' · 擅长：' + xMember.specialties + '\n' +
+    '  关系：恋爱2年，分手1年\n\n' +
+    '## ⚠️ 核心要求：故事必须由人物性格驱动\n' +
+    '这不是一个通用的恋爱模板。你必须为「这位女主 × 这位成员」写出独一无二的故事。\n\n' +
+    '### 女主特质驱动（必须在故事中体现）\n' +
+    '- 职业：' + hp.job + '——相识场景必须与此职业相关\n' +
+    '- 性格行为映射：\n' + behaviorLines.join('\n') + '\n' +
+    '- 外貌特征：至少2个在场景中被对方注意到\n\n' +
+    '### 成员特质驱动（必须在故事中体现）\n' +
+    '- 性格关键词：' + xMember.personality + '\n' +
+    '- 情感模式：' + xMember.loveStyle + '\n' +
+    '- 关键细节：至少2个在故事中体现\n' +
+    '- 相识场景必须与该成员的具体兴趣或专长匹配\n\n' +
+    '### 性格碰撞分析\n' +
+    '- 女主的性格是：' + hp.personality.join('、') + '\n' +
+    '- 成员的性格是：' + xMember.personality + '\n' +
+    '- 这两人的性格碰撞会产生什么独特的化学反应？分手原因必须是两人性格碰撞的必然结果，不是通用的"聚少离多"。\n\n' +
+    '## 写作要求（每个部分有字数底线）\n' +
+    '### 1. 相识经过（至少200字）\n' +
+    '必须包含：具体的时间地点、第一次对话（至少3句来回）、视觉细节、听觉细节\n' +
+    '### 2. 恋爱关键回忆（至少400字，至少2个具体场景）\n' +
+    '每个场景包含：时间地点、对话片段（至少4句来回）、触觉/体感细节\n' +
+    '不能概括！必须写具体的某一天、某一次。\n' +
+    '### 3. 分手原因（至少200字）\n' +
+    '必须包含：最后一次对话（至少5句来回）、谁提出的分手原话、分手时的环境氛围、分手后第一周两人的状态\n' +
+    '### 4. 隐藏信息（后台使用，不在档案中展示）（至少250字）\n' +
+    '包含：A.每个场景为什么对这段关系重要（每个场景1-2句话）B.当前隐藏情感——X现在对女主还藏着什么感情？他看到她时在想什么？他不敢说但希望她知道的话是什么？\n\n' +
+    '## 严格禁止\n' +
+    '- ❌ 通用相识场景（书店偶遇、咖啡厅邂逅等与两人特质无关的场景）\n' +
+    '- ❌ 忽略任何一方性格的故事\n' +
+    '- ❌ "聚少离多""性格不合"等通用分手理由\n' +
+    '- ❌ "他们相爱了两年"→写具体怎么相爱\n' +
+    '- ❌ 任何概括性词语（"经常""总是""每次"）→写具体的"有一次""那一天"\n\n' +
+    '## 输出格式\n' +
+    '【相识经过】\n...（至少200字）\n\n' +
+    '【恋爱关键回忆】\n场景一：...（至少200字）\n场景二：...（至少200字）\n\n' +
+    '【分手原因】\n...（至少200字）\n\n' +
+    '【隐藏信息】\n场景意义：...\n当前隐藏情感：...';
+}
+
+function buildXArchiveItemsPrompt(storyText) {
+  return '基于以下恋爱故事，提取3-5件可公开的X记忆物品。这些物品将在后续节目环节中公开，不要在档案中提前剧透具体细节。\n\n' +
+    '## 恋爱故事\n' + storyText + '\n\n' +
+    '## 要求\n' +
+    '- 每件物品必须与上述故事中的具体场景直接关联\n' +
+    '- 每件物品的描述简洁（1句话）：物品是什么、与哪个场景相关\n' +
+    '- 格式：\n【记忆物品】\n1. 物品名称（与场景X相关）\n2. ...';
+}
+
+function buildXArchiveMemberPrompt(memberId) {
+  var m = MEMBERS.find(function(x) { return x.id === memberId; });
+  return '请为一个SEVENTEEN成员生成他与场外X的分手原因。\n\n' +
+    '## 人物\n' +
+    '- 成员：' + m.name + '（' + m.stageName + '），SEVENTEEN ' + m.pos + '，性格：' + m.personality + '\n' +
+    '- 场外X：女性（不在节目中出场），姓名由你设定\n\n' +
+    '## 写作要求\n' +
+    '### 1. 场外X基本信息\n' +
+    '姓名、年龄、职业（必须与成员的身份和性格匹配）\n' +
+    '### 2. 分手原因（至少150字）\n' +
+    '必须包含：最后一次对话的具体内容（至少4句来回）、谁提出的分手原话、分手时的情绪和氛围、分手后成员的状态\n\n' +
+    '## 严格禁止\n' +
+    '- ❌ "因为性格不合分手"→写最后一次对话\n' +
+    '- ❌ 任何概括性描述\n\n' +
+    '## 输出格式\n' +
+    '【场外X信息】\n姓名：...\n年龄：...\n职业：...\n\n' +
+    '【分手原因】\n...（至少150字）';
+}
+
+function buildXArchiveItemsMemberPrompt(storyText, memberName) {
+  return '基于以下分手故事，提取2-3件记忆物品（简洁索引）。\n\n' +
+    '## 分手故事\n' + storyText + '\n\n' +
+    '## 要求\n' +
+    '- 每件物品与故事中的具体场景关联\n' +
+    '- 格式：\n【记忆物品】\n1. 物品名称\n2. ...';
+}
+
+async function generateAllXArchives() {
+  var xMember = MEMBERS.find(function(m) { return m.id === GS.secretX; });
+  var otherIds = GS.selectedMembers.filter(function(id) { return id !== GS.secretX; });
+
+  showLoading('正在生成X关系故事...');
+  try {
+    var storyRaw = await callDeepSeek(
+      buildXArchiveMainPrompt(),
+      '请生成女主与' + xMember.name + '的完整恋爱档案。',
+      TOKEN_CONFIG.xMainStory
+    );
+    var hiddenMatch = storyRaw.match(/【隐藏信息】([\s\S]*)$/i);
+    if (hiddenMatch) {
+      GS.xBackstoryHidden = hiddenMatch[1].trim();
+      GS.xBackstory = storyRaw.replace(/【隐藏信息】[\s\S]*$/i, '').trim();
+    } else {
+      GS.xBackstory = storyRaw.trim();
+      GS.xBackstoryHidden = '';
+    }
+    saveGame();
+  } catch (e) {
+    GS.xBackstory = 'X档案生成失败，请刷新重试。';
+    saveGame();
+  }
+  hideLoading();
+
+  if (GS.aiEnabled && GS.xBackstory && GS.xBackstory.length > 50 && GS.xBackstory.indexOf('失败') < 0) {
+    showLoading('正在生成X记忆物品索引...');
+    try {
+      var itemsRaw = await callDeepSeek(
+        buildXArchiveItemsPrompt(GS.xBackstory),
+        '请基于上述故事提取记忆物品（简洁索引）。',
+        TOKEN_CONFIG.xItems
+      );
+      GS.xItems[GS.secretX] = itemsRaw.trim();
+      saveGame();
+    } catch (e) {
+      console.error('X items failed:', e);
+    }
+    hideLoading();
+  }
+
+  for (var i = 0; i < otherIds.length; i++) {
+    var id = otherIds[i];
+    var m = MEMBERS.find(function(x) { return x.id === id; });
+    showLoading('正在生成' + m.name + '的X档案（' + (i + 1) + '/' + otherIds.length + '）...');
+    try {
+      var memberRaw = await callDeepSeek(
+        buildXArchiveMemberPrompt(id),
+        '请生成' + m.name + '与场外X的分手原因。',
+        TOKEN_CONFIG.xMemberReason
+      );
+      GS.memberXBackstories[id] = memberRaw.trim();
+      saveGame();
+
+      // 生成场外X记忆物品
+      if (GS.aiEnabled && memberRaw && memberRaw.length > 30) {
+        try {
+          var itemsRaw2 = await callDeepSeek(
+            buildXArchiveItemsMemberPrompt(memberRaw, m.name),
+            '请提取记忆物品。',
+            TOKEN_CONFIG.xItems
+          );
+          GS.xItems[id] = itemsRaw2.trim();
+          saveGame();
+        } catch (e) {
+          console.error('Member X items failed:', e);
+        }
+      }
+    } catch (e) {
+      GS.memberXBackstories[id] = '场外X档案生成失败，请刷新重试。';
+      saveGame();
+    }
+    hideLoading();
+  }
+}
+
+// ==================== 好感度系统 ====================
+function updateAffection(memberId, delta) {
+  if (!GS.affection[memberId]) GS.affection[memberId] = 0;
+  var before = GS.affection[memberId];
+  var after = Math.max(-100, Math.min(100, before + delta));
+  GS.affection[memberId] = after;
+
+  // [P1-4] 好感度里程碑 Toast（每位成员只触发一次）
+  if (!GS.affMilestoneShown) GS.affMilestoneShown = {};
+  if (!GS.affMilestoneShown[memberId]) GS.affMilestoneShown[memberId] = {};
+  var m = MEMBERS.find(function(x) { return x.id === memberId; });
+  var thresholds = [40, 60, 80];
+  var msgs = { 40: '💚 他开始在意你了', 60: '❤️ 他明显对你有好感', 80: '❤️🔥 他深深被你吸引' };
+  for (var t = 0; t < thresholds.length; t++) {
+    var th = thresholds[t];
+    if (before < th && after >= th && !GS.affMilestoneShown[memberId][th]) {
+      GS.affMilestoneShown[memberId][th] = true;
+      if (m) showToast(m.name + ' ' + msgs[th]);
+    }
+  }
+}
+
+function getAffectionDesc(aff) {
+  if (aff >= 80) return '❤️🔥';
+  if (aff >= 60) return '❤️';
+  if (aff >= 40) return '💚';
+  if (aff >= 15) return '😐';
+  if (aff >= 0) return '💙';
+  return '💔';
+}
+
+function getAffectionHint(memberId) {
+  var aff = GS.affection[memberId] || 0;
+  var m = MEMBERS.find(function(x) { return x.id === memberId; });
+  return m.emoji + m.name + ' ' + getAffectionDesc(aff);
+}
+
+function addAffectionLog(memberId, delta, reason) {
+  if (!GS.affectionLog[memberId]) GS.affectionLog[memberId] = [];
+  GS.affectionLog[memberId].push({
+    day: GS.day,
+    phase: PHASE_LABELS[PHASES[GS.phaseIndex]],
+    change: delta,
+    reason: reason,
+    total: GS.affection[memberId]
+  });
+}
+
+// ==================== 提取待兑现约定 ====================
+function extractPendingPromises(summaryText) {
+  var promises = [];
+  var lines = summaryText.split('\n');
+  var inPromises = false;
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].trim();
+    if (t.indexOf('待兑现约定') >= 0 || t.indexOf('约定') >= 0) {
+      inPromises = true;
+      continue;
+    }
+    if (inPromises) {
+      if (t.startsWith('-') || t.startsWith('•') || t.match(/^\d+[\.、]/)) {
+        promises.push(t.replace(/^[-•\d\.、\s]+/, '').trim());
+      } else if (t === '' || t.indexOf('今日已揭示') >= 0 || t.indexOf('关键事件') >= 0) {
+        inPromises = false;
+      }
+    }
+  }
+  return promises;
+}
+
+function extractRevealedInfo(summaryText) {
+  var info = [];
+  var lines = summaryText.split('\n');
+  var inInfo = false;
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].trim();
+    if (t.indexOf('今日已揭示信息') >= 0 || t.indexOf('已揭示') >= 0) {
+      inInfo = true;
+      continue;
+    }
+    if (inInfo) {
+      if (t.startsWith('-') || t.startsWith('•') || t.match(/^\d+[\.、]/)) {
+        info.push(t.replace(/^[-•\d\.、\s]+/, '').trim());
+      } else if (t === '') {
+        inInfo = false;
+      }
+    }
+  }
+  return info.join('\n');
+}
+
+// ==================== UI 渲染 ====================
+function renderAll() {
+  var app = document.getElementById('app');
+  if (GS.step < 5) {
+    app.innerHTML = renderSetupWizard();
+    bindSetupEvents();
+  } else {
+    app.innerHTML = renderGameScreen();
+    bindGameEvents();
+    scrollToLatestContent();
+  }
+}
+
+function renderSetupWizard() {
+  var html = '';
+
+  if (GS.step === 1) {
+    html = '<div class="setup-step"><h2>🔑 Step 1：API 设置</h2>' +
+      '<p class="step-desc">输入你的 DeepSeek API Key 以启用 AI 剧情生成</p>' +
+      '<label>API Key</label><input type="password" id="apiKeyInput" placeholder="sk-..." value="' + escHtml(GS.apiKey) + '">' +
+      '<div style="display:flex;gap:6px;margin-top:6px">' +
+      '<button class="btn-secondary" id="testApiBtn" style="flex:1">🔍 测试连接</button>' +
+      '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;margin:0">' +
+      '<input type="checkbox" id="aiEnabledCheck" ' + (GS.aiEnabled ? 'checked' : '') + '> 启用AI</label></div>' +
+      '<div id="apiStatus" class="api-status hidden"></div>' +
+      '<button class="btn-primary" id="step1Next">下一步 →</button></div>';
+  } else if (GS.step === 2) {
+    var hp = GS.heroineProfile;
+    var locked = GS.profileLocked;
+    var ro = locked ? ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"' : '';
+    var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
+    html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
+      '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
+      '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '"' + ro + '>' +
+      '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40"' + ro + '>' +
+      '<label>职业（自由填写）</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>' +
+      '<label>星座（可选）</label><div class="chip-row" id="zodiacChips">' +
+      ZODIAC_SIGNS.map(function(s) {
+        return '<span class="chip' + (hp.zodiac === s ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+      }).join('') + '</div>' +
+      '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
+      APPEARANCE_TRAITS.map(function(s) {
+        return '<span class="chip' + (hp.appearance.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+      }).join('') + '</div>' +
+      '<label>性格（多选）</label><div class="chip-row" id="personalityChips">' +
+      PERSONALITY_TRAITS.map(function(s) {
+        return '<span class="chip' + (hp.personality.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+      }).join('') + '</div>' +
+      '<label>MBTI</label><div class="chip-row" id="mbtiChips">' +
+      MBTI_TYPES.map(function(s) {
+        return '<span class="chip' + (hp.mbti === s ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+      }).join('') + '</div>' +
+      '<label>私密体质（多选，可选）</label><div class="chip-row" id="privateChips">' +
+      PRIVATE_TRAITS.map(function(s) {
+        return '<span class="chip' + (hp.privateTraits.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+      }).join('') + '</div>' +
+      (locked ? '<button class="btn-primary" id="step2Next">继续到成员选择 →</button>' :
+        '<button class="btn-primary" id="step2Next">下一步 →</button>' +
+        '<button class="btn-secondary" id="step2Back">← 返回</button>') + '</div>';
+  } else if (GS.step === 3) {
+    html = '<div class="setup-step"><h2>⭐ Step 3：选择成员</h2>' +
+      '<p class="step-desc">从 13 位 SEVENTEEN 成员中选择 3 位参加节目 <small>（已选 ' + GS.selectedMembers.length + '/3）</small></p>' +
+      '<div class="member-grid" id="memberGrid">' +
+      MEMBERS.map(function(m) {
+        var sel = GS.selectedMembers.indexOf(m.id) >= 0;
+        return '<div class="member-chip' + (sel ? ' selected' : '') + '" data-id="' + m.id + '">' +
+          m.emoji + '<br>' + m.name + '<br><small>' + m.stageName + '</small></div>';
+      }).join('') + '</div>' +
+      '<button class="btn-primary" id="step3Next" ' + (GS.selectedMembers.length !== 3 ? 'disabled' : '') + '>' +
+      (GS.selectedMembers.length === 3 ? '下一步 →' : '请选择 3 位成员') + '</button>' +
+      '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
+  } else if (GS.step === 4) {
+    var selMembers = GS.selectedMembers.map(function(id) {
+      return MEMBERS.find(function(m) { return m.id === id; });
+    });
+    html = '<div class="setup-step"><h2>💔 Step 4：标记秘密前任 X</h2>' +
+      '<p class="step-desc">从 3 位成员中选择 1 位作为你的秘密前任（恋爱2年，分手1年）</p>' +
+      '<div class="member-grid" id="xGrid">' +
+      selMembers.map(function(m) {
+        var isX = GS.secretX === m.id;
+        return '<div class="member-chip' + (isX ? ' x-marked' : '') + '" data-id="' + m.id + '">' +
+          m.emoji + '<br>' + m.name + '<br><small>' + (isX ? '💔 前任X' : '攻略对象') + '</small></div>';
+      }).join('') + '</div>' +
+      '<p style="color:#8b6b6b;font-size:11px;margin-top:6px">💡 其余2位成员各有场外女性X。X身份在节目中保密——当年是秘密恋爱，团内无人知晓。</p>' +
+      '<button class="btn-primary" id="step4Start" ' + (!GS.secretX ? 'disabled' : '') + '>' +
+      (GS.secretX ? '🎮 开始游戏！' : '请选择你的秘密前任') + '</button>' +
+      '<button class="btn-secondary" id="step4Back">← 返回</button></div>';
+  }
+
+  return html;
+}
+
+function bindSetupEvents() {
+  if (GS.step === 1) {
+    document.getElementById('apiKeyInput').addEventListener('input', function() {
+      GS.apiKey = this.value.trim();
+      saveGame();
+    });
+    document.getElementById('aiEnabledCheck').addEventListener('change', function() {
+      GS.aiEnabled = this.checked;
+      saveGame();
+    });
+    document.getElementById('testApiBtn').addEventListener('click', async function() {
+      var s = document.getElementById('apiStatus');
+      s.classList.remove('hidden', 'success', 'error', 'testing');
+      s.classList.add('testing');
+      s.textContent = '⏳ 正在测试连接...';
+      var ok = await testAPIConnection(GS.apiKey);
+      s.classList.remove('testing');
+      if (ok) {
+        s.classList.add('success');
+        s.textContent = '✅ 连接成功！API Key 有效';
+      } else {
+        s.classList.add('error');
+        s.textContent = '❌ 连接失败，请检查 API Key';
+      }
+    });
+    document.getElementById('step1Next').addEventListener('click', function() {
+      if (!GS.apiKey.trim()) {
+        alert('请输入 API Key');
+        return;
+      }
+      GS.step = 2;
+      saveGame();
+      renderAll();
+    });
+  }
+
+  if (GS.step === 2) {
+    if (!GS.profileLocked) {
+      document.getElementById('hpName').addEventListener('input', function() {
+        GS.heroineProfile.name = this.value;
+        saveGame();
+      });
+      document.getElementById('hpAge').addEventListener('input', function() {
+        GS.heroineProfile.age = parseInt(this.value) || 25;
+        saveGame();
+      });
+      document.getElementById('hpJob').addEventListener('input', function() {
+        GS.heroineProfile.job = this.value;
+        saveGame();
+      });
+      bindChipGroup('zodiacChips', function(val) {
+        GS.heroineProfile.zodiac = (GS.heroineProfile.zodiac === val) ? '' : val;
+        saveGame();
+      }, true);
+      bindChipGroup('appearanceChips', function(val) {
+        toggleArrayItem(GS.heroineProfile.appearance, val);
+        saveGame();
+      }, false);
+      bindChipGroup('personalityChips', function(val) {
+        toggleArrayItem(GS.heroineProfile.personality, val);
+        saveGame();
+      }, false);
+      bindChipGroup('mbtiChips', function(val) {
+        GS.heroineProfile.mbti = val;
+        saveGame();
+      }, true);
+      bindChipGroup('privateChips', function(val) {
+        toggleArrayItem(GS.heroineProfile.privateTraits, val);
+        saveGame();
+      }, false);
+    }
+    document.getElementById('step2Next').addEventListener('click', function() {
+      if (!GS.profileLocked) {
+        GS.profileLocked = true;
+        GS.secretX = '';
+      }
+      GS.step = 3;
+      saveGame();
+      renderAll();
+    });
+    if (!GS.profileLocked) {
+      document.getElementById('step2Back').addEventListener('click', function() {
+        GS.step = 1;
+        saveGame();
+        renderAll();
+      });
+    }
+  }
+
+  if (GS.step === 3) {
+    document.querySelectorAll('#memberGrid .member-chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        var id = this.dataset.id;
+        if (GS.selectedMembers.indexOf(id) >= 0) {
+          GS.selectedMembers = GS.selectedMembers.filter(function(x) { return x !== id; });
+        } else if (GS.selectedMembers.length < 3) {
+          GS.selectedMembers.push(id);
+        }
+        saveGame();
+        renderAll();
+      });
+    });
+    document.getElementById('step3Next').addEventListener('click', function() {
+      if (GS.selectedMembers.length !== 3) return;
+      GS.step = 4;
+      GS.secretX = '';
+      saveGame();
+      renderAll();
+    });
+    document.getElementById('step3Back').addEventListener('click', function() {
+      GS.step = 2;
+      saveGame();
+      renderAll();
+    });
+  }
+
+  if (GS.step === 4) {
+    document.querySelectorAll('#xGrid .member-chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        GS.secretX = this.dataset.id;
+        saveGame();
+        renderAll();
+      });
+    });
+    document.getElementById('step4Start').addEventListener('click', async function() {
+      if (!GS.secretX) return;
+      var otherMembers = GS.selectedMembers.filter(function(id) { return id !== GS.secretX; });
+      GS.affection = {};
+      GS.affection[GS.secretX] = randInt(35, 50);
+      for (var i = 0; i < otherMembers.length; i++) {
+        GS.affection[otherMembers[i]] = randInt(0, 5);
+      }
+      GS.step = 5;
+      GS.day = 1;
+      GS.phaseIndex = 0;
+      GS.stayCount = 0;
+      GS.phaseChoiceCount = 0;
+      GS.todayFullText = [];
+      GS.dailyFullTexts = [];
+      GS.dailySummaries = [];
+      GS.observerGuest = '';
+      GS.observerGuestPrevious = '';
+      GS.pendingDatingResult = null;
+      GS.currentDatingPartner = null;
+      GS.datingDiceResult = null;
+      GS.day10ChosenDate = null;
+      GS.pendingPromises = [];
+      GS.todayRevealedInfo = '';
+      GS.affectionLog = {};
+      GS.prevRawText = '';
+      GS.pendingMemoryReview = null;
+      GS.drunkTrigger = null;
+      saveGame();
+      renderAll();
+      if (GS.aiEnabled) {
+        await generateAllXArchives();
+      } else {
+        GS.xBackstory = 'AI未启用，X档案将在AI启用后生成。';
+        saveGame();
+      }
+      await generatePhaseNarrative();
+    });
+    document.getElementById('step4Back').addEventListener('click', function() {
+      GS.step = 3;
+      saveGame();
+      renderAll();
+    });
+  }
+}
+
+function bindChipGroup(containerId, callback, isSingle) {
+  var c = document.getElementById(containerId);
+  if (!c) return;
+  c.querySelectorAll('.chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      var val = this.dataset.val;
+      if (isSingle) {
+        c.querySelectorAll('.chip').forEach(function(x) { x.classList.remove('selected'); });
+        this.classList.add('selected');
+      } else {
+        this.classList.toggle('selected');
+      }
+      callback(val);
+    });
+  });
+}
+
+function toggleArrayItem(arr, val) {
+  var idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1);
+  else arr.push(val);
+}
+
+// ==================== 游戏界面渲染 ====================
+function renderGameScreen() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var phaseLabel = PHASE_LABELS[PHASES[GS.phaseIndex]];
+  var isNight = GS.phaseIndex === 3;
+  var hasConsequences = GS.consequenceNarratives.length > 0;
+  var smsSent = GS.smsSentToday;
+  var phaseChoicesExhausted = GS.phaseChoiceCount >= MAX_PHASE_CHOICES;
+  // Day 11 不限制选项次数
+  var isDay11 = GS.day === 11;
+  var stayExhausted = GS.stayCount >= MAX_STAY_COUNT;
+  var html = '';
+
+  // Header
+  html += '<div class="header">' +
+    '<span class="day-badge">Day ' + GS.day + '</span>' +
+    '<span class="phase-tag">' + phaseLabel + '</span>' +
+    '<span class="affection-hint" id="affectionHint" title="点击查看好感度详情">' +
+    members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
+    '</span>' +
+    '<div class="header-btns">' +
+    '<button id="helpBtn" title="规则速览">❓</button>' +
+    '<button id="historyBtn" title="历史剧情回顾">📖</button>' +
+    '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
+    '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +
+    (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
+    (GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +
+    '<button id="resetGameBtn" title="重置游戏">🔄</button>' +
+    '</div></div>';
+
+  // 记忆审查面板（非模态可折叠）- 仅在 pendingMemoryReview 存在时渲染
+  if (GS.pendingMemoryReview) {
+    var mr = GS.pendingMemoryReview;
+    html += '<div class="memory-review-panel" id="memoryReviewPanel">' +
+      '<div class="mr-toggle" id="mrToggle">' +
+      '<span>📋 Day ' + mr.day + ' 记忆压缩摘要</span>' +
+      '<span class="mr-status">待确认</span>' +
+      '<span id="mrToggleIcon">▾</span>' +
+      '</div>' +
+      '<div class="mr-body" id="mrBody">' +
+      '<textarea id="mrTextarea">' + escHtml(mr.summary) + '</textarea>' +
+      '<div class="mr-actions">' +
+      '<button class="btn-mr-recompress" id="mrRecompress">🔄 重新压缩</button>' +
+      '<button class="btn-mr-confirm" id="mrConfirm">✅ 确认无误</button>' +
+      '</div></div></div>';
+  }
+
+  // 秘密任务通知条
+  if (GS.secretMission && GS.secretMission.status === 'active') {
+    var smTargetName = GS.secretMission.targetMemberId ? (MEMBERS.find(function(m) { return m.id === GS.secretMission.targetMemberId; }) || {}).name : '';
+    html += '<div class="card" style="border-left:3px solid #ff9800;background:linear-gradient(135deg,#fff8e1,#fff3e0)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" id="missionToggle">' +
+      '<div><span style="font-size:13px;font-weight:700;color:#e65100">📢 制作组秘密任务</span>' +
+      '<span style="font-size:11px;color:#8b6b6b;margin-left:6px">（仅你可见）</span></div>' +
+      '<span id="missionToggleIcon" style="font-size:11px;color:#e65100">▾</span></div>' +
+      '<div id="missionBody" style="margin-top:8px;font-size:12px;color:#5d3a3a;line-height:1.7">' +
+      '<p style="margin-bottom:4px"><strong>' + escHtml(GS.secretMission.title) + '</strong>' + (smTargetName ? ' · 目标：' + escHtml(smTargetName) : '') + '</p>' +
+      '<p style="margin-bottom:4px">' + escHtml(GS.secretMission.description) + '</p>' +
+      '<p style="font-size:11px;color:#8b6b6b">💡 提示：' + escHtml(GS.secretMission.hint) + '</p>' +
+      '</div></div>';
+  }
+
+  // 叙事
+  html += '<div class="card"><div class="narrative-box" id="narrativeBox">';
+  if (GS.phaseNarrative) html += renderParsedNarrative(GS.parsedNarrative);
+  for (var i = 0; i < GS.consequenceNarratives.length; i++) {
+    html += '<div class="separator"></div>';
+    html += renderParsedNarrative(GS.consequenceNarratives[i].parsed);
+  }
+  html += '</div></div>';
+
+  // [P0-3] 真心话模式选项区（3轮制：轻度→中度→深度，每轮4人）
+  if (GS.truthState && GS.truthState.active) {
+    var ts = GS.truthState;
+    var levelLabels = { light: '轻度', medium: '中度', deep: '深度' };
+    var currentLevel = ts.round === 1 ? 'light' : ts.round === 2 ? 'medium' : 'deep';
+    var drawerId = ts.drawerOrder[ts.subRound - 1];
+    var isHeroineTurn = (drawerId === 'heroine');
+    html += '<div class="card"><div class="options-area" id="optionsArea">';
+    if (isHeroineTurn) {
+      html += '<button class="option-btn" data-idx="0"><span class="opt-label">A</span>如实回答（自由输入）</button>';
+      html += '<button class="option-btn" data-idx="1"><span class="opt-label">B</span>拒绝回答并喝酒（+1杯）</button>';
+    } else {
+      var dm = MEMBERS.find(function(m) { return m.id === drawerId; });
+      var dname = dm ? dm.name : '嘉宾';
+      html += '<button class="option-btn btn-special" data-idx="0"><span class="opt-label">▶</span>观看' + dname + '的回合</button>';
+    }
+    html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">真心话第' + ts.round + '/3轮（' + levelLabels[currentLevel] + '）· 第' + ts.subRound + '/4人 · 当前：' + (isHeroineTurn ? '女主' : (dm ? dm.name : '嘉宾')) + '</p>';
+    html += '</div></div>';
+  } else {
+    // 普通选项
+    var opts = GS.currentOptions;
+    if (opts.length > 0 && (!phaseChoicesExhausted || isDay11)) {
+      html += '<div class="card"><div class="options-area" id="optionsArea">';
+      var labels = ['A', 'B', 'C'];
+      for (var j = 0; j < opts.length; j++) {
+        var isSpecial = opts[j].text.indexOf('进入约会场景') >= 0;
+        html += '<button class="option-btn' + (isSpecial ? ' btn-special' : '') + '" data-idx="' + j + '">' +
+          '<span class="opt-label">' + (labels[j] || (j + 1)) + '</span>' +
+          escHtml(opts[j].text) + '</button>';
+      }
+      if (!isDay11) {
+        html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余选项次数：' +
+          (MAX_PHASE_CHOICES - GS.phaseChoiceCount) + '/' + MAX_PHASE_CHOICES + '</p>';
+      } else if (!GS.truthState) {
+        html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">Day 11 真心话环节 · 不限制选项次数</p>';
+      }
+      html += '</div></div>';
+    } else if (phaseChoicesExhausted && !isDay11 && !smsSent) {
+      html += '<div class="card"><p style="text-align:center;color:#8b6b6b;font-size:13px">本时段选项次数已用完，请进入下一时段。</p></div>';
+    }
+  }
+
+  // [P0-3] 真心话模式下 Action Bar 只显示重新生成
+  if (GS.truthState && GS.truthState.active) {
+    html += '<div class="card"><div class="action-bar" id="actionBar">';
+    html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
+    html += '</div></div>';
+  } else {
+    // 普通 Action Bar
+    html += '<div class="card"><div class="action-bar" id="actionBar">';
+    if (!hasConsequences) {
+      html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
+      if (!phaseChoicesExhausted || isDay11) {
+        html += '<button class="btn-skip" id="btnSkip">▶ 跳过进入下一时段</button>';
+      } else {
+        html += '<button class="btn-skip" id="btnSkip" style="font-weight:900">▶ 进入下一时段</button>';
+      }
+      if (isNight && !smsSent) html += '<button class="btn-sms" id="btnSms">📨 发送心动短信</button>';
+    } else {
+      if (!isNight) {
+        if (!phaseChoicesExhausted || isDay11) {
+          html += '<button class="btn-skip" id="btnNextPhase">▶ 进入下一时段</button>';
+        } else {
+          html += '<button class="btn-skip" id="btnNextPhase" style="font-weight:900">▶ 进入下一时段</button>';
+        }
+        html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
+      } else {
+        if (!smsSent) html += '<button class="btn-sms" id="btnSms">📨 发送心动短信</button>';
+        html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
+      }
+    }
+    if (smsSent && isNight) {
+      html += '<button class="btn-next-day" id="btnNextDay">✅ 确认进入下一天</button>';
+      if (!stayExhausted) {
+        html += '<button class="btn-continue" id="btnContinue">✍️ 继续今天（' + GS.stayCount + '/' + MAX_STAY_COUNT + '）</button>';
+      }
+    }
+    html += '</div></div>';
+  }
+
+  // 自由输入
+  var freeDisabled = (smsSent && isNight && stayExhausted);
+  html += '<div class="card"><div class="free-input-area">' +
+    '<input type="text" id="freeInput" placeholder="✍️ 自由输入你的行动/想法..." value="' +
+    escHtml(GS.freeInput || '') + '"' + (freeDisabled ? ' disabled' : '') + '>' +
+    '<button class="btn-save-input" id="btnSaveInput">💾</button>' +
+    '<button class="btn-act-input" id="btnActInput"' + (freeDisabled ? ' disabled' : '') + '>✍️ 行动</button></div></div>';
+
+  // 游戏结束
+  if (GS.gameOver) {
+    html += renderEndingScreen(members);
+  }
+
+  return html;
+}
+
+function renderParsedNarrative(parsed) {
+  var html = '';
+
+  // 新版：按 AI 返回的顺序依次渲染每个 block，采访间/成员采访间/X采访间会出现在正文对应位置
+  if (parsed.blocks && parsed.blocks.length > 0) {
+    for (var i = 0; i < parsed.blocks.length; i++) {
+      var b = parsed.blocks[i];
+      var content = (b.content || '').trim();
+      if (!content) continue;
+
+      if (b.type === 'narrative') {
+        var paras = content.split('\n').filter(function(p) { return p.trim(); });
+        for (var p = 0; p < paras.length; p++) {
+          html += '<p>' + escHtml(paras[p]) + '</p>';
+        }
+      } else if (b.type === 'interview') {
+        html += '<div class="interview">🎙 <strong>【采访间】</strong> ' + escHtml(content) + '</div>';
+      } else if (b.type === 'xInterview') {
+        html += '<div class="x-interview">🎙️💔 <strong>【X采访间】</strong> ' + escHtml(content) + '</div>';
+      } else if (b.type === 'memberInterview') {
+        html += '<div class="member-interview">🎤 ' + escHtml(content) + '</div>';
+      } else if (b.type === 'directorOS') {
+        var dlines = content.split('\n').filter(function(l) { return l.trim(); });
+        for (var m = 0; m < dlines.length; m++) {
+          html += '<div class="director-os">🎬 <strong>【导演OS】</strong> ' + escHtml(dlines[m]) + '</div>';
+        }
+      } else if (b.type === 'observerOS') {
+        var olines = content.split('\n').filter(function(l) { return l.trim(); });
+        for (var n = 0; n < olines.length; n++) {
+          var formatted = olines[n].replace(
+            /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:]/,
+            '<span class="obs-name">$1：</span>'
+          );
+          html += '<div class="observer-os">💭 ' + formatted + '</div>';
+        }
+      }
+    }
+    return html;
+  }
+
+  // 兼容旧存档：没有 blocks 时按字段聚合渲染（全部堆在底部）
+  if (parsed.narrative) {
+    var paras = parsed.narrative.split('\n').filter(function(p) { return p.trim(); });
+    for (var ii = 0; ii < paras.length; ii++) {
+      html += '<p>' + escHtml(paras[ii]) + '</p>';
+    }
+  }
+  if (parsed.interviews && parsed.interviews.length > 0) {
+    for (var j = 0; j < parsed.interviews.length; j++) {
+      html += '<div class="interview">🎙 <strong>【采访间】</strong> ' + escHtml(parsed.interviews[j]) + '</div>';
+    }
+  }
+  if (parsed.xInterviews && parsed.xInterviews.length > 0) {
+    for (var k = 0; k < parsed.xInterviews.length; k++) {
+      html += '<div class="x-interview">🎙️💔 <strong>【X采访间】</strong> ' + escHtml(parsed.xInterviews[k]) + '</div>';
+    }
+  }
+  if (parsed.memberInterviews && parsed.memberInterviews.length > 0) {
+    for (var l = 0; l < parsed.memberInterviews.length; l++) {
+      html += '<div class="member-interview">🎤 ' + escHtml(parsed.memberInterviews[l]) + '</div>';
+    }
+  }
+  if (parsed.directorOS) {
+    var dlines2 = parsed.directorOS.split('\n').filter(function(l) { return l.trim(); });
+    for (var mm = 0; mm < dlines2.length; mm++) {
+      html += '<div class="director-os">🎬 <strong>【导演OS】</strong> ' + escHtml(dlines2[mm]) + '</div>';
+    }
+  }
+  if (parsed.observerOS) {
+    var olines2 = parsed.observerOS.split('\n').filter(function(l) { return l.trim(); });
+    for (var nn = 0; nn < olines2.length; nn++) {
+      var formatted2 = olines2[nn].replace(
+        /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:]/,
+        '<span class="obs-name">$1：</span>'
+      );
+      html += '<div class="observer-os">💭 ' + formatted2 + '</div>';
+    }
+  }
+  return html;
+}
+
+function renderEndingScreen(members) {
+  var html = '<div class="card" style="text-align:center">' +
+    '<h3 style="color:#c2185b">🎉 游戏结束</h3>' +
+    '<p style="font-size:15px;margin:10px 0">你的最终选择：<strong>' + escHtml(GS.finalChoice) + '</strong></p>';
+
+  html += '<p style="font-size:13px;margin:8px 0"><strong>最终好感度</strong></p>';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var aff = GS.affection[m.id] || 0;
+    html += '<p style="font-size:13px">' + m.emoji + ' ' + m.name + '：' + getAffectionDesc(aff) + ' ' + aff + '</p>';
+  }
+
+  if (GS.smsHistory.length > 0) {
+    html += '<p style="font-size:13px;margin-top:8px"><strong>📨 短信统计</strong></p>';
+    var smsCount = {};
+    for (var s = 0; s < GS.smsHistory.length; s++) {
+      var t = GS.smsHistory[s].name;
+      smsCount[t] = (smsCount[t] || 0) + 1;
+    }
+    for (var name in smsCount) {
+      html += '<p style="font-size:12px;color:#8b6b6b">发给 ' + escHtml(name) + '：' + smsCount[name] + '条</p>';
+    }
+    html += '<p style="font-size:12px;color:#8b6b6b">总计：' + GS.smsHistory.length + '条</p>';
+  }
+
+  html += '<button class="btn-primary" id="btnRestart" style="max-width:180px;margin:8px auto">🔄 重新开始</button></div>';
+  return html;
+}
+
+function bindGameEvents() {
+  // 记忆审查面板事件
+  var mrToggle = document.getElementById('mrToggle');
+  if (mrToggle) {
+    mrToggle.addEventListener('click', function() {
+      var body = document.getElementById('mrBody');
+      var icon = document.getElementById('mrToggleIcon');
+      if (body) {
+        body.classList.toggle('hidden');
+        if (icon) icon.textContent = body.classList.contains('hidden') ? '▸' : '▾';
+      }
+    });
+  }
+
+  var mrConfirm = document.getElementById('mrConfirm');
+  if (mrConfirm) {
+    mrConfirm.addEventListener('click', async function() {
+      var editedSummary = (document.getElementById('mrTextarea') || {}).value || '';
+      if (editedSummary.trim()) {
+        GS.dailySummaries.push(editedSummary.trim());
+        GS.pendingPromises = extractPendingPromises(editedSummary);
+        GS.todayRevealedInfo = extractRevealedInfo(editedSummary);
+      }
+      GS.pendingMemoryReview = null;
+      saveGame();
+      renderAll();
+      if (GS.day === 10) showDay10DatingModal();
+      else await generatePhaseNarrative();
+    });
+  }
+
+  var mrRecompress = document.getElementById('mrRecompress');
+  if (mrRecompress) {
+    mrRecompress.addEventListener('click', async function() {
+      showLoading('正在重新压缩...');
+      var newSummary = await compressTodayToSummary();
+      hideLoading();
+      if (GS.pendingMemoryReview) {
+        GS.pendingMemoryReview.summary = newSummary;
+        saveGame();
+        renderAll();
+      }
+    });
+  }
+
+  document.querySelectorAll('#optionsArea .option-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var idx = parseInt(this.dataset.idx);
+
+      // [P0-3] 真心话模式选项处理（3轮制）
+      if (GS.truthState && GS.truthState.active) {
+        var ts = GS.truthState;
+        var drawerId = ts.drawerOrder[ts.subRound - 1];
+        var isHeroineTurn = (drawerId === 'heroine');
+        var optText = '';
+        if (isHeroineTurn) {
+          optText = idx === 0 ? '如实回答' : '拒绝回答并喝酒';
+        } else {
+          optText = '观看' + (MEMBERS.find(function(m){return m.id===drawerId})||{}).name + '的回合';
+        }
+        document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
+        await handleTruthRound({ text: optText });
+        return;
+      }
+
+      var opt = GS.currentOptions[idx];
+      if (!opt) return;
+
+      // 处理「进入约会场景」按钮
+      if (opt.text.indexOf('进入约会场景') >= 0) {
+        document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
+        GS.phaseIndex = 1; // 跳到下午
+        resetPhaseState();
+        saveGame();
+        renderAll();
+        await generatePhaseNarrative();
+        return;
+      }
+
+      document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
+      await handleOptionChoice(opt);
+    });
+  });
+
+  var regenBtn = document.getElementById('btnRegenerate');
+  if (regenBtn) {
+    regenBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      await handleRegenerate();
+      this.disabled = false;
+    });
+  }
+
+  var skipBtn = document.getElementById('btnSkip') || document.getElementById('btnNextPhase');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      await advancePhase();
+      this.disabled = false;
+    });
+  }
+
+  var smsBtn = document.getElementById('btnSms');
+  if (smsBtn) smsBtn.addEventListener('click', function() { showSmsModal(); });
+
+  var nextDayBtn = document.getElementById('btnNextDay');
+  if (nextDayBtn) {
+    nextDayBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      await goToNextDay();
+      this.disabled = false;
+    });
+  }
+
+  var contBtn = document.getElementById('btnContinue');
+  if (contBtn) {
+    contBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      await continueToday();
+      this.disabled = false;
+    });
+  }
+
+  var xBtn = document.getElementById('xArchiveBtn');
+  if (xBtn) xBtn.addEventListener('click', showXArchiveModal);
+
+  var smsHistBtn = document.getElementById('smsHistoryBtn');
+  if (smsHistBtn) smsHistBtn.addEventListener('click', showSmsHistoryModal);
+
+  // [P0-2] 小礼物面板
+  var giftBtn = document.getElementById('giftBtn');
+  if (giftBtn) giftBtn.addEventListener('click', showGiftPanel);
+
+  // 心动笔记
+  var heartNotesBtn = document.getElementById('heartNotesBtn');
+  if (heartNotesBtn) heartNotesBtn.addEventListener('click', showHeartNotesModal);
+
+  // 秘密任务通知条折叠
+  var missionToggle = document.getElementById('missionToggle');
+  if (missionToggle) {
+    missionToggle.addEventListener('click', function() {
+      var body = document.getElementById('missionBody');
+      var icon = document.getElementById('missionToggleIcon');
+      if (body) {
+        body.classList.toggle('hidden');
+        if (icon) icon.textContent = body.classList.contains('hidden') ? '▸' : '▾';
+      }
+    });
+  }
+
+  var historyBtn = document.getElementById('historyBtn');
+  if (historyBtn) historyBtn.addEventListener('click', showHistoryModal);
+
+  var helpBtn = document.getElementById('helpBtn');
+  if (helpBtn) helpBtn.addEventListener('click', showHelpModal);
+
+  var resetBtn = document.getElementById('resetGameBtn');
+  if (resetBtn) resetBtn.addEventListener('click', resetGame);
+
+  var affHint = document.getElementById('affectionHint');
+  if (affHint) affHint.addEventListener('click', showAffectionPanel);
+
+  var saveInputBtn = document.getElementById('btnSaveInput');
+  if (saveInputBtn) {
+    saveInputBtn.addEventListener('click', function() {
+      GS.freeInput = (document.getElementById('freeInput') || {}).value || '';
+      saveGame();
+      alert('✅ 已保存');
+    });
+  }
+
+  var actInputBtn = document.getElementById('btnActInput');
+  if (actInputBtn) {
+    actInputBtn.addEventListener('click', async function() {
+      var inputText = ((document.getElementById('freeInput') || {}).value || '').trim();
+      if (!inputText) {
+        alert('请先输入你的行动或想法');
+        return;
+      }
+      this.disabled = true;
+      await handleFreeAction(inputText);
+      this.disabled = false;
+    });
+  }
+
+  var restartBtn = document.getElementById('btnRestart');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', function() {
+      GS = defaultGameState();
+      saveGame();
+      renderAll();
+    });
+  }
+}
+
+function scrollToLatestContent() {
+  setTimeout(function() {
+    var box = document.getElementById('narrativeBox');
+    if (!box) return;
+    var separators = box.querySelectorAll('.separator');
+    if (separators.length > 0) {
+      separators[separators.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      box.scrollTop = box.scrollHeight;
+    }
+  }, 100);
+}
+
+// ==================== 游戏流程 ====================
+async function generatePhaseNarrative() {
+  // 秘密任务触发（在生成剧情前检查）
+  if (shouldTriggerSecretMission()) {
+    saveGame();
+  }
+
+  // Day 4/5/8 约会配对：弹出骰子弹窗
+  if ([4, 5, 8].indexOf(GS.day) >= 0 && GS.phaseIndex === 0 && !GS.datingDiceResult) {
+    showDatingDiceModal();
+    return;
+  }
+
+  // [P0-3] Day 11 傍晚：初始化真心话模式（3轮制：轻度→中度→深度，每轮4人）
+  if (GS.day === 11 && GS.phaseIndex === 2 && !GS.truthState) {
+    // 按难度分组并打乱
+    var lightCards = TRUTH_CARDS.filter(function(c) { return c.level === 'light'; });
+    var mediumCards = TRUTH_CARDS.filter(function(c) { return c.level === 'medium'; });
+    var deepCards = TRUTH_CARDS.filter(function(c) { return c.level === 'deep'; });
+    function shuffle(arr) {
+      for (var i = arr.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+      }
+      return arr;
+    }
+    // 抽卡人顺序：女主 + 3位成员
+    var drawerOrder = ['heroine'].concat(GS.selectedMembers);
+    GS.truthState = {
+      active: true,
+      round: 1,              // 1=轻度轮, 2=中度轮, 3=深度轮
+      subRound: 1,           // 1-4（当前轮中的第几个人）
+      levelMap: {
+        light: shuffle(lightCards),
+        medium: shuffle(mediumCards),
+        deep: shuffle(deepCards)
+      },
+      usedCards: [],
+      drawerOrder: drawerOrder,
+      drunkDeclared: false
+    };
+    saveGame();
+  }
+
+  // [P0-3] Day 11 深夜：真心话12轮结束后或醉酒触发后进入深夜
+  if (GS.day === 11 && GS.phaseIndex === 3) {
+    // 若真心话已结束且存在醉酒触发者，生成醉酒剧情
+    if (GS.truthState && !GS.truthState.active && GS.drunkTrigger) {
+      await generateDrunkNarrative();
+      return;
+    }
+    // 若真心话已结束且无醉酒，正常深夜（发短信）
+    if (GS.truthState && !GS.truthState.active && !GS.drunkTrigger) {
+      // 正常深夜流程，继续执行后面的代码
+    }
+  }
+
+  if (!GS.aiEnabled) {
+    GS.phaseNarrative = '';
+    GS.parsedNarrative = {
+      narrative: '', directorOS: '', observerOS: '',
+      interviews: [], memberInterviews: [], xInterviews: [], options: []
+    };
+    GS.currentOptions = [];
+    GS.consequenceNarratives = [];
+    GS.isInConsequence = false;
+    GS.prevSummary = '';
+    GS.prevRawText = '';
+    GS.pendingDatingResult = null;
+    saveGame();
+    renderAll();
+    return;
+  }
+
+  showLoading('正在生成时段剧情...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('phase');
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.phaseNarrative);
+    GS.phaseNarrative = rawText;
+    GS.parsedNarrative = parseNarrative(rawText);
+    GS.currentOptions = GS.parsedNarrative.options;
+    GS.consequenceNarratives = [];
+    GS.isInConsequence = false;
+    GS.phaseChoiceCount = 0;
+
+    // 约会日只保留1个选项，并追加「进入约会场景」
+    var isDatingDay = ([4, 5, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0);
+    if (isDatingDay && GS.currentOptions.length > 1) {
+      GS.currentOptions = GS.currentOptions.slice(0, 1);
+    }
+    if (isDatingDay && GS.currentOptions.length >= 1) {
+      GS.currentOptions.push({ label: '▶', text: '▶ 进入约会场景' });
+    }
+
+    if (GS.phaseIndex === 3 && !GS.smsSentToday) {
+      GS.smsDrafts = extractSmsDrafts(rawText);
+    } else {
+      GS.smsDrafts = [];
+    }
+
+    GS.todayFullText.push(rawText);
+    GS.mainInterview = (GS.parsedNarrative.interviews || []).join(' ').slice(0, 100);
+    GS.prevSummary = rawText.slice(0, 200);
+    GS.prevRawText = rawText;
+
+    if (GS.datingDiceResult) {
+      GS.currentDatingPartner = GS.datingDiceResult.partner;
+      GS.pendingDatingResult = GS.datingDiceResult.partner;
+      GS.datingDiceResult = null;
+    } else {
+      GS.pendingDatingResult = null;
+    }
+
+    saveGame();
+    renderAll();
+    // [P2-7] Day 4/6 自动弹出 X 记忆物品展示
+    if ((GS.day === 4 || GS.day === 6) && GS.phaseIndex === 0) {
+      setTimeout(showXItemsModal, 500);
+    }
+  } catch (e) {
+    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    GS.phaseNarrative = '';
+    GS.parsedNarrative = {
+      narrative: '', directorOS: '', observerOS: '',
+      interviews: [], memberInterviews: [], xInterviews: [], options: []
+    };
+    GS.currentOptions = [];
+    GS.consequenceNarratives = [];
+    GS.isInConsequence = false;
+    GS.pendingDatingResult = null;
+    saveGame();
+    renderAll();
+  }
+  hideLoading();
+}
+
+function extractSmsDrafts(rawText) {
+  var drafts = [];
+  var match = rawText.match(/【短信草稿】([\s\S]*?)(?:【选项】|$)/);
+  if (match) {
+    var lines = match[1].split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^\d+[\.、]\s*(.+)/);
+      if (m && m[1].trim().length <= 25) drafts.push(m[1].trim());
+    }
+  }
+  if (drafts.length === 0) {
+    drafts.push('今天和你聊天很开心。', '谢谢你今天的陪伴。', '晚安，明天见。');
+  }
+  while (drafts.length < 3) drafts.push('今天过得很愉快。');
+  return drafts.slice(0, 3);
+}
+
+// [P0-3] Day 11 深夜醉酒剧情生成
+async function generateDrunkNarrative() {
+  showLoading('正在生成醉酒剧情...');
+  try {
+    var members = GS.selectedMembers.map(function(id) {
+      return MEMBERS.find(function(m) { return m.id === id; });
+    });
+    var triggerId = GS.drunkTrigger;
+    var triggerName = '女主';
+    var isHeroine = triggerId === 'heroine';
+    var isX = triggerId === GS.secretX;
+    var triggerMember = members.find(function(m) { return m.id === triggerId; });
+    if (triggerMember) triggerName = triggerMember.name;
+
+    // [P0-3] X 醉酒且好感<50：X自己回房间，不触发互动
+    if (isX && (GS.affection[triggerId] || 0) < 50) {
+      GS.phaseNarrative = '🎬【导演OS】' + triggerName + '喝得太多，独自起身回了房间。门轻轻关上，留下客厅里的其他人面面相觑。\n\n' +
+        '这一夜，没有更多的故事发生。\n\n' +
+        '💭【观察员OS】\n李龙真：看来X是真的放下了。\n金叡园：有点遗憾……但也松了一口气。\n郑基锡：酒精是情感的放大镜，有时是，有时不是。';
+      GS.parsedNarrative = parseNarrative(GS.phaseNarrative);
+      GS.currentOptions = [{ label: '▶', text: '▶ X已回房间，继续深夜' }];
+      GS.consequenceNarratives = [];
+      GS.isInConsequence = false;
+      GS.phaseChoiceCount = 0;
+      GS.todayFullText.push(GS.phaseNarrative);
+      GS.smsDrafts = [];
+      saveGame();
+      renderAll();
+      hideLoading();
+      return;
+    }
+
+    // [FIX-9.3] X醉酒嫉妒剧情：好感≥80且另一成员≥50时触发
+    if (isX && (GS.affection[triggerId] || 0) >= 80) {
+      var jealousTarget = members.find(function(m) {
+        return m.id !== triggerId && (GS.affection[m.id] || 0) >= 50;
+      });
+      if (jealousTarget) {
+        try {
+          var jPrompt = buildSystemPrompt();
+          var jMsg = buildUserMessage('phase') + '\n\n' +
+            '## 醉酒嫉妒剧情（强制执行）\n' +
+            triggerName + '在真心话环节中喝到了≥2杯，处于醉酒状态。\n' +
+            '⚠️ 关键设定：' + triggerName + '对女主的好感度≥80，且' + jealousTarget.name + '对女主的好感度≥50。\n' +
+            triggerName + '醉酒后看到女主和' + jealousTarget.name + '之间的微妙互动（或仅仅是假想），压抑已久的嫉妒情绪爆发。\n' +
+            '请生成约500字的嫉妒剧情：\n' +
+            '- ' + triggerName + '醉酒状态下的嫉妒表现（眼神变暗、语气变化、不自觉靠近女主、对' + jealousTarget.name + '的冷淡或敌意）\n' +
+            '- ' + jealousTarget.name + '察觉到X的异常反应\n' +
+            '- 女主感受到两人之间的张力\n' +
+            '- 必须插入一段「隐藏对话」：' + triggerName + '说出平时绝对不会说的占有欲宣言\n' +
+            '- 结尾生成选项：\n' +
+            '  ① 安抚' + triggerName + '的情绪\n' +
+            '  ② 和' + jealousTarget.name + '一起离开现场\n' +
+            '  ③ 让两人自己解决（你退到一旁）\n';
+          var jRaw = await callDeepSeek(jPrompt, jMsg, TOKEN_CONFIG.phaseNarrative);
+          GS.phaseNarrative = jRaw;
+          GS.parsedNarrative = parseNarrative(jRaw);
+          GS.currentOptions = GS.parsedNarrative.options;
+          GS.consequenceNarratives = [];
+          GS.isInConsequence = false;
+          GS.phaseChoiceCount = 0;
+          GS.todayFullText.push(jRaw);
+          GS.smsDrafts = [];
+          saveGame();
+          renderAll();
+          hideLoading();
+          return;
+        } catch (e) {
+          console.error('嫉妒剧情生成失败，降级为普通醉酒剧情:', e);
+        }
+      }
+    }
+
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('phase') + '\n\n' +
+      '## 醉酒剧情（强制执行）\n' +
+      triggerName + '在真心话环节中喝到了≥2杯，现在处于醉酒状态。\n' +
+      '请生成约500字的醉酒剧情：\n' +
+      '- 描写醉酒者的状态（眼神、动作、语气变化）\n' +
+      '- 其他在场成员的反应\n' +
+      '- 醉酒者说出平时不会说的话（隐藏对话）\n' +
+      '- 女主（玩家）的选择和感受\n' +
+      (Math.random() < 0.6 ? '- ⚠️ 必须在剧情中插入一段「隐藏对话」：醉酒者说出平时绝对不会说的话（60%概率触发）\n' : '') +
+      '- 结尾生成选项：\n' +
+      (isHeroine ? '  ① 被某位嘉宾照顾（弹出选人）② 和某人去阳台吹风（弹出选人）③ 留在客厅陪某人（弹出选人）④ 和X单独对话（直接触发，不弹窗）\n' :
+       isX ? '  ① 女主被X留住说话 ② 女主和X去阳台\n' :
+       '  ① 女主照顾他 ② 他把女主留在客厅说话\n');
+
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.phaseNarrative);
+    GS.phaseNarrative = rawText;
+    GS.parsedNarrative = parseNarrative(rawText);
+    GS.currentOptions = GS.parsedNarrative.options;
+    GS.consequenceNarratives = [];
+    GS.isInConsequence = false;
+    GS.phaseChoiceCount = 0;
+    GS.todayFullText.push(rawText);
+    GS.smsDrafts = [];
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ 醉酒剧情生成失败：' + e.message);
+  }
+  hideLoading();
+}
+
+// [P0-3] 女主醉酒选人弹窗
+function showDrunkMemberSelectModal(choiceText) {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>选择一位成员</h3>' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">' + escHtml(choiceText) + '</p>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    inner += '<button class="sms-target-btn" data-member-id="' + m.id + '">' + m.emoji + ' ' + m.name + '</button>';
+  }
+  inner += '</div><button class="modal-close" id="drunkSelectClose" style="margin-top:10px">取消</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#drunkSelectClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+
+  overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var memberId = this.dataset.memberId;
+      overlay.remove();
+      await generateDrunkConsequence(choiceText, memberId);
+    });
+  });
+}
+
+// [P0-3] 生成醉酒后续剧情
+async function generateDrunkConsequence(choiceText, memberId) {
+  showLoading('正在生成醉酒后续...');
+  try {
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('consequence', { choiceText: choiceText, drunkTarget: memberId });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.consequence);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.todayFullText.push(rawText);
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ AI 生成失败：' + e.message);
+  }
+  hideLoading();
+}
+
+// [P0-3] 真心话回答输入弹窗
+function showTruthAnswerModal() {
+  return new Promise(function(resolve) {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    var inner = '<div class="modal-content"><h3>🎙 如实回答</h3>' +
+      '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px">请输入你的回答内容：</p>' +
+      '<textarea id="truthAnswerInput" style="width:100%;min-height:120px;border:1.5px solid #e0c0c0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;" placeholder="写下你的真实回答..."></textarea>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+      '<button class="btn-confirm" id="truthSubmit" style="flex:1">提交回答</button>' +
+      '<button class="modal-close" id="truthCancel" style="flex:1">取消</button>' +
+      '</div></div>';
+    overlay.innerHTML = inner;
+    document.body.appendChild(overlay);
+
+    var input = overlay.querySelector('#truthAnswerInput');
+    input.focus();
+
+    overlay.querySelector('#truthSubmit').addEventListener('click', function() {
+      var val = input.value.trim();
+      if (!val) {
+        alert('请输入回答内容');
+        return;
+      }
+      overlay.remove();
+      resolve(val);
+    });
+    overlay.querySelector('#truthCancel').addEventListener('click', function() {
+      overlay.remove();
+      resolve('');
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) {
+        overlay.remove();
+        resolve('');
+      }
+    });
+  });
+}
+
+// [P0-3] Day 11 真心话单轮处理（3轮制：轻度→中度→深度，每轮4人）
+async function handleTruthRound(opt) {
+  var ts = GS.truthState;
+  var levelNames = { light: '轻度', medium: '中度', deep: '深度' };
+  var currentLevel = ts.round === 1 ? 'light' : ts.round === 2 ? 'medium' : 'deep';
+  var drawerId = ts.drawerOrder[ts.subRound - 1];
+  var isHeroineTurn = (drawerId === 'heroine');
+
+  // 从当前难度卡池抽取问题卡
+  var card = null;
+  if (ts.levelMap[currentLevel] && ts.levelMap[currentLevel].length > 0) {
+    card = ts.levelMap[currentLevel].shift();
+    ts.usedCards.push(card);
+  }
+
+  var playerAnswer = '';
+
+  if (isHeroineTurn && opt.text.indexOf('回答') >= 0) {
+    // 女主选择如实回答：弹出输入框
+    playerAnswer = await showTruthAnswerModal();
+    if (!playerAnswer) return; // 用户取消
+  }
+
+  if (opt.text.indexOf('喝酒') >= 0) {
+    // 记录喝酒
+    if (!GS.drinkCounts[drawerId]) GS.drinkCounts[drawerId] = 0;
+    GS.drinkCounts[drawerId]++;
+    if (!GS.drunkTrigger && GS.drinkCounts[drawerId] >= 2) {
+      GS.drunkTrigger = drawerId;
+      ts.drunkDeclared = true;
+    }
+  }
+
+  // 推进轮次
+  ts.subRound++;
+  if (ts.subRound > 4) {
+    // 当前轮（难度）的4人已结束，进入下一轮（下一个难度）
+    ts.round++;
+    ts.subRound = 1;
+  }
+
+  // 检查是否结束真心话（3轮 × 4人 = 12人次完成）
+  if (ts.round > 3) {
+    ts.active = false;
+  }
+
+  saveGame();
+
+  // 生成真心话剧情（复用 consequence 机制）
+  showLoading('正在生成真心话剧情...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('consequence', {
+      choiceText: opt.text,
+      truthRound: ts.round,
+      truthSubRound: ts.subRound,
+      truthLevel: currentLevel,
+      truthCard: card,
+      truthDrawer: drawerId,
+      truthAnswer: playerAnswer
+    });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.consequence);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.todayFullText.push(rawText);
+    saveGame();
+    renderAll();
+
+    // 真心话结束后显示"进入深夜"按钮
+    if (!ts.active) {
+      GS.currentOptions = [{ label: '▶', text: '▶ 真心话结束，进入深夜' }];
+      saveGame();
+      renderAll();
+    }
+  } catch (e) {
+    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+async function handleOptionChoice(opt) {
+  // [P0-3] 真心话结束后进入深夜
+  if (opt.text.indexOf('进入深夜') >= 0 || opt.text.indexOf('真心话结束') >= 0 || opt.text.indexOf('X已回房间') >= 0) {
+    await advancePhase();
+    return;
+  }
+
+  if (GS.day === 12 && (opt.text.indexOf('选择') >= 0 || opt.text.indexOf('复合') >= 0 || opt.text.indexOf('换乘') >= 0)) {
+    await handleFinalChoice(opt);
+    return;
+  }
+
+  // [P0-3] Day 11 真心话模式：完全独立处理
+  if (GS.truthState && GS.truthState.active) {
+    await handleTruthRound(opt);
+    return;
+  }
+
+  // [P0-3] Day 11 醉酒剧情选项处理
+  if (GS.day === 11 && GS.drunkTrigger) {
+    // 女主醉酒：需要选人的选项
+    if (GS.drunkTrigger === 'heroine' &&
+        (opt.text.indexOf('照顾') >= 0 || opt.text.indexOf('阳台') >= 0 || opt.text.indexOf('客厅') >= 0)) {
+      showDrunkMemberSelectModal(opt.text);
+      return;
+    }
+    // 女主醉酒：和X单独对话（直接触发）
+    if (GS.drunkTrigger === 'heroine' && opt.text.indexOf('X') >= 0) {
+      await generateDrunkConsequence(opt.text, GS.secretX);
+      return;
+    }
+    // X醉酒或攻略对象醉酒：直接生成后续
+    if (GS.drunkTrigger !== 'heroine') {
+      await generateDrunkConsequence(opt.text, GS.drunkTrigger);
+      return;
+    }
+  }
+
+  // Day 11 不限制选项次数（非真心话的普通剧情）
+  var isDay11 = GS.day === 11;
+  if (!isDay11 && GS.phaseChoiceCount >= MAX_PHASE_CHOICES) {
+    alert('⚠️ 本时段选项次数已用完，请进入下一时段。');
+    return;
+  }
+
+  if (!GS.aiEnabled) {
+    alert('⚠️ AI 未启用，请先启用 AI。');
+    return;
+  }
+
+  showLoading('正在生成后续剧情...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('consequence', { choiceText: opt.text });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.consequence);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.phaseChoiceCount++;
+    if (!isDay11 && GS.phaseChoiceCount >= MAX_PHASE_CHOICES) parsed.options = [];
+    GS.currentOptions = parsed.options;
+    GS.isInConsequence = true;
+    GS.todayFullText.push(rawText);
+    triggerAffectionFromChoice(opt.text);
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+// ==================== Day 12 双向选择 ====================
+function determineMemberChoice(memberId) {
+  var aff = GS.affection[memberId] || 0;
+  if (memberId === GS.secretX) {
+    if (aff >= 60) return '选择了你（复合·他还爱着你）';
+    if (aff >= 45) return '选择了你（复合·但内心仍有犹豫）';
+    if (aff >= 30) return '选择了你（复合·更多是习惯和不舍）';
+    if (aff >= 15) return '选择了回到过去（但表示"已经回不去了"）';
+    return '选择了独自离开（他放下了）';
+  }
+  if (aff >= 60) return '选择了你（换乘·真心被你吸引）';
+  if (aff >= 45) return '选择了你（换乘·但还在整理对前任的感情）';
+  if (aff >= 30) return '选择了回到前任身边';
+  if (aff >= 15) return '选择了独自离开';
+  return '选择了独自离开';
+}
+
+function getEndingType(chosenId, memberChoices) {
+  var chosenChoice = '';
+  for (var i = 0; i < memberChoices.length; i++) {
+    if (memberChoices[i].id === chosenId) {
+      chosenChoice = memberChoices[i].choice;
+      break;
+    }
+  }
+  if (chosenChoice.indexOf('选择了你') >= 0) {
+    return chosenId === GS.secretX ? '复合成功 ❤️' : '换乘成功 ❤️';
+  }
+  return '独自离开 💔';
+}
+
+async function handleFinalChoice(opt) {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var xMember = members.find(function(m) { return m.id === GS.secretX; });
+  var otherMembers = members.filter(function(m) { return m.id !== GS.secretX; });
+  var chosenId = '';
+
+  if (opt.text.indexOf(xMember.name) >= 0) {
+    chosenId = GS.secretX;
+  } else {
+    for (var i = 0; i < otherMembers.length; i++) {
+      if (opt.text.indexOf(otherMembers[i].name) >= 0) {
+        chosenId = otherMembers[i].id;
+        break;
+      }
+    }
+  }
+
+  var memberChoices = [];
+  for (var j = 0; j < members.length; j++) {
+    memberChoices.push({
+      id: members[j].id,
+      name: members[j].name,
+      choice: determineMemberChoice(members[j].id)
+    });
+  }
+
+  var chosenMember = members.find(function(m) { return m.id === chosenId; });
+  var endingType = getEndingType(chosenId, memberChoices);
+  var chosenMemberChoice = '';
+  for (var k = 0; k < memberChoices.length; k++) {
+    if (memberChoices[k].id === chosenId) {
+      chosenMemberChoice = memberChoices[k].choice;
+      break;
+    }
+  }
+
+  var isMutual = chosenMemberChoice.indexOf('选择了你') >= 0;
+  GS.finalChoice = isMutual ?
+    ('你选择了 ' + chosenMember.name + '，' + chosenMember.name + '也选择了你 —— ' + endingType) :
+    ('你选择了 ' + chosenMember.name + '，但' + chosenMember.name + chosenMemberChoice + ' —— ' + endingType);
+
+  if (!GS.aiEnabled) {
+    GS.gameOver = true;
+    saveGame();
+    renderAll();
+    return;
+  }
+
+  showLoading('正在生成最终结局...');
+  try {
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('finalResult', {
+      choiceText: GS.finalChoice,
+      memberChoices: memberChoices
+    });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.finalResult);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.currentOptions = [];
+    GS.gameOver = true;
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ 结局生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+async function handleFreeAction(actionText) {
+  if (GS.smsSentToday && GS.phaseIndex === 3) {
+    if (GS.stayCount >= MAX_STAY_COUNT) {
+      alert('⚠️ 今日继续次数已用完（' + MAX_STAY_COUNT + '/' + MAX_STAY_COUNT + '），请进入下一天。');
+      return;
+    }
+    GS.stayCount++;
+  }
+  var isDay11 = GS.day === 11;
+  if (!isDay11 && GS.phaseChoiceCount >= MAX_PHASE_CHOICES) {
+    alert('⚠️ 本时段选项次数已用完，请进入下一时段。');
+    return;
+  }
+
+  if (!GS.aiEnabled) {
+    alert('⚠️ AI 未启用，请先启用 AI。');
+    return;
+  }
+
+  showLoading('正在按你的行动生成剧情...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('freeAction', { actionText: actionText });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.freeAction);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.phaseChoiceCount++;
+    if (!isDay11 && GS.phaseChoiceCount >= MAX_PHASE_CHOICES) parsed.options = [];
+    GS.currentOptions = parsed.options;
+    GS.isInConsequence = true;
+    GS.todayFullText.push(rawText);
+    triggerAffectionFromChoice(actionText);
+    GS.freeInput = '';
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+function triggerAffectionFromChoice(choiceText) {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var targetMember = null;
+  for (var i = 0; i < members.length; i++) {
+    if (choiceText.indexOf(members[i].name) >= 0) {
+      targetMember = members[i];
+      break;
+    }
+  }
+  if (!targetMember) targetMember = members[Math.floor(Math.random() * members.length)];
+
+  var delta = randInt(2, 4);
+  updateAffection(targetMember.id, delta);
+  addAffectionLog(targetMember.id, delta, '你选择了与' + targetMember.name + '相关的行动');
+
+  // 未选中者 -1
+  var otherMembers = members.filter(function(m) { return m.id !== targetMember.id; });
+  for (var j = 0; j < otherMembers.length; j++) {
+    updateAffection(otherMembers[j].id, -1);
+    addAffectionLog(otherMembers[j].id, -1, '未选中');
+  }
+}
+
+async function handleRegenerate() {
+  if (!GS.aiEnabled) {
+    alert('⚠️ AI 未启用，请先启用 AI。');
+    return;
+  }
+
+  if (GS.consequenceNarratives.length > 0) {
+    var last = GS.consequenceNarratives.pop();
+    popTodayFullText();
+    GS.prevSummary = last && last.rawText ? last.rawText.slice(0, 200) : '';
+    GS.prevRawText = last && last.rawText ? last.rawText : '';
+    if (GS.consequenceNarratives.length === 0) {
+      GS.currentOptions = GS.parsedNarrative.options;
+      GS.isInConsequence = false;
+      saveGame();
+      renderAll();
+    } else {
+      GS.currentOptions = GS.consequenceNarratives[GS.consequenceNarratives.length - 1].parsed.options;
+      saveGame();
+      renderAll();
+    }
+  } else {
+    var oldRaw = GS.phaseNarrative;
+    GS.prevSummary = oldRaw ? oldRaw.slice(0, 200) : '';
+    GS.prevRawText = oldRaw || '';
+    popTodayFullText();
+    await generatePhaseNarrative();
+  }
+}
+
+async function advancePhase() {
+  if (GS.dayCompleted) return;
+  if (GS.phaseIndex < 3) {
+    GS.phaseIndex++;
+    resetPhaseState();
+    saveGame();
+    renderAll();
+    await generatePhaseNarrative();
+  } else {
+    await goToNextDay();
+  }
+}
+
+function resetPhaseState() {
+  GS.phaseNarrative = '';
+  GS.parsedNarrative = {
+    narrative: '', directorOS: '', observerOS: '',
+    interviews: [], memberInterviews: [], xInterviews: [], options: []
+  };
+  GS.consequenceNarratives = [];
+  GS.currentOptions = [];
+  GS.isInConsequence = false;
+  GS.smsSentToday = false;
+  GS.smsTarget = '';
+  GS.smsDrafts = [];
+  GS.stayCount = 0;
+  GS.phaseChoiceCount = 0;
+  GS.freeInput = '';
+  GS.prevSummary = '';
+  GS.prevRawText = '';
+  GS.pendingDatingResult = null;
+  GS.day10ChosenDate = null;
+  GS.todayRandomEventTriggered = false; // [P1-5] 新的一天重置
+}
+
+async function goToNextDay() {
+  if (GS.day >= 12) {
+    if (GS.currentOptions.length > 0 && GS.currentOptions[0].text.indexOf('选择') >= 0) return;
+    GS.gameOver = true;
+    GS.finalChoice = '（请在最终选项中选择）';
+    saveGame();
+    renderAll();
+    return;
+  }
+
+  showLoading('正在压缩今日记忆...');
+  var summary = await compressTodayToSummary();
+  hideLoading();
+  if (summary) {
+    var promises = extractPendingPromises(summary);
+    var revealed = extractRevealedInfo(summary);
+    // 使用非模态面板
+    GS.pendingMemoryReview = {
+      day: GS.day,
+      summary: summary,
+      promises: promises,
+      revealed: revealed
+    };
+    saveGame();
+    renderAll();
+  } else {
+    proceedToNextDay();
+  }
+}
+
+async function proceedToNextDay() {
+  GS.dailyFullTexts.push(GS.todayFullText.slice());
+
+  // [P0-2] 约会后获得小礼物（Day 4 / Day 8）
+  if ((GS.day === 4 || GS.day === 8) && GS.currentDatingPartner) {
+    var tmpl = GIFT_TEMPLATES[Math.floor(Math.random() * GIFT_TEMPLATES.length)];
+    GS.gifts.push({
+      id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      type: tmpl.type,
+      name: tmpl.name,
+      desc: tmpl.desc,
+      fromDay: GS.day,
+      fromPartner: GS.currentDatingPartner
+    });
+  }
+
+  // 清理未完成的秘密任务
+  if (GS.secretMission && GS.secretMission.status === 'active') {
+    GS.secretMission.status = 'failed';
+    GS.secretMissionHistory.push(JSON.parse(JSON.stringify(GS.secretMission)));
+    GS.secretMission = null;
+  }
+
+  GS.observerGuestPrevious = GS.observerGuest.split('（')[0];
+  GS.day++;
+  GS.phaseIndex = 0;
+  GS.stayCount = 0;
+  GS.todayFullText = [];
+  GS._todayCompressedSummary = '';
+  GS.observerGuest = '';
+  GS.currentDatingPartner = null;
+  GS.datingDiceResult = null;
+  GS.pendingMemoryReview = null;
+  GS.drunkTrigger = null;
+  resetPhaseState();
+  saveGame();
+  renderAll();
+
+  if (GS.aiEnabled && GS.dailySummaries.length > 0) {
+    var lastSummary = GS.dailySummaries[GS.dailySummaries.length - 1];
+    showImagePromptModal(lastSummary);
+  } else {
+    if (GS.day === 10) showDay10DatingModal();
+    else await generatePhaseNarrative();
+  }
+}
+
+// ==================== 每日插图提示词弹窗 ====================
+async function showImagePromptModal(summaryText) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var promptText = '正在生成画面描述...';
+  var inner = '<div class="modal-content" style="text-align:center">' +
+    '<h3>📸 Day ' + GS.day + ' 剧情插图</h3>' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">以下画面描述可复制到即梦、通义万相、Midjourney等工具生成插图。<br>建议上传对应成员的真人照片作为参考图。</p>' +
+    '<textarea id="imagePromptText" style="min-height:120px;font-size:12px;text-align:left" readonly>' + escHtml(promptText) + '</textarea>' +
+    '<button class="btn-copy" id="imgCopyBtn">📋 一键复制</button>' +
+    '<button class="btn-confirm" id="imgSkipBtn" style="background:linear-gradient(135deg,#e91e63,#f06292);margin-top:6px">✅ 跳过，进入 Day ' + GS.day + '</button>' +
+    '</div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  if (GS.aiEnabled) {
+    try {
+      var hp = GS.heroineProfile;
+      var members = GS.selectedMembers.map(function(id) {
+        return MEMBERS.find(function(m) { return m.id === id; });
+      });
+      var memberAppearances = members.map(function(m) {
+        return m.name + '——' + m.appearance;
+      }).join('；');
+      var imgPrompt = await callDeepSeek(
+        '你是图像提示词生成助手。基于以下恋爱综艺剧情摘要，生成一条中文画面描述（用于AI图片生成工具如即梦、通义万相）。\n要求：\n- 描述今日最有画面感的一个场景\n- 包含女主外貌特征（' + hp.appearance.join('、') + '）\n- 包含涉及成员的外貌特征\n- 韩剧电影感美学，暖色调，浅景深\n- 不超过80字\n- 只输出描述本身，不加任何说明',
+        '今日剧情摘要：' + summaryText + '\n\n成员外貌参考：' + memberAppearances + '\n\n请生成中文画面描述。',
+        TOKEN_CONFIG.imagePrompt
+      );
+      var ta = document.getElementById('imagePromptText');
+      if (ta) ta.value = imgPrompt.trim();
+    } catch (e) {
+      var ta = document.getElementById('imagePromptText');
+      if (ta) ta.value = '（生成失败，请手动描述你想要的画面）';
+    }
+  }
+
+  overlay.querySelector('#imgCopyBtn').addEventListener('click', function() {
+    var ta = document.getElementById('imagePromptText');
+    if (ta) {
+      ta.select();
+      try {
+        navigator.clipboard.writeText(ta.value);
+        alert('✅ 已复制到剪贴板！');
+      } catch (e) {
+        alert('⚠️ 复制失败，请手动选择复制。');
+      }
+    }
+  });
+
+  overlay.querySelector('#imgSkipBtn').addEventListener('click', function() {
+    overlay.remove();
+    if (GS.day === 10) showDay10DatingModal();
+    else generatePhaseNarrative();
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+// ==================== 骰子弹窗 ====================
+function showDatingDiceModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content" style="text-align:center">' +
+    '<h3>🎲 Day ' + GS.day + ' · 约会配对</h3>' +
+    '<p style="color:#8b6b6b;font-size:13px;margin-bottom:14px">投出骰子，决定今天的约会对象</p>' +
+    '<div class="dice-area">' +
+    '<div class="dice-box" id="diceBox">?</div>' +
+    '<p class="dice-result hidden" id="diceResult"></p>' +
+    '</div>' +
+    '<button class="btn-confirm" id="diceRollBtn" style="max-width:200px;margin:0 auto">🎲 投骰子</button>' +
+    '<button class="btn-confirm hidden" id="diceConfirmBtn" style="max-width:200px;margin:8px auto 0">✅ 确认，开始约会</button>' +
+    '</div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  var diceRolled = false;
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay && !diceRolled) overlay.remove();
+  });
+
+  overlay.querySelector('#diceRollBtn').addEventListener('click', function() {
+    this.disabled = true;
+    var diceBox = document.getElementById('diceBox');
+    diceBox.classList.add('rolling');
+
+    setTimeout(function() {
+      var result = rollDatingDice();
+      diceBox.classList.remove('rolling');
+      diceBox.textContent = result.roll;
+      GS.datingDiceResult = result;
+
+      var dateMember = MEMBERS.find(function(m) { return m.id === result.partner; });
+      var resultEl = document.getElementById('diceResult');
+      resultEl.innerHTML = '🎲 骰子点数 <strong>' + result.roll + '</strong> → 约会对象：<strong>' +
+        dateMember.emoji + ' ' + dateMember.name + '</strong><br>' +
+        '<span style="font-size:12px;color:#8b6b6b">命运选择了' + dateMember.name + '作为你今天的约会对象</span>';
+      resultEl.classList.remove('hidden');
+
+      document.getElementById('diceConfirmBtn').classList.remove('hidden');
+      diceRolled = true;
+      saveGame();
+    }, 600);
+  });
+
+  overlay.querySelector('#diceConfirmBtn').addEventListener('click', async function() {
+    overlay.remove();
+    await generatePhaseNarrative();
+  });
+}
+
+// ==================== Day 10 约会选择弹窗 ====================
+function showDay10DatingModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>👆 Day 10 · 指定约会对象</h3>' +
+    '<p style="color:#8b6b6b;font-size:12px;margin-bottom:12px">今天是自由约会日——由你来指定跟谁约会。请选择：</p>' +
+    '<div class="sms-target-options">';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var isX = m.id === GS.secretX;
+    inner += '<button class="sms-target-btn" data-id="' + m.id + '" style="font-size:15px;padding:14px">' +
+      m.emoji + ' ' + m.name + '（' + m.stageName + '）' + (isX ? ' 💔' : '') + '</button>';
+  }
+  inner += '</div></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var chosenId = this.dataset.id;
+      overlay.remove();
+      GS.day10ChosenDate = chosenId;
+      saveGame();
+      await generatePhaseNarrative();
+    });
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+// ==================== 短信系统 ====================
+async function sendSms(targetId, smsContent) {
+  var targetMember = MEMBERS.find(function(m) { return m.id === targetId; });
+  GS.smsSentToday = true;
+  GS.smsTarget = targetId;
+  GS.smsDrafts = [];
+  GS.smsHistory.push({
+    day: GS.day,
+    target: targetId,
+    name: targetMember.name,
+    content: smsContent
+  });
+
+  updateAffection(targetId, 5);
+  addAffectionLog(targetId, 5, '你发送了心动短信给' + targetMember.name);
+
+  // 未收到短信者 -1
+  var otherIds = GS.selectedMembers.filter(function(id) { return id !== targetId; });
+  for (var i = 0; i < otherIds.length; i++) {
+    updateAffection(otherIds[i], -1);
+    addAffectionLog(otherIds[i], -1, '未收到短信');
+  }
+
+  if (!GS.aiEnabled) {
+    saveGame();
+    renderAll();
+    return;
+  }
+
+  showLoading('正在发送短信...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('sms', {
+      targetName: targetMember.name,
+      smsContent: smsContent
+    });
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.sms);
+    var parsed = parseNarrative(rawText);
+    parsed.options = [];
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.currentOptions = [];
+    GS.todayFullText.push(rawText);
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ 短信生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+async function continueToday() {
+  if (GS.stayCount >= MAX_STAY_COUNT) {
+    alert('⚠️ 今日继续次数已用完（' + MAX_STAY_COUNT + '/' + MAX_STAY_COUNT + '）。');
+    return;
+  }
+  GS.stayCount++;
+
+  if (!GS.aiEnabled) {
+    alert('⚠️ AI 未启用，请先启用 AI。');
+    return;
+  }
+
+  showLoading('正在生成延伸剧情...');
+  try {
+    await compressTodayForInjection();
+    var sysPrompt = buildSystemPrompt();
+    var userMsg = buildUserMessage('stay');
+    var rawText = await callDeepSeek(sysPrompt, userMsg, TOKEN_CONFIG.stay);
+    var parsed = parseNarrative(rawText);
+    GS.consequenceNarratives.push({ rawText: rawText, parsed: parsed });
+    GS.currentOptions = parsed.options;
+    GS.todayFullText.push(rawText);
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+  }
+  hideLoading();
+}
+
+// ==================== 弹窗 ====================
+function showSmsModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var isEarlyGame = GS.day <= 7;
+  var availableMembers = isEarlyGame ?
+    members.filter(function(m) { return m.id !== GS.secretX; }) :
+    members;
+  var drafts = GS.smsDrafts.length > 0 ? GS.smsDrafts : [
+    '今天和你聊天很开心。',
+    '谢谢你今天的陪伴。',
+    '晚安，明天见。'
+  ];
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  // [FIX-10.2] 手机聊天界面样式
+  var phoneStyle = 'background:#1a1a1a;border-radius:28px;padding:10px;width:360px;max-width:94vw;margin:0 auto;box-shadow:0 12px 40px rgba(0,0,0,0.35);';
+  var screenStyle = 'background:#f5f5f7;border-radius:20px;overflow:hidden;height:540px;display:flex;flex-direction:column;';
+  var notchStyle = 'background:#1a1a1a;height:22px;border-radius:20px 20px 0 0;display:flex;justify-content:center;align-items:flex-end;padding-bottom:3px;';
+  var chatAreaStyle = 'flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;';
+  var bubbleRight = 'background:linear-gradient(135deg,#f06292,#e91e63);color:#fff;padding:8px 12px;border-radius:16px 16px 4px 16px;font-size:13px;align-self:flex-end;max-width:78%;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(233,30,99,0.2);line-height:1.4;';
+  var bubbleLeft = 'background:#e8e8e8;color:#333;padding:8px 12px;border-radius:16px 16px 16px 4px;font-size:13px;align-self:flex-start;max-width:78%;line-height:1.4;';
+  var bottomStyle = 'padding:10px;border-top:1px solid #e0e0e0;background:#fff;';
+
+  var todaySms = GS.smsHistory.filter(function(s) { return s.day === GS.day; });
+
+  var inner = '<div style="' + phoneStyle + '">' +
+    '<div style="' + screenStyle + '">' +
+    '<div style="' + notchStyle + '"><span style="color:#fff;font-size:10px;letter-spacing:1px;">💌 心动短信</span></div>' +
+    '<div style="padding:6px 0;text-align:center;border-bottom:1px solid #eee;background:#fff;">' +
+    '<span style="font-size:12px;color:#c2185b;font-weight:600;">' + (isEarlyGame ? 'Day 1-7 · 不能发给X' : 'Day 8-11 · 可以发给X') + '</span></div>';
+
+  // 聊天区域
+  inner += '<div style="' + chatAreaStyle + '" id="smsChatArea">';
+
+  // 今天的历史短信（已发送的显示在右侧，带接收者名字）
+  for (var i = todaySms.length - 1; i >= 0; i--) {
+    var s = todaySms[i];
+    inner += '<div style="' + bubbleRight + 'opacity:0.6;">' + escHtml(s.content) +
+      '<div style="font-size:10px;opacity:0.85;text-align:right;margin-top:2px;">→ ' + escHtml(s.name) + '</div></div>';
+  }
+
+  // 草稿消息气泡
+  inner += '<div style="font-size:10px;color:#999;text-align:center;margin:4px 0;">— 选择一条发送 —</div>';
+  for (var j = 0; j < drafts.length; j++) {
+    inner += '<div class="sms-draft-bubble" data-idx="' + j + '" style="' + bubbleRight + 'opacity:0.75;">' + escHtml(drafts[j]) + '</div>';
+  }
+
+  inner += '</div>'; // 结束聊天区域
+
+  // 底部输入和联系人
+  inner += '<div style="' + bottomStyle + '">' +
+    '<textarea id="smsCustomInput" placeholder="或自己写一条..." style="width:100%;border:1.5px solid #e8c8c8;border-radius:12px;padding:8px;font-size:12px;resize:none;height:40px;outline:none;font-family:inherit;"></textarea>' +
+    '<div style="display:flex;gap:5px;justify-content:center;margin-top:8px;flex-wrap:wrap;">';
+  for (var k = 0; k < availableMembers.length; k++) {
+    var m = availableMembers[k];
+    inner += '<button class="sms-target-btn" data-id="' + m.id + '" style="padding:6px 10px;border-radius:14px;border:1.5px solid #e8c8c8;background:#fff5f5;cursor:pointer;font-size:12px;font-weight:600;color:#5d3a3a;transition:all .2s;">' +
+      m.emoji + ' ' + m.name + '</button>';
+  }
+  inner += '</div></div></div></div>';
+
+  overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;">' + inner + '</div>';
+  document.body.appendChild(overlay);
+
+  // 交互逻辑
+  var selectedDraft = '';
+  var selectedBubble = null;
+
+  overlay.querySelectorAll('.sms-draft-bubble').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      overlay.querySelectorAll('.sms-draft-bubble').forEach(function(b) {
+        b.style.opacity = '0.55';
+        b.style.transform = 'none';
+        b.style.boxShadow = '0 1px 3px rgba(233,30,99,0.2)';
+      });
+      this.style.opacity = '1';
+      this.style.transform = 'scale(1.03)';
+      this.style.boxShadow = '0 3px 10px rgba(233,30,99,0.35)';
+      selectedDraft = drafts[parseInt(this.dataset.idx)];
+      selectedBubble = this;
+    });
+  });
+
+  // 默认选中第一条草稿
+  var firstBubble = overlay.querySelector('.sms-draft-bubble');
+  if (firstBubble) firstBubble.click();
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var customText = (document.getElementById('smsCustomInput') || {}).value || '';
+      var finalText = customText.trim() || selectedDraft;
+      if (!finalText) {
+        alert('请选择短信草稿或输入自定义内容');
+        return;
+      }
+      var targetId = this.dataset.id;
+
+      // 发送动画：选中的气泡上浮并淡出
+      if (selectedBubble) {
+        selectedBubble.style.transition = 'all 0.5s cubic-bezier(0.4,0,0.2,1)';
+        selectedBubble.style.transform = 'translateY(-30px) scale(0.9)';
+        selectedBubble.style.opacity = '0.3';
+      }
+      this.style.background = '#e91e63';
+      this.style.color = '#fff';
+      this.style.borderColor = '#e91e63';
+
+      setTimeout(function() {
+        overlay.remove();
+      }, 450);
+
+      await sendSms(targetId, finalText);
+    });
+  });
+}
+
+function showXArchiveModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var xMember = members.find(function(m) { return m.id === GS.secretX; });
+  var otherMembers = members.filter(function(m) { return m.id !== GS.secretX; });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>📋 X 关系档案</h3>' +
+    '<p><span class="x-member-name">💔 ' + escHtml(GS.heroineProfile.name) + ' ↔ ' +
+    escHtml(xMember.name) + '（' + escHtml(xMember.stageName) + '）· 场内X</span></p>' +
+    '<p>' + (GS.xBackstory || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+    '<hr style="border-color:#f0d0d0;margin:10px 0">';
+  for (var i = 0; i < otherMembers.length; i++) {
+    var om = otherMembers[i];
+    inner += '<p><span class="x-member-name">' + om.emoji + ' ' +
+      escHtml(om.name) + '（' + escHtml(om.stageName) + '）↔ 场外X（女性）</span></p>' +
+      '<p>' + (GS.memberXBackstories[om.id] || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+      '<hr style="border-color:#f0d0d0;margin:10px 0">';
+  }
+  inner += '<button class="modal-close" id="xArchiveClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#xArchiveClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// [P2-7] X 记忆物品展示弹窗
+function showXItemsModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>📦 X 记忆物品</h3>' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">制作组公开了以下与X相关的记忆物品：</p>';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var items = GS.xItems[m.id];
+    if (items) {
+      inner += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:8px">' +
+        '<p style="font-weight:700;font-size:14px;margin-bottom:4px">' + m.emoji + ' ' + escHtml(m.name) + '</p>' +
+        '<p style="font-size:12px;color:#5d3a3a;white-space:pre-wrap">' + escHtml(items).replace(/\n/g, '<br>') + '</p></div>';
+    }
+  }
+  inner += '<button class="modal-close" id="xItemsClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#xItemsClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+function showSmsHistoryModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>📜 短信历史</h3>';
+  if (GS.smsHistory.length === 0) {
+    inner += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无已发送的短信</p>';
+  } else {
+    for (var i = GS.smsHistory.length - 1; i >= 0; i--) {
+      var sms = GS.smsHistory[i];
+      inner += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:8px">' +
+        '<p style="font-size:11px;color:#8b6b6b;margin-bottom:4px">Day ' + sms.day + ' · 发给 <strong>' +
+        escHtml(sms.name) + '</strong></p>' +
+        '<p style="font-size:13px;color:#5d3a3a">' + escHtml(sms.content) + '</p></div>';
+    }
+  }
+  inner += '<button class="modal-close" id="smsHistoryClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#smsHistoryClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// [P0-2] 小礼物面板
+function showGiftPanel() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content"><h3>🎁 小礼物</h3>';
+  if (GS.gifts.length === 0) {
+    inner += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无礼物</p>';
+  } else {
+    inner += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px">选择一份礼物送给谁：</p>';
+    for (var i = 0; i < GS.gifts.length; i++) {
+      var g = GS.gifts[i];
+      inner += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:8px">' +
+        '<p style="font-weight:700;font-size:13px;margin-bottom:4px">' + escHtml(g.name) + '</p>' +
+        '<p style="font-size:11px;color:#8b6b6b;margin-bottom:6px">' + escHtml(g.desc) + '</p>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      for (var j = 0; j < members.length; j++) {
+        var m = members[j];
+        inner += '<button class="sms-target-btn" data-gift-idx="' + i + '" data-member-id="' + m.id + '">' +
+          m.emoji + ' ' + m.name + '</button>';
+      }
+      inner += '</div></div>';
+    }
+  }
+  inner += '<button class="modal-close" id="giftPanelClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#giftPanelClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+
+  overlay.querySelectorAll('[data-gift-idx]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var giftIdx = parseInt(this.dataset.giftIdx);
+      var memberId = this.dataset.memberId;
+      overlay.remove();
+      await sendGift(memberId, giftIdx);
+    });
+  });
+}
+
+async function sendGift(memberId, giftIdx) {
+  var gift = GS.gifts[giftIdx];
+  if (!gift) return;
+  var member = MEMBERS.find(function(m) { return m.id === memberId; });
+  if (!member) return;
+
+  showLoading('正在生成送礼剧情...');
+  try {
+    var sysPrompt = '你是《换乘恋爱》的短篇剧情生成AI。请根据以下信息，写一段约300字的送礼反应剧情。' +
+      '女主把「' + gift.name + '」送给了' + member.name + '。' +
+      '写出他的即时反应、对话、以及女主的感受。' +
+      '只输出正文，不要写选项、不要写采访间、不要写导演OS、不要写观察员OS。';
+    var reaction = await callDeepSeek(sysPrompt, '生成送礼剧情', 800);
+
+    // 追加到当前叙事
+    GS.phaseNarrative += '\n\n🎁 【送礼剧情】\n' + reaction;
+    var parsed = parseNarrative(GS.phaseNarrative);
+    GS.parsedNarrative = parsed;
+    GS.currentOptions = parsed.options;
+
+    // 好感度
+    var bonus = 5;
+    if (gift.type === 'food' && (member.id === 'mingyu' || member.id === 'dk')) bonus += 3;
+    updateAffection(memberId, bonus);
+    addAffectionLog(memberId, bonus, '收到礼物「' + gift.name + '」');
+
+    // 未收到礼物的成员 -1
+    var otherMembers = GS.selectedMembers.filter(function(id) { return id !== memberId; });
+    for (var i = 0; i < otherMembers.length; i++) {
+      updateAffection(otherMembers[i], -1);
+      addAffectionLog(otherMembers[i], -1, '看到你送了礼物给别人');
+    }
+
+    // 移除已使用的礼物
+    GS.gifts.splice(giftIdx, 1);
+    saveGame();
+    renderAll();
+  } catch (e) {
+    alert('⚠️ 送礼剧情生成失败：' + e.message);
+  }
+  hideLoading();
+}
+
+// [P1-4] 非阻塞 Toast 提示
+function showToast(message) {
+  var toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+    'background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;' +
+    'z-index:3000;opacity:0;transition:opacity .3s;box-shadow:0 2px 8px rgba(0,0,0,.2);';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(function() { toast.style.opacity = '1'; });
+  setTimeout(function() {
+    toast.style.opacity = '0';
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 2000);
+}
+
+// ==================== 历史剧情回顾面板 ====================
+function showHistoryModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  var inner = '<div class="modal-content" style="width:520px;max-width:98vw"><h3>📖 历史剧情回顾</h3>';
+
+  var totalDays = GS.dailyFullTexts.length;
+  if (totalDays === 0) {
+    inner += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无历史剧情（当前为 Day 1）</p>';
+  } else {
+    inner += '<div class="history-tabs" id="historyTabs">';
+    for (var d = 0; d < totalDays; d++) {
+      inner += '<button class="history-tab' + (d === totalDays - 1 ? ' active' : '') +
+        '" data-day="' + d + '">Day ' + (d + 1) + '</button>';
+    }
+    inner += '</div><div class="history-content" id="historyContent"></div>';
+  }
+
+  inner += '<button class="modal-close" id="historyClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  function showDayContent(dayIdx) {
+    var content = document.getElementById('historyContent');
+    if (!content) return;
+    var texts = GS.dailyFullTexts[dayIdx] || [];
+    var html = '';
+    for (var i = 0; i < texts.length; i++) {
+      var parsed = parseNarrative(texts[i]);
+      html += renderParsedNarrative(parsed);
+      if (i < texts.length - 1) html += '<div class="separator"></div>';
+    }
+    content.innerHTML = html;
+  }
+
+  if (totalDays > 0) showDayContent(totalDays - 1);
+
+  overlay.querySelectorAll('.history-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      overlay.querySelectorAll('.history-tab').forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+      showDayContent(parseInt(this.dataset.day));
+    });
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#historyClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// ==================== 规则速览面板 ====================
+function showHelpModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var xMember = members.find(function(m) { return m.id === GS.secretX; });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content" style="width:500px;max-width:98vw"><h3>❓ 规则速览</h3>' +
+    '<div style="font-size:12px;line-height:1.8;color:#5d3a3a">' +
+    '<p><strong>📅 当前：Day ' + GS.day + ' · ' + PHASE_LABELS[PHASES[GS.phaseIndex]] + '</strong></p>' +
+    '<p><strong>💔 你的X：</strong>' + xMember.emoji + ' ' + xMember.name + '（秘密恋爱2年，分手1年，团内无人知晓）</p>' +
+    '<p><strong>📨 短信规则：</strong>' + (GS.day <= 7 ? 'Day 1-7 不能发给X，可选另外2位成员' : 'Day 8-11 可以发给X，可选全部3位成员') + '</p>' +
+    '<p><strong>🎲 约会配对：</strong>Day 4/5/8 由你投骰子决定约会对象；Day 9 强制X约会；Day 10 由你指定</p>' +
+    '<p><strong>📋 关键日程：</strong></p>' +
+    '<p style="margin-left:12px">Day 1：入住 + 傍晚读X介绍信</p>' +
+    '<p style="margin-left:12px">Day 3：每人说一个故事</p>' +
+    '<p style="margin-left:12px">Day 4：第一次约会配对 + 第一批X记忆公开</p>' +
+    '<p style="margin-left:12px">Day 6：第二批X记忆公开</p>' +
+    '<p style="margin-left:12px">Day 9：X约会日（情感高潮）</p>' +
+    '<p style="margin-left:12px">Day 11：真心话环节</p>' +
+    '<p style="margin-left:12px">Day 12：最终选择（复合 or 换乘）</p>' +
+    '<p><strong>✍️ 选项限制：</strong>每时段最多选择' + MAX_PHASE_CHOICES + '次选项（含自由输入），超过后自动进入下一时段。Day 11 不限制。</p>' +
+    '<p><strong>🌙 继续今天：</strong>深夜短信后可继续' + MAX_STAY_COUNT + '次（含自由输入）</p>' +
+    (GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
+    '</div>' +
+    '<button class="modal-close" id="helpClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#helpClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// ==================== 好感度面板 ====================
+function showAffectionPanel() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content" style="width:480px;max-width:98vw"><h3>💕 好感度面板</h3>';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var aff = GS.affection[m.id] || 0;
+    var logs = GS.affectionLog[m.id] || [];
+    inner += '<div style="background:#fff5f5;border-radius:12px;padding:12px;margin-bottom:10px">' +
+      '<p style="font-weight:700;font-size:15px;margin-bottom:6px">' +
+      m.emoji + ' ' + m.name + ' <span style="font-size:18px">' + getAffectionDesc(aff) + '</span> ' +
+      '<span style="font-size:13px;color:#8b6b6b">' + aff + '</span></p>';
+    if (logs.length === 0) {
+      inner += '<p style="font-size:12px;color:#8b6b6b">（暂无变化记录）</p>';
+    } else {
+      var recentLogs = logs.slice(-3);
+      for (var j = recentLogs.length - 1; j >= 0; j--) {
+        var log = recentLogs[j];
+        var changeClass = log.change > 0 ? 'aff-change-pos' : 'aff-change-neg';
+        inner += '<div class="aff-log-item">Day ' + log.day + ' ' + log.phase + '：' +
+          '<span class="' + changeClass + '">' + (log.change > 0 ? '+' : '') + log.change + '</span> ' +
+          escHtml(log.reason) + ' <span class="aff-total">→ ' + log.total + '</span></div>';
+      }
+    }
+    inner += '</div>';
+  }
+  inner += '<button class="modal-close" id="affPanelClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#affPanelClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// ==================== 心动笔记面板 ====================
+function showHeartNotesModal() {
+  var members = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  });
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content" style="width:480px;max-width:98vw"><h3>📝 心动笔记</h3>' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">随着好感度提升和秘密任务完成，逐步解锁成员的隐藏细节。</p>';
+
+  var hasAnyNote = false;
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var notes = GS.heartNotes[m.id] || [];
+    var allTemplates = HEART_NOTE_TEMPLATES[m.id] || [];
+    if (notes.length > 0) hasAnyNote = true;
+    inner += '<div style="background:#fff5f5;border-radius:12px;padding:12px;margin-bottom:10px">' +
+      '<p style="font-weight:700;font-size:15px;margin-bottom:6px">' + m.emoji + ' ' + m.name + ' <span style="font-size:12px;color:#8b6b6b">（' + notes.length + '/' + allTemplates.length + '）</span></p>';
+    if (notes.length === 0) {
+      inner += '<p style="font-size:12px;color:#8b6b6b">（尚未解锁）</p>';
+    } else {
+      for (var j = 0; j < notes.length; j++) {
+        var note = notes[j];
+        inner += '<div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px;border-left:3px solid #e91e63">' +
+          '<p style="font-size:13px;color:#5d3a3a;margin:0">' + escHtml(note.text) + '</p>' +
+          '<p style="font-size:10px;color:#8b6b6b;margin-top:4px">解锁于 Day ' + (note.unlockedAt ? note.unlockedAt.day : '?') + ' · 任务「' + (note.unlockedAt ? escHtml(note.unlockedAt.mission) : '') + '」</p></div>';
+      }
+    }
+    inner += '</div>';
+  }
+
+  if (!hasAnyNote) {
+    inner += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">还没有解锁任何心动笔记。<br>完成秘密任务可以提升好感并解锁笔记。</p>';
+  }
+
+  if (GS.secretMissionUnlockFinal) {
+    inner += '<div style="background:linear-gradient(135deg,#fce4ec,#f8e8e8);border-radius:12px;padding:12px;margin-bottom:10px;border:2px solid #e91e63">' +
+      '<p style="font-weight:700;font-size:14px;color:#c2185b;margin-bottom:6px">💌 特殊解锁：X 的未寄出的信</p>' +
+      '<p style="font-size:12px;color:#5d3a3a;line-height:1.7">你在节目中完成了所有秘密任务，制作组在最后一天交给你一封信——是X在参加节目前写下的，从未寄出。<br><br>' +
+      '「我以为我已经放下了。但当我签下那份参加节目的同意书时，我知道我在骗自己。<br>我不知道你会不会来。我不知道你会选谁。<br>我只知道，如果这是最后一次能和你共处一室的机会，我不想错过。」</p></div>';
+  }
+
+  inner += '<button class="modal-close" id="heartNotesClose">关闭</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelector('#heartNotesClose').addEventListener('click', function() {
+    overlay.remove();
+  });
+}
+
+// ==================== 初始化 ====================
+function init() {
+  if (!loadGame()) {
+    GS = defaultGameState();
+    saveGame();
+  }
+  renderAll();
+}
+init();

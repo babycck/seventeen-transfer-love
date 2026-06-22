@@ -1,0 +1,10 @@
+{
+  "name": "换乘恋爱 × SEVENTEEN",
+  "short_name": "换乘恋爱",
+  "description": "AI 沉浸式恋爱综艺文字游戏",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fff0f0",
+  "theme_color": "#c2185b",
+  "orientation": "portrait"
+}

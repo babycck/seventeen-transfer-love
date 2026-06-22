@@ -1,0 +1,52 @@
+import { callDeepSeek } from './api.js';
+import { parseNarrative } from './parser.js';
+import { validateNarrative, formatCorrections } from './validator.js';
+import { dispatch } from './store.js';
+
+// 带自动重试的 AI 生成包装
+// 如果 validator 返回 error 级问题，自动重试一次并带修正反馈
+export async function generateWithRetry(sysPrompt, userMsg, opts) {
+  opts = opts || {};
+  var tokens = opts.tokens || 5000;
+  var temp = opts.temperature || 0.7;
+  var sceneType = opts.sceneType || 'phase';
+  var maxAttempts = opts.maxAttempts || 2;
+
+  var lastResult = null;
+
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    var raw = await callDeepSeek(sysPrompt, userMsg, tokens, true, temp, sceneType);
+    var parsed = parseNarrative(raw);
+    var corr = validateNarrative(raw, parsed);
+
+    // 分离 error 和 warning
+    var errors = corr.filter(function(c) { return c.severity === 'error'; });
+    var warnings = corr.filter(function(c) { return c.severity === 'warning'; });
+
+    // 推送 warning
+    if (warnings.length > 0) {
+      dispatch({ type: 'PUSH_CORRECTIONS', payload: { corrections: warnings } });
+    }
+
+    // 无 error，通过
+    if (errors.length === 0) {
+      return { raw: raw, parsed: parsed, corrections: corr, attempts: attempt + 1 };
+    }
+
+    // 有 error，带反馈重试
+    lastResult = { raw: raw, parsed: parsed, corrections: corr, attempts: attempt + 1 };
+
+    if (attempt < maxAttempts - 1) {
+      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' failed with ' + errors.length + ' error(s), retrying...');
+      userMsg += '\n\n' + formatCorrections(errors);
+      continue;
+    }
+  }
+
+  // 全部重试失败，接受最后一次结果
+  console.error('[ai-generator] all ' + maxAttempts + ' attempts failed');
+  if (lastResult) {
+    return lastResult;
+  }
+  return { raw: '', parsed: parseNarrative('{}'), corrections: [], attempts: maxAttempts };
+}

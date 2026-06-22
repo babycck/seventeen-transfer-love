@@ -1,0 +1,10 @@
+name = "seventeen-transfer-auth"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "你的_KV_NAMESPACE_ID"
+
+[vars]
+ADMIN_KEY = "你的管理员密钥_请修改"
