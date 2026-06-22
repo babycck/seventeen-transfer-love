@@ -16,6 +16,7 @@ export var API_PROVIDERS = {
     name: 'DeepSeek',
     endpoint: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
+    supportsJson: true,
     models: [
       { value: 'deepseek-chat', label: 'DeepSeek-V3' },
       { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro' }
@@ -30,6 +31,7 @@ export var API_PROVIDERS = {
     name: '硅基流动 (SiliconFlow)',
     endpoint: 'https://api.siliconflow.cn/v1',
     model: 'deepseek-ai/DeepSeek-V3',
+    supportsJson: false,
     models: [
       { value: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek-V3' },
       { value: 'deepseek-ai/DeepSeek-V4-Pro', label: 'DeepSeek-V4 Pro' },
@@ -47,6 +49,7 @@ export var API_PROVIDERS = {
     name: '千问 (Qwen)',
     endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen3.7-plus',
+    supportsJson: true,
     models: [
       { value: 'qwen3.7-plus', label: 'Qwen 3.7 Plus' },
       { value: 'qwen3.7-max-2026-05-17', label: 'Qwen 3.7 Max (2026-05-17)' },

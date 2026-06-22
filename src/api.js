@@ -410,7 +410,7 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
     temperature: (typeof temperature === 'number' ? temperature : 1)
   };
   // 剧情生成（JSON 模式）强制结构化，记忆压缩/送礼等自定义 prompt 仍用自然文本
-  if (useJson) requestBody.response_format = { type: 'json_object' };
+  if (useJson && cfg.supportsJson !== false) requestBody.response_format = { type: 'json_object' };
 
   var resp = await fetch(cfg.endpoint + '/chat/completions', {
     method: 'POST',
