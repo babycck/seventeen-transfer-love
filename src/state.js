@@ -5,7 +5,11 @@ import { clearStoryCache } from './story-cache.js';
 export var GS = null;
 
 export function setGS(newGS) {
-  Object.assign(GS, newGS);
+  if (GS === null) {
+    GS = newGS;
+  } else {
+    Object.assign(GS, newGS);
+  }
 }
 
 export function defaultGameState() {
