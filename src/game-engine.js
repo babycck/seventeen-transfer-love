@@ -1019,8 +1019,8 @@ export function showQuestionBoxAnswerModal() {
       '<textarea id="qbAnswerInput" style="width:100%;min-height:120px;border:1.5px solid #e0c0c0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;" placeholder="写下你的真实回答..."></textarea>' +
       '<div style="display:flex;gap:8px;margin-top:10px">' +
       '<button class="btn-confirm" id="qbSubmit" style="flex:1">提交回答</button>' +
-      '<button class="modal-close" id="qbCancel" style="flex:1">取消</button>' +
-      '</div></div>';
+      '</div>' +
+      '<button class="modal-close-x" id="qbCancel">✕</button></div>';
     overlay.innerHTML = inner;
     document.body.appendChild(overlay);
 
@@ -1167,6 +1167,7 @@ export function showReturnGiftModal(member, gift) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = '<div class="modal-content" style="text-align:center;max-width:360px">' +
+    '<button class="modal-close-x" id="returnGiftClose">✕</button>' +
     '<h3>🎁 收到回礼</h3>' +
     '<p style="font-size:36px;margin:12px 0">' + member.emoji + '</p>' +
     '<p style="font-size:15px;color:#5d3a3a;margin-bottom:4px">' + member.name + ' 送了你一份回礼</p>' +
@@ -1174,9 +1175,12 @@ export function showReturnGiftModal(member, gift) {
     '<p style="font-size:14px;font-weight:600;color:#c2185b;margin-bottom:6px">' + escHtml(gift) + '</p>' +
     '</div>' +
     '<p style="font-size:12px;color:#8b6b6b;margin-bottom:12px">好感度 +2</p>' +
-    '<button class="modal-close" id="returnGiftClose" style="padding:10px 32px">收下</button></div>';
+    '<button id="returnGiftAck" style="padding:10px 32px;border-radius:14px;border:none;background:#fce4ec;color:#c2185b;cursor:pointer;font-weight:600;font-size:14px">收下</button></div>';
   document.body.appendChild(overlay);
   overlay.querySelector('#returnGiftClose').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation(); overlay.remove();
+  });
+  overlay.querySelector('#returnGiftAck').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
   overlay.addEventListener('click', function(e) {
@@ -1189,6 +1193,7 @@ export function showMissionCardModal(card) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = '<div class="modal-content" style="max-width:380px;text-align:center;border:2px solid #c62828">' +
+    '<button class="modal-close-x" id="missionCardClose" style="color:#fff">✕</button>' +
     '<div style="background:#c62828;color:#fff;padding:16px;border-radius:10px 10px 0 0;margin:-16px -16px 16px -16px">' +
     '<p style="font-size:11px;letter-spacing:2px;opacity:0.8">制作组任务卡</p>' +
     '<p style="font-size:18px;font-weight:700;margin-top:4px">' + escHtml(card.name) + '</p>' +
@@ -1196,9 +1201,12 @@ export function showMissionCardModal(card) {
     '<div style="background:#fce4ec;border-radius:12px;padding:16px;margin:12px 0;border-left:4px solid #c62828">' +
     '<p style="font-size:14px;color:#5d3a3a;line-height:1.6">' + escHtml(card.desc) + '</p>' +
     '</div>' +
-    '<button class="modal-close" id="missionCardClose" style="background:#c62828;color:#fff;padding:10px 32px;border:none;border-radius:8px;font-size:14px;cursor:pointer">确认接收</button></div>';
+    '<button id="missionCardAck" style="background:#c62828;color:#fff;padding:10px 32px;border:none;border-radius:8px;font-size:14px;cursor:pointer">确认接收</button></div>';
   document.body.appendChild(overlay);
   overlay.querySelector('#missionCardClose').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation(); overlay.remove();
+  });
+  overlay.querySelector('#missionCardAck').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
   overlay.addEventListener('click', function(e) {

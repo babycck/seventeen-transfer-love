@@ -41,7 +41,7 @@ export function showHeartNotesModal() {
       '「我以为我已经放下了。但当我签下那份参加节目的同意书时，我知道我在骗自己。<br>我不知道你会不会来。我不知道你会选谁。<br>我只知道，如果这是最后一次能和你共处一室的机会，我不想错过。」</p></div>';
   }
 
-  inner += '<button class="modal-close" id="heartNotesClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="heartNotesClose">✕</button></div>';
   var overlay = createModal(inner);
   overlay.querySelector('#heartNotesClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();

@@ -18,7 +18,7 @@ export function showHistoryModal() {
     inner += '</div><div class="history-content" id="historyContent"></div>';
   }
 
-  inner += '<button class="modal-close" id="historyClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="historyClose">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 

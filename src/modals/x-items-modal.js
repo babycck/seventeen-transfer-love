@@ -25,7 +25,7 @@ export function showXItemsModal() {
       (reveal === 'first' ? '<p style="font-size:11px;color:#e91e63;margin-top:6px">⚠️ 故事将在下次公开时解锁</p>' : '') +
       '</div>';
   }
-  inner += '<button class="modal-close" id="xItemsClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="xItemsClose">✕</button></div>';
   var overlay = createModal(inner);
   overlay.querySelector('#xItemsClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();

@@ -17,7 +17,7 @@ import { invalidateSystemPromptCache } from './prompts.js';
 import { showMidnightCallModal } from './modals/midnight-call.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
-import { renderParsedNarrative, renderNarrativeSection } from './ui/narrative-box.js';
+import { renderParsedNarrative, renderNarrativeSection, startTypewriter } from './ui/narrative-box.js';
 import { renderOptionPanel, renderTruthPanel, renderQuestionBoxPanel } from './ui/option-panel.js';
 import { renderActionBar } from './ui/action-bar.js';
 import { renderFreeInput } from './ui/free-input.js';
@@ -37,6 +37,7 @@ export function renderAll() {
     app.innerHTML = renderGameScreen();
     bindGameEvents();
     scrollToLatestContent();
+    setTimeout(function() { startTypewriter('narrativeBox', 30); }, 50);
   }
 }
 
@@ -358,6 +359,7 @@ export function bindSetupEvents() {
       GS.prevRawText = '';
       GS.pendingMemoryReview = null;
       GS.drunkTrigger = null;
+      GS.gifts = [];
       // 生成季节与12天日期
       var seasonResult = generateSeasonAndDates();
       GS.season = seasonResult.season;
@@ -751,7 +753,7 @@ export function bindGameEvents() {
         '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>你说：</strong></p>' +
         '<p style="font-size:12px;color:#5d3a3a;padding:8px;background:#fff5f5;border-radius:6px;margin-bottom:10px">' + escHtml(mc.content) + '</p>' +
         (mc.reaction ? '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>接听反应：</strong></p><p style="font-size:12px;color:#5d3a3a;padding:8px;background:#f5f5f5;border-radius:6px">' + escHtml(mc.reaction) + '</p>' : '') +
-        '<button class="modal-close" id="mcRecordClose">关闭</button></div>';
+        '<button class="modal-close-x" id="mcRecordClose">✕</button></div>';
       var overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.innerHTML = html;
@@ -785,7 +787,7 @@ export function bindGameEvents() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
     });
   }
 

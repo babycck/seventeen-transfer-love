@@ -24,7 +24,7 @@ export function showMidnightCallModal(onCall) {
     '<textarea id="callContentInput" style="width:100%;min-height:80px;border:1.5px solid #e0c0c0;border-radius:10px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="写下你想说的话..."></textarea>' +
     '<button class="btn-confirm" id="callSubmit" style="margin-top:8px;width:100%">拨打</button>' +
     '</div>' +
-    '<button class="modal-close" id="callClose" style="margin-top:8px">取消</button></div>';
+    '<button class="modal-close-x" id="callClose">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 

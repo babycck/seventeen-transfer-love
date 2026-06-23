@@ -11,8 +11,8 @@ export function showTruthAnswerModal() {
       '<textarea id="truthAnswerInput" style="width:100%;min-height:120px;border:1.5px solid #e0c0c0;border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;" placeholder="写下你的真实回答..."></textarea>' +
       '<div style="display:flex;gap:8px;margin-top:10px">' +
       '<button class="btn-confirm" id="truthSubmit" style="flex:1">提交回答</button>' +
-      '<button class="modal-close" id="truthCancel" style="flex:1">取消</button>' +
-      '</div></div>';
+      '</div>' +
+      '<button class="modal-close-x" id="truthCancel">✕</button></div>';
     overlay.innerHTML = inner;
     document.body.appendChild(overlay);
 

@@ -22,10 +22,10 @@ export function renderHeader() {
     '<button id="apiSettingsBtn" title="API设置">⚙️</button>' +
     '<button id="helpBtn" title="规则速览">❓</button>' +
     '<button id="historyBtn" title="历史剧情回顾">📖</button>' +
-    '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
+    (GS.day >= 4 ? '<button id="xArchiveBtn" title="查看X档案">📋</button>' : '') +
     '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +
     (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
-    (GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +
+    (GS.day >= 5 && GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +
     '<button id="exportBtn" title="导出剧情记录">📥</button>' +
     (GS.midnightCall && (GS.midnightCall.status === 'done' || GS.midnightCall.status === 'skipped') ? '<button id="midnightCallRecordBtn" title="午夜电话记录">📞</button>' : '') +
     '<button id="resetGameBtn" title="重置游戏">🔄</button>' +

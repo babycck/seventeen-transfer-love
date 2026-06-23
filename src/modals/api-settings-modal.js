@@ -46,7 +46,7 @@ export function showApiSettingsModal() {
     '</div>' +
     '<div id="apiStatus" class="api-status hidden" style="margin-bottom:10px"></div>' +
     '<p style="font-size:11px;color:#8b6b6b">🔒 API Key 仅存储在本地浏览器，不会上传服务器。</p>' +
-    '<button class="modal-close" id="apiSettingsClose">关闭</button></div>';
+    '<button class="modal-close-x" id="apiSettingsClose">✕</button></div>';
 
   overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%">' + inner + '</div>';
   document.body.appendChild(overlay);

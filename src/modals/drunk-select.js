@@ -17,7 +17,7 @@ export function showDrunkMemberSelectModal(choiceText, onSelected) {
     var m = members[i];
     inner += '<button class="sms-target-btn" data-member-id="' + m.id + '">' + m.emoji + ' ' + m.name + '</button>';
   }
-  inner += '</div><button class="modal-close" id="drunkSelectClose" style="margin-top:10px">取消</button></div>';
+  inner += '</div><button class="modal-close-x" id="drunkSelectClose">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 

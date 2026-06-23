@@ -21,7 +21,7 @@ export function showGiftPanel() {
     '<div id="giftTabContent">' +
     renderGiftInventory(members) +
     '</div>' +
-    '<button class="modal-close" id="giftPanelClose">关闭</button></div>';
+    '<button class="modal-close-x" id="giftPanelClose">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 
@@ -187,7 +187,7 @@ export function showRemakeGiftModal(giftIdx) {
     inner += '<button class="sms-target-btn" data-member-id="' + m.id + '" style="font-size:14px;padding:12px">' +
       m.emoji + ' ' + m.name + ' → ' + prefLabel + '类（+' + (m.id === GS.currentDatingPartner ? '5专属' : '5') + '）</button>';
   }
-  inner += '</div><button class="modal-close" id="remakeCancel" style="margin-top:10px">取消</button></div>';
+  inner += '</div><button class="modal-close-x" id="remakeCancel">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 

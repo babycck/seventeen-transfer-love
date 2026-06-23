@@ -10,13 +10,14 @@ export function renderFreeInput(freeInputExhausted) {
   var freeDisabled = (smsSent && isNight && stayExhausted) || freeInputExhausted;
 
   var remaining = Math.max(0, FREE_INPUT_PHASE_LIMIT - (GS.phaseFreeCount || 0));
-  var html = '<div class="card"><div class="free-input-area">';
+  var html = '<div class="card">';
   if (freeInputExhausted) {
     html += '<p style="font-size:10px;color:#e65100;text-align:right;margin-bottom:4px">本时段自由输入已用完（' + FREE_INPUT_PHASE_LIMIT + '/' + FREE_INPUT_PHASE_LIMIT + '）</p>';
   } else {
     html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-bottom:4px">本时段剩余自由输入：' + remaining + '/' + FREE_INPUT_PHASE_LIMIT + '</p>';
   }
-  html += '<input type="text" id="freeInput" placeholder="✍️ 自由输入你的行动/想法..." value="' +
+  html += '<div class="free-input-area">' +
+    '<input type="text" id="freeInput" placeholder="✍️ 自由输入你的行动/想法..." value="' +
     escHtml(GS.freeInput || '') + '"' + (freeDisabled ? ' disabled' : '') + '>' +
     '<button class="btn-save-input" id="btnSaveInput">💾</button>' +
     '<button class="btn-clear-input" id="btnClearInput">❌</button>' +

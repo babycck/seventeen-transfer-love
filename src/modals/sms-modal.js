@@ -59,7 +59,6 @@ export function showSmsModal() {
       m.emoji + ' ' + m.name + '</button>';
   }
   inner += '</div>' +
-    '<button id="smsModalCancel" style="width:100%;margin-top:8px;padding:6px 0;border:none;background:none;color:#888;font-size:12px;cursor:pointer;">取消</button>' +
     '</div></div></div>';
 
   overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;">' + inner + '</div>';
@@ -93,10 +92,6 @@ export function showSmsModal() {
   var smsCloseBtn = overlay.querySelector('#smsModalClose');
   if (smsCloseBtn) {
     smsCloseBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
-  }
-  var smsCancelBtn = overlay.querySelector('#smsModalCancel');
-  if (smsCancelBtn) {
-    smsCancelBtn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
   }
 
   overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {

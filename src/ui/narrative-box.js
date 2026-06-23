@@ -85,22 +85,92 @@ export function renderParsedNarrative(parsed) {
 
 // 渲染完整叙事区域（含 choice-tag 分割线）
 export function renderNarrativeSection() {
-  var html = '<div class="card"><div class="narrative-box" id="narrativeBox">';
+  var html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="';
 
+  var narrativeHtml = '';
   if (GS.phaseNarrative) {
-    html += renderParsedNarrative(GS.parsedNarrative);
+    narrativeHtml += renderParsedNarrative(GS.parsedNarrative);
   }
   if (GS.consequenceNarratives) {
     for (var i = 0; i < GS.consequenceNarratives.length; i++) {
-      html += '<div class="separator"></div>';
+      narrativeHtml += '<div class="separator"></div>';
       var cn = GS.consequenceNarratives[i];
       if (cn.choiceText) {
-        html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
+        narrativeHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
       }
-      html += renderParsedNarrative(cn.parsed);
+      narrativeHtml += renderParsedNarrative(cn.parsed);
     }
   }
 
+  html += escHtml(narrativeHtml) + '">';
+  html += narrativeHtml;
   html += '</div></div>';
   return html;
+}
+
+// 打字机效果：逐字显示叙事内容
+export function startTypewriter(containerId, speed) {
+  speed = speed || 30;
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var fullHtml = container.getAttribute('data-narrative-html');
+  if (!fullHtml) return;
+  container.innerHTML = '';
+  container.removeAttribute('data-narrative-html');
+  // 将 HTML 拆分为原子单元（字符和标签）
+  var units = [];
+  var buf = '';
+  var inTag = false;
+  for (var i = 0; i < fullHtml.length; i++) {
+    var c = fullHtml[i];
+    if (c === '<') { inTag = true; if (buf) { units.push({ t:'text', v:buf }); buf = ''; } buf = '<'; }
+    else if (c === '>') { buf += '>'; units.push({ t:'tag', v:buf }); buf = ''; inTag = false; }
+    else if (inTag) { buf += c; }
+    else { buf += c; }
+  }
+  if (buf) units.push({ t: inTag ? 'tag' : 'text', v: buf });
+
+  var html = '';
+  var idx = 0;
+  var textBuf = '';
+
+  function flushText() {
+    if (!textBuf) return;
+    for (var k = 0; k < textBuf.length; k++) {
+      (function(pos) {
+        setTimeout(function() {
+          html += textBuf[pos];
+          container.innerHTML = html + '<span class="typewriter-cursor">|</span>';
+          container.scrollTop = container.scrollHeight;
+        }, pos * speed);
+      })(k);
+    }
+    html += textBuf;
+    textBuf = '';
+    return textBuf.length * speed;
+  }
+
+  function process() {
+    for (; idx < units.length; idx++) {
+      var u = units[idx];
+      if (u.t === 'tag') {
+        flushText();
+        html += u.v;
+      } else {
+        textBuf = u.v;
+        var delay = flushText();
+        idx++;
+        if (delay > 0) {
+          setTimeout(process, delay + speed);
+          return;
+        }
+      }
+    }
+    // 完成后移除光标
+    setTimeout(function() {
+      container.innerHTML = html;
+    }, speed * 2);
+  }
+
+  process();
 }

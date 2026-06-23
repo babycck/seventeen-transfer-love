@@ -25,7 +25,7 @@ export function showHelpModal() {
     '<p><strong>🌙 继续今天：</strong>深夜短信后可继续' + MAX_STAY_COUNT + '次（含自由输入）</p>' +
     (GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
     '</div>' +
-    '<button class="modal-close" id="helpClose">关闭</button></div>';
+    '<button class="modal-close-x" id="helpClose">✕</button></div>';
   var overlay = createModal(inner);
   overlay.querySelector('#helpClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();

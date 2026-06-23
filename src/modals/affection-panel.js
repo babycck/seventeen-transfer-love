@@ -31,7 +31,7 @@ export function showAffectionPanel() {
     }
     inner += '</div>';
   }
-  inner += '<button class="modal-close" id="affPanelClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="affPanelClose">✕</button></div>';
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 

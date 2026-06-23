@@ -14,7 +14,7 @@ export function showSmsHistoryModal() {
         '<p style="font-size:13px;color:#5d3a3a">' + escHtml(sms.content) + '</p></div>';
     }
   }
-  inner += '<button class="modal-close" id="smsHistoryClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="smsHistoryClose">✕</button></div>';
   var overlay = createModal(inner);
   overlay.querySelector('#smsHistoryClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();

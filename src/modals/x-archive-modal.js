@@ -1,6 +1,16 @@
 import { MEMBERS, GS, escHtml } from '../core.js';
 import { createModal } from './modal-factory.js';
 
+function filterItemsByReveal(memberId, items) {
+  if (!items) return '';
+  var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
+  if (!reveal || reveal === 'first') {
+    // 只保留名称行（不包含故事）
+    return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).join('<br>');
+  }
+  return items.replace(/\n/g, '<br>');
+}
+
 export function showXArchiveModal() {
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
@@ -14,7 +24,7 @@ export function showXArchiveModal() {
     '<p><span class="x-member-name">💔 ' + escHtml(GS.heroineProfile.name) + ' ↔ ' +
     escHtml(xMember.name) + '（' + escHtml(xMember.stageName) + '）· 场内X</span></p>';
   if (GS.xItems[xMember.id]) {
-    inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + escHtml(GS.xItems[xMember.id]).replace(/\n/g, '<br>') + '</p>';
+    inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(xMember.id, GS.xItems[xMember.id]) + '</p>';
   }
   inner += '<p>' + (GS.xBackstory || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
     '<hr style="border-color:#f0d0d0;margin:10px 0">';
@@ -23,12 +33,12 @@ export function showXArchiveModal() {
     inner += '<p><span class="x-member-name">' + om.emoji + ' ' +
       escHtml(om.name) + '（' + escHtml(om.stageName) + '）↔ 场外X（女性）</span></p>';
     if (GS.xItems[om.id]) {
-      inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + escHtml(GS.xItems[om.id]).replace(/\n/g, '<br>') + '</p>';
+      inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(om.id, GS.xItems[om.id]) + '</p>';
     }
     inner += '<p>' + (GS.memberXBackstories[om.id] || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
       '<hr style="border-color:#f0d0d0;margin:10px 0">';
   }
-  inner += '<button class="modal-close" id="xArchiveClose">关闭</button></div>';
+  inner += '<button class="modal-close-x" id="xArchiveClose">✕</button></div>';
   var overlay = createModal(inner);
   overlay.querySelector('#xArchiveClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();

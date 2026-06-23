@@ -12,19 +12,9 @@ export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
     for (var j = 0; j < opts.length; j++) {
       var isSpecial = opts[j].text.indexOf('进入约会场景') >= 0;
       var optText = opts[j].text;
-      var riskTag = '';
-      if (opts[j].riskMember && opts[j].riskDelta) {
-        riskTag = '<span style="color:#e91e63;font-size:11px;margin-left:4px">⚠️ ' + escHtml(opts[j].riskMember) + '好感度' + (opts[j].riskDelta > 0 ? '+' : '') + opts[j].riskDelta + '</span>';
-      } else {
-        var riskMatch = optText.match(/（([^）]*好感度[+-]\d+[^）]*)）/);
-        if (riskMatch) {
-          riskTag = '<span style="color:#e91e63;font-size:11px;margin-left:4px">⚠️ ' + escHtml(riskMatch[1]) + '</span>';
-          optText = optText.replace(riskMatch[0], '').trim();
-        }
-      }
       html += '<button class="option-btn' + (isSpecial ? ' btn-special' : '') + '" data-idx="' + j + '">' +
         '<span class="opt-label">' + (labels[j] || (j + 1)) + '</span>' +
-        escHtml(optText) + riskTag + '</button>';
+        escHtml(optText) + '</button>';
     }
     if (!isDay11) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余选项次数：' +
