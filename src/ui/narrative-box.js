@@ -166,7 +166,7 @@ export function renderNarrativeSection() {
 
 // 打字机效果：逐字显示叙事内容
 export function startTypewriter(containerId, speed) {
-  speed = speed || 30;
+  if (speed == null) speed = 30;
   var container = document.getElementById(containerId);
   if (!container) return;
   var fullHtml = container.getAttribute('data-narrative-html');

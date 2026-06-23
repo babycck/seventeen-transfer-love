@@ -35,7 +35,7 @@ export function renderHeader() {
     '<button id="resetGameBtn" title="重置游戏">🔄</button>' +
     '<button id="themeToggleBtn" title="切换深色/浅色模式">🌙</button>' +
     '<select id="typewriterSpeedSelect" title="打字机速度" style="margin-left:4px;padding:3px 6px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-soft);color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit">' +
-    '<option value="0">即时</option><option value="15">慢</option><option value="30" selected>中</option><option value="60">快</option><option value="100">极快</option></select>' +
+    '<option value="0">即时</option><option value="100">慢</option><option value="50" selected>中</option><option value="20">快</option><option value="10">极快</option></select>' +
     '</div></div>';
 
   return html;

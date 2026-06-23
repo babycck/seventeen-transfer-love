@@ -71,9 +71,9 @@ export function renderAll() {
     setTimeout(function() {
       var newContent = document.getElementById('narrativeNewContent');
       if (newContent && newContent.getAttribute('data-narrative-html')) {
-        startTypewriter('narrativeNewContent', GS.typewriterSpeed || 30);
+        startTypewriter('narrativeNewContent', GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed);
       } else {
-        startTypewriter('narrativeBox', GS.typewriterSpeed || 30);
+        startTypewriter('narrativeBox', GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed);
       }
       drawAffectionChart();
     }, 50);
@@ -960,7 +960,7 @@ export function bindGameEvents() {
 
   var speedSelect = document.getElementById('typewriterSpeedSelect');
   if (speedSelect) {
-    speedSelect.value = GS.typewriterSpeed || 30;
+    speedSelect.value = GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed;
     speedSelect.addEventListener('change', function() {
       GS.typewriterSpeed = parseInt(this.value);
       saveGame();
