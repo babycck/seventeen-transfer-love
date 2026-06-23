@@ -11,7 +11,7 @@ import { getAffectionHint, getAffectionDesc } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
 import { generateAllXArchives } from './x-archive.js';
-import { showSmsModal, showXArchiveModal, showSmsHistoryModal, showGiftPanel, showHeartNotesModal, showHistoryModal, showHelpModal, showAffectionPanel, showApiSettingsModal } from './modals.js';
+import { showSmsModal, showXArchiveModal, showSmsHistoryModal, showGiftPanel, showHeartNotesModal, showHistoryModal, showHelpModal, showAffectionPanel, showApiSettingsModal, showConfirmModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
@@ -29,6 +29,35 @@ import { compressTodayToSummary } from './memory.js';
 
 var _scrollBound = false;
 
+// ==================== 主题切换 ====================
+export function applyTheme(theme) {
+  if (theme === 'auto') {
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('svt_theme', theme);
+  // 更新按钮图标
+  var btn = document.getElementById('themeToggleBtn');
+  if (btn) {
+    var currentIsDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    btn.textContent = currentIsDark ? '☀️' : '🌙';
+  }
+}
+
+export function initTheme() {
+  var saved = localStorage.getItem('svt_theme') || (GS.theme || 'auto');
+  applyTheme(saved);
+}
+
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme');
+  var next = (current === 'dark') ? 'light' : 'dark';
+  GS.theme = next;
+  applyTheme(next);
+}
+
 // ==================== UI 渲染 ====================
 export function renderAll() {
   var app = document.getElementById('app');
@@ -42,11 +71,114 @@ export function renderAll() {
     setTimeout(function() {
       var newContent = document.getElementById('narrativeNewContent');
       if (newContent && newContent.getAttribute('data-narrative-html')) {
-        startTypewriter('narrativeNewContent', 30);
+        startTypewriter('narrativeNewContent', GS.typewriterSpeed || 30);
       } else {
-        startTypewriter('narrativeBox', 30);
+        startTypewriter('narrativeBox', GS.typewriterSpeed || 30);
       }
+      drawAffectionChart();
     }, 50);
+  }
+}
+
+// 绘制好感度折线图
+function drawAffectionChart() {
+  var canvas = document.getElementById('affectionChart');
+  if (!canvas || !GS.affectionHistory || GS.affectionHistory.length < 2) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = '280px';
+  ctx.scale(dpr, dpr);
+
+  var w = rect.width;
+  var h = 280;
+  var pad = { top: 30, right: 20, bottom: 40, left: 50 };
+  var plotW = w - pad.left - pad.right;
+  var plotH = h - pad.top - pad.bottom;
+
+  var colors = ['#e91e63', '#2196f3', '#4caf50'];
+  var members = GS.selectedMembers;
+
+  // 背景
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+
+  // 网格线
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 0.5;
+  for (var gy = 0; gy <= 5; gy++) {
+    var y = pad.top + plotH * gy / 5;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + plotW, y);
+    ctx.stroke();
+    ctx.fillStyle = '#999';
+    ctx.font = '11px PingFang SC';
+    ctx.textAlign = 'right';
+    var val = Math.round(100 - gy * 40);
+    ctx.fillText(val, pad.left - 8, y + 4);
+  }
+
+  // X轴标签
+  var days = GS.affectionHistory.length;
+  ctx.textAlign = 'center';
+  for (var dx = 0; dx < days; dx++) {
+    var x = pad.left + plotW * dx / (days - 1 || 1);
+    ctx.fillStyle = '#999';
+    ctx.font = '11px PingFang SC';
+    ctx.fillText('D' + GS.affectionHistory[dx].day, x, h - pad.bottom + 20);
+
+    // 网格竖线
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, pad.top + plotH);
+    ctx.stroke();
+  }
+
+  // 数据线
+  for (var mi = 0; mi < members.length; mi++) {
+    var mid = members[mi];
+    ctx.strokeStyle = colors[mi % colors.length];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var pi = 0; pi < GS.affectionHistory.length; pi++) {
+      var point = GS.affectionHistory[pi];
+      var aff = point.aff[mid] || 0;
+      var px = pad.left + plotW * pi / (GS.affectionHistory.length - 1 || 1);
+      var py = pad.top + plotH * (100 - aff) / 200;
+      if (pi === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // 数据点
+    for (var qi = 0; qi < GS.affectionHistory.length; qi++) {
+      var point2 = GS.affectionHistory[qi];
+      var aff2 = point2.aff[mid] || 0;
+      var px2 = pad.left + plotW * qi / (GS.affectionHistory.length - 1 || 1);
+      var py2 = pad.top + plotH * (100 - aff2) / 200;
+      ctx.fillStyle = colors[mi % colors.length];
+      ctx.beginPath();
+      ctx.arc(px2, py2, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 图例
+  var legendX = pad.left + 8;
+  for (var li = 0; li < members.length; li++) {
+    var mm = MEMBERS.find(function(m) { return m.id === members[li]; });
+    ctx.fillStyle = colors[li % colors.length];
+    ctx.fillRect(legendX, h - 12, 10, 10);
+    ctx.fillStyle = '#666';
+    ctx.font = '11px PingFang SC';
+    ctx.textAlign = 'left';
+    ctx.fillText((mm ? mm.name : members[li]) + ' (' + (GS.affection[members[li]] || 0) + ')', legendX + 14, h - 2);
+    legendX += ctx.measureText((mm ? mm.name : members[li]) + ' (' + (GS.affection[members[li]] || 0) + ')').width + 30;
   }
 }
 
@@ -239,7 +371,7 @@ export function bindSetupEvents() {
       renderAll();
     });
     document.getElementById('enterTestModeBtn').addEventListener('click', async function() {
-      if (!confirm('进入测试版将跳过API配置和角色设定，使用随机生成的女主信息和本地预生成剧情。是否继续？')) return;
+      if (!(await showConfirmModal('进入测试版将跳过API配置和角色设定，使用随机生成的女主信息和本地预生成剧情。是否继续？'))) return;
       await enterTestMode();
     });
   }
@@ -626,6 +758,13 @@ export function renderEndingScreen(members) {
   }
   html += '</div>';
 
+  // 好感度折线图
+  if (GS.affectionHistory && GS.affectionHistory.length >= 2) {
+    html += '<div class="ending-card ending-chart">' +
+      '<h4 class="ending-section-title">📈 好感度走势</h4>' +
+      '<canvas id="affectionChart" style="width:100%;height:280px;border-radius:10px;background:var(--bg-soft,#fff5f5)"></canvas></div>';
+  }
+
   // Epilogue
   if (GS.endingEpilogue) {
     var epiHtml = renderParsedNarrative(GS.endingEpilogue);
@@ -798,9 +937,9 @@ export function bindGameEvents() {
   // 秘密任务手动完成
   var missionCompleteBtn = document.getElementById('missionCompleteBtn');
   if (missionCompleteBtn) {
-    missionCompleteBtn.addEventListener('click', function() {
+    missionCompleteBtn.addEventListener('click', async function() {
       if (this.disabled) return;
-      if (confirm('确认已完成「' + GS.secretMission.title + '」任务？')) {
+      if (await showConfirmModal('确认已完成「' + GS.secretMission.title + '」任务？')) {
         completeSecretMission();
         if (window.__renderAll) window.__renderAll();
       }
@@ -814,7 +953,62 @@ export function bindGameEvents() {
   if (helpBtn) helpBtn.addEventListener('click', showHelpModal);
 
   var resetBtn = document.getElementById('resetGameBtn');
-  if (resetBtn) resetBtn.addEventListener('click', function() { resetGame(); renderAll(); });
+  if (resetBtn) resetBtn.addEventListener('click', async function() { await resetGame(); renderAll(); });
+
+  var themeToggleBtn = document.getElementById('themeToggleBtn');
+  if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
+
+  var speedSelect = document.getElementById('typewriterSpeedSelect');
+  if (speedSelect) {
+    speedSelect.value = GS.typewriterSpeed || 30;
+    speedSelect.addEventListener('change', function() {
+      GS.typewriterSpeed = parseInt(this.value);
+      saveGame();
+    });
+  }
+
+  // 存档导出
+  var saveExportBtn = document.getElementById('saveExportBtn');
+  if (saveExportBtn) {
+    saveExportBtn.addEventListener('click', function() {
+      var json = JSON.stringify(GS, null, 2);
+      var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      var d = new Date();
+      a.download = 'SEVENTEEN_存档_' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('✅ 存档已导出');
+    });
+  }
+
+  // 存档导入
+  var saveImportInput = document.getElementById('saveImportInput');
+  if (saveImportInput) {
+    saveImportInput.addEventListener('change', async function() {
+      var file = this.files[0];
+      if (!file) return;
+      try {
+        var text = await file.text();
+        var parsed = JSON.parse(text);
+        if (!parsed.version || !Array.isArray(parsed.selectedMembers)) {
+          showToast('⚠️ 存档文件格式无效');
+          return;
+        }
+        var confirmed = await showConfirmModal('将覆盖当前存档并载入「' + (parsed.heroineProfile ? parsed.heroineProfile.name : '?') + '」（Day ' + parsed.day + '），是否继续？');
+        if (!confirmed) { this.value = ''; return; }
+        setGS(parsed);
+        saveGame();
+        renderAll();
+        showToast('✅ 存档已导入');
+      } catch (e) {
+        showToast('⚠️ 存档文件损坏或格式错误');
+      }
+      this.value = '';
+    });
+  }
 
   var apiSettingsBtn = document.getElementById('apiSettingsBtn');
   if (apiSettingsBtn) apiSettingsBtn.addEventListener('click', showApiSettingsModal);
@@ -847,8 +1041,8 @@ export function bindGameEvents() {
 
   var exportBtn = document.getElementById('exportBtn');
   if (exportBtn) {
-    exportBtn.addEventListener('click', function() {
-      if (!confirm('确定要导出剧情记录吗？')) return;
+    exportBtn.addEventListener('click', async function() {
+      if (!(await showConfirmModal('确定要导出剧情记录吗？'))) return;
       var text = '';
       for (var i = 0; i < GS.dailyFullTexts.length; i++) {
         text += '========== Day ' + (i + 1) + ' ==========\n\n';

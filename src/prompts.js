@@ -262,12 +262,49 @@ export function buildUserMessage(type, extra) {
   }
   msg += '\n';
 
+  // 记忆闪回：好感度80+触发
+  if (GS.flashbackShown) {
+    for (var fk in GS.flashbackShown) {
+      if (GS.flashbackShown[fk] === 'pending' && GS.selectedMembers.indexOf(fk) >= 0) {
+        var fbMember = MEMBERS.find(function(m) { return m.id === fk; });
+        msg += '[INSTRUCTION] 记忆闪回（强制执行）\n' +
+          '女主和' + (fbMember ? fbMember.name : '一位成员') + '的好感度刚刚突破了临界点。\n' +
+          '请在本段剧情中插入一段约200字的「记忆闪回」——回忆女主与' + (fbMember ? fbMember.name : '他') + '在过去几天相处中最温暖的某个瞬间（可以是你们曾经的一段对话、一个眼神、一次不经意的触碰）。\n' +
+          '闪回用特殊格式包围：【💭记忆闪回】...【💭闪回结束】，用半透明温柔的语气描写。\n\n';
+        GS.flashbackShown[fk] = true;
+        break; // 一次只触发一个闪回
+      }
+    }
+  }
+
   // 嫉妒任务
   if (GS.jealousyMission && GS.jealousyMission.day === GS.day && GS.jealousyMission.status === 'active') {
     var jm = GS.jealousyMission;
     msg += '[INSTRUCTION] 制作组嫉妒任务（强制执行）\n' +
       '任务：' + jm.title + ' · ' + jm.desc + '（目标成员：' + jm.targetName + '）\n' +
       '请在剧情中体现：扩音器广播宣布、成员们的反应、女主被迫执行的过程。其他未被选中的成员必须表现出微妙的嫉妒或失落。\n\n';
+  }
+
+  // X幽灵存在
+  if (GS.xGhostEvent && GS.xGhostEvent.day === GS.day) {
+    msg += '[INSTRUCTION] X幽灵存在事件（强制执行）\n' +
+      '今天剧情中必须浮现一条来自场外X的碎片化痕迹（三选一）：\n' +
+      '1. 女主在家门口发现一张未署名的纸条，内容涉及某个只有X才知道的回忆细节（不暴露是X，用模糊指代如\"有人\"）\n' +
+      '2. 女主的手机接到一个陌生号码的未接来电——只有她看到，其他成员不知情\n' +
+      '3. 客厅出现一件不属于任何在场成员的小物品（书/钥匙链/照片），被某位成员捡到后引发讨论\n' +
+      '描写要克制的悬疑感，不要揭示X身份，让女主感到隐约的不安和熟悉感。\n\n';
+  }
+
+  // 修罗场强度
+  if (GS.rivalryIntensity >= 2) {
+    var rivalLevel = GS.rivalryIntensity >= 4 ? '激烈' : '初级';
+    msg += '[INSTRUCTION] 修罗场强度：' + rivalLevel + '（强度=' + GS.rivalryIntensity + '）\n';
+    if (GS.rivalryIntensity >= 4) {
+      msg += '两位成员之间出现正面冲突——冷战、咄咄逼人的质问、或者在女主面前公开争抢主动权。其他成员也会感受到紧张气氛。\n';
+    } else {
+      msg += '两位成员开始暗中较劲——争抢座位、抢先帮女主做事、用微妙的眼神和话语针对对方。克制但有张力。\n';
+    }
+    msg += '\n';
   }
 
   // 前任来电
@@ -596,8 +633,8 @@ export function buildUserMessage(type, extra) {
       '- 不需要 options\n' +
       '包含 directorOS block + observers 数组';
   } else {
-    msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~600字 JSON）。\n' +
-      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote + styleNote;
+    msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~800字 JSON）。\n' +
+      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote + styleNote;
 
     if (GS.day === 1 && GS.phaseIndex === 0) {
       msg += '\n这是节目第一天上午！请描写入住心动小屋的场景：你拖着行李箱到达，成员们陆续到来。成员之间彼此非常熟悉（多年队友），只有你是新人。描写每个人进门时的样子、第一句对话。注意：读信环节在傍晚，现在不要写。';

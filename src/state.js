@@ -1,5 +1,6 @@
 ﻿import { STORAGE_KEY, SAVE_SIZE_WARN } from './data.js';
 import { clearStoryCache } from './story-cache.js';
+import { showConfirmModal } from './modals/confirm-modal.js';
 
 // ==================== 游戏状态 ====================
 export var GS = null;
@@ -14,7 +15,7 @@ export function setGS(newGS) {
 
 export function defaultGameState() {
   return {
-    version: 'v21',
+    version: 'v22',
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -158,7 +159,21 @@ export function defaultGameState() {
       optionEngine: true,
       eventTriggers: false,
       scheduler: false
-    }
+    },
+    // [v22] 下集预告
+    nextEpisodePreview: '',
+    // [v22] 深色模式主题偏好
+    theme: 'auto',
+    // [v22] 打字机速度（0=即时显示，10-100=ms/字符，默认30）
+    typewriterSpeed: 30,
+    // [v22] 好感度历史快照（用于结局折线图）
+    affectionHistory: [],
+    // [v22] 修罗场强度
+    rivalryIntensity: 0,
+    // [v22] X幽灵事件
+    xGhostEvent: null,
+    // [v22] 记忆闪回已触发记录
+    flashbackShown: {}
   };
 }
 
@@ -196,8 +211,18 @@ export function saveGame() {
 }
 
 export function migrateSave() {
-  if (!GS.version || GS.version !== 'v21') {
-    GS.version = 'v21';
+  if (!GS.version || GS.version !== 'v22') {
+    if (!GS.version || GS.version === 'v21') {
+      // v21 → v22 新增字段兜底
+      if (GS.nextEpisodePreview === undefined) GS.nextEpisodePreview = '';
+      if (GS.theme === undefined) GS.theme = 'auto';
+      if (GS.typewriterSpeed === undefined) GS.typewriterSpeed = 30;
+      if (!Array.isArray(GS.affectionHistory)) GS.affectionHistory = [];
+      if (GS.rivalryIntensity === undefined) GS.rivalryIntensity = 0;
+      if (GS.xGhostEvent === undefined) GS.xGhostEvent = null;
+      if (!GS.flashbackShown) GS.flashbackShown = {};
+    }
+    GS.version = 'v22';
     if (GS.heroineProfile && GS.heroineProfile.identity) delete GS.heroineProfile.identity;
     if (!GS.heroineProfile.zodiac) GS.heroineProfile.zodiac = '';
     if (GS.dailyMemories && GS.dailyMemories.length > 0 && (!GS.dailySummaries || GS.dailySummaries.length === 0)) {
@@ -301,34 +326,41 @@ export function migrateSave() {
   }
 }
 
-export function resetGame() {
-  if (confirm('确定要重置所有进度吗？此操作不可撤销。')) {
-    // 保留 API 设置
-    var savedApiKey = GS.apiKey || '';
-    var savedRememberApiKey = GS.rememberApiKey;
-    var savedApiProvider = GS.apiProvider || 'deepseek';
-    var savedApiModel = GS.apiModel || '';
-    // 保留激活码设置
-    var savedAuthToken = localStorage.getItem('svt_auth_token');
-    var savedRememberCode = localStorage.getItem('svt_auth_remember_code');
-    var savedCode = localStorage.getItem('svt_auth_saved_code');
-    var savedDeviceId = localStorage.getItem('svt_auth_device_id');
-    localStorage.removeItem(STORAGE_KEY);
-    if (confirm('是否同时清除已缓存的 X 档案故事？（清除后下次开局会重新生成）')) {
-      clearStoryCache();
-    }
-    // 恢复激活码设置
-    if (savedAuthToken) localStorage.setItem('svt_auth_token', savedAuthToken);
-    if (savedRememberCode) localStorage.setItem('svt_auth_remember_code', savedRememberCode);
-    if (savedCode) localStorage.setItem('svt_auth_saved_code', savedCode);
-    if (savedDeviceId) localStorage.setItem('svt_auth_device_id', savedDeviceId);
-    Object.assign(GS, defaultGameState());
-    GS.apiKey = savedApiKey;
-    GS.rememberApiKey = savedRememberApiKey;
-    GS.apiProvider = savedApiProvider;
-    GS.apiModel = savedApiModel;
-    saveGame();
+export async function resetGame() {
+  var confirmed = await showConfirmModal('确定要重置所有进度吗？此操作不可撤销。');
+  if (!confirmed) return;
+
+  // 保留 API 设置
+  var savedApiKey = GS.apiKey || '';
+  var savedRememberApiKey = GS.rememberApiKey;
+  var savedApiProvider = GS.apiProvider || 'deepseek';
+  var savedApiModel = GS.apiModel || '';
+  // 保留用户偏好
+  var savedTheme = GS.theme || 'auto';
+  var savedTypewriterSpeed = GS.typewriterSpeed || 30;
+  // 保留激活码设置
+  var savedAuthToken = localStorage.getItem('svt_auth_token');
+  var savedRememberCode = localStorage.getItem('svt_auth_remember_code');
+  var savedCode = localStorage.getItem('svt_auth_saved_code');
+  var savedDeviceId = localStorage.getItem('svt_auth_device_id');
+  localStorage.removeItem(STORAGE_KEY);
+  var clearCache = await showConfirmModal('是否同时清除已缓存的 X 档案故事？（清除后下次开局会重新生成）');
+  if (clearCache) {
+    clearStoryCache();
   }
+  // 恢复激活码设置
+  if (savedAuthToken) localStorage.setItem('svt_auth_token', savedAuthToken);
+  if (savedRememberCode) localStorage.setItem('svt_auth_remember_code', savedRememberCode);
+  if (savedCode) localStorage.setItem('svt_auth_saved_code', savedCode);
+  if (savedDeviceId) localStorage.setItem('svt_auth_device_id', savedDeviceId);
+  Object.assign(GS, defaultGameState());
+  GS.apiKey = savedApiKey;
+  GS.rememberApiKey = savedRememberApiKey;
+  GS.theme = savedTheme;
+  GS.typewriterSpeed = savedTypewriterSpeed;
+  GS.apiProvider = savedApiProvider;
+  GS.apiModel = savedApiModel;
+  saveGame();
 }
 
 

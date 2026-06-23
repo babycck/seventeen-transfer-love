@@ -15,6 +15,7 @@ export function renderHeader() {
     '<span class="day-badge">' + dateText + '</span>' +
     '<span class="phase-tag">' + phaseLabel + '</span>' +
     (GS.weather ? '<span class="weather-tag" style="font-size:11px;padding:2px 8px;background:rgba(255,255,255,0.7);border-radius:8px;margin-left:4px">' + GS.weather + '</span>' : '') +
+    (GS.day >= 10 && !GS.gameOver ? '<span class="countdown-tag" style="font-size:12px;font-weight:700;color:#c62828;padding:3px 10px;background:rgba(255,205,210,0.85);border-radius:12px;margin-left:6px;animation:pulse-sms 1.5s infinite">⏳ 距离最终选择还有 ' + (12 - GS.day) + ' 天</span>' : '') +
     '<span class="affection-hint" id="affectionHint" title="点击查看好感度详情">' +
     members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
     '</span>' +
@@ -27,8 +28,14 @@ export function renderHeader() {
     (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
     (GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +
     '<button id="exportBtn" title="导出剧情记录">📥</button>' +
+    '<button id="saveExportBtn" title="导出存档(JSON)">💾</button>' +
+    '<button id="saveImportBtnLabel" title="导入存档(JSON)" onclick="document.getElementById(\'saveImportInput\').click()">📂</button>' +
+    '<input type="file" id="saveImportInput" accept=".json" style="display:none">' +
     (GS.midnightCall && (GS.midnightCall.status === 'done' || GS.midnightCall.status === 'skipped') ? '<button id="midnightCallRecordBtn" title="午夜电话记录">📞</button>' : '') +
     '<button id="resetGameBtn" title="重置游戏">🔄</button>' +
+    '<button id="themeToggleBtn" title="切换深色/浅色模式">🌙</button>' +
+    '<select id="typewriterSpeedSelect" title="打字机速度" style="margin-left:4px;padding:3px 6px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-soft);color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit">' +
+    '<option value="0">即时</option><option value="15">慢</option><option value="30" selected>中</option><option value="60">快</option><option value="100">极快</option></select>' +
     '</div></div>';
 
   return html;

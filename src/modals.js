@@ -13,6 +13,7 @@ export { showHelpModal } from './modals/help-modal.js';
 export { showAffectionPanel } from './modals/affection-panel.js';
 export { showHeartNotesModal } from './modals/heart-notes-modal.js';
 export { showApiSettingsModal } from './modals/api-settings-modal.js';
+export { showConfirmModal } from './modals/confirm-modal.js';
 
 // re-export the modals from the other directories for convenience
 export { showDatingDiceModal } from './modals/dating-dice.js';

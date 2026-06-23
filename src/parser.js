@@ -258,12 +258,22 @@ export function completeSecretMission() {
     addAffectionLog(targetId, 3, '完成秘密任务「' + GS.secretMission.title + '」');
     if (!GS.heartNotes[targetId]) GS.heartNotes[targetId] = [];
     var notes = HEART_NOTE_TEMPLATES[targetId];
-    if (notes && GS.heartNotes[targetId].length < notes.length) {
-      var nextNote = notes[GS.heartNotes[targetId].length];
-      GS.heartNotes[targetId].push({
-        text: nextNote,
-        unlockedAt: { day: GS.day, mission: GS.secretMission.title }
-      });
+    if (notes) {
+      // 修复 index 交叉取值 Bug：用 text 去重，找第一条未被解锁的笔记
+      var existingTexts = GS.heartNotes[targetId].map(function(hn) { return hn.text; });
+      var nextNote = null;
+      for (var ni = 0; ni < notes.length; ni++) {
+        if (existingTexts.indexOf(notes[ni]) < 0) {
+          nextNote = notes[ni];
+          break;
+        }
+      }
+      if (nextNote) {
+        GS.heartNotes[targetId].push({
+          text: nextNote,
+          unlockedAt: { day: GS.day, source: 'mission', mission: GS.secretMission.title }
+        });
+      }
     }
     var targetMember = MEMBERS.find(function(m) { return m.id === targetId; });
     if (targetMember) {

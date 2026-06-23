@@ -174,6 +174,11 @@ export function startTypewriter(containerId, speed) {
   container.innerHTML = '';
   container.removeAttribute('data-narrative-html');
 
+  if (speed === 0) {
+    container.innerHTML = fullHtml;
+    return;
+  }
+
   // 将 HTML 拆分为原子单元（字符和标签）
   var units = [];
   var buf = '';

@@ -49,6 +49,11 @@ export async function generatePhaseNarrative() {
   try {
   // 结算上一段 pending 好感度
   settlePendingAffChanges();
+  // X幽灵存在：Day 3-5 随机触发
+  if (GS.day >= 3 && GS.day <= 5 && !GS.xGhostEvent && Math.random() < 0.15) {
+    GS.xGhostEvent = { day: GS.day };
+    saveGame();
+  }
   // 秘密任务触发（在生成剧情前检查）
   if (shouldTriggerSecretMission()) {
     saveGame();
@@ -1017,8 +1022,19 @@ export async function proceedToNextDay() {
 
   skeletonGenGifts();
   skeletonCleanupMission();
+  // 清理当日特殊状态
+  GS.xGhostEvent = null;
   skeletonUpdateObserver();
   skeletonAdvanceDate();
+  // 好感度快照（用于结局折线图）
+  if (!Array.isArray(GS.affectionHistory)) GS.affectionHistory = [];
+  GS.affectionHistory.push({
+    day: GS.day,
+    aff: Object.assign({}, GS.affection),
+    drinkCounts: Object.assign({}, GS.drinkCounts),
+    rivalryIntensity: GS.rivalryIntensity || 0
+  });
+
   skeletonResetDay();
   resetPhaseState();
 
@@ -1030,9 +1046,62 @@ export async function proceedToNextDay() {
 
   saveGame();
   if (window.__renderAll) window.__renderAll();
+  setTimeout(function() { window.scrollTo(0, 0); }, 100);
 
   if (GS.day === 10) await modalDay10(generatePhaseNarrative);
-  else await generatePhaseNarrative();
+  else {
+    // 下集预告：与次日剧情并发生成
+    var previewPromise = generateNextEpisodePreview();
+    var phasePromise = generatePhaseNarrative();
+    var previewText = await previewPromise;
+    if (previewText) {
+      showNextEpisodeOverlay(previewText);
+    }
+    await phasePromise;
+  }
+}
+
+// ==================== 下集预告 ====================
+async function generateNextEpisodePreview() {
+  try {
+    // 只在 AI 可用且非测试模式时生成
+    if (!GS.aiEnabled || GS.testMode) return '';
+    // Day 1 跳过（今天没有"昨天"的总结）
+    if (GS.day <= 1) return '';
+    // 获取今日关键事件摘要
+    var summary = getTodayKeyEventsSummary();
+    if (!summary || summary.length < 10) return '';
+    var sysPrompt = '你是一位综艺节目预告文案撰写专家。基于以下当天节目剧情总结，用一句话（≤40字）撰写下集悬念预告。语气类似韩剧"下集更精彩"，要有钩子感和悬念感。只输出预告文本，不要任何前缀、引号或额外说明。';
+    var rawText = await callDeepSeek(sysPrompt, '当天剧情总结：' + summary, { maxTokens: 80 }, false, 0.6);
+    if (rawText && rawText.trim().length > 0) {
+      GS.nextEpisodePreview = rawText.trim();
+      saveGame();
+      return GS.nextEpisodePreview;
+    }
+  } catch (e) {
+    console.warn('[preview] generate failed:', e.message);
+  }
+  return '';
+}
+
+function showNextEpisodeOverlay(previewText) {
+  var overlay = document.createElement('div');
+  overlay.className = 'next-episode-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:nextEpFadeIn 0.5s ease;';
+  overlay.innerHTML = '<div style="text-align:center;padding:0 40px;max-width:600px">' +
+    '<div style="font-size:14px;color:#ffb74d;letter-spacing:3px;margin-bottom:12px;opacity:0.9">📺 下 集 预 告</div>' +
+    '<div style="font-size:24px;font-weight:700;color:#fff;line-height:1.6;text-shadow:0 2px 8px rgba(0,0,0,0.5)">' + escHtml(previewText) + '</div>' +
+    '<div style="margin-top:24px;font-size:13px;color:#e91e63;letter-spacing:1px">— 即将进入 Day ' + GS.day + ' —</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  // 3.5 秒后淡出并移除
+  setTimeout(function() {
+    overlay.style.animation = 'nextEpFadeOut 0.6s ease forwards';
+    setTimeout(function() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }, 600);
+  }, 3500);
 }
 
 export async function handleMidnightCall(targetId, content, reaction) {

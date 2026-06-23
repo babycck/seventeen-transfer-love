@@ -45,5 +45,15 @@ export function settlePendingAffChanges() {
     addAffectionLog(ch.memberId, finalDelta, reason + (finalDelta !== ch.delta ? '（调整后：原' + ch.delta + '）' : ''));
   }
   GS.pendingAffChanges = [];
+  // 修罗场强度检测：结算后若 >=2 位成员好感度 >=60，强度+1
+  if (GS.rivalryIntensity === undefined) GS.rivalryIntensity = 0;
+  var highAffCount = 0;
+  for (var j = 0; j < GS.selectedMembers.length; j++) {
+    var mid = GS.selectedMembers[j];
+    if ((GS.affection[mid] || 0) >= 60) highAffCount++;
+  }
+  if (highAffCount >= 2 && GS.rivalryIntensity < 5) {
+    GS.rivalryIntensity++;
+  }
   saveGame();
 }

@@ -15,16 +15,20 @@ export function showHeartNotesModal() {
     var notes = GS.heartNotes[m.id] || [];
     var allTemplates = HEART_NOTE_TEMPLATES[m.id] || [];
     if (notes.length > 0) hasAnyNote = true;
-    inner += '<div style="background:#fff5f5;border-radius:12px;padding:12px;margin-bottom:10px">' +
-      '<p style="font-weight:700;font-size:15px;margin-bottom:6px">' + m.emoji + ' ' + m.name + ' <span style="font-size:12px;color:#8b6b6b">（' + notes.length + '/' + allTemplates.length + '）</span></p>';
+    inner += '<div style="background:var(--bg-soft,#fff5f5);border-radius:12px;padding:12px;margin-bottom:10px">' +
+      '<p style="font-weight:700;font-size:15px;margin-bottom:6px;color:var(--text-primary,#3d2c2c)">' + m.emoji + ' ' + m.name + ' <span style="font-size:12px;color:var(--text-muted,#8b6b6b)">（' + notes.length + '/' + allTemplates.length + '）</span></p>';
     if (notes.length === 0) {
       inner += '<p style="font-size:12px;color:#8b6b6b">（尚未解锁）</p>';
     } else {
       for (var j = 0; j < notes.length; j++) {
         var note = notes[j];
-        inner += '<div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px;border-left:3px solid #e91e63">' +
-          '<p style="font-size:13px;color:#5d3a3a;margin:0">' + escHtml(note.text) + '</p>' +
-          '<p style="font-size:10px;color:#8b6b6b;margin-top:4px">解锁于 Day ' + (note.unlockedAt ? note.unlockedAt.day : '?') + ' · 任务「' + (note.unlockedAt ? escHtml(note.unlockedAt.mission) : '') + '」</p></div>';
+        var ua = note.unlockedAt || {};
+        var source = ua.source || 'mission'; // 向后兼容
+        var sourceLabel = source === 'affection' ? '💚 好感度解锁（阈值' + (ua.threshold || '?') + '）' : '🎯 秘密任务「' + (ua.mission || '?') + '」';
+        var borderColor = source === 'affection' ? '#2e7d32' : '#e91e63';
+        inner += '<div style="background:var(--bg-card,#fff);border-radius:8px;padding:8px;margin-bottom:6px;border-left:3px solid ' + borderColor + '">' +
+          '<p style="font-size:13px;color:var(--text-secondary,#5d3a3a);margin:0">' + escHtml(note.text) + '</p>' +
+          '<p style="font-size:10px;color:var(--text-muted,#8b6b6b);margin-top:4px">解锁于 Day ' + (ua.day || '?') + ' · ' + sourceLabel + '</p></div>';
       }
     }
     inner += '</div>';

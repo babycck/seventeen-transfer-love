@@ -1,7 +1,7 @@
 ﻿import {
   setGS, GS, defaultGameState, loadGame, saveGame, migrateSave, resetGame
 } from './core.js';
-import { renderAll, renderAuthScreen, bindAuthEvents } from './ui-renderer.js';
+import { renderAll, renderAuthScreen, bindAuthEvents, initTheme } from './ui-renderer.js';
 import { generatePhaseNarrative } from './game-engine.js';
 import { verifyToken, isBackendConfigured } from './auth.js';
 
@@ -111,6 +111,7 @@ function initGame() {
     setGS(defaultGameState());
     saveGame();
   }
+  initTheme();
   renderAll();
 
   // 如果已在游戏中且当前没有剧情，自动生成时段剧情

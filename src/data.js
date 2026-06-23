@@ -370,6 +370,7 @@ export var SECRET_MISSIONS = {
   ]
 };
 
+// 心动笔记模板：index 0/1/2 对应好感度阈值 40/60/80（affection.js 解锁），index 3/4 对应秘密任务解锁（parser.js）
 export var HEART_NOTE_TEMPLATES = {
   scoups:    ['他其实怕黑，但从来不说。', '他紧张时会摸后颈，那是他心虚的标志。', '他写歌时会无意识哼同一段旋律。', '他睡前一定要整理第二天的行程。', '他自称实权队长但最怕尹净汉。'],
   jeonghan:  ['他的长发扎起来只需要三秒钟。', '他擅长读心，但最怕被人读懂。', '他靠在沙发上睡着时，呼吸声很轻。', '他选择困难症严重时会买整套。', '他养了一只叫"石小净"的宠物石头。'],
@@ -521,7 +522,7 @@ export var MBTI_TYPES = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP'
 export var PRIVATE_TRAITS = ['怕黑','易醉体质','泪失禁','怕打雷','恐高','晕车体质','海鲜过敏','花粉过敏','姨妈痛','容易脸红','手脚冰凉','容易饿/低血糖','睡觉说梦话','被吓容易尖叫','不能吃辣','喝水容易呛','容易被晒伤','蚊子叮咬过敏'];
 
 export var TOKEN_CONFIG = {
-  phaseNarrative: 3500,
+  phaseNarrative: 4000,
   consequence: 2000,
   sms: 2000,
   stay: 2000,
