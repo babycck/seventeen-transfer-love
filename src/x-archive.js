@@ -149,7 +149,7 @@ export async function generateAllXArchives() {
     if (cachedXItems) {
       GS.xItems[GS.secretX] = cachedXItems;
       console.log('[XArchive] 复用缓存的X记忆物品');
-    } else if (GS.aiEnabled && GS.xBackstory && GS.xBackstory.length > 50 && GS.xBackstory.indexOf('失败') < 0) {
+    } else if (GS.aiEnabled && GS.xBackstory && GS.xBackstory.length > 50 && GS.xBackstory.indexOf('X档案生成失败') < 0) {
       showLoading('正在生成X记忆物品...');
       try {
         var itemsRaw = await callDeepSeek(
@@ -169,7 +169,7 @@ export async function generateAllXArchives() {
     }
 
     // 写入缓存
-    if (GS.xBackstory && GS.xBackstory.indexOf('失败') < 0) {
+    if (GS.xBackstory && GS.xBackstory.indexOf('X档案生成失败') < 0) {
       saveMainStoryToCache(GS.selectedMembers, GS.secretX, GS.heroineProfile, {
         xBackstory: GS.xBackstory,
         xBackstoryHidden: GS.xBackstoryHidden,

@@ -18,5 +18,5 @@ export { showApiSettingsModal } from './modals/api-settings-modal.js';
 export { showDatingDiceModal } from './modals/dating-dice.js';
 export { showDay10DatingModal } from './modals/day10-dating.js';
 export { showMidnightCallModal } from './modals/midnight-call.js';
-export { showDrunkSelectModal } from './modals/drunk-select.js';
+export { showDrunkMemberSelectModal } from './modals/drunk-select.js';
 export { showTruthAnswerModal } from './modals/truth-answer.js';

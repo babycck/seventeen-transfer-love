@@ -143,7 +143,12 @@ function reducer(state, action) {
 
     // ---- 通用 flag 设置 ----
     case 'SET_FLAG':
-      state[p.key] = p.value;
+      var allowedFlags = ['todayRandomEventTriggered', 'todayMissionCard', 'secretMissionInteracted', 'jealousyTriggeredToday', 'drunkTrigger', 'questionBox', 'midnightCall', 'truthPunishment', 'truthState'];
+      if (allowedFlags.indexOf(p.key) >= 0) {
+        state[p.key] = p.value;
+      } else {
+        console.warn('[store] SET_FLAG 拒绝非白名单字段:', p.key);
+      }
       break;
 
     // ---- 渲染触发（无状态变更，只通知 UI） ----

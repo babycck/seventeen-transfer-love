@@ -6,7 +6,7 @@ export function extractPendingPromises(summaryText) {
   var inPromises = false;
   for (var i = 0; i < lines.length; i++) {
     var t = lines[i].trim();
-    if (t.indexOf('待兑现约定') >= 0 || t.indexOf('约定') >= 0) {
+    if (t.indexOf('待兑现约定') >= 0) {
       inPromises = true;
       continue;
     }

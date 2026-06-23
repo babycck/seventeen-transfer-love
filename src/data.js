@@ -298,7 +298,8 @@ export var MISSION_CARDS = [
 export var RANDOM_EVENTS_POOL = [
   // 日常暖色 8个
   { id: 're_1', name: '快递到了', desc: '某成员收到包裹，是家人/朋友寄来的东西，引发关于家的闲聊', cond: 'day>=2', weight: 1 },
-  { id: 're_2', name: '空调坏了', desc: '盛夏/寒冬小屋空调故障，全员被迫聚在客厅汗蒸/裹毯子', cond: 'season==summer||season==winter', weight: 1 },
+  { id: 're_2_summer', name: '空调坏了', desc: '盛夏小屋空调故障，全员被迫聚在客厅汗蒸', cond: "season==summer", weight: 1 },
+  { id: 're_2_winter', name: '空调坏了', desc: '寒冬小屋空调故障，全员被迫裹毯子聚在客厅', cond: "season==winter", weight: 1 },
   { id: 're_3', name: '停水了', desc: '傍晚停水，全员去便利店买水，路上自然聊天', cond: 'phase==evening', weight: 1 },
   { id: 're_4', name: '一只猫跑进来', desc: '流浪猫从窗户跳入，怕猫的成员躲到某人身后', cond: 'day>=3', weight: 1 },
   { id: 're_5', name: '外卖惊喜', desc: '制作组点了炸鸡/夜宵，喝酒聊天', cond: 'phase==night', weight: 1 },

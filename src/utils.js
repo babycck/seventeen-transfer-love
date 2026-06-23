@@ -17,7 +17,7 @@ export function randInt(min, max) {
 
 export function escHtml(s) {
   if (!s) return '';
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // [P1-4] 非阻塞 Toast 提示
@@ -34,6 +34,7 @@ export function showToast(message) {
     setTimeout(function() { toast.remove(); }, 300);
   }, 2000);
 }
+window.showToast = showToast;
 
 export function evaluateCond(cond, day, phase, season, weather, affections) {
   // 拆分 &&
@@ -70,7 +71,7 @@ function resolveValue(name, day, phase, season, weather, affections) {
   if (name === 'season') return season;
   if (name === 'weather') return weather;
   if (name === 'affection') return affections['heroine'] || 0;
-  if (name === 'drinkCount') return (affections['heroine'] || 0);
+  if (name === 'drinkCount') return (GS.drinkCounts && GS.drinkCounts['heroine']) || 0;
   return name;
 }
 

@@ -27,6 +27,8 @@ import { loadTestScene } from './api.js';
 import { activateCode, saveCodePreference, getSavedCode, isRememberCode } from './auth.js';
 import { compressTodayToSummary } from './memory.js';
 
+var _scrollBound = false;
+
 // ==================== UI 渲染 ====================
 export function renderAll() {
   var app = document.getElementById('app');
@@ -849,9 +851,13 @@ export function bindGameEvents() {
     backToTopBtn.addEventListener('click', function() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-    window.addEventListener('scroll', function() {
-      backToTopBtn.style.display = window.scrollY > 500 ? 'flex' : 'none';
-    });
+    if (!_scrollBound) {
+      window.addEventListener('scroll', function() {
+        var btn = document.getElementById('backToTopBtn');
+        if (btn) btn.style.display = window.scrollY > 500 ? 'flex' : 'none';
+      });
+      _scrollBound = true;
+    }
     backToTopBtn.style.display = window.scrollY > 500 ? 'flex' : 'none';
   }
 }

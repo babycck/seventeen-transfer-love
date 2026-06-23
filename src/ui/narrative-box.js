@@ -21,7 +21,7 @@ export function renderParsedNarrative(parsed) {
       } else if (b.type === 'xInterview') {
         html += '<div class="x-interview">🎙️💔 <strong>【X采访间】</strong> ' + escHtml(content) + '</div>';
       } else if (b.type === 'memberInterview') {
-        var memberTag = b.member ? '【' + b.member + '】' : '';
+        var memberTag = b.member ? '【' + escHtml(b.member) + '】' : '';
         html += '<div class="member-interview">🎤 <strong>' + memberTag + '</strong> ' + escHtml(content) + '</div>';
       } else if (b.type === 'directorOS') {
         var dlines = content.split('\n').filter(function(l) { return l.trim(); });
@@ -32,8 +32,10 @@ export function renderParsedNarrative(parsed) {
         var olines = content.split('\n').filter(function(l) { return l.trim(); });
         for (var n = 0; n < olines.length; n++) {
           var formatted = olines[n].replace(
-            /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:]/,
-            '<span class="obs-name">$1：</span>'
+            /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:](.*)$/,
+            function(match, name, rest) {
+              return '<span class="obs-name">' + escHtml(name) + '：</span>' + escHtml(rest);
+            }
           );
           html += '<div class="observer-os">💭 ' + formatted + '</div>';
         }
@@ -74,8 +76,10 @@ export function renderParsedNarrative(parsed) {
     var olines2 = parsed.observerOS.split('\n').filter(function(l) { return l.trim(); });
     for (var nn = 0; nn < olines2.length; nn++) {
       var formatted2 = olines2[nn].replace(
-        /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:]/,
-        '<span class="obs-name">$1：</span>'
+        /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:](.*)$/,
+        function(match, name, rest) {
+          return '<span class="obs-name">' + escHtml(name) + '：</span>' + escHtml(rest);
+        }
       );
       html += '<div class="observer-os">💭 ' + formatted2 + '</div>';
     }
@@ -135,8 +139,9 @@ export function startTypewriter(containerId, speed) {
   var textBuf = '';
 
   function flushText() {
-    if (!textBuf) return;
-    for (var k = 0; k < textBuf.length; k++) {
+    if (!textBuf) return 0;
+    var len = textBuf.length;
+    for (var k = 0; k < len; k++) {
       (function(pos) {
         setTimeout(function() {
           html += textBuf[pos];
@@ -147,7 +152,7 @@ export function startTypewriter(containerId, speed) {
     }
     html += textBuf;
     textBuf = '';
-    return textBuf.length * speed;
+    return len * speed;
   }
 
   function process() {

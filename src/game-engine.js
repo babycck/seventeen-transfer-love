@@ -240,7 +240,8 @@ export async function generatePhaseNarrative() {
       setTimeout(showXItemsModal, 500);
     }
   } catch (e) {
-    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[generatePhaseNarrative] AI 生成失败:', e);
+    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
     GS.phaseNarrative = '';
     GS.parsedNarrative = {
       narrative: '', directorOS: '', observerOS: '',
@@ -398,7 +399,8 @@ export async function generateDrunkNarrative() {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ 醉酒剧情生成失败：' + e.message);
+    console.error('[generateDrunkNarrative] 醉酒剧情生成失败:', e);
+    showToast('⚠️ 醉酒剧情生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -421,7 +423,8 @@ export async function generateDrunkConsequence(choiceText, memberId) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ 醉酒后续生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[generateDrunkConsequence] 醉酒后续生成失败:', e);
+    showToast('⚠️ 醉酒后续生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -522,7 +525,8 @@ export async function handleTruthRound(opt) {
       }
     }
   } catch (e) {
-    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[handleTruthRound] AI 生成失败:', e);
+    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -631,7 +635,8 @@ export async function handleOptionChoice(opt) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[handleOptionChoice] AI 生成失败:', e);
+    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -736,7 +741,8 @@ export async function handleFinalChoice(opt) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ 结局生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[handleFinalChoice] 结局生成失败:', e);
+    showToast('⚠️ 结局生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -795,7 +801,8 @@ export async function handleFreeAction(actionText) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[handleFreeAction] AI 生成失败:', e);
+    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -825,7 +832,9 @@ export function triggerAffectionFromChoice(choiceText) {
       break;
     }
   }
-  if (!targetMember) targetMember = members[Math.floor(Math.random() * members.length)];
+  if (!targetMember) {
+    return;
+  }
 
   var delta = randInt(2, 4);
   updateAffection(targetMember.id, delta);
@@ -868,8 +877,8 @@ export async function handleRegenerate() {
 var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 });
     var rawText = _gr.raw;
     var savedDrinkCounts = JSON.parse(JSON.stringify(GS.drinkCounts));
-    var parsed = parseNarrative(rawText);
-    GS.drinkCounts = savedDrinkCounts;
+      var parsed = parseNarrative(rawText);
+      applyParsedSideEffects(parsed);
       var corrections = validateNarrative(rawText, parsed);
       pushCorrections(corrections);
       dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: choiceText });
@@ -879,7 +888,8 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
       saveGame();
       if (window.__renderAll) window.__renderAll();
     } catch (e) {
-      alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+      console.error('[handleRegenerate] AI 生成失败:', e);
+      showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
     }
     hideLoading();
   } else {
@@ -887,9 +897,7 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
     GS.prevSummary = oldRaw ? oldRaw.slice(0, 200) : '';
     GS.prevRawText = oldRaw || '';
     popTodayFullText();
-    var savedDrinkCounts = JSON.parse(JSON.stringify(GS.drinkCounts));
     await generatePhaseNarrative();
-    GS.drinkCounts = savedDrinkCounts;
   }
 }
 
@@ -920,7 +928,7 @@ export function resetPhaseState() {
 
 export async function goToNextDay() {
   if (GS.day >= 12) {
-    if (GS.currentOptions.length > 0 && GS.currentOptions[0].text.indexOf('选择') >= 0) return;
+    if (GS.currentOptions.length > 0) return;
     GS.gameOver = true;
     GS.finalChoice = '（请在最终选项中选择）';
     saveGame();
@@ -1078,7 +1086,8 @@ export async function continueToday() {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[continueToday] 生成失败:', e);
+    showToast('⚠️ 生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -1091,8 +1100,6 @@ export async function handleQuestionBoxChoice(opt) {
   if (!isDrink) {
     playerAnswer = await showQuestionBoxAnswerModal();
     if (!playerAnswer) {
-      qb.active = false;
-      saveGame();
       if (window.__renderAll) window.__renderAll();
       return;
     }
@@ -1133,7 +1140,8 @@ export async function handleQuestionBoxChoice(opt) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ AI 生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    console.error('[handleQuestionBoxChoice] AI 生成失败:', e);
+    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
   }
   hideLoading();
 }
@@ -1144,6 +1152,7 @@ export function scheduleReturnGift(memberId) {
   GS.pendingReturnGifts.push({ memberId: memberId, day: GS.day + 1 });
   saveGame();
 }
+window.scheduleReturnGift = scheduleReturnGift;
 
 export function checkPendingReturnGifts() {
   if (!GS.pendingReturnGifts || GS.pendingReturnGifts.length === 0) return null;

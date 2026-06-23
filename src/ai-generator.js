@@ -14,8 +14,10 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
 
   var lastResult = null;
 
+  var currentUserMsg = userMsg;
+
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
-    var raw = await callDeepSeek(sysPrompt, userMsg, tokens, true, temp, sceneType);
+    var raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType);
     var parsed = parseNarrative(raw);
     var corr = validateNarrative(raw, parsed);
 
@@ -38,7 +40,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
 
     if (attempt < maxAttempts - 1) {
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' failed with ' + errors.length + ' error(s), retrying...');
-      userMsg += '\n\n' + formatCorrections(errors);
+      currentUserMsg = currentUserMsg + '\n\n' + formatCorrections(errors);
       continue;
     }
   }

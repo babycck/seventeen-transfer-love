@@ -4,7 +4,6 @@ import {
 } from '../core.js';
 import { parseNarrative } from '../parser.js';
 import { updateAffection, addAffectionLog } from '../affection.js';
-import { scheduleReturnGift } from '../game-engine.js';
 
 export function showGiftPanel() {
   var members = GS.selectedMembers.map(function(id) {
@@ -160,9 +159,10 @@ export async function sendGift(memberId, giftIdx) {
     if (window.__renderAll) window.__renderAll();
 
     // 安排回礼（下一天触发）
-    scheduleReturnGift(memberId);
+    window.scheduleReturnGift(memberId);
   } catch (e) {
-    alert('⚠️ 送礼剧情生成失败：' + e.message);
+    console.error('[sendGift] 送礼剧情生成失败:', e);
+    showToast('⚠️ 送礼剧情生成失败：' + e.message);
   }
   hideLoading();
 }

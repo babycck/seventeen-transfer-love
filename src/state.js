@@ -5,7 +5,7 @@ import { clearStoryCache } from './story-cache.js';
 export var GS = null;
 
 export function setGS(newGS) {
-  GS = newGS;
+  Object.assign(GS, newGS);
 }
 
 export function defaultGameState() {
@@ -182,7 +182,7 @@ export function saveGame() {
     localStorage.setItem(STORAGE_KEY, json);
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
-      alert('⚠️ 存档空间不足！请清理浏览器缓存后重试。');
+      window.showToast('⚠️ 存档空间不足！请清理浏览器缓存后重试。');
     }
   }
 }
@@ -307,7 +307,7 @@ export function resetGame() {
     if (savedRememberCode) localStorage.setItem('svt_auth_remember_code', savedRememberCode);
     if (savedCode) localStorage.setItem('svt_auth_saved_code', savedCode);
     if (savedDeviceId) localStorage.setItem('svt_auth_device_id', savedDeviceId);
-    GS = defaultGameState();
+    Object.assign(GS, defaultGameState());
     GS.apiKey = savedApiKey;
     GS.rememberApiKey = savedRememberApiKey;
     GS.apiProvider = savedApiProvider;

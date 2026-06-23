@@ -6,9 +6,9 @@ function filterItemsByReveal(memberId, items) {
   var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
   if (!reveal || reveal === 'first') {
     // 只保留名称行（不包含故事）
-    return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).join('<br>');
+    return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).map(function(l) { return escHtml(l); }).join('<br>');
   }
-  return items.replace(/\n/g, '<br>');
+  return escHtml(items).replace(/\n/g, '<br>');
 }
 
 export function showXArchiveModal() {
@@ -26,7 +26,7 @@ export function showXArchiveModal() {
   if (GS.xItems[xMember.id]) {
     inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(xMember.id, GS.xItems[xMember.id]) + '</p>';
   }
-  inner += '<p>' + (GS.xBackstory || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+  inner += '<p>' + escHtml(GS.xBackstory || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
     '<hr style="border-color:#f0d0d0;margin:10px 0">';
   for (var i = 0; i < otherMembers.length; i++) {
     var om = otherMembers[i];
@@ -35,7 +35,7 @@ export function showXArchiveModal() {
     if (GS.xItems[om.id]) {
       inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(om.id, GS.xItems[om.id]) + '</p>';
     }
-    inner += '<p>' + (GS.memberXBackstories[om.id] || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+    inner += '<p>' + escHtml(GS.memberXBackstories[om.id] || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
       '<hr style="border-color:#f0d0d0;margin:10px 0">';
   }
   inner += '<button class="modal-close-x" id="xArchiveClose">✕</button></div>';
