@@ -441,22 +441,6 @@ export function renderGameScreen() {
   html += renderHeader();
 
   // 记忆审查面板（非模态可折叠）
-  if (GS.pendingMemoryReview) {
-    var mr = GS.pendingMemoryReview;
-    html += '<div class="memory-review-panel" id="memoryReviewPanel">' +
-      '<div class="mr-toggle" id="mrToggle">' +
-      '<span>📋 Day ' + mr.day + ' 记忆压缩摘要</span>' +
-      '<span class="mr-status">待确认</span>' +
-      '<span id="mrToggleIcon">▾</span>' +
-      '</div>' +
-      '<div class="mr-body" id="mrBody">' +
-      '<textarea id="mrTextarea">' + escHtml(mr.summary) + '</textarea>' +
-      '<div class="mr-actions">' +
-      '<button class="btn-mr-recompress" id="mrRecompress">🔄 重新压缩</button>' +
-      '<button class="btn-mr-confirm" id="mrConfirm">✅ 确认无误</button>' +
-      '</div></div></div>';
-  }
-
   // 叙事（使用 UI 组件）
   html += renderNarrativeSection();
 
@@ -673,35 +657,6 @@ export function bindGameEvents() {
       if (body) {
         body.classList.toggle('hidden');
         if (icon) icon.textContent = body.classList.contains('hidden') ? '▸' : '▾';
-      }
-    });
-  }
-
-  var mrConfirm = document.getElementById('mrConfirm');
-  if (mrConfirm) {
-    mrConfirm.addEventListener('click', async function() {
-      var editedSummary = (document.getElementById('mrTextarea') || {}).value || '';
-      if (editedSummary.trim()) {
-        GS.dailySummaries.push(editedSummary.trim());
-        GS.pendingPromises = extractPendingPromises(editedSummary);
-        GS.todayRevealedInfo = extractRevealedInfo(editedSummary);
-      }
-      GS.pendingMemoryReview = null;
-      saveGame();
-      await proceedToNextDay();
-    });
-  }
-
-  var mrRecompress = document.getElementById('mrRecompress');
-  if (mrRecompress) {
-    mrRecompress.addEventListener('click', async function() {
-      showLoading('正在重新压缩...');
-      var newSummary = await compressTodayToSummary();
-      hideLoading();
-      if (GS.pendingMemoryReview) {
-        GS.pendingMemoryReview.summary = newSummary;
-        saveGame();
-        renderAll();
       }
     });
   }

@@ -114,7 +114,7 @@ function initGame() {
   renderAll();
 
   // 如果已在游戏中且当前没有剧情，自动生成时段剧情
-  if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !GS.phaseNarrative && !GS.pendingMemoryReview) {
+  if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !GS.phaseNarrative) {
     generatePhaseNarrative();
   }
 }

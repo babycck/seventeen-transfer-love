@@ -998,21 +998,12 @@ export async function goToNextDay() {
   var summary = await compressTodayToSummary();
   hideLoading();
   if (summary) {
-    var promises = extractPendingPromises(summary);
-    var revealed = extractRevealedInfo(summary);
-    // 使用非模态面板
-    GS.pendingMemoryReview = {
-      day: GS.day,
-      summary: summary,
-      promises: promises,
-      revealed: revealed
-    };
+    GS.dailySummaries.push(summary);
+    GS.pendingPromises = extractPendingPromises(summary);
+    GS.todayRevealedInfo = extractRevealedInfo(summary);
     saveGame();
-    if (window.__renderAll) window.__renderAll();
-    window.scrollTo(0, 0);
-  } else {
-    await proceedToNextDay();
   }
+  await proceedToNextDay();
 }
 
 export async function proceedToNextDay() {
