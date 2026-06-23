@@ -39,7 +39,14 @@ export function renderAll() {
     app.innerHTML = renderGameScreen();
     bindGameEvents();
     scrollToLatestContent();
-    setTimeout(function() { startTypewriter('narrativeBox', 30); }, 50);
+    setTimeout(function() {
+      var newContent = document.getElementById('narrativeNewContent');
+      if (newContent && newContent.getAttribute('data-narrative-html')) {
+        startTypewriter('narrativeNewContent', 30);
+      } else {
+        startTypewriter('narrativeBox', 30);
+      }
+    }, 50);
   }
 }
 

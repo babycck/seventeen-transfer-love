@@ -89,26 +89,47 @@ export function renderParsedNarrative(parsed) {
 
 // 渲染完整叙事区域（含 choice-tag 分割线）
 export function renderNarrativeSection() {
-  var html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="';
+  var hasConsequences = GS.consequenceNarratives && GS.consequenceNarratives.length > 0;
 
-  var narrativeHtml = '';
+  var html = '<div class="card"><div class="narrative-box" id="narrativeBox">';
+
   if (GS.phaseNarrative) {
-    narrativeHtml += renderParsedNarrative(GS.parsedNarrative);
+    html += renderParsedNarrative(GS.parsedNarrative);
   }
-  if (GS.consequenceNarratives) {
-    for (var i = 0; i < GS.consequenceNarratives.length; i++) {
-      narrativeHtml += '<div class="separator"></div>';
+  if (hasConsequences) {
+    // 除最后一条外，已有剧情直接显示
+    for (var i = 0; i < GS.consequenceNarratives.length - 1; i++) {
+      html += '<div class="separator"></div>';
       var cn = GS.consequenceNarratives[i];
       if (cn.choiceText) {
-        narrativeHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
+        html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
       }
-      narrativeHtml += renderParsedNarrative(cn.parsed);
+      html += renderParsedNarrative(cn.parsed);
     }
+    // 最后一条新剧情：放入打字机容器
+    var lastCn = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
+    var newHtml = '';
+    if (lastCn.choiceText) {
+      newHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(lastCn.choiceText) + '</div>';
+    }
+    newHtml += renderParsedNarrative(lastCn.parsed);
+    html += '<div class="separator"></div>';
+    html += '<div id="narrativeNewContent" data-narrative-html="' + escHtml(newHtml) + '">';
+    html += newHtml;
+    html += '</div>';
   }
 
-  html += escHtml(narrativeHtml) + '">';
-  html += narrativeHtml;
   html += '</div></div>';
+
+  // 如果没有后续剧情，首次打字机用 data-narrative-html
+  if (!hasConsequences && GS.phaseNarrative) {
+    var allHtml = '';
+    if (GS.phaseNarrative) {
+      allHtml += renderParsedNarrative(GS.parsedNarrative);
+    }
+    html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '">' + allHtml + '</div></div>';
+  }
+
   return html;
 }
 
