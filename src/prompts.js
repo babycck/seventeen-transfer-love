@@ -81,10 +81,11 @@ export function buildSystemPrompt() {
 
     '}\n' +
     '⚠️ blocks 必须按输出顺序排列，正文与采访间交替穿插：narrative → interview → narrative → memberInterview → ...\n' +
+    'directorOS block 放在 block 数组的末尾（在最后一个 memberInterview 之后），只输出 1 条。\n' +
     '⚠️ observerOS 不进 blocks，只在 observers 数组中输出。\n' +
     '⚠️ 深夜短信剧情(type=sms)不输出 options。约配对日只输出 1 个「▶ 进入约会场景」选项。\n' +
     '⚠️ smsDrafts 只在深夜(phaseIndex===3)输出；drinks 只在真心话/提问箱环节输出。\n' +
-    '⚠️ 所有 content 字段使用中文叙述，不要包含 emoji 标记或【】方括号。第二人称写正文。\n' +
+    '⚠️ 所有 content 字段使用中文叙述，不要包含 emoji 标记。第二人称写正文。对话使用「」引用。\n' +
     '⚠️ content 字段的值中禁止使用 ASCII 双引号 "，如需引用对话请使用中文引号「」或「」。\n\n' +
 
     '[SYSTEM] 节目设定\n' +
@@ -557,7 +558,7 @@ export function buildUserMessage(type, extra) {
   }
 
   var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。';
-  var styleNote = '\n[风格要求] 每句话独立成一段，在 content 字段中用 \\n 分隔每句话。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n"content": "第一句话。\\n第二句话。\\n“对话。”\\n🎙【采访间】内容"\n\n';
+  var styleNote = '\n[风格要求] 每句话独立成一段，在 content 字段中用 \\n 分隔每句话。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n"content": "第一句话。\\n第二句话。\\n「对话。」\\n描述继续。"\n\n';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
