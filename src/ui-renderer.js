@@ -882,6 +882,7 @@ export function bindGameEvents() {
   var exportBtn = document.getElementById('exportBtn');
   if (exportBtn) {
     exportBtn.addEventListener('click', function() {
+      if (!confirm('确定要导出剧情记录吗？')) return;
       var text = '';
       for (var i = 0; i < GS.dailyFullTexts.length; i++) {
         text += '========== Day ' + (i + 1) + ' ==========\n\n';
