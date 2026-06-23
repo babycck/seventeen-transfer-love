@@ -11,9 +11,7 @@ import { sanitizeScene } from './schema.js';
 
 function repairJson(raw) {
   if (!raw || typeof raw !== 'string') return raw;
-  // 尝试直接解析
   try { JSON.parse(raw); return raw; } catch (e) {}
-  // 常见修复：去掉 JSON 外的前后多余字符
   var s = raw.trim();
   var firstBrace = s.indexOf('{');
   var lastBrace = s.lastIndexOf('}');
@@ -21,24 +19,31 @@ function repairJson(raw) {
     s = s.slice(firstBrace, lastBrace + 1);
   }
   try { JSON.parse(s); return s; } catch (e) {}
-  // 修复对象和数组末尾的多余逗号
   s = s.replace(/,\s*([}\]])/g, '$1');
   try { JSON.parse(s); return s; } catch (e) {}
-  // 修复字符串中未转义的换行符（AI 经常在 JSON 字符串里加换行）
+  // 修复字符串中未转义的换行符 + 处理截断
   var inString = false;
   var escape = false;
+  var depth = 0;
   var result = '';
   for (var i = 0; i < s.length; i++) {
     var ch = s[i];
     if (escape) { result += ch; escape = false; continue; }
     if (ch === '\\') { result += ch; escape = true; continue; }
     if (ch === '"' && !escape) { inString = !inString; result += ch; continue; }
+    if (!inString) {
+      if (ch === '{' || ch === '[') depth++;
+      if (ch === '}' || ch === ']') depth--;
+    }
     if (inString && (ch === '\n' || ch === '\r')) {
       result += '\\n';
       continue;
     }
     result += ch;
   }
+  // 如果截断了：补全未闭合的字符串 + 数组/对象括号
+  if (inString) result += '"';
+  while (depth > 0) { result += '}'; depth--; }
   return result;
 }
 
