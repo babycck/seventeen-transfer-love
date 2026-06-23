@@ -20,8 +20,8 @@ body {
 #app {
   max-width: 720px;
   margin: 0 auto;
-  padding: 40px 12px 40px;
-  padding-top: calc(40px + env(safe-area-inset-top, 0px));
+  padding: 10px 12px 40px;
+  padding-top: env(safe-area-inset-top, 40px);
 }
 
 /* ==================== Header ==================== */
@@ -943,7 +943,7 @@ body {
 
 /* ==================== Responsive ==================== */
 @media (max-width: 480px) {
-  #app { padding: 6px 8px 30px; }
+  #app { padding: 6px 8px 30px; padding-top: env(safe-area-inset-top, 6px); }
   .header { padding: 10px; border-radius: 12px; }
   .header .day-badge { font-size: 11px; padding: 4px 10px; }
   .header .affection-hint { font-size: 10px; max-width: calc(100vw - 120px); }
