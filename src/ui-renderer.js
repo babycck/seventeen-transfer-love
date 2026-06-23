@@ -712,7 +712,11 @@ export function bindGameEvents() {
         resetPhaseState();
         saveGame();
         renderAll();
+      await generatePhaseNarrative();
+      if (!GS.phaseNarrative && GS.aiEnabled) {
+        console.warn('[setup] first generation empty, retrying...');
         await generatePhaseNarrative();
+      }
         return;
       }
 
