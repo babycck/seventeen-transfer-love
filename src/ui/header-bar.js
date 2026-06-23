@@ -22,7 +22,7 @@ export function renderHeader() {
     '<button id="apiSettingsBtn" title="API设置">⚙️</button>' +
     '<button id="helpBtn" title="规则速览">❓</button>' +
     '<button id="historyBtn" title="历史剧情回顾">📖</button>' +
-    (GS.xBackstory ? '<button id="xArchiveBtn" title="查看X档案">📋</button>' : '') +
+    '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
     '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +
     (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
     (GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +

@@ -227,6 +227,8 @@ export function migrateSave() {
     if (GS.pendingMemoryReview === undefined) GS.pendingMemoryReview = null;
     if (GS.drunkTrigger === undefined) GS.drunkTrigger = null;
     if (!Array.isArray(GS.gifts)) GS.gifts = []; // [P0-2]
+    if (GS.xBackstory === undefined) GS.xBackstory = '';
+    if (GS.xBackstoryHidden === undefined) GS.xBackstoryHidden = '';
     if (!Array.isArray(GS.pendingReturnGifts)) GS.pendingReturnGifts = [];
     if (!Array.isArray(GS.returnGiftHistory)) GS.returnGiftHistory = [];
     if (GS.todayMissionCard === undefined) GS.todayMissionCard = null;
