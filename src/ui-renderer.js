@@ -384,6 +384,15 @@ export function bindSetupEvents() {
       }
       GS.weather = GS.weathers[0];
       GS.todayHoliday = null;
+      GS.phaseNarrative = '';
+      GS._isGenerating = false;
+      GS.parsedNarrative = {
+        narrative: '', directorOS: '', observerOS: '',
+        interviews: [], memberInterviews: [], xInterviews: [], options: []
+      };
+      GS.currentOptions = [];
+      GS.consequenceNarratives = [];
+      GS.isInConsequence = false;
       saveGame();
       if (GS.aiEnabled) {
         showLoading('正在准备第一天...');
@@ -393,8 +402,6 @@ export function bindSetupEvents() {
         saveGame();
       }
       await generatePhaseNarrative();
-      renderAll();
-      hideLoading();
     });
     document.getElementById('step4Back').addEventListener('click', function() {
       GS.step = 3;

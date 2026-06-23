@@ -118,6 +118,7 @@ export async function generateAllXArchives() {
     GS.xBackstory = cachedMain.xBackstory;
     GS.xBackstoryHidden = cachedMain.xBackstoryHidden;
     GS.xItems[GS.secretX] = cachedMain.xItems;
+    saveGame();
     console.log('[XArchive] 复用缓存的女主↔X恋爱档案');
   } else {
     showLoading('正在生成X关系故事...');
