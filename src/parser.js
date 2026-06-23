@@ -9,6 +9,39 @@ import { sanitizeScene } from './schema.js';
 // AI 现在只输出 JSON，本地用 schema 做兜底 + 字段拆分。
 // 旧版 emoji 状态机解析已废弃（用户已确认重置游戏，不兼容旧 markdown 输出）。
 
+function repairJson(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  // 尝试直接解析
+  try { JSON.parse(raw); return raw; } catch (e) {}
+  // 常见修复：去掉 JSON 外的前后多余字符
+  var s = raw.trim();
+  var firstBrace = s.indexOf('{');
+  var lastBrace = s.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    s = s.slice(firstBrace, lastBrace + 1);
+  }
+  try { JSON.parse(s); return s; } catch (e) {}
+  // 修复对象和数组末尾的多余逗号
+  s = s.replace(/,\s*([}\]])/g, '$1');
+  try { JSON.parse(s); return s; } catch (e) {}
+  // 修复字符串中未转义的换行符（AI 经常在 JSON 字符串里加换行）
+  var inString = false;
+  var escape = false;
+  var result = '';
+  for (var i = 0; i < s.length; i++) {
+    var ch = s[i];
+    if (escape) { result += ch; escape = false; continue; }
+    if (ch === '\\') { result += ch; escape = true; continue; }
+    if (ch === '"' && !escape) { inString = !inString; result += ch; continue; }
+    if (inString && (ch === '\n' || ch === '\r')) {
+      result += '\\n';
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
 export function parseNarrative(rawText) {
   var empty = {
     narrative: '',
@@ -30,10 +63,11 @@ export function parseNarrative(rawText) {
     return empty;
   }
 
-  // 解析 JSON。失败时返回 empty 并打印告警（让引擎展示「生成失败」而非崩 UI）
+  // 解析 JSON，自动修复 AI 常见问题
   var obj = null;
+  var repaired = repairJson(rawText);
   try {
-    obj = JSON.parse(rawText);
+    obj = JSON.parse(repaired);
   } catch (e) {
     console.error('[parseNarrative] JSON 解析失败:', e, '\n原文片段:', rawText.slice(0, 400));
     return empty;
