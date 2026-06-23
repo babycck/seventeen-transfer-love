@@ -556,7 +556,7 @@ export function buildUserMessage(type, extra) {
   }
 
   var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。';
-  var styleNote = '\n[风格要求] 每句话独立成一段，不要合并我句子。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n第一句话。\n第二句话。\n“对话。”\n🎙【采访间】内容\n\n';
+  var styleNote = '\n[风格要求] 每句话独立成一段，在 content 字段中用 \\n 分隔每句话。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n"content": "第一句话。\\n第二句话。\\n“对话。”\\n🎙【采访间】内容"\n\n';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +

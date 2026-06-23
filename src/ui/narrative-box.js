@@ -1,6 +1,32 @@
 import { escHtml } from '../core.js';
 import { GS } from '../state.js';
 
+// 中文自动断句：按句号/问号/感叹号/分号 + 引号末尾拆分
+function splitChineseSentences(text) {
+  if (!text) return [''];
+  // 如果已有 \n 则按 \n 分
+  if (text.indexOf('\n') >= 0) {
+    return text.split('\n').filter(function(p) { return p.trim(); });
+  }
+  // 按中文标点断句
+  var result = [];
+  var buf = '';
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    buf += ch;
+    // 碰到句末标点且后面是"开头或汉字开头或结尾时断句
+    if ('。！？；.!?;'.indexOf(ch) >= 0) {
+      var next = text[i + 1] || '';
+      if (next === '' || next === '”' || next === '"' || next === ' ' || next === '\n' || /[\u4e00-\u9fff]/.test(next)) {
+        result.push(buf.trim());
+        buf = '';
+      }
+    }
+  }
+  if (buf.trim()) result.push(buf.trim());
+  return result;
+}
+
 // 渲染剧情内容（blocks 优先，兼容旧字段格式）
 export function renderParsedNarrative(parsed) {
   var html = '';
@@ -12,7 +38,7 @@ export function renderParsedNarrative(parsed) {
       if (!content) continue;
 
       if (b.type === 'narrative') {
-        var paras = content.split('\n').filter(function(p) { return p.trim(); });
+        var paras = splitChineseSentences(content);
         for (var p = 0; p < paras.length; p++) {
           html += '<p>' + escHtml(paras[p]) + '</p>';
         }
@@ -46,7 +72,7 @@ export function renderParsedNarrative(parsed) {
 
   // 旧格式兼容
   if (parsed.narrative) {
-    var paras2 = parsed.narrative.split('\n').filter(function(p) { return p.trim(); });
+    var paras2 = splitChineseSentences(parsed.narrative);
     for (var ii = 0; ii < paras2.length; ii++) {
       html += '<p>' + escHtml(paras2[ii]) + '</p>';
     }
