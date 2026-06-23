@@ -45,6 +45,27 @@ function repairJson(raw) {
   if (inString) result += '"';
   while (depth > 0) { result += '}'; depth--; }
   try { JSON.parse(result); return result; } catch (e) {}
+  // 修复 blocks 数组中对象之间缺逗号：}{ → },
+  result = result.replace(/}(\s*){/g, '},$1{');
+  try { JSON.parse(result); return result; } catch (e) {}
+  // 修复 content 字段中未转义的 ASCII "（在 CJK 字符之间）
+  result = result.replace(/"content":\s*"((?:[^"\\]|\\.)*)"/g, function(m, content) {
+    // 检测 content 内部是否还有未闭合的 "
+    var inContent = false;
+    var escaped = '';
+    for (var ci = 0; ci < content.length; ci++) {
+      var cc = content[ci];
+      if (cc === '\\') { escaped += cc + (content[ci+1] || ''); ci++; continue; }
+      if (cc === '"') {
+        // 裸 " 转义
+        escaped += '\\"';
+      } else {
+        escaped += cc;
+      }
+    }
+    return '"content": "' + escaped + '"';
+  });
+  try { JSON.parse(result); return result; } catch (e) {}
   // 最后手段：用正则提取 blocks 数组，重建合法 JSON
   var blocksMatch = s.match(/"blocks"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/);
   if (blocksMatch) {

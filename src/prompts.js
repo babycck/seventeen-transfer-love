@@ -84,7 +84,8 @@ export function buildSystemPrompt() {
     '⚠️ observerOS 不进 blocks，只在 observers 数组中输出。\n' +
     '⚠️ 深夜短信剧情(type=sms)不输出 options。约配对日只输出 1 个「▶ 进入约会场景」选项。\n' +
     '⚠️ smsDrafts 只在深夜(phaseIndex===3)输出；drinks 只在真心话/提问箱环节输出。\n' +
-    '⚠️ 所有 content 字段使用中文叙述，不要包含 emoji 标记或【】方括号。第二人称写正文。\n\n' +
+    '⚠️ 所有 content 字段使用中文叙述，不要包含 emoji 标记或【】方括号。第二人称写正文。\n' +
+    '⚠️ content 字段的值中禁止使用 ASCII 双引号 "，如需引用对话请使用中文引号「」或「」。\n\n' +
 
     '[SYSTEM] 节目设定\n' +
     '- 《换乘恋爱》：1位女主 + 3位SEVENTEEN成员；共3对X关系（女主↔X + 2位攻略对象↔场外女性X）\n' +
