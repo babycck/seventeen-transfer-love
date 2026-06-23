@@ -188,13 +188,12 @@ export function buildSystemPrompt() {
     '6. 时段语气匹配当前时段，禁止关键词粘合，不复述已发生事件。\n' +
     '7. 所有角色严格禁止抽烟（含电子烟）\n' +
     '8. 同一角色当天偏好/禁忌不得矛盾；遵守成员饮食禁忌\n' +
-    '9. 正文每段不超过 300 字，对话切换/场景切换/动作切换必须换段\n' +
-    '10. 沉浸式恋爱小说+韩综氛围。文艺但不拗口，口语但不随意\n' +
-    '11. 描写比例：环境~20%、对话~32%、女主心理~15%、肢体细节~20%、成员心理通过采访间和OS呈现~13%\n' +
-    '12. 情感浓度递进：Day1-3克制含蓄→Day4-7暗流涌动→Day8-10情感爆发→Day11-12极致拉扯\n' +
-    '13. 偶尔自然提及星座作为角色自我认知与轻松话题，不变成星座算命\n' +
-    '14. 绝对禁止：AI味元叙事、言情小说式夸张比喻、替玩家做情感判断、角色替玩家解读、过度解释、说教式旁白、综艺字幕风对话标注、任何抽烟描写、关键词粘合、辈分称谓、韩式敬语后缀\n' +
-    '15. 必须基于 X隐藏情感和女主对X的记忆来驱动女主与X的互动——眼神、停顿、欲言又止、采访间中的真实感受\n\n' +
+    '9. 沉浸式恋爱小说+韩综氛围。文艺但不拗口，口语但不随意\n' +
+    '10. 描写比例：环境~20%、对话~32%、女主心理~15%、肢体细节~20%、成员心理通过采访间和OS呈现~13%\n' +
+    '11. 情感浓度递进：Day1-3克制含蓄→Day4-7暗流涌动→Day8-10情感爆发→Day11-12极致拉扯\n' +
+    '12. 偶尔自然提及星座作为角色自我认知与轻松话题，不变成星座算命\n' +
+    '13. 绝对禁止：AI味元叙事、言情小说式夸张比喻、替玩家做情感判断、角色替玩家解读、过度解释、说教式旁白、综艺字幕风对话标注、任何抽烟描写、关键词粘合、辈分称谓、韩式敬语后缀\n' +
+    '14. 必须基于 X隐藏情感和女主对X的记忆来驱动女主与X的互动——眼神、停顿、欲言又止、采访间中的真实感受\n\n' +
 
     '[SYSTEM] 好感度行为参考\n' +
     '- ≥40：主动靠近、吃醋、明显好感\n- ≥15：关注中、有好感\n- ≥0：中性友好\n- ≤-15：冷淡回避\n' +
@@ -595,27 +594,26 @@ export function buildUserMessage(type, extra) {
   }
 
   var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。';
-  var styleNote = '\n[风格要求] 每句话独立成一段，在 content 字段中用 \\n 分隔每句话。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n"content": "第一句话。\\n第二句话。\\n「对话。」\\n描述继续。"\n\n';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
       '请生成后续剧情（~500字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
-      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote + styleNote;
+      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote;
   } else if (type === 'freeAction') {
     msg += '[INSTRUCTION] 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText + '"\n\n' +
       '⚠️ 玩家的行动已经在故事中执行完毕。你现在写的是执行之后紧接着发生的事。当前时间：Day ' + GS.day + ' ' + phaseLabel + '。\n' +
       '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~800字 JSON）：\n' +
       '- 这是紧接着已有剧情的后续发展，不要重复已有内容\n' +
       '- 将玩家的行动意图自然融入剧情\n' +
-      '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote + styleNote;
+      '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote;
   } else if (type === 'sms') {
     msg += '[INSTRUCTION] 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent + '"\n' +
       '请生成短信发送后的剧情（~300字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
       '⚠️ 不需要生成 options（深夜短信剧情不加选项）\n' +
       '⚠️ 不要描写女主发短信的动作，短信已经发出了。这是深夜睡前。\n' +
-      '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote + styleNote;
+      '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote;
   } else if (type === 'stay') {
-    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~800字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote + styleNote;
+    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~800字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote;
   } else if (type === 'finalResult') {
     msg += '[INSTRUCTION] 生成任务·最终结局\n玩家选择了：' + extra.choiceText + '\n\n3位成员的最终选择结果：\n';
     for (var k = 0; k < extra.memberChoices.length; k++) {
@@ -634,7 +632,7 @@ export function buildUserMessage(type, extra) {
       '包含 directorOS block + observers 数组';
   } else {
     msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~800字 JSON）。\n' +
-      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote + styleNote;
+      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote;
 
     if (GS.day === 1 && GS.phaseIndex === 0) {
       msg += '\n这是节目第一天上午！请描写入住心动小屋的场景：你拖着行李箱到达，成员们陆续到来。成员之间彼此非常熟悉（多年队友），只有你是新人。描写每个人进门时的样子、第一句对话。注意：读信环节在傍晚，现在不要写。';
