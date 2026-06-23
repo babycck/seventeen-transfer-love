@@ -287,6 +287,7 @@ export function migrateSave() {
     if (GS.endingChosenId === undefined) GS.endingChosenId = '';
     if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
     if (!GS.endingArchive) GS.endingArchive = [];
+    GS._isGenerating = false;
     // Phase 4 骨架模块开关
     if (!GS.skeletonConfig) GS.skeletonConfig = {
       enabled: false,

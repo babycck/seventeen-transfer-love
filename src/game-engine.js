@@ -911,6 +911,8 @@ export function checkJealousyEvent(choiceText) {
 }
 
 export async function handleRegenerate() {
+  // 重置生成锁，允许重新尝试
+  GS._isGenerating = false;
   // 重新生成时旧pending被自然覆盖，不结算
   GS.pendingAffChanges = [];
   if (!GS.aiEnabled) {
