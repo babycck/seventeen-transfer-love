@@ -25,9 +25,11 @@ export function validateNarrative(rawText, parsed) {
     if (options[k] && options[k].text) content += options[k].text + '\n';
   }
 
-  // 空剧情检测（repairJson fallback 场景）
-  if (!blocks || blocks.length === 0 && (!parsed.narrative || parsed.narrative.length === 0)) {
-    corrections.push({ severity: 'error', type: 'format', message: '剧情内容为空——AI 可能返回了无效 JSON，请等待自动重试' });
+  // 空剧情检测（repairJson fallback 或 AI 返回空内容场景）
+  // 合并检测：blocks 为空时一次性返回明确 error，避免重复触发多条
+  if (!blocks || blocks.length === 0) {
+    corrections.push({ severity: 'error', type: 'format', message: '剧情内容为空——AI 可能返回了无效 JSON 或内容缺失，请输出至少一段 narrative 类型正文（≥100字）' });
+    return corrections; // blocks 为空时后续检测无意义，直接返回
   }
 
   // 内容规则校验（severity: warning）
@@ -40,10 +42,8 @@ export function validateNarrative(rawText, parsed) {
   corrections = corrections.concat(addSeverity(checkSmokingViolation(content), 'warning'));
 
   // 结构化校验（severity: error）
-  if (!blocks || blocks.length === 0) {
-    corrections.push({ severity: 'error', type: 'format', message: '正文 blocks 为空，必须输出至少一段叙事' });
-  }
-  if (blocks.length === 0 || !blocks.some(function(b) { return b.type === 'narrative'; })) {
+  // 注：blocks 为空的检测已在前置空剧情检测中处理，此处不再重复
+  if (!blocks.some(function(b) { return b.type === 'narrative'; })) {
     corrections.push({ severity: 'error', type: 'format', message: '缺少 narrative 类型的正文段落' });
   }
   var narrativeContent = blocks.filter(function(b) { return b.type === 'narrative' || b.type === 'interview'; });

@@ -2,6 +2,7 @@ import { callDeepSeek } from './api.js';
 import { parseNarrative } from './parser.js';
 import { validateNarrative, formatCorrections } from './validator.js';
 import { dispatch } from './store.js';
+import { GS } from './state.js';
 
 // 带自动重试的 AI 生成包装
 // 如果 validator 返回 error 级问题，自动重试一次并带修正反馈
@@ -39,7 +40,11 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
     lastResult = { raw: raw, parsed: parsed, corrections: corr, attempts: attempt + 1 };
 
     if (attempt < maxAttempts - 1) {
-      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' failed with ' + errors.length + ' error(s), retrying...');
+      var errMsgs = errors.map(function(e) { return '[' + (e.type || '?') + '] ' + e.message; }).join(' | ');
+      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' failed with ' + errors.length + ' error(s): ' + errMsgs);
+      if (GS._lastParseError) {
+        console.warn('[ai-generator] lastParseError rawText (first 600 chars):', (GS._lastParseError.rawText || '').slice(0, 600));
+      }
       currentUserMsg = currentUserMsg + '\n\n' + formatCorrections(errors);
       continue;
     }
