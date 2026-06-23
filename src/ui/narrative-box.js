@@ -1,23 +1,28 @@
 import { escHtml } from '../core.js';
 import { GS } from '../state.js';
 
-// 中文自动断句：按句号/问号/感叹号/分号 + 引号末尾拆分
+// 中文自动断句：按句末标点断，不依赖 AI 的 \n，引号内不断
 function splitChineseSentences(text) {
   if (!text) return [''];
-  // 如果已有 \n 则按 \n 分
-  if (text.indexOf('\n') >= 0) {
-    return text.split('\n').filter(function(p) { return p.trim(); });
-  }
-  // 按中文标点断句
   var result = [];
   var buf = '';
+  var quoteDepth = 0;
   for (var i = 0; i < text.length; i++) {
     var ch = text[i];
+    if (ch === '\n' || ch === '\r') continue;
     buf += ch;
-    // 碰到句末标点且后面是"开头或汉字开头或结尾时断句
+    // 引号嵌套：ASCII " 用 toggle，中文引号用方向
+    if (ch === '"' && quoteDepth === 0) { quoteDepth++; continue; }
+    if (ch === '"' && quoteDepth > 0) { quoteDepth--; continue; }
+    if (ch === '\u201c') { quoteDepth++; continue; }
+    if (ch === '\u201d' && quoteDepth > 0) { quoteDepth--; continue; }
+    if (ch === '\u300c') { quoteDepth++; continue; }
+    if (ch === '\u300d' && quoteDepth > 0) { quoteDepth--; continue; }
+    if (quoteDepth > 0) continue;
+    // 句末标点断句
     if ('。！？；.!?;'.indexOf(ch) >= 0) {
       var next = text[i + 1] || '';
-      if (next === '' || next === '”' || next === '"' || next === ' ' || next === '\n' || /[\u4e00-\u9fff]/.test(next)) {
+      if (next === '' || next === ' ' || (next >= '\u4e00' && next <= '\u9fff') || next === '\n') {
         result.push(buf.trim());
         buf = '';
       }
