@@ -4,10 +4,15 @@ import { createModal } from './modal-factory.js';
 function filterItemsByReveal(memberId, items) {
   if (!items) return '';
   var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
-  if (!reveal || reveal === 'first') {
-    // 只保留名称行（不包含故事）
+  if (!reveal) {
+    // Day 4 之前：不显示任何记忆物品
+    return '';
+  }
+  if (reveal === 'first') {
+    // Day 4：只显示名称和样式，不包含故事
     return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).map(function(l) { return escHtml(l); }).join('<br>');
   }
+  // Day 5+：显示完整物品
   return escHtml(items).replace(/\n/g, '<br>');
 }
 
