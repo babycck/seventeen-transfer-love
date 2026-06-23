@@ -31,9 +31,9 @@ export function showHistoryModal() {
   } else {
     for (var si = 0; si < summaries.length; si++) {
       var dayNum = si + 1;
-      inner += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:10px">' +
-        '<p style="font-weight:700;font-size:13px;color:#5d3a3a;margin-bottom:4px">Day ' + dayNum + '</p>' +
-        '<textarea class="summary-edit" data-day="' + si + '" style="width:100%;min-height:80px;border:1.5px solid #e0c0c0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;outline:none">' +
+      inner += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
+        '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">Day ' + dayNum + '</p>' +
+        '<textarea class="summary-edit" data-day="' + si + '" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
         escHtml(summaries[si]) + '</textarea>' +
         '<button class="btn-summary-save" data-day="' + si + '" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
     }
