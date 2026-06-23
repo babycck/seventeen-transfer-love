@@ -67,6 +67,10 @@ export function defaultGameState() {
     gameOver: false,
     finalChoice: '',
     finalResult: '',
+    endingMemberChoices: [],
+    endingChosenId: '',
+    endingEpilogue: null,
+    endingArchive: [],
     prevSummary: '',
     prevRawText: '',
     pendingDatingResult: null,
@@ -273,6 +277,10 @@ export function migrateSave() {
     if (!GS.affFatigue) GS.affFatigue = {};
     if (GS.phaseFreeCount === undefined) GS.phaseFreeCount = 0;
     if (!GS.xItemsRevealState) GS.xItemsRevealState = {};
+    if (!GS.endingMemberChoices) GS.endingMemberChoices = [];
+    if (GS.endingChosenId === undefined) GS.endingChosenId = '';
+    if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
+    if (!GS.endingArchive) GS.endingArchive = [];
     // Phase 4 骨架模块开关
     if (!GS.skeletonConfig) GS.skeletonConfig = {
       enabled: false,

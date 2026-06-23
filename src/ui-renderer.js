@@ -524,32 +524,135 @@ export function renderGameScreen() {
   return html;
 }
 
-export function renderEndingScreen(members) {
-  var html = '<div class="card" style="text-align:center">' +
-    '<h3 style="color:#c2185b">🎉 游戏结束</h3>' +
-    '<p style="font-size:15px;margin:10px 0">你的最终选择：<strong>' + escHtml(GS.finalChoice) + '</strong></p>';
+export function showEndingArchiveModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  var inner = '<div class="modal-content"><h3>📚 结局图鉴</h3>';
+  if (!GS.endingArchive || GS.endingArchive.length === 0) {
+    inner += '<p style="text-align:center;color:#8b6b6b;padding:20px 0">还没有通关记录，玩到结局后会自动保存。</p>';
+  } else {
+    for (var ai = GS.endingArchive.length - 1; ai >= 0; ai--) {
+      var e = GS.endingArchive[ai];
+      var isGood = e.endingType.indexOf('成功') >= 0;
+      var isLonely = e.endingType.indexOf('独自离开') >= 0;
+      var color = isLonely ? '#757575' : (isGood ? '#2e7d32' : '#c62828');
+      inner += '<div style="background:#fff5f5;border-radius:12px;padding:12px;margin-bottom:10px;border-left:4px solid ' + color + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<span style="font-weight:700;font-size:14px;color:' + color + '">' + escHtml(e.endingType) + '</span>' +
+        '<span style="font-size:11px;color:#8b6b6b">' + e.date + '</span></div>' +
+        '<p style="font-size:12px;color:#5d3a3a;margin-top:4px">' + escHtml(e.finalChoice) + '</p>';
+      if (e.affections) {
+        inner += '<div style="font-size:11px;color:#8b6b6b;margin-top:4px">好感度：';
+        var first = true;
+        for (var aid in e.affections) {
+          var aname = (MEMBERS.find(function(m) { return m.id === aid; }) || {}).name || aid;
+          if (!first) inner += ' · ';
+          inner += aname + ' ' + e.affections[aid];
+          first = false;
+        }
+        inner += '</div>';
+      }
+      inner += '</div>';
+    }
+  }
+  inner += '<button class="modal-close-x" id="archiveModalClose">✕</button></div>';
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#archiveModalClose').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation(); overlay.remove();
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
+  });
+}
 
-  html += '<p style="font-size:13px;margin:8px 0"><strong>最终好感度</strong></p>';
-  for (var i = 0; i < members.length; i++) {
-    var m = members[i];
-    var aff = GS.affection[m.id] || 0;
-    html += '<p style="font-size:13px">' + m.emoji + ' ' + m.name + '：' + getAffectionDesc(aff) + ' ' + aff + '</p>';
+export function renderEndingScreen(members) {
+  var endingType = GS.finalChoice.split(' —— ').pop() || '结局';
+  var isGood = endingType.indexOf('成功') >= 0;
+  var isLonely = endingType.indexOf('独自离开') >= 0;
+  var bannerColor = isLonely ? '#757575' : (isGood ? '#2e7d32' : '#c62828');
+
+  var html = '<div class="ending-screen">' +
+    '<div class="ending-banner" style="background:' + bannerColor + '">' +
+    '<div class="ending-banner-icon">' + (isLonely ? '💔' : '❤️') + '</div>' +
+    '<div class="ending-banner-title">' + escHtml(endingType) + '</div>' +
+    '<div class="ending-banner-sub">你的最终选择</div>' +
+    '<div class="ending-banner-choice">' + escHtml(GS.finalChoice) + '</div>' +
+    '</div>';
+
+  // 成员反应卡片
+  if (GS.endingMemberChoices && GS.endingMemberChoices.length > 0) {
+    html += '<div class="ending-member-reactions">';
+    html += '<h4 class="ending-section-title">成员的反应</h4>';
+    for (var i = 0; i < GS.endingMemberChoices.length; i++) {
+      var mc = GS.endingMemberChoices[i];
+      var mem = members.find(function(m) { return m.id === mc.id; });
+      if (!mem) continue;
+      var isChosen = mc.id === GS.endingChosenId;
+      var aff = GS.affection[mc.id] || 0;
+      html += '<div class="ending-member-card' + (isChosen ? ' chosen' : '') + '">' +
+        '<div class="ending-member-avatar">' + mem.emoji + '</div>' +
+        '<div class="ending-member-info">' +
+        '<div class="ending-member-name">' + escHtml(mem.name) +
+        (isChosen ? ' <span class="ending-chosen-badge">你的选择</span>' : '') + '</div>' +
+        '<div class="ending-member-affection">' + getAffectionDesc(aff) + ' (' + aff + ')</div>' +
+        '<div class="ending-member-choice">' + escHtml(mc.choice) + '</div>' +
+        '</div></div>';
+    }
+    html += '</div>';
   }
 
+  // 好感度汇总
+  html += '<div class="ending-card ending-summary">' +
+    '<h4 class="ending-section-title">📊 数据总览</h4>';
+  for (var j = 0; j < members.length; j++) {
+    var m2 = members[j];
+    var aff2 = GS.affection[m2.id] || 0;
+    html += '<div class="ending-stat-row"><span class="ending-stat-label">' + m2.emoji + ' ' + m2.name +
+      '</span><span>' + getAffectionDesc(aff2) + ' (' + aff2 + ')</span></div>';
+  }
   if (GS.smsHistory.length > 0) {
-    html += '<p style="font-size:13px;margin-top:8px"><strong>📨 短信统计</strong></p>';
     var smsCount = {};
     for (var s = 0; s < GS.smsHistory.length; s++) {
       var t = GS.smsHistory[s].name;
       smsCount[t] = (smsCount[t] || 0) + 1;
     }
+    html += '<div class="ending-stat-row ending-stat-sms">📨 短信：';
+    var first = true;
     for (var name in smsCount) {
-      html += '<p style="font-size:12px;color:#8b6b6b">发给 ' + escHtml(name) + '：' + smsCount[name] + '条</p>';
+      if (!first) html += ' · ';
+      html += escHtml(name) + ' ' + smsCount[name] + '条';
+      first = false;
     }
-    html += '<p style="font-size:12px;color:#8b6b6b">总计：' + GS.smsHistory.length + '条</p>';
+    html += '（共' + GS.smsHistory.length + '条）</div>';
+  }
+  html += '</div>';
+
+  // Epilogue
+  if (GS.endingEpilogue) {
+    var epiHtml = renderParsedNarrative(GS.endingEpilogue);
+    if (epiHtml) {
+      html += '<div class="ending-card ending-epilogue">' +
+        '<h4 class="ending-section-title">📖 一年后</h4>' +
+        '<div class="ending-epilogue-text">' + epiHtml + '</div></div>';
+    }
   }
 
-  html += '<button class="btn-primary" id="btnRestart" style="max-width:180px;margin:8px auto">🔄 重新开始</button></div>';
+  // 致谢
+  html += '<div class="ending-card ending-credits">' +
+    '<h4 class="ending-section-title">🎬 制作组</h4>' +
+    '<div class="ending-credits-text">' +
+    '<p>《换乘恋爱 × SEVENTEEN》</p>' +
+    '<p>感谢你参与这 12 天的旅程</p>' +
+    '<p class="ending-credit-line">— 愿每个选择都不留遗憾 —</p>' +
+    '</div></div>';
+
+  // 按钮
+  html += '<div class="ending-actions">' +
+    '<button class="btn-primary" id="btnRestart" style="flex:1">🔄 重新开始</button>' +
+    '<button class="btn-secondary" id="btnEndingArchive" style="flex:1">📚 结局图鉴</button>' +
+    '<button class="btn-secondary" id="btnEndingExport" style="flex:1">📥 导出结局</button>' +
+    '</div></div>';
   return html;
 }
 
@@ -832,9 +935,44 @@ export function bindGameEvents() {
   var restartBtn = document.getElementById('btnRestart');
   if (restartBtn) {
     restartBtn.addEventListener('click', function() {
-      setGS(defaultGameState());
-      saveGame();
+      resetGame();
       renderAll();
+    });
+  }
+
+  var endingArchiveBtn = document.getElementById('btnEndingArchive');
+  if (endingArchiveBtn) {
+    endingArchiveBtn.addEventListener('click', showEndingArchiveModal);
+  }
+
+  var endingExportBtn = document.getElementById('btnEndingExport');
+  if (endingExportBtn) {
+    endingExportBtn.addEventListener('click', function() {
+      var text = '=== 换乘恋爱 — 结局记录 ===\n\n';
+      text += '最终选择：' + GS.finalChoice + '\n\n=== 结局叙事 ===\n';
+      if (GS.todayFullText) text += GS.todayFullText.join('\n\n');
+      if (GS.endingEpilogue) {
+        text += '\n\n=== 一年后 ===\n';
+        var epiText = GS.endingEpilogue.narrative || '';
+        text += epiText;
+      }
+      text += '\n\n=== 成员好感度 ===\n';
+      var mems = GS.selectedMembers.map(function(id) {
+        return MEMBERS.find(function(m) { return m.id === id; });
+      });
+      for (var ei = 0; ei < mems.length; ei++) {
+        var mem = mems[ei];
+        if (mem) text += mem.name + '：' + (GS.affection[mem.id] || 0) + '\n';
+      }
+      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '换乘恋爱_结局_' + GS.finalChoice.replace(/[❤️💔]/g, '').trim().slice(0, 10) + '.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
     });
   }
 

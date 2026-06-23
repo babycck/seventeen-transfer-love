@@ -45,11 +45,21 @@ export function buildSystemPrompt() {
 
   var memberDescs = members.map(function(m) {
     var isX = m.id === GS.secretX ? '【X】' : '';
+    var tmi = '';
+    if (m.habits) tmi += '  习惯：' + m.habits.join('、') + '\n';
+    if (m.catchphrases) tmi += '  口头禅：' + m.catchphrases.join('、') + '\n';
+    if (m.quirks) tmi += '  怪癖：' + m.quirks.join('、') + '\n';
+    if (m.fears) tmi += '  恐惧：' + m.fears.join('、') + '\n';
+    if (m.collections) tmi += '  收集癖：' + m.collections.join('、') + '\n';
+    if (m.sleepHabits) tmi += '  睡眠：' + m.sleepHabits + '\n';
+    if (m.foodPreferences) tmi += '  饮食：' + m.foodPreferences + '\n';
+    if (m.comforts) tmi += '  安慰方式：' + m.comforts.join('、') + '\n';
     return m.emoji + ' ' + m.name + '（' + m.stageName + '）' + isX + ' - ' + m.team + '队' +
       '\n  年龄：' + m.age + ' · 星座：' + m.zodiac + ' · 第二职业：' + m.secondCareer +
       '\n  性格：' + m.personality + ' · 情感模式：' + m.loveStyle +
       '\n  行为逻辑：' + m.behaviorLogic + ' · 互动风格：' + m.interactionStyle +
-      '\n  X关系：' + m.xStory;
+      '\n  X关系：' + m.xStory +
+      (tmi ? '\n' + tmi : '');
   }).join('\n\n');
 
   if (!GS.observerGuest) {
@@ -576,6 +586,8 @@ export function buildUserMessage(type, extra) {
       '- 描写玩家走向选择对象时的场景\n' +
       '- 被选择的人的反应（成功或拒绝）\n' +
       '- 未被选择的人的反应（通过观察员OS补充）\n' +
+      '- X身份正式揭晓：谁是谁的X在结局中公开（其他成员和观众的反应）\n' +
+      '- 未被选择的成员之间也可能产生互动（如被拒绝的成员安慰另一个被拒绝的成员）\n' +
       '- 节目收尾：制作组最后一次广播，"感谢各位参与《换乘恋爱》"，摄像机红灯熄灭\n' +
       '- 一个开放式尾声\n' +
       '- 不需要 options\n' +

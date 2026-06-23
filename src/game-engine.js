@@ -5,6 +5,7 @@
   GS, saveGame, showLoading, hideLoading, showToast, randInt, escHtml, dispatch
 } from './core.js';
 import { generateWithRetry } from './ai-generator.js';
+import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
@@ -554,7 +555,17 @@ export async function handleOptionChoice(opt) {
     return;
   }
 
-  if (GS.day === 12 && (opt.text.indexOf('选择') >= 0 || opt.text.indexOf('复合') >= 0 || opt.text.indexOf('换乘') >= 0)) {
+  // Day 12 最终选择检测：检查选项文本是否包含选择/复合/换乘/成员名
+  var isFinalChoice = GS.day === 12 && (
+    opt.text.indexOf('选择') >= 0 ||
+    opt.text.indexOf('复合') >= 0 ||
+    opt.text.indexOf('换乘') >= 0 ||
+    GS.selectedMembers.some(function(id) {
+      var m = MEMBERS.find(function(mm) { return mm.id === id; });
+      return m && opt.text.indexOf(m.name) >= 0;
+    })
+  );
+  if (isFinalChoice) {
     await handleFinalChoice(opt);
     return;
   }
@@ -644,15 +655,30 @@ export async function handleOptionChoice(opt) {
 // ==================== Day 12 双向选择 ====================
 export function determineMemberChoice(memberId) {
   var aff = GS.affection[memberId] || 0;
+  // 额外权重：秘密任务完成 + 送礼
+  var bonus = 0;
+  if (GS.secretMissionHistory) {
+    for (var si = 0; si < GS.secretMissionHistory.length; si++) {
+      var sm = GS.secretMissionHistory[si];
+      if (sm.status === 'completed' && sm.targetMemberId === memberId) bonus += 5;
+    }
+  }
+  if (GS.returnGiftHistory) {
+    for (var ri = 0; ri < GS.returnGiftHistory.length; ri++) {
+      if (GS.returnGiftHistory[ri].memberId === memberId) bonus += 3;
+    }
+  }
+  aff += bonus;
+
   if (memberId === GS.secretX) {
-    if (aff >= 60) return '选择了你（复合·他还爱着你）';
-    if (aff >= 45) return '选择了你（复合·但内心仍有犹豫）';
-    if (aff >= 30) return '选择了你（复合·更多是习惯和不舍）';
+    if (aff >= 70) return '选择了你（复合·深深爱着你）';
+    if (aff >= 50) return '选择了你（复合·他还爱着你）';
+    if (aff >= 30) return '选择了你（复合·但内心仍有犹豫）';
     if (aff >= 15) return '选择了回到过去（但表示"已经回不去了"）';
     return '选择了独自离开（他放下了）';
   }
-  if (aff >= 60) return '选择了你（换乘·真心被你吸引）';
-  if (aff >= 45) return '选择了你（换乘·但还在整理对前任的感情）';
+  if (aff >= 70) return '选择了你（换乘·真心被你吸引）';
+  if (aff >= 50) return '选择了你（换乘·但还在整理对前任的感情）';
   if (aff >= 30) return '选择了回到前任身边';
   if (aff >= 15) return '选择了独自离开';
   return '选择了独自离开';
@@ -691,6 +717,9 @@ export async function handleFinalChoice(opt) {
     }
   }
 
+  // 结算 pending 好感变动
+  skeletonSettleAff();
+
   var memberChoices = [];
   for (var j = 0; j < members.length; j++) {
     memberChoices.push({
@@ -714,6 +743,22 @@ export async function handleFinalChoice(opt) {
   GS.finalChoice = isMutual ?
     ('你选择了 ' + chosenMember.name + '，' + chosenMember.name + '也选择了你 —— ' + endingType) :
     ('你选择了 ' + chosenMember.name + '，但' + chosenMember.name + chosenMemberChoice + ' —— ' + endingType);
+  GS.endingMemberChoices = memberChoices;
+  GS.endingChosenId = chosenId;
+
+  // 记录结局到图鉴
+  if (!GS.endingArchive) GS.endingArchive = [];
+  GS.endingArchive.push({
+    date: new Date().toISOString().slice(0, 10),
+    endingType: endingType,
+    chosenName: chosenMember ? chosenMember.name : '',
+    chosenId: chosenId,
+    isMutual: isMutual,
+    finalChoice: GS.finalChoice,
+    affections: JSON.parse(JSON.stringify(GS.affection)),
+    memberChoices: JSON.parse(JSON.stringify(memberChoices)),
+    day: GS.day
+  });
 
   if (!GS.aiEnabled) {
     GS.gameOver = true;
@@ -738,6 +783,17 @@ export async function handleFinalChoice(opt) {
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '最终选择：' + GS.finalChoice });
     GS.currentOptions = [];
     GS.gameOver = true;
+
+    // 生成一年后 Epilogue
+    try {
+      var epiPrompt = '你是《换乘恋爱》的短篇AI。请根据以下信息，写一段约200字的「一年后」尾声叙事，描写女主和她选择了的人（或独自一人）一年后的生活片段。要温暖、克制、有画面感。\n\n结局：' + GS.finalChoice + '\n\n如果女主选择了某人，描写两人一年后某个日常瞬间；如果女主独自一人，描写她的成长和释怀。只输出正文，不要选项、不要采访间、不要OS。';
+      var epiRaw = await callDeepSeek(buildSystemPrompt(), epiPrompt, 600, false, 0.8);
+      var epiParsed = parseNarrative(epiRaw);
+      GS.endingEpilogue = epiParsed;
+    } catch (e2) {
+      GS.endingEpilogue = null;
+    }
+
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
