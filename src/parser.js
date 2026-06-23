@@ -98,6 +98,36 @@ function repairJson(raw) {
       }
     } catch (ex) {}
   }
+  // 第8层：非字符串上下文扫描数组元素缺逗号（6种场景）
+  result = fixMissingCommasInArrays(result);
+  try { JSON.parse(result); return result; } catch (e) {}
+  // 所有修复失败时返回合法空对象，确保 parseNarrative 不会抛错
+  return '{"blocks":[],"observers":[],"options":[],"smsDrafts":[],"drinks":[]}';
+}
+
+// 非字符串上下文数组缺逗号扫描：6种场景
+function fixMissingCommasInArrays(str) {
+  var inStr = false;
+  var esc = false;
+  var result = '';
+  for (var i = 0; i < str.length; i++) {
+    var ch = str[i];
+    if (esc) { result += ch; esc = false; continue; }
+    if (ch === '\\') { result += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; result += ch; continue; }
+    if (!inStr) {
+      // 当前字符是 { " [ → 检查上一个非空白字符是否缺少逗号
+      if (ch === '{' || ch === '"' || ch === '[') {
+        var trimmed = result.replace(/\s+$/, '');
+        var lastChar = trimmed.charAt(trimmed.length - 1);
+        if (lastChar === '}' || lastChar === ']' || lastChar === '"') {
+          result = trimmed + ',' + result.slice(trimmed.length);
+          continue;
+        }
+      }
+    }
+    result += ch;
+  }
   return result;
 }
 
@@ -128,7 +158,13 @@ export function parseNarrative(rawText) {
   try {
     obj = JSON.parse(repaired);
   } catch (e) {
-    console.error('[parseNarrative] JSON 解析失败:', e, '\n原文片段:', rawText.slice(0, 400));
+    console.error('[parseNarrative] JSON 解析失败:', e, '\n完整原文:', rawText);
+    GS._lastParseError = {
+      time: new Date().toISOString(),
+      error: e.message,
+      position: (e.message.match(/position (\d+)/) || [])[1] || '',
+      rawText: rawText
+    };
     return empty;
   }
   var s = sanitizeScene(obj);

@@ -25,6 +25,11 @@ export function validateNarrative(rawText, parsed) {
     if (options[k] && options[k].text) content += options[k].text + '\n';
   }
 
+  // 空剧情检测（repairJson fallback 场景）
+  if (!blocks || blocks.length === 0 && (!parsed.narrative || parsed.narrative.length === 0)) {
+    corrections.push({ severity: 'error', type: 'format', message: '剧情内容为空——AI 可能返回了无效 JSON，请等待自动重试' });
+  }
+
   // 内容规则校验（severity: warning）
   corrections = corrections.concat(addSeverity(checkPersonalityDeviation(content), 'warning'));
   corrections = corrections.concat(addSeverity(checkXIdentityLeak(content), 'warning'));
