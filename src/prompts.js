@@ -179,7 +179,7 @@ export function buildSystemPrompt() {
 
     '[RULE] 全局写作规则（一处为准·违规视为严重）\n' +
     '1. blocks 中正文用第二人称"你"；采访间/interview/memberInterview/xInterview/directorOS 自然戛然语序。\n' +
-    '2. 称呼规则：所有角色之间一律直呼名字。绝对禁止"胜澈哥""珉奎哥""欧巴""前辈""-xi"等。\n' +
+    '2. 称呼规则：默认直呼名字。年幼成员可对年长者称"哥"（按出生年份），年长者/同龄对年幼者禁止称"哥"。女主好感度>60可称"欧巴"，≤60直呼名字。绝对禁止"前辈""后辈""-xi"。\n' +
     '3. 正文中禁止女主深度自我分析——所有反思必须放在 interview 段落。\n' +
     '4. 正文中禁止直接写成员内心想法，通过 memberInterview/xInterview 呈现。\n' +
     '5. observerOS 不进 blocks，全部走 observers 数组。\n' +

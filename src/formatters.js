@@ -58,13 +58,56 @@ export function getAddressRules() {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
   var lines = [];
-  lines.push('[RULE] 称呼规则（全局适用·正文/采访间/观察员OS均须遵守·违规视为严重错误）');
-  lines.push('- 所有角色之间一律直呼名字（如"圆佑""珉奎""胜澈""沈也"）');
-  lines.push('- 绝对禁止："胜澈哥""净汉哥""珉奎哥""圆佑哥"等任何"xx哥"称呼');
-  lines.push('- 绝对禁止："欧巴""前辈""哥"等任何辈分称谓');
+  lines.push('[RULE] 称呼规则（全局适用·按年龄动态约束·违规视为严重错误）');
+  lines.push('- 默认所有角色之间直呼名字（如"圆佑""珉奎""胜澈""沈也"）');
+  // 按 birthYear（age 字段）分组
+  var yearGroups = {};
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    if (!yearGroups[m.age]) yearGroups[m.age] = [];
+    yearGroups[m.age].push(m);
+  }
+  var years = Object.keys(yearGroups).map(Number).sort(function(a, b) { return a - b; });
+  // 年幼→年长 允许喊"哥"
+  var allowedPairs = [];
+  for (var yi = 0; yi < years.length; yi++) {
+    for (var yj = yi + 1; yj < years.length; yj++) {
+      var olderGroup = yearGroups[years[yi]];
+      var youngerGroup = yearGroups[years[yj]];
+      for (var a = 0; a < youngerGroup.length; a++) {
+        for (var b = 0; b < olderGroup.length; b++) {
+          allowedPairs.push(youngerGroup[a].name + '→' + olderGroup[b].name);
+        }
+      }
+    }
+  }
+  if (allowedPairs.length > 0) {
+    lines.push('- 允许年幼者对年长者称"哥"：' + allowedPairs.join('、'));
+  }
+  // 同年禁止互称
+  var sameYearGroups = [];
+  for (var y = 0; y < years.length; y++) {
+    var group = yearGroups[years[y]];
+    if (group.length > 1) {
+      sameYearGroups.push(group.map(function(m) { return m.name; }).join('、'));
+    }
+  }
+  if (sameYearGroups.length > 0) {
+    lines.push('- 同年出生的成员禁止互称"哥"：' + sameYearGroups.join('；'));
+  }
+  lines.push('- 绝对禁止：年长者对年幼者称"哥"（如"崔胜澈对李灿称\'灿哥\'"是严重错误）');
+  // 女主规则
+  lines.push('- 女主沈也：');
+  lines.push('  · 好感度≤60：对所有成员直呼名字');
+  lines.push('  · 好感度>60：可对年长者称"欧巴"（亲密称呼）');
+  lines.push('  · 绝对禁止：女主对任何成员称"哥"（"胜澈哥""净汉哥"等一律禁止）');
+  // 观察员
+  lines.push('- 观察室固定观察员（李龙真/金叡园/郑基锡）：直呼成员名字，禁止称"哥""欧巴"');
+  lines.push('- 特约嘉宾（同为SEVENTEEN成员）：遵守上述成员间称呼规则，按年龄决定是否可称"哥"');
+  lines.push('- 特约嘉宾提到其他成员时，必须用英文名，不加姓，绝对不能用中文名。英文名严格对应：' + MEMBERS.map(function(m){return m.name+'='+m.stageName}).join('、') + '。');
+  lines.push('- 绝对禁止："前辈""后辈""哥""弟"等辈分称谓（除上述允许情况外）');
   lines.push('- 禁止使用韩式敬语后缀"-xi"（如"全圆佑xi""沈也xi"）');
   lines.push('- 成员之间只用名字互相称呼，体现多年队友的随意感');
-  lines.push('- ⚠️ 观察室特约嘉宾（同为SEVENTEEN成员）在 observers 数组中提及其他成员时，必须用英文名，不加姓，绝对不能用中文名。英文名严格对应：' + MEMBERS.map(function(m){return m.name+'='+m.stageName}).join('、') + '。');
   return lines.join('\n');
 }
 

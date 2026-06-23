@@ -1,5 +1,6 @@
 ﻿// ==================== 常量 ====================
-export var STORAGE_KEY = 'svt_transfer_v20';
+export var PLAYER_BIRTH_YEAR = 2000; // 女主设定出生年份，2025年25岁
+
 export var MAX_STAY_COUNT = 2;
 export var OPTION_PHASE_LIMIT = 2;
 export var FREE_INPUT_PHASE_LIMIT = 1;

@@ -1,5 +1,5 @@
 import { GS } from './state.js';
-import { MEMBERS } from './data.js';
+import { MEMBERS, PLAYER_BIRTH_YEAR } from './data.js';
 
 // ==================== AI 一致性校验器（JSON 输出版） ====================
 //
@@ -28,7 +28,7 @@ export function validateNarrative(rawText, parsed) {
   // 内容规则校验（severity: warning）
   corrections = corrections.concat(addSeverity(checkPersonalityDeviation(content), 'warning'));
   corrections = corrections.concat(addSeverity(checkXIdentityLeak(content), 'warning'));
-  corrections = corrections.concat(addSeverity(checkAddressViolation(content), 'warning'));
+  corrections = corrections.concat(addSeverity(checkAddressViolation(blocks, observers), 'warning'));
   corrections = corrections.concat(addSeverity(checkTimelineError(content), 'warning'));
   corrections = corrections.concat(addSeverity(checkFormatViolation(parsed), 'warning'));
   corrections = corrections.concat(addSeverity(checkEmotionalIntensity(content), 'warning'));
@@ -176,31 +176,118 @@ function checkXIdentityLeak(text) {
 
 // ==================== 3. 称呼违规检测 ====================
 
-function checkAddressViolation(text) {
+function checkAddressViolation(blocks, observers) {
   var corrections = [];
   var violations = [];
-
-  if (/[가-힣a-zA-Z]+시\b/.test(text) || /-xi\b/.test(text) || /xi\b/.test(text)) {
-    violations.push('检测到韩式敬语后缀"-xi"或"-시"');
+  // 收集所有文本
+  var allText = '';
+  for (var i = 0; i < blocks.length; i++) {
+    if (blocks[i] && blocks[i].content) allText += blocks[i].content + '\n';
   }
-
-  var honorifics = ['哥', '欧巴', '弟', '前辈', '后辈'];
-  for (var i = 0; i < honorifics.length; i++) {
-    var h = honorifics[i];
-    var pattern = new RegExp('[胜澈净汉知秀俊辉圆佑知勋硕珉珉奎明浩胜宽瀚率灿]' + h);
-    if (pattern.test(text)) {
-      violations.push('检测到辈分称谓"' + h + '"');
-      break;
+  if (observers) {
+    for (var j = 0; j < observers.length; j++) {
+      if (observers[j]) allText += observers[j].name + '：' + observers[j].line + '\n';
     }
   }
-
+  // 1. 全局绝对禁止：-xi, 前辈, 后辈
+  if (/[가-힣a-zA-Z]+시\b/.test(allText) || /-xi\b/.test(allText) || /xi\b/.test(allText)) {
+    violations.push('检测到韩式敬语后缀"-xi"或"-시"');
+  }
+  if (/前辈/.test(allText) || /后辈/.test(allText)) {
+    violations.push('检测到"前辈"或"后辈"称呼');
+  }
+  // 2. 按 block 精确检测（已知 speaker 的 interview 类型）
+  var memberNameMap = {};
+  for (var i = 0; i < MEMBERS.length; i++) {
+    memberNameMap[MEMBERS[i].name] = MEMBERS[i];
+    memberNameMap[MEMBERS[i].stageName] = MEMBERS[i];
+  }
+  var guestMember = null;
+  if (GS.observerGuest) {
+    for (var i = 0; i < MEMBERS.length; i++) {
+      if (GS.observerGuest.indexOf(MEMBERS[i].name) >= 0 || GS.observerGuest.indexOf(MEMBERS[i].stageName) >= 0) {
+        guestMember = MEMBERS[i];
+        break;
+      }
+    }
+  }
+  // 检查 blocks
+  for (var i = 0; i < blocks.length; i++) {
+    var block = blocks[i];
+    if (!block || !block.content) continue;
+    var speaker = null;
+    if (block.type === 'memberInterview' || block.type === 'xInterview') {
+      speaker = memberNameMap[block.member];
+    } else if (block.type === 'interview') {
+      speaker = { name: '女主', age: PLAYER_BIRTH_YEAR, isPlayer: true };
+    } else if (block.type === 'observerOS') {
+      continue; // 走 observers 数组
+    }
+    if (!speaker) continue;
+    var content = block.content;
+    for (var m = 0; m < MEMBERS.length; m++) {
+      var target = MEMBERS[m];
+      var firstName = target.name.charAt(0);
+      var patterns = [firstName + '哥', target.name + '哥'];
+      for (var p = 0; p < patterns.length; p++) {
+        if (content.indexOf(patterns[p]) >= 0) {
+          if (speaker.isPlayer) {
+            violations.push('女主对' + target.name + '称"' + patterns[p] + '"——女主禁止称"哥"，应称"欧巴"（好感度>60）或直呼名字');
+          } else if (speaker.age >= target.age) {
+            violations.push(speaker.name + '（' + speaker.age + '）对' + target.name + '（' + target.age + '）称"' + patterns[p] + '"——年长者/同龄对年幼者禁止称"哥"');
+          }
+        }
+      }
+    }
+  }
+  // 检查 observers 数组
+  if (observers) {
+    for (var j = 0; j < observers.length; j++) {
+      var obs = observers[j];
+      if (!obs || !obs.line) continue;
+      var isGuest = false;
+      var guestSpeaker = null;
+      if (guestMember && obs.name && (obs.name.indexOf(guestMember.name) >= 0 || obs.name.indexOf(guestMember.stageName) >= 0)) {
+        isGuest = true;
+        guestSpeaker = guestMember;
+      }
+      for (var m = 0; m < MEMBERS.length; m++) {
+        var target = MEMBERS[m];
+        var firstName = target.name.charAt(0);
+        var patterns = [firstName + '哥', target.name + '哥'];
+        for (var p = 0; p < patterns.length; p++) {
+          if (obs.line.indexOf(patterns[p]) >= 0) {
+            if (isGuest && guestSpeaker) {
+              if (guestSpeaker.age >= target.age) {
+                violations.push('特约嘉宾' + guestSpeaker.name + '（' + guestSpeaker.age + '）对' + target.name + '（' + target.age + '）称"' + patterns[p] + '"——年长者/同龄对年幼者禁止称"哥"');
+              }
+            } else {
+              violations.push('观察员' + obs.name + '对' + target.name + '称"' + patterns[p] + '"——观察员禁止称"哥"');
+            }
+          }
+        }
+      }
+    }
+  }
+  // 3. narrative 类型：保守检测（warning）
+  for (var i = 0; i < blocks.length; i++) {
+    var block = blocks[i];
+    if (!block || block.type !== 'narrative' || !block.content) continue;
+    var content = block.content;
+    for (var m = 0; m < MEMBERS.length; m++) {
+      var target = MEMBERS[m];
+      var firstName = target.name.charAt(0);
+      if (content.indexOf(firstName + '哥') >= 0) {
+        violations.push('正文中出现"' + firstName + '哥"，请确认说话者是否比' + target.name + '（' + target.age + '）年幼——年长者/同龄对年幼者禁止称"哥"');
+      }
+    }
+  }
   if (violations.length > 0) {
     corrections.push({
       type: 'address',
-      message: violations.join('；') + '。所有角色之间一律直呼名字，禁止辈分称谓和韩式敬语。'
+      message: violations.join('；') + '。称呼规则：年幼者可对年长者称"哥"，年长者/同龄对年幼者/同龄禁止称"哥"；女主禁止称"哥"（应称"欧巴"或名字）；禁止"前辈""后辈""-xi"。'
     });
   }
-
   return corrections;
 }
 
