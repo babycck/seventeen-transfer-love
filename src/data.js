@@ -524,7 +524,7 @@ export var TOKEN_CONFIG = {
   sms: 2000,
   stay: 2000,
   freeAction: 2000,
-  xMainStory: 3500,
+  xMainStory: 6000,
   xMemberReason: 1500,
   xItems: 1500,
   dailySummary: 2000,

@@ -4,16 +4,26 @@ import { createModal } from './modal-factory.js';
 function filterItemsByReveal(memberId, items) {
   if (!items) return '';
   var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
-  if (!reveal) {
-    // Day 4 之前：不显示任何记忆物品
-    return '';
-  }
+  if (!reveal) return '';
   if (reveal === 'first') {
-    // Day 4：只显示名称和样式，不包含故事
     return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).map(function(l) { return escHtml(l); }).join('<br>');
   }
-  // Day 5+：显示完整物品
   return escHtml(items).replace(/\n/g, '<br>');
+}
+
+function formatXStory(text) {
+  if (!text) return '';
+  var lines = text.split('\n').filter(function(l) { return l.trim(); });
+  var html = '';
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (line.indexOf('## ') === 0) {
+      html += '<div style="font-weight:700;font-size:14px;color:#c2185b;margin:10px 0 4px 0">' + escHtml(line.replace(/^##\s*/, '')) + '</div>';
+    } else {
+      html += '<p style="margin-bottom:4px;line-height:1.6">' + escHtml(line) + '</p>';
+    }
+  }
+  return html;
 }
 
 export function showXArchiveModal() {
@@ -31,7 +41,7 @@ export function showXArchiveModal() {
   if (GS.xItems[xMember.id]) {
     inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(xMember.id, GS.xItems[xMember.id]) + '</p>';
   }
-  inner += '<p>' + escHtml(GS.xBackstory || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+  inner += formatXStory(GS.xBackstory) +
     '<hr style="border-color:#f0d0d0;margin:10px 0">';
   for (var i = 0; i < otherMembers.length; i++) {
     var om = otherMembers[i];
@@ -40,7 +50,7 @@ export function showXArchiveModal() {
     if (GS.xItems[om.id]) {
       inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(om.id, GS.xItems[om.id]) + '</p>';
     }
-    inner += '<p>' + escHtml(GS.memberXBackstories[om.id] || '档案生成中...').replace(/\n/g, '<br>') + '</p>' +
+    inner += formatXStory(GS.memberXBackstories[om.id]) +
       '<hr style="border-color:#f0d0d0;margin:10px 0">';
   }
   inner += '<button class="modal-close-x" id="xArchiveClose">✕</button></div>';
