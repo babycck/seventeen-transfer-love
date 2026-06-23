@@ -16,12 +16,11 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isDay11)
   var html = '<div class="card"><div class="action-bar" id="actionBar">';
 
   if (!hasConsequences) {
-    // 无后续剧情：显示跳过+重生成
     html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
     if (!phaseChoicesExhausted || isDay11) {
-      html += '<button class="btn-skip" id="btnSkip">▶ 跳过进入下一时段</button>';
+      html += '<button class="btn-skip" id="btnSkip">▶ ' + (isNight ? '进入下一天' : '跳过进入下一时段') + '</button>';
     } else {
-      html += '<button class="btn-skip" id="btnSkip" style="font-weight:900">▶ 进入下一时段</button>';
+      html += '<button class="btn-skip" id="btnSkip" style="font-weight:900">▶ ' + (isNight ? '进入下一天' : '进入下一时段') + '</button>';
     }
     if (isNight && !smsSent && !GS.gameOver) {
       if (GS.day === 6 && GS.midnightCall && GS.midnightCall.status === 'pending') {
