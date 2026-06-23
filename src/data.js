@@ -519,11 +519,11 @@ export var MBTI_TYPES = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP'
 export var PRIVATE_TRAITS = ['怕黑','易醉体质','泪失禁','怕打雷','恐高','晕车体质','海鲜过敏','花粉过敏','姨妈痛','容易脸红','手脚冰凉','容易饿/低血糖','睡觉说梦话','被吓容易尖叫','不能吃辣','喝水容易呛','容易被晒伤','蚊子叮咬过敏'];
 
 export var TOKEN_CONFIG = {
-  phaseNarrative: 5000,
-  consequence: 3500,
-  sms: 3000,
-  stay: 3500,
-  freeAction: 3500,
+  phaseNarrative: 2500,
+  consequence: 1500,
+  sms: 2000,
+  stay: 1500,
+  freeAction: 1500,
   xMainStory: 3500,
   xMemberReason: 1500,
   xItems: 1500,

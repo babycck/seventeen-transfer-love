@@ -187,7 +187,6 @@ export function startTypewriter(containerId, speed) {
   }
 
   var timer = setInterval(function() {
-    // 检测用户是否在底部
     var dist = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (dist > 60) atBottom = false;
     else if (dist < 10) atBottom = true;
@@ -212,12 +211,18 @@ export function startTypewriter(containerId, speed) {
         charIdx = 0;
       }
     }
-    if (unitIdx >= units.length) {
-      container.innerHTML = html;
-      clearInterval(timer);
-    } else {
-      container.innerHTML = html + '<span class="typewriter-cursor">|</span>';
-      if (atBottom) container.scrollTop = container.scrollHeight;
+
+    // 用 innerHTML 设置完整 HTML + 光标，确保浏览器正确解析
+    var displayHtml = html;
+    var cursorNeeded = unitIdx < units.length;
+    if (cursorNeeded) {
+      // 如果当前在标签内，先闭合标签再加光标
+      if (html.lastIndexOf('<') > html.lastIndexOf('>')) {
+        displayHtml += '</span>';
+      }
+      displayHtml += '<span class="typewriter-cursor">|</span>';
     }
+    container.innerHTML = displayHtml;
+    if (atBottom) container.scrollTop = container.scrollHeight;
   }, speed);
 }

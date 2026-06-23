@@ -556,26 +556,27 @@ export function buildUserMessage(type, extra) {
   }
 
   var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。';
+  var styleNote = '\n[风格要求] 每句话独立成一段，不要合并我句子。叙事部分一句话一段，对话独立成行。段落之间不空行（紧凑排版）。不要为了凑字数扩充，简短有力即可。输出格式如：\n第一句话。\n第二句话。\n“对话。”\n🎙【采访间】内容\n\n';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
-      '请生成后续剧情（~800字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
-      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote;
+      '请生成后续剧情（~500字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
+      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote + styleNote;
   } else if (type === 'freeAction') {
     msg += '[INSTRUCTION] 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText + '"\n\n' +
       '⚠️ 玩家的行动已经在故事中执行完毕。你现在写的是执行之后紧接着发生的事。当前时间：Day ' + GS.day + ' ' + phaseLabel + '。\n' +
-      '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~1000字 JSON）：\n' +
+      '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~800字 JSON）：\n' +
       '- 这是紧接着已有剧情的后续发展，不要重复已有内容\n' +
       '- 将玩家的行动意图自然融入剧情\n' +
-      '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote;
+      '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote + styleNote;
   } else if (type === 'sms') {
     msg += '[INSTRUCTION] 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent + '"\n' +
-      '请生成短信发送后的剧情（~500字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
+      '请生成短信发送后的剧情（~300字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
       '⚠️ 不需要生成 options（深夜短信剧情不加选项）\n' +
       '⚠️ 不要描写女主发短信的动作，短信已经发出了。这是深夜睡前。\n' +
-      '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote;
+      '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote + styleNote;
   } else if (type === 'stay') {
-    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~1200字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote;
+    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~800字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote + styleNote;
   } else if (type === 'finalResult') {
     msg += '[INSTRUCTION] 生成任务·最终结局\n玩家选择了：' + extra.choiceText + '\n\n3位成员的最终选择结果：\n';
     for (var k = 0; k < extra.memberChoices.length; k++) {
@@ -593,8 +594,8 @@ export function buildUserMessage(type, extra) {
       '- 不需要 options\n' +
       '包含 directorOS block + observers 数组';
   } else {
-    msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~1000字 JSON）。\n' +
-      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote;
+    msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~600字 JSON）。\n' +
+      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote + styleNote;
 
     if (GS.day === 1 && GS.phaseIndex === 0) {
       msg += '\n这是节目第一天上午！请描写入住心动小屋的场景：你拖着行李箱到达，成员们陆续到来。成员之间彼此非常熟悉（多年队友），只有你是新人。描写每个人进门时的样子、第一句对话。注意：读信环节在傍晚，现在不要写。';
