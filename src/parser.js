@@ -19,6 +19,7 @@ function repairJson(raw) {
     s = s.slice(firstBrace, lastBrace + 1);
   }
   try { JSON.parse(s); return s; } catch (e) {}
+  // 修复对象和数组末尾的多余逗号
   s = s.replace(/,\s*([}\]])/g, '$1');
   try { JSON.parse(s); return s; } catch (e) {}
   // 修复字符串中未转义的换行符 + 处理截断
@@ -41,9 +42,41 @@ function repairJson(raw) {
     }
     result += ch;
   }
-  // 如果截断了：补全未闭合的字符串 + 数组/对象括号
   if (inString) result += '"';
   while (depth > 0) { result += '}'; depth--; }
+  try { JSON.parse(result); return result; } catch (e) {}
+  // 最后手段：用正则提取 blocks 数组，重建合法 JSON
+  var blocksMatch = s.match(/"blocks"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/);
+  if (blocksMatch) {
+    try {
+      var blocksRaw = '[' + blocksMatch[1] + ']';
+      // 在数组内部，逐对象修复：去掉前后的非JSON字符
+      blocksRaw = blocksRaw.replace(/([}\]],\s*)(?:\s*[^\[\]{}"']+\s*)/g, '$1');
+      // 尝试用字符状态机提取数组中的每个对象
+      var objs = [];
+      var buf = '';
+      var dep = 0;
+      var inStr = false;
+      var esc = false;
+      for (var ci = 0; ci < blocksRaw.length; ci++) {
+        var cc = blocksRaw[ci];
+        if (esc) { buf += cc; esc = false; continue; }
+        if (cc === '\\') { buf += cc; esc = true; continue; }
+        if (cc === '"' && !esc) { inStr = !inStr; buf += cc; continue; }
+        if (!inStr) {
+          if (cc === '{') dep++;
+          if (cc === '}') dep--;
+          if (dep === 0 && cc === ',') { /* skip */ }
+        }
+        buf += cc;
+        if (!inStr && dep === 0 && (cc === '}' || cc === ']')) break;
+      }
+      if (buf) {
+        var fixedJson = '{"blocks":' + buf + ',"observers":[],"options":[],"smsDrafts":[],"drinks":[]}';
+        try { JSON.parse(fixedJson); return fixedJson; } catch (ex) {}
+      }
+    } catch (ex) {}
+  }
   return result;
 }
 
