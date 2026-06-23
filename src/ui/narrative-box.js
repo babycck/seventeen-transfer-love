@@ -121,61 +121,82 @@ export function startTypewriter(containerId, speed) {
   if (!fullHtml) return;
   container.innerHTML = '';
   container.removeAttribute('data-narrative-html');
+
   // 将 HTML 拆分为原子单元（字符和标签）
   var units = [];
   var buf = '';
   var inTag = false;
   for (var i = 0; i < fullHtml.length; i++) {
     var c = fullHtml[i];
-    if (c === '<') { inTag = true; if (buf) { units.push({ t:'text', v:buf }); buf = ''; } buf = '<'; }
-    else if (c === '>') { buf += '>'; units.push({ t:'tag', v:buf }); buf = ''; inTag = false; }
-    else if (inTag) { buf += c; }
-    else { buf += c; }
+    if (c === '<') {
+      if (buf) { units.push({ t: 'text', v: buf }); buf = ''; }
+      inTag = true; buf = '<';
+    } else if (c === '>') {
+      buf += '>'; units.push({ t: 'tag', v: buf }); buf = ''; inTag = false;
+    } else if (inTag) {
+      buf += c;
+    } else {
+      buf += c;
+    }
   }
   if (buf) units.push({ t: inTag ? 'tag' : 'text', v: buf });
 
-  var html = '';
-  var idx = 0;
-  var textBuf = '';
+  if (units.length === 0) return;
 
-  function flushText() {
-    if (!textBuf) return 0;
-    var len = textBuf.length;
-    for (var k = 0; k < len; k++) {
-      (function(pos) {
-        setTimeout(function() {
-          html += textBuf[pos];
-          container.innerHTML = html + '<span class="typewriter-cursor">|</span>';
-          container.scrollTop = container.scrollHeight;
-        }, pos * speed);
-      })(k);
+  // 点击容器跳过动画
+  container.onclick = function skipAnimation() {
+    if (unitIdx >= units.length) return;
+    clearInterval(timer);
+    showAll();
+  };
+
+  var html = '';
+  var unitIdx = 0;
+  var charIdx = 0;
+  var atBottom = true;
+
+  function showAll() {
+    html = '';
+    for (var ui = 0; ui < units.length; ui++) {
+      html += units[ui].v;
     }
-    html += textBuf;
-    textBuf = '';
-    return len * speed;
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+    unitIdx = units.length;
   }
 
-  function process() {
-    for (; idx < units.length; idx++) {
-      var u = units[idx];
-      if (u.t === 'tag') {
-        flushText();
-        html += u.v;
+  var timer = setInterval(function() {
+    // 检测用户是否在底部
+    var dist = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (dist > 60) atBottom = false;
+    else if (dist < 10) atBottom = true;
+
+    if (unitIdx >= units.length) {
+      container.innerHTML = html;
+      clearInterval(timer);
+      return;
+    }
+
+    var u = units[unitIdx];
+    if (u.t === 'tag') {
+      html += u.v;
+      unitIdx++;
+      charIdx = 0;
+    } else {
+      if (charIdx < u.v.length) {
+        html += u.v[charIdx];
+        charIdx++;
       } else {
-        textBuf = u.v;
-        var delay = flushText();
-        idx++;
-        if (delay > 0) {
-          setTimeout(process, delay + speed);
-          return;
-        }
+        unitIdx++;
+        charIdx = 0;
       }
     }
-    // 完成后移除光标
-    setTimeout(function() {
+    if (unitIdx >= units.length) {
       container.innerHTML = html;
-    }, speed * 2);
-  }
-
-  process();
+      clearInterval(timer);
+    } else {
+      container.innerHTML = html + '<span class="typewriter-cursor">|</span>';
+      if (atBottom) container.scrollTop = container.scrollHeight;
+    }
+  }, speed);
 }
