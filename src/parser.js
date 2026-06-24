@@ -315,14 +315,10 @@ export function completeSecretMission() {
     if (targetMember) {
       if (typeof showToast === 'function') {
         showToast('✅ 秘密任务完成！' + targetMember.name + ' 好感度 +3 · 心动笔记已解锁');
-      } else if (typeof alert === 'function') {
-        showToast('✅ 秘密任务完成！' + targetMember.name + ' 好感度 +3 · 心动笔记已解锁');
       }
     }
   } else {
     if (typeof showToast === 'function') {
-      showToast('✅ 秘密任务完成！');
-    } else if (typeof alert === 'function') {
       showToast('✅ 秘密任务完成！');
     }
   }

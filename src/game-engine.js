@@ -48,7 +48,7 @@ export async function generatePhaseNarrative() {
   GS._isGenerating = true;
   try {
   // 结算上一段 pending 好感度
-  settlePendingAffChanges();
+  skeletonSettleAff();
   // X幽灵存在：Day 3-5 随机触发
   if (GS.day >= 3 && GS.day <= 5 && !GS.xGhostEvent && Math.random() < 0.15) {
     GS.xGhostEvent = { day: GS.day };
@@ -261,18 +261,7 @@ export async function generatePhaseNarrative() {
     if (window.__renderAll) window.__renderAll();
   }
   hideLoading();
-  } finally { GS._isGenerating = false; }
-}
-
-export function extractSmsDrafts(rawText) {
-  // [改造] 旧版从 markdown 中正则提取，废弃。新 parser 直接产 smsDrafts 数组。
-  // 保留导出避免破坏外部 import 兼容性，简单转发到 parsed.smsDrafts。
-  try {
-    var parsed = parseNarrative(rawText);
-    return (parsed.smsDrafts || []).slice(0, 3);
-  } catch (e) {
-    return ['今天和你聊天很开心。', '谢谢你今天的陪伴。', '晚安，明天见。'];
-  }
+} finally { GS._isGenerating = false; }
 }
 
 // [改造] 把 parsed.drinks 数组累加到 GS.drinkCounts，并触发醉酒判定
@@ -976,10 +965,6 @@ export async function advancePhase() {
   } else {
     await goToNextDay();
   }
-}
-
-export function settlePendingAffChanges() {
-  skeletonSettleAff();
 }
 
 export function resetPhaseState() {

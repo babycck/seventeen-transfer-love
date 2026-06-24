@@ -174,7 +174,7 @@ export var actions = {
     return { type: 'SET_PHASE_NARRATIVE', payload: { rawText: rawText, parsed: parsed } };
   },
   pushConsequence: function(rawText, parsed, choiceText) {
-    return { type: 'PUSH_CONSEQUENCE', payload: { rawText: rawText, parsed: parsed, choiceText: choiceText } };
+    return { type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: choiceText };
   },
   setOptions: function(options) {
     return { type: 'SET_OPTIONS', payload: { options: options } };
