@@ -182,36 +182,18 @@ export async function generatePhaseNarrative() {
     var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.8 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
+
+    // ====== Step 1: 剧情文本生成（不含选项） ======
     dispatch({ type: 'SET_PHASE_NARRATIVE', payload: { rawText: rawText, parsed: parsed } });
-    GS.pendingAffChanges = parsed.affChanges || [];
+    GS.pendingAffChanges = [];  // 选项好感度在 Step 2 处理
     applyDrinksFromParsed(parsed);
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);
-    dispatch({ type: 'SET_OPTIONS', payload: { options: parsed.options } });
     GS.consequenceNarratives = [];
     GS.isInConsequence = false;
     GS.phaseOptionCount = 0;
 
-    // 约会日只保留1个选项
-    var isDatingDay = ([4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0);
-    if (isDatingDay) {
-      GS.currentOptions = [{ label: '\u25B6', text: '\u25B6 进入约会场景' }];
-      // 随机抽取约会地点
-      if (!GS.currentDatingLocation) {
-        GS.currentDatingLocation = pickDatingLocation(GS.season, GS.weather);
-      }
-    }
-
-    // Phase 4: 骨架选项生成覆盖（替换 AI 生成选项）
-    if (GS.skeletonConfig && GS.skeletonConfig.optionEngine && !isDatingDay) {
-      var skeletonOpts = skeletonGenOptions();
-      if (skeletonOpts && skeletonOpts.length > 0) {
-        GS.currentOptions = skeletonOpts;
-      }
-    }
-
     if (GS.phaseIndex === 3 && !GS.smsSentToday) {
-      // [改造] smsDrafts 直接从 parsed.smsDrafts 读，旧版 extractSmsDrafts 已删
       var drafts = (GS.parsedNarrative.smsDrafts || []).slice(0, 3);
       if (drafts.length === 0) {
         drafts = ['今天和你聊天很开心。', '谢谢你今天的陪伴。', '晚安，明天见。'];
@@ -234,7 +216,6 @@ export async function generatePhaseNarrative() {
       GS.datingDiceResult = null;
     } else {
       GS.pendingDatingResult = null;
-      // Day 9 X 约会日：设置约会对象为 X
       if (GS.day === 9 && GS.secretX) {
         GS.currentDatingPartner = GS.secretX;
       }
@@ -242,6 +223,56 @@ export async function generatePhaseNarrative() {
 
     saveGame();
     if (window.__renderAll) window.__renderAll();
+
+    // Step 1 完成，先隐藏加载层让用户看到剧情
+    hideLoading();
+
+    // ====== Step 2: 基于已生成的剧情文本生成选项 ======
+    var isDatingDay = ([4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0);
+    if (isDatingDay) {
+      // 约会日：固定选项
+      GS.currentOptions = [{ label: '\u25B6', text: '\u25B6 进入约会场景' }];
+      if (!GS.currentDatingLocation) {
+        GS.currentDatingLocation = pickDatingLocation(GS.season, GS.weather);
+      }
+    } else if (GS.skeletonConfig && GS.skeletonConfig.optionEngine) {
+      var skeletonOpts = skeletonGenOptions();
+      if (skeletonOpts && skeletonOpts.length > 0) {
+        GS.currentOptions = skeletonOpts;
+      }
+    } else {
+      // 正常流程：将剧情文本喂给 AI 生成选项
+      showLoading('正在根据剧情生成选项...');
+      try {
+        var optSysPrompt = buildSystemPrompt();
+        var optUserMsg = buildUserMessage('generateOptions', { narrativeText: rawText });
+        var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7 });
+        var optParsed = parseNarrative(optResult.raw);
+        if (optParsed.options && optParsed.options.length > 0) {
+          GS.pendingAffChanges = optParsed.affChanges || [];
+          dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
+        } else {
+          console.warn('[generatePhaseNarrative] 选项生成返回空数组');
+          GS.currentOptions = [
+            { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+            { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+            { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+          ];
+        }
+      } catch (optErr) {
+        console.error('[generatePhaseNarrative] 选项生成失败:', optErr);
+        showToast('⚠️ 选项生成失败，使用兜底选项');
+        GS.currentOptions = [
+          { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+          { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+          { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+        ];
+      }
+    }
+
+    saveGame();
+    if (window.__renderAll) window.__renderAll();
+
     // [P2-7] Day 4/5 自动弹出 X 记忆物品展示
     if ((GS.day === 4 || GS.day === 5) && GS.phaseIndex === 0) {
       var members2 = GS.selectedMembers;
@@ -1139,7 +1170,7 @@ async function generateNextEpisodePreview() {
     var summary = getTodayKeyEventsSummary();
     if (!summary || summary.length < 10) return '';
     var sysPrompt = '你是一位综艺节目预告文案撰写专家。基于以下当天节目剧情总结，用一句话（≤40字）撰写下集悬念预告。语气类似韩剧"下集更精彩"，要有钩子感和悬念感。只输出预告文本，不要任何前缀、引号或额外说明。';
-    var rawText = await callDeepSeek(sysPrompt, '当天剧情总结：' + summary, { maxTokens: 80 }, false, 0.6);
+    var rawText = await callDeepSeek(sysPrompt, '当天剧情总结：' + summary, 80, false, 0.6);
     if (rawText && rawText.trim().length > 0) {
       GS.nextEpisodePreview = rawText.trim();
       saveGame();

@@ -633,6 +633,23 @@ export function buildUserMessage(type, extra) {
       '- 一个开放式尾声\n' +
       '- 不需要 options\n' +
       '包含 directorOS block + observers 数组';
+  } else if (type === 'generateOptions') {
+    msg += '[INSTRUCTION] 生成任务·仅生成选项\n' +
+      '请仔细阅读以下剧情文本，然后基于这段剧情中的具体场景、对话、氛围、人物关系，生成3个选项。\n\n' +
+      '⚠️ 每个选项必须从上述剧情中的具体细节推导出来——场景中的某个物品、某句对话、某个微表情。\n' +
+      '⚠️ 选项A绝对不能是通用模板，必须引用剧情中正在发生的一个具体事件或细节。\n' +
+      '⚠️ 选项B和C也要指向不同的行动方向，内容不能与选项A雷同。\n' +
+      '⚠️ 避免重复使用"主动搭话""保持距离""沉默不语""坐在一边""直接去找他"等通用模板。\n\n' +
+      '输出格式：仅输出 JSON，格式为{"options":[{"text":"...","affName":"...","affDelta":...,"affReason":"..."},{"text":"...","affName":"...","affDelta":...,"affReason":"..."},{"text":"...","affName":"...","affDelta":...,"affReason":"..."}]}\n' +
+      '不要输出 blocks 或其他字段。\n\n';
+    if (GS.day === 12) {
+      msg += '⚠️ 这是最终选择日！3个选项必须是：\n' +
+        '1. 选择X（复合）- 文本包含X成员的名字\n' +
+        '2. 选择成员A（换乘）- 文本包含成员A的名字\n' +
+        '3. 选择成员B（换乘）- 文本包含成员B的名字\n' +
+        '每个选项的文本要体现女主的内心纠结，不要直接只写名字。\n\n';
+    }
+    msg += '请根据以下剧情文本生成选项：\n' + extra.narrativeText + '\n\n' + noRepeatNote;
   } else {
     msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~800字 JSON）。\n' +
       '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote;
@@ -658,7 +675,7 @@ export function buildUserMessage(type, extra) {
     }
 
     if (GS.day === 12) {
-      msg += '\n⚠️ 这是最终选择日！请先生成铺垫剧情（约1000字）：女主起床、早餐、紧张氛围、制作组召集、选择仪式感、女主内心挣扎。然后 options 数组给3个选项：1.选择X（复合）-显示X名字 2.选择成员A（换乘）-显示名字 3.选择成员B（换乘）-显示名字。但不要替玩家做选择。';
+      msg += '\n⚠️ 这是最终选择日！请生成铺垫剧情（约1000字）：女主起床、早餐、紧张氛围、制作组召集、选择仪式感、女主内心挣扎。';
       if (GS.secretMissionUnlockFinal) {
         msg += '\n\n[INSTRUCTION] 秘密任务全完成奖励：在最终选择前，制作组单独找到女主，交给她一封信——是' + xMember.name + '在参加节目前写下的，从未寄出。\n' +
           '请在叙事中描写这封信的内容（200-300字）：克制、真诚、不煽情。女主读信后的反应会影响她的最终选择倾向——但最终选择权仍在玩家手中。\n';
