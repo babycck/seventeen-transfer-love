@@ -104,6 +104,18 @@ function renderGiftHistory() {
   if (!hasSent && !hasReturn) {
     html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无送礼记录</p>';
   } else {
+    // 已送出的礼物
+    var sentGifts = GS.smsHistory ? GS.smsHistory.filter(function(s) { return s.isGift; }) : [];
+    if (sentGifts.length > 0) {
+      html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">🎁 你送出的礼物</p>';
+      for (var sg = sentGifts.length - 1; sg >= 0; sg--) {
+        var sent = sentGifts[sg];
+        var sm = MEMBERS.find(function(m) { return m.id === sent.target; });
+        html += '<div style="background:#fff5f5;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
+          (sm ? sm.emoji + ' ' + sm.name : '成员') + '：' + escHtml(sent.content) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + sent.day + '</span></div>';
+      }
+    }
+    // 收到的回礼
     if (GS.returnGiftHistory && GS.returnGiftHistory.length > 0) {
       html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">📩 收到的回礼</p>';
       for (var r = GS.returnGiftHistory.length - 1; r >= 0; r--) {
@@ -167,6 +179,15 @@ export async function sendGift(memberId, giftIdx) {
     }
 
     GS.gifts.splice(giftIdx, 1);
+    // 记录送礼历史
+    if (!Array.isArray(GS.smsHistory)) GS.smsHistory = [];
+    GS.smsHistory.push({
+      day: GS.day,
+      target: memberId,
+      name: member.name,
+      content: '🎁 送出了「' + gift.name + '」',
+      isGift: true
+    });
     saveGame();
     if (window.__renderAll) window.__renderAll();
 
