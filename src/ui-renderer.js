@@ -970,7 +970,8 @@ export function bindGameEvents() {
   // 存档导出
   var saveExportBtn = document.getElementById('saveExportBtn');
   if (saveExportBtn) {
-    saveExportBtn.addEventListener('click', function() {
+    saveExportBtn.addEventListener('click', async function() {
+      if (!(await showConfirmModal('确定要导出存档吗？'))) return;
       var json = JSON.stringify(GS, null, 2);
       var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
       var url = URL.createObjectURL(blob);
