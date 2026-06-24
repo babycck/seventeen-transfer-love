@@ -173,7 +173,7 @@ export async function generatePhaseNarrative() {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('phase');
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.8 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     dispatch({ type: 'SET_PHASE_NARRATIVE', payload: { rawText: rawText, parsed: parsed } });
@@ -340,7 +340,7 @@ export async function generateDrunkNarrative() {
             '  ① 安抚' + triggerName + '的情绪\n' +
             '  ② 和' + jealousTarget.name + '一起离开现场\n' +
             '  ③ 让两人自己解决（你退到一旁）\n';
-    var _gr = await generateWithRetry(jPrompt, jMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
+    var _gr = await generateWithRetry(jPrompt, jMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.8 });
     var jRaw = _gr.raw;
     GS.phaseNarrative = jRaw;
           GS.parsedNarrative = parseNarrative(jRaw);
@@ -382,7 +382,7 @@ export async function generateDrunkNarrative() {
         '请将以上惩罚自然地融入到醉酒剧情发展中。\n';
     }
 
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.8 });
     var rawText = _gr.raw;
     GS.phaseNarrative = rawText;
     GS.parsedNarrative = parseNarrative(rawText);
@@ -802,7 +802,7 @@ export async function handleFinalChoice(opt) {
       choiceText: GS.finalChoice,
       memberChoices: memberChoices
     });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.finalResult, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.finalResult, temperature: 0.8 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
@@ -855,7 +855,7 @@ export async function handleFreeAction(actionText) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
@@ -1259,7 +1259,7 @@ export async function continueToday() {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('stay');
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.stay, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.stay, temperature: 0.8 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);

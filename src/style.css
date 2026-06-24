@@ -1282,3 +1282,101 @@ body {
   40% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* ==================== 剧情编辑按钮 ==================== */
+.narrative-edit-btn {
+  display: none;
+  float: right;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .2s;
+  line-height: 1.4;
+}
+.narrative-edit-btn.visible {
+  display: inline-block;
+}
+.narrative-edit-btn:hover {
+  background: var(--bg-soft-hover);
+  border-color: var(--accent-primary-light);
+  color: var(--accent-primary-dark);
+}
+
+/* ==================== 剧情编辑弹窗 ==================== */
+.narrative-editor-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--bg-overlay);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn .2s;
+}
+
+.narrative-editor-panel {
+  background: var(--bg-card);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.narrative-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.narrative-editor-close-btn {
+  font-size: 22px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color .2s;
+}
+.narrative-editor-close-btn:hover {
+  color: var(--text-primary);
+}
+
+.narrative-editor-textarea {
+  flex: 1;
+  min-height: 300px;
+  padding: 14px 18px;
+  border: none;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  background: var(--bg-soft);
+  outline: none;
+  font-family: inherit;
+}
+.narrative-editor-textarea:focus {
+  background: var(--bg-card);
+}
+
+.narrative-editor-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-primary);
+}
+.narrative-editor-footer .btn {
+  padding: 8px 20px;
+  font-size: 13px;
+  border-radius: 18px;
+}

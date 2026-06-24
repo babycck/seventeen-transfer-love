@@ -1,4 +1,4 @@
-import { escHtml } from '../core.js';
+import { escHtml, saveGame } from '../core.js';
 import { GS } from '../state.js';
 
 // 中文自动断句：按句末标点断，不依赖 AI 的 \n，引号内不断
@@ -155,6 +155,7 @@ export function renderNarrativeSection() {
     html += '</div>';
   }
 
+  html += '<button class="narrative-edit-btn" id="narrativeEditBtn" title="编辑剧情">✏️ 编辑</button>';
   html += '</div></div>';
 
   // 如果没有后续剧情，首次打字机用 data-narrative-html
@@ -164,6 +165,7 @@ export function renderNarrativeSection() {
       allHtml += renderParsedNarrative(GS.parsedNarrative);
     }
     html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '">' + allHtml + '</div></div>';
+    html += '<button class="narrative-edit-btn" id="narrativeEditBtn" title="编辑剧情">✏️ 编辑</button>';
   }
 
   return html;
@@ -225,12 +227,14 @@ export function startTypewriter(containerId, speed) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
     unitIdx = units.length;
+    showEditButton();
   }
 
   var timer = setInterval(function() {
     if (unitIdx >= units.length) {
       container.innerHTML = html;
       clearInterval(timer);
+      showEditButton();
       return;
     }
 
@@ -269,3 +273,156 @@ export function startTypewriter(containerId, speed) {
     if (atBottom) container.scrollTop = container.scrollHeight;
   }, speed);
 }
+
+// ==================== 剧情编辑功能 ====================
+
+var _narrativeEditorOverlay = null;
+
+// 从 parsedNarrative 中提取纯文本（不含 JSON 格式标记）
+function extractNarrativeText(parsed) {
+  if (!parsed || !parsed.blocks || parsed.blocks.length === 0) return '';
+  var parts = [];
+  for (var i = 0; i < parsed.blocks.length; i++) {
+    var b = parsed.blocks[i];
+    if (!b.content) continue;
+    var prefix = '';
+    if (b.type === 'interview') { prefix = '🎙 '; }
+    else if (b.type === 'xInterview') { prefix = '🎙️💔 '; }
+    else if (b.type === 'memberInterview') { prefix = '🎤【' + (b.member || '') + '】 '; }
+    else if (b.type === 'directorOS') { prefix = '🎬 '; }
+    else if (b.type === 'observerOS') { prefix = '💭 '; }
+    parts.push(prefix + b.content);
+  }
+  return parts.join('\n\n');
+}
+
+export function showNarrativeEditor() {
+  if (!GS.phaseNarrative || !GS.parsedNarrative || !GS.parsedNarrative.blocks) {
+    showToast('⚠️ 暂无剧情可编辑');
+    return;
+  }
+
+  var text = extractNarrativeText(GS.parsedNarrative);
+
+  var overlay = document.createElement('div');
+  overlay.className = 'narrative-editor-overlay';
+  overlay.innerHTML =
+    '<div class="narrative-editor-panel">' +
+    '<div class="narrative-editor-header">' +
+    '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ 编辑剧情（修改后自动保存到记忆）</span>' +
+    '<span class="narrative-editor-close-btn">&times;</span>' +
+    '</div>' +
+    '<textarea class="narrative-editor-textarea" spellcheck="false">' + escHtml(text) + '</textarea>' +
+    '<div class="narrative-editor-footer">' +
+    '<button class="btn btn-secondary" id="narrativeEditorCancel">取消</button>' +
+    '<button class="btn btn-primary" id="narrativeEditorSave">保存</button>' +
+    '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+  _narrativeEditorOverlay = overlay;
+
+  var textarea = overlay.querySelector('.narrative-editor-textarea');
+  textarea.focus();
+  textarea.selectionStart = textarea.value.length;
+  textarea.selectionEnd = textarea.value.length;
+
+  // 关闭按钮
+  overlay.querySelector('.narrative-editor-close-btn').onclick = closeNarrativeEditor;
+  // 取消按钮
+  overlay.querySelector('#narrativeEditorCancel').onclick = closeNarrativeEditor;
+  // 点击遮罩层关闭
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeNarrativeEditor();
+  });
+  // 保存按钮
+  overlay.querySelector('#narrativeEditorSave').onclick = function() {
+    saveNarrativeEdit(textarea.value);
+  };
+  // Ctrl+Enter 保存
+  textarea.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      saveNarrativeEdit(textarea.value);
+    }
+  });
+}
+
+function closeNarrativeEditor() {
+  if (_narrativeEditorOverlay) {
+    _narrativeEditorOverlay.remove();
+    _narrativeEditorOverlay = null;
+  }
+}
+
+function saveNarrativeEdit(newText) {
+  if (!GS.parsedNarrative || !GS.parsedNarrative.blocks) return;
+
+  var blocks = GS.parsedNarrative.blocks;
+  var oldRaw = GS.phaseNarrative;
+
+  // 收集有 content 的 block 索引
+  var contentIndices = [];
+  for (var i = 0; i < blocks.length; i++) {
+    if (blocks[i].content) contentIndices.push(i);
+  }
+  if (contentIndices.length === 0) return;
+
+  // 按原比例分配新文本到各 content block
+  var totalOldLen = 0;
+  for (var ci = 0; ci < contentIndices.length; ci++) {
+    totalOldLen += blocks[contentIndices[ci]].content.length;
+  }
+  if (totalOldLen === 0) return;
+
+  var newLen = newText.length;
+  var start = 0;
+  for (var ci = 0; ci < contentIndices.length; ci++) {
+    var idx = contentIndices[ci];
+    var oldLen = blocks[idx].content.length;
+    var portion = Math.floor(newLen * (oldLen / totalOldLen));
+    if (ci === contentIndices.length - 1) portion = newLen - start;
+    blocks[idx].content = newText.slice(start, start + portion).trim() || '(空)';
+    start += portion;
+  }
+
+  // 重建 JSON
+  var newRaw = JSON.stringify(GS.parsedNarrative);
+  GS.phaseNarrative = newRaw;
+
+  // 同步更新 todayFullText
+  var phasePrefixes = ['【上午】', '【下午】', '【傍晚】', '【深夜】'];
+  for (var ti = 0; ti < GS.todayFullText.length; ti++) {
+    var entry = GS.todayFullText[ti];
+    for (var pi = 0; pi < phasePrefixes.length; pi++) {
+      if (entry === phasePrefixes[pi] + oldRaw) {
+        GS.todayFullText[ti] = phasePrefixes[pi] + newRaw;
+        break;
+      }
+    }
+  }
+
+  saveGame();
+  closeNarrativeEditor();
+  showToast('✅ 剧情已更新');
+
+  // 重渲染
+  if (window.__renderAll) window.__renderAll();
+}
+
+// 打字机完成后显示编辑按钮
+function showEditButton() {
+  var btn = document.getElementById('narrativeEditBtn');
+  if (btn) btn.classList.add('visible');
+}
+
+// 导出暴露给点击事件绑定
+window.__showNarrativeEditor = showNarrativeEditor;
+
+// 全局点击委托：捕获编辑按钮点击
+document.addEventListener('click', function(e) {
+  var target = e.target;
+  if (target && target.id === 'narrativeEditBtn') {
+    showNarrativeEditor();
+  }
+});
