@@ -164,7 +164,7 @@ async function getGiftDescription(rg, member) {
     var hp = GS.heroineProfile;
     var sysPrompt = '你是《换乘恋爱》的叙事AI。请为以下回礼生成一段约100字的描述，描绘其样貌、质感和背后的心意。\n' +
       '礼物：' + rg.gift + '\n' +
-      '赠送者：' + member.name + '（' + (member.personality ? member.personality.join('、') : '') + '）\n' +
+      '赠送者：' + member.name + '（' + (member.personality || '') + '）\n' +
       '女主：' + hp.name + '，当前日期：Day ' + GS.day + '\n' +
       '要求：约100字，中文，自然叙事风格，贴合赠送者性格。只输出描述文本，不要标题和引号。';
     var desc = await callDeepSeek(sysPrompt, '回礼描述', 200, false, 0.7);
