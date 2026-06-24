@@ -399,6 +399,23 @@ function saveNarrativeEdit(newText) {
     pi++;
   }
 
+  // 兜底：如果段落数 > block 数（如送礼兜底单 block 多段），
+  // 把剩余段落合并到最后一个有 content 的 block
+  if (pi < paragraphs.length) {
+    for (var bi2 = blocks.length - 1; bi2 >= 0; bi2--) {
+      var lastB = blocks[bi2];
+      if (lastB.content === undefined) continue;
+      var remaining = [];
+      for (; pi < paragraphs.length; pi++) {
+        var rp = paragraphs[pi].trim();
+        rp = rp.replace(/^(🎙 |🎙️💔 |🎤【[^】]*】 |🎬 |💭 )/, '').trim();
+        remaining.push(rp || '(空)');
+      }
+      lastB.content = lastB.content + '\n\n' + remaining.join('\n\n');
+      break;
+    }
+  }
+
   // 重建 JSON
   var newRaw = JSON.stringify(targetParsed);
 
