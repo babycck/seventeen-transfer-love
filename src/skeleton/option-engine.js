@@ -12,8 +12,13 @@ export function generateOptions() {
     return [{ text: '▶ 进入约会场景' }];
   }
 
-  // 约会场景中（已进入约会阶段，currentDatingPartner 已设定）
-  if (GS.currentDatingPartner && [4, 6, 8, 9, 10].indexOf(day) >= 0 && (phase >= 1 || day === 10)) {
+  // 深夜时段（phaseIndex === 3）：提前拦截，避免被下方约会场景分支捕获而误走 AI 生成选项路径
+  if (phase === 3) {
+    return [];
+  }
+
+  // 约会场景中（仅 phase 1 约会延续中；Day 10 由弹窗设定，phase 0 全天约会）
+  if (GS.currentDatingPartner && [4, 6, 8, 9, 10].indexOf(day) >= 0 && (phase === 1 || (day === 10 && phase === 0))) {
     return generateDatingOptions();
   }
 
@@ -28,11 +33,6 @@ export function generateOptions() {
       { text: '如实回答' },
       { text: '拒绝回答并喝酒' }
     ];
-  }
-
-  // 深夜时段（phaseIndex === 3）：不生成常规选项
-  if (phase === 3) {
-    return [];
   }
 
   // 默认：从成员列表生成互动选项

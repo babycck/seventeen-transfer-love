@@ -348,15 +348,19 @@ export function buildUserMessage(type, extra) {
     msg += '短信规则：今天可以发给X，可选' + members.map(function(m) { return m.name; }).join('、') + '\n\n';
   }
 
-  // 约会对象
+  // 约会对象（按 phase 分层注入：仅 phase 0-1 约会进行中时加约束，phase 2+ 改为轻量上下文避免与深夜规则冲突）
   if (GS.currentDatingPartner) {
     var dateMember = MEMBERS.find(function(m) { return m.id === GS.currentDatingPartner; });
-    msg += '[INSTRUCTION] 今日约会对象：' + dateMember.emoji + ' ' + dateMember.name + '（已确认，不可更改）\n所有涉及约会的叙事必须以' + dateMember.name + '为对象。\n';
-    if (GS.currentDatingLocation) {
-      msg += '约会地点：' + GS.currentDatingLocation.name + '——' + GS.currentDatingLocation.desc + '\n';
+    if (GS.phaseIndex <= 1) {
+      msg += '[INSTRUCTION] 今日约会对象：' + dateMember.emoji + ' ' + dateMember.name + '（已确认，不可更改）\n所有涉及约会的叙事必须以' + dateMember.name + '为对象。\n';
+      if (GS.currentDatingLocation) {
+        msg += '约会地点：' + GS.currentDatingLocation.name + '——' + GS.currentDatingLocation.desc + '\n';
+      }
+      msg += '\n';
+      msg += '[INSTRUCTION] ⚠️ 约会约束：你和' + dateMember.name + '正在单独约会中，3个选项必须全部只涉及与' + dateMember.name + '的互动，不得出现在场其他成员。\n\n';
+    } else {
+      msg += '[INSTRUCTION] 今日约会对象：' + dateMember.emoji + ' ' + dateMember.name + '（约会已于上午/下午结束，现已回到小屋与其他成员共处）\n后续剧情可以正常描写与所有成员的互动，无需受约会场景限制。\n\n';
     }
-    msg += '\n';
-    msg += '[INSTRUCTION] ⚠️ 约会约束：你和' + dateMember.name + '正在单独约会中，3个选项必须全部只涉及与' + dateMember.name + '的互动，不得出现在场其他成员。\n\n';
   }
 
   // 约会场景强制延续
