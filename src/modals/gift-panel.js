@@ -69,6 +69,24 @@ export function showGiftPanel() {
       sendGift(memberId, giftIdx);
       return;
     }
+    var returnItem = e.target.closest('[data-gift-ri]');
+    if (returnItem) {
+      var ri = parseInt(returnItem.dataset.giftRi);
+      var rg = GS.returnGiftHistory[ri];
+      if (!rg) return;
+      var rm = MEMBERS.find(function(m) { return m.id === rg.memberId; });
+      if (!rm) return;
+      // 显示加载，因为可能触发 AI 调用
+      showLoading();
+      getGiftDescription(rg, rm).then(function(desc) {
+        hideLoading();
+        showGiftDescModal(rg, rm, desc);
+      }).catch(function(err) {
+        hideLoading();
+        showGiftDescModal(rg, rm, rg.gift + '——来自' + rm.name + '的心意。');
+      });
+      return;
+    }
   });
 }
 
@@ -114,41 +132,78 @@ function renderMyGifts(members) {
   return html;
 }
 
-// ==================== Tab 2: 礼物柜（我收到的） ====================
+// ==================== Tab 2: 礼物柜（回礼） ====================
 function renderReceivedGifts() {
   var html = '';
-  var hasDateGifts = GS.dateGiftHistory && GS.dateGiftHistory.length > 0;
   var hasReturns = GS.returnGiftHistory && GS.returnGiftHistory.length > 0;
 
-  if (!hasDateGifts && !hasReturns) {
-    html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无收到礼物</p>';
+  if (!hasReturns) {
+    html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无收到回礼</p>';
     return html;
   }
 
-  // 约会礼物（按 day 倒序）
-  if (hasDateGifts) {
-    html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">🎯 约会礼物</p>';
-    for (var dg = GS.dateGiftHistory.length - 1; dg >= 0; dg--) {
-      var d = GS.dateGiftHistory[dg];
-      var dm = MEMBERS.find(function(m) { return m.id === d.memberId; });
-      var tag = d.isExclusive ? '<span style="background:#e91e63;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">专属</span>' : '';
-      html += '<div style="background:#fff5f5;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
-        (dm ? dm.emoji + ' ' + escHtml(dm.name) + '：' : '') + escHtml(d.giftName) + tag + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + d.day + '</span></div>';
-    }
-  }
-
   // 回礼（按 day 倒序）
-  if (hasReturns) {
-    html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;margin-top:10px;font-weight:600">📩 回礼</p>';
-    for (var r = GS.returnGiftHistory.length - 1; r >= 0; r--) {
-      var rg = GS.returnGiftHistory[r];
-      var rm = MEMBERS.find(function(m) { return m.id === rg.memberId; });
-      html += '<div style="background:#f0faf0;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
-        (rm ? rm.emoji + ' ' + escHtml(rm.name) + '：' : '') + escHtml(rg.gift) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + rg.day + '</span></div>';
-    }
+  html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px;font-weight:600">📩 回礼（点击查看描述）</p>';
+  for (var ri = GS.returnGiftHistory.length - 1; ri >= 0; ri--) {
+    var rg = GS.returnGiftHistory[ri];
+    var rm = MEMBERS.find(function(m) { return m.id === rg.memberId; });
+    html += '<div class="gift-return-item" data-gift-ri="' + ri + '" style="background:#f0faf0;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px;cursor:pointer;transition:background 0.15s">' +
+      (rm ? rm.emoji + ' ' + escHtml(rm.name) + '：' : '') + escHtml(rg.gift) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + rg.day + '</span>' +
+      '<span style="float:right;color:#4caf50;font-size:11px">📖</span></div>';
   }
 
   return html;
+}
+
+// ==================== AI 生成礼物描述（仅执行一次，结果缓存到 GS） ====================
+async function getGiftDescription(rg, member) {
+  // 已缓存 → 直接返回
+  if (rg.giftDesc && rg.giftDesc.length > 0) return rg.giftDesc;
+
+  try {
+    var hp = GS.heroineProfile;
+    var sysPrompt = '你是《换乘恋爱》的叙事AI。请为以下回礼生成一段约100字的描述，描绘其样貌、质感和背后的心意。\n' +
+      '礼物：' + rg.gift + '\n' +
+      '赠送者：' + member.name + '（' + (member.personality ? member.personality.join('、') : '') + '）\n' +
+      '女主：' + hp.name + '，当前日期：Day ' + GS.day + '\n' +
+      '要求：约100字，中文，自然叙事风格，贴合赠送者性格。只输出描述文本，不要标题和引号。';
+    var desc = await callDeepSeek(sysPrompt, '回礼描述', 200, false, 0.7);
+
+    if (!desc || desc.trim().length < 5) throw new Error('描述太短');
+
+    // 存入缓存
+    rg.giftDesc = desc.trim();
+    saveGame();
+    return rg.giftDesc;
+  } catch (e) {
+    console.error('[getGiftDescription] 生成失败:', e);
+    return rg.gift + '——来自' + member.name + '的心意。';
+  }
+}
+
+// ==================== 礼物描述弹窗 ====================
+function showGiftDescModal(rg, member, desc) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  var inner = '<div class="modal-content" style="max-width:360px">' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:4px">' + member.emoji + ' ' + escHtml(member.name) + ' 的回礼</p>' +
+    '<h3 style="margin-bottom:12px">' + escHtml(rg.gift) + '<span style="font-size:11px;color:#999;margin-left:8px">Day ' + rg.day + '</span></h3>' +
+    '<div style="background:#f0faf0;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:#3d2c2c">' +
+    escHtml(desc) +
+    '</div>' +
+    '<button class="btn-primary" id="giftDescClose" style="margin-top:14px;width:100%">关闭</button>' +
+    '</div>';
+
+  overlay.innerHTML = inner;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
+  });
+  overlay.querySelector('#giftDescClose').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation(); overlay.remove();
+  });
 }
 
 // ==================== Tab 3: 记录（收送记录） ====================

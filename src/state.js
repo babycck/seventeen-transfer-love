@@ -268,6 +268,12 @@ export function migrateSave() {
     if (GS.xBackstoryHidden === undefined) GS.xBackstoryHidden = '';
     if (!Array.isArray(GS.pendingReturnGifts)) GS.pendingReturnGifts = [];
     if (!Array.isArray(GS.returnGiftHistory)) GS.returnGiftHistory = [];
+    // 旧存档回礼兼容：确保每条回礼都有 giftDesc 字段
+    if (Array.isArray(GS.returnGiftHistory)) {
+      for (var _rgi = 0; _rgi < GS.returnGiftHistory.length; _rgi++) {
+        if (GS.returnGiftHistory[_rgi].giftDesc === undefined) GS.returnGiftHistory[_rgi].giftDesc = '';
+      }
+    }
     if (!Array.isArray(GS.dateGiftHistory)) GS.dateGiftHistory = [];
     if (GS.todayMissionCard === undefined) GS.todayMissionCard = null;
     if (!Array.isArray(GS.missionCardHistory)) GS.missionCardHistory = [];

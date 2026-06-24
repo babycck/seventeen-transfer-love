@@ -1435,7 +1435,7 @@ export function checkPendingReturnGifts() {
   var gift = gifts[Math.floor(Math.random() * gifts.length)];
   GS.pendingReturnGifts = GS.pendingReturnGifts.filter(function(p) { return p.memberId !== first.memberId || p.day !== first.day; });
   if (!GS.returnGiftHistory) GS.returnGiftHistory = [];
-  GS.returnGiftHistory.push({ memberId: first.memberId, gift: gift, day: GS.day });
+  GS.returnGiftHistory.push({ memberId: first.memberId, gift: gift, day: GS.day, giftDesc: '' });
   updateAffection(first.memberId, 2);
   addAffectionLog(first.memberId, 2, '收到了' + member.name + '的回礼「' + gift + '」');
   saveGame();
