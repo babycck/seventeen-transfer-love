@@ -229,6 +229,8 @@ export function renderSetupWizard() {
       '<div id="apiStatus" class="api-status hidden"></div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;flex-direction:column">' +
       '<button class="btn-primary" id="step1Next">下一步 →</button>' +
+      '<button class="btn-secondary" id="step1ImportBtn" style="background:#f0f7ff;border-color:#5b9bd5;color:#2e5c8a">📂 导入存档（继续之前的游戏）</button>' +
+      '<input type="file" id="step1ImportInput" accept=".json" style="display:none">' +
       // 测试版入口已暂时屏蔽，取消下面注释即可恢复
       //'<button class="btn-secondary" id="enterTestModeBtn" style="background:#fff8e1;border-color:#ffc107;color:#f57f17;font-size:13px">🧪 进入测试版（跳过API配置）</button>' +
       //'<p style="font-size:11px;color:#8b6b6b;margin:0">测试版使用本地预生成剧情，无需API Key即可体验游戏流程。</p>' +
@@ -377,6 +379,36 @@ export function bindSetupEvents() {
       testBtn.addEventListener('click', async function() {
         if (!(await showConfirmModal('进入测试版将跳过API配置和角色设定，使用随机生成的女主信息和本地预生成剧情。是否继续？'))) return;
         await enterTestMode();
+      });
+    }
+    // Step 1 导入存档
+    var step1ImportBtn = document.getElementById('step1ImportBtn');
+    var step1ImportInput = document.getElementById('step1ImportInput');
+    if (step1ImportBtn && step1ImportInput) {
+      step1ImportBtn.addEventListener('click', function() {
+        step1ImportInput.click();
+      });
+      step1ImportInput.addEventListener('change', async function() {
+        var file = this.files[0];
+        if (!file) return;
+        try {
+          var text = await file.text();
+          var parsed = JSON.parse(text);
+          if (!parsed.version || !Array.isArray(parsed.selectedMembers)) {
+            showToast('⚠️ 存档文件格式无效');
+            this.value = '';
+            return;
+          }
+          var confirmed = await showConfirmModal('将载入「' + (parsed.heroineProfile ? parsed.heroineProfile.name : '?') + '」的存档（Day ' + parsed.day + '），是否继续？');
+          if (!confirmed) { this.value = ''; return; }
+          setGS(parsed);
+          saveGame();
+          renderAll();
+          showToast('✅ 存档已导入');
+        } catch (e) {
+          showToast('⚠️ 存档文件损坏或格式错误');
+        }
+        this.value = '';
       });
     }
   }
