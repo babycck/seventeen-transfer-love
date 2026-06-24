@@ -914,7 +914,6 @@ export async function handleFreeAction(actionText) {
     pushCorrections(corrections);
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由剧情：' + actionText });
     GS.phaseFreeCount++;
-    // 自由剧情不生成选项、不影响好感度、不触发吃醋/任务检测，纯剧情体验
     // 约会日 phase 0：未进入约会场景时，强制塞回按钮
     var isDatingDayPhase0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
     var hasEnteredDating = false;
@@ -925,9 +924,41 @@ export async function handleFreeAction(actionText) {
         break;
       }
     }
-    GS.currentOptions = (isDatingDayPhase0 && !hasEnteredDating)
-      ? [{ label: '\u25B6', text: '\u25B6 进入约会场景' }]
-      : [];
+    if (isDatingDayPhase0 && !hasEnteredDating) {
+      GS.currentOptions = [{ label: '\u25B6', text: '\u25B6 进入约会场景' }];
+    } else {
+      showLoading('正在根据自由剧情生成选项...');
+      try {
+        var optSysPrompt = buildSystemPrompt();
+        var optUserMsg = buildUserMessage('generateOptions', { narrativeText: rawText });
+        var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7, skipValidate: true });
+        var optParsed;
+        try {
+          optParsed = JSON.parse(optResult.raw);
+        } catch (e) {
+          optParsed = parseNarrative(optResult.raw);
+        }
+        if (optParsed.options && optParsed.options.length > 0) {
+          GS.pendingAffChanges = optParsed.affChanges || [];
+          dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
+        } else {
+          console.warn('[handleFreeAction] 选项生成返回空数组');
+          GS.currentOptions = [
+            { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+            { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+            { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+          ];
+        }
+      } catch (optErr) {
+        console.error('[handleFreeAction] 选项生成失败:', optErr);
+        showToast('⚠️ 选项生成失败，使用兜底选项');
+        GS.currentOptions = [
+          { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+          { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+          { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+        ];
+      }
+    }
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
     GS.freeInput = '';
