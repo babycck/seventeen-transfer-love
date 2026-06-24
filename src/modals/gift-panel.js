@@ -162,7 +162,7 @@ async function getGiftDescription(rg, member) {
 
   try {
     var hp = GS.heroineProfile;
-    var sysPrompt = '你是《换乘恋爱》的叙事AI。请为以下回礼生成一段约100字的描述，描绘其样貌、质感和背后的心意。\n' +
+    var sysPrompt = '你只输出礼物描述文本，不要输出任何思考过程或解释。\n' +
       '礼物：' + rg.gift + '\n' +
       '赠送者：' + member.name + '（' + (member.personality || '') + '）\n' +
       '女主：' + hp.name + '，当前日期：Day ' + GS.day + '\n' +
@@ -171,8 +171,13 @@ async function getGiftDescription(rg, member) {
 
     if (!desc || desc.trim().length < 5) throw new Error('描述太短');
 
+    // 剥离可能的思考痕迹（模型有时会输出"好的，用户要求..."等元文本）
+    desc = desc.replace(/^好的[，,].*?(?=可以|我将|接下来|描述)/, '');
+    desc = desc.replace(/^(我理解|根据|用户要求|作为).*?。\s*/, '');
+    desc = desc.trim();
+
     // 存入缓存
-    rg.giftDesc = desc.trim();
+    rg.giftDesc = desc;
     saveGame();
     return rg.giftDesc;
   } catch (e) {

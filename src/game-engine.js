@@ -108,6 +108,7 @@ export async function generatePhaseNarrative() {
         deep: shuffle(deepCards)
       },
       usedCards: [],
+      currentCard: null,     // 预抽卡（仅女主回合显示问题用）
       drawerOrder: shuffleDrawers(),
       drunkDeclared: false
     };
@@ -489,11 +490,17 @@ export async function handleTruthRound(opt) {
   var drawerId = ts.drawerOrder[ts.subRound - 1];
   var isHeroineTurn = (drawerId === 'heroine');
 
+  // 保存推进前的轮次编号（给 prompt 用）
+  var promptRound = ts.round;
+  var promptSubRound = ts.subRound;
+
   // 从当前难度卡池抽取问题卡
   var card = null;
   if (ts.levelMap[currentLevel] && ts.levelMap[currentLevel].length > 0) {
     card = ts.levelMap[currentLevel].shift();
     ts.usedCards.push(card);
+    // 女主回合时存入 currentCard（用于 UI 显示，非女主回合不显示问题）
+    if (isHeroineTurn) ts.currentCard = card;
   }
 
   var playerAnswer = '';
@@ -501,16 +508,17 @@ export async function handleTruthRound(opt) {
   if (isHeroineTurn && opt.text.indexOf('如实回答') >= 0) {
     // 女主选择如实回答：弹出输入框
     playerAnswer = await modalTruthAnswer();
-    if (!playerAnswer) return; // 用户取消
+    if (!playerAnswer) {
+      // 用户取消：恢复 UI 按钮状态，让玩家可重新选择
+      if (window.__renderAll) window.__renderAll();
+      return;
+    }
   }
 
-  // 本地兜底：女主拒答→+1，成员随机判定（50%喝酒）
+  // 本地兜底：仅女主拒答→+1（成员喝酒由 AI 在 parsed.drinks 中返回）
   var drankThisRound = false;
   if (isHeroineTurn && opt.text.indexOf('喝酒') >= 0) {
     GS.drinkCounts['heroine'] = (GS.drinkCounts['heroine'] || 0) + 1;
-    drankThisRound = true;
-  } else if (!isHeroineTurn && Math.random() < 0.5) {
-    GS.drinkCounts[drawerId] = (GS.drinkCounts[drawerId] || 0) + 1;
     drankThisRound = true;
   }
   if (drankThisRound && !GS.drunkTrigger && (GS.drinkCounts[drawerId] || 0) >= 2) {
@@ -547,8 +555,8 @@ export async function handleTruthRound(opt) {
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('consequence', {
       choiceText: opt.text,
-      truthRound: ts.round,
-      truthSubRound: ts.subRound,
+      truthRound: promptRound,
+      truthSubRound: promptSubRound,
       truthLevel: currentLevel,
       truthCard: card,
       truthDrawer: drawerId,
@@ -581,6 +589,22 @@ export async function handleTruthRound(opt) {
   }
   hideLoading();
 }
+
+// 跳过真心话进入下一时段
+export function skipTruthRound() {
+  if (!GS.truthState) return;
+  GS.truthState.active = false;
+  GS.truthState.currentCard = null;
+  saveGame();
+  if (window.__renderAll) window.__renderAll();
+  // 延迟一帧调用 advancePhase 避免渲染阻塞
+  setTimeout(function() {
+    if (typeof advancePhase === 'function') {
+      advancePhase();
+    }
+  }, 100);
+}
+window.skipTruthRound = skipTruthRound;
 
 export function triggerTruthPunishment(drunkerId) {
   var punishments = [
@@ -1169,7 +1193,7 @@ export async function goToNextDay() {
 export async function proceedToNextDay() {
   GS.dailyFullTexts.push(GS.todayFullText.slice());
 
-  skeletonGenGifts();
+  await skeletonGenGifts();
   skeletonCleanupMission();
   // 清理当日特殊状态
   GS.xGhostEvent = null;
@@ -1431,8 +1455,22 @@ export function checkPendingReturnGifts() {
   var first = pending[0];
   var member = MEMBERS.find(function(m) { return m.id === first.memberId; });
   if (!member) return null;
-  var gifts = RETURN_GIFTS[first.memberId] || ['一份小礼物'];
-  var gift = gifts[Math.floor(Math.random() * gifts.length)];
+  var allGifts = RETURN_GIFTS[first.memberId] || ['一份小礼物'];
+
+  // 回礼去重：排除该成员已送过的礼物
+  var usedGifts = [];
+  if (GS.returnGiftHistory) {
+    for (var _rgi = 0; _rgi < GS.returnGiftHistory.length; _rgi++) {
+      if (GS.returnGiftHistory[_rgi].memberId === first.memberId) {
+        usedGifts.push(GS.returnGiftHistory[_rgi].gift);
+      }
+    }
+  }
+  var available = allGifts.filter(function(g) { return usedGifts.indexOf(g) < 0; });
+  // 池耗尽时回退全池
+  if (available.length === 0) available = allGifts.slice();
+
+  var gift = available[Math.floor(Math.random() * available.length)];
   GS.pendingReturnGifts = GS.pendingReturnGifts.filter(function(p) { return p.memberId !== first.memberId || p.day !== first.day; });
   if (!GS.returnGiftHistory) GS.returnGiftHistory = [];
   GS.returnGiftHistory.push({ memberId: first.memberId, gift: gift, day: GS.day, giftDesc: '' });

@@ -912,6 +912,17 @@ export function bindGameEvents() {
     });
   }
 
+  var skipTruthBtn = document.getElementById('btnSkipTruth');
+  if (skipTruthBtn) {
+    skipTruthBtn.addEventListener('click', function() {
+      this.disabled = true;
+      if (window.skipTruthRound) {
+        window.skipTruthRound();
+      }
+      this.disabled = false;
+    });
+  }
+
   var skipBtn = document.getElementById('btnSkip') || document.getElementById('btnNextPhase');
   if (skipBtn) {
     skipBtn.addEventListener('click', async function() {

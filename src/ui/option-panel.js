@@ -57,15 +57,19 @@ export function renderTruthPanel() {
   var html = '<div class="card"><div class="options-area" id="optionsArea">';
 
   if (isHeroineTurn) {
+    // 女主回合：显示预抽的问题
+    if (ts.currentCard) {
+      html += '<div style="margin-bottom:8px;padding:8px;background:#fff3e0;border-radius:8px;font-size:13px">';
+      html += '<strong>🎴 你的问题</strong><br><span style="color:#5d3a3a">' + escHtml(ts.currentCard.text) + '</span></div>';
+    }
     html += '<button class="option-btn" data-idx="0"><span class="opt-label">A</span>如实回答（自由输入）</button>';
     html += '<button class="option-btn" data-idx="1"><span class="opt-label">B</span>拒绝回答并喝酒（+1杯）</button>';
   } else {
     var dm = MEMBERS.find(function(m) { return m.id === drawerId; });
     var dname = dm ? dm.name : '嘉宾';
-    var currentCard = ts.usedCards.length > 0 ? ts.usedCards[ts.usedCards.length - 1] : null;
+    // 非女主回合：不显示问题，只显示名称和观看按钮（问题由 AI 在剧情中抽）
     html += '<div style="margin-bottom:8px;padding:8px;background:#f5f5f5;border-radius:8px;font-size:13px">';
     html += '<strong>🎴 ' + dname + '的回合</strong>';
-    if (currentCard) html += '<br><span style="color:#5d3a3a">问题：' + escHtml(currentCard.text) + '</span>';
     html += '</div>';
     html += '<button class="option-btn btn-special" data-idx="0"><span class="opt-label">▶</span>观看' + dname + '的回合</button>';
   }

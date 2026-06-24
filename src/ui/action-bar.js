@@ -10,6 +10,7 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isDay11)
   // 真心话模式下只显示重新生成
   if (GS.truthState && GS.truthState.active) {
     return '<div class="card"><div class="action-bar" id="actionBar">' +
+      '<button class="btn-regenerate" id="btnSkipTruth" style="background:linear-gradient(135deg,#ff8a65,#ff6f00);color:#fff;border:none">⏭ 跳过真心话进入下一时段</button>' +
       '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button></div></div>';
   }
 

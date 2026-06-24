@@ -35,8 +35,8 @@ export function generateOptions() {
     ];
   }
 
-  // 默认：从成员列表生成互动选项
-  return generateStandardOptions(day, phase);
+  // 默认：返回 null 让 AI 基于剧情生成选项（AI 失败时有兜底模板）
+  return null;
 }
 
 function generateStandardOptions(day, phase) {

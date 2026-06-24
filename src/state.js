@@ -98,6 +98,10 @@ export function defaultGameState() {
     returnGiftHistory: [],
     // 约会礼物历史
     dateGiftHistory: [],
+    // 约会礼物池缓存（按 day 缓存，如 { 4: [{type,name,desc},...8个] }）
+    datingGiftPools: {},
+    // 全局已抽约会礼物名称列表（跨 day 去重）
+    datingGiftsUsed: [],
     // [P0-2] 小礼物系统
     gifts: [],
     // [P0-3] Day 11 喝酒计数
@@ -332,6 +336,9 @@ export function migrateSave() {
     GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
+    // 约会礼物池与去重缓存
+    if (!GS.datingGiftPools) GS.datingGiftPools = {};
+    if (!Array.isArray(GS.datingGiftsUsed)) GS.datingGiftsUsed = [];
     // Phase 4 骨架模块开关
     if (!GS.skeletonConfig) GS.skeletonConfig = {
       enabled: false,

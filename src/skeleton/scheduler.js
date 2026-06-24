@@ -1,6 +1,7 @@
 import { GS } from '../state.js';
 import { saveGame } from '../state.js';
 import { HOLIDAYS, GIFT_TEMPLATES, MEMBER_GIFT_PREFERENCE, MEMBERS, MISSION_CARDS } from '../data.js';
+import { callDeepSeek } from '../api.js';
 
 // ==================== 新一天状态重置 ====================
 export function resetDayState() {
@@ -70,52 +71,104 @@ export function updateObserverGuestPrevious() {
   GS.observerGuestPrevious = oguestMember ? oguestMember.id : oguestName;
 }
 
-// ==================== 约会后礼物生成 ====================
-export function generateDayGifts() {
-  if ((GS.day === 4 || GS.day === 6 || GS.day === 8 || GS.day === 9 || GS.day === 10) && GS.currentDatingPartner) {
-    var partnerId = GS.currentDatingPartner;
-    var partner = MEMBERS.find(function(m) { return m.id === partnerId; });
-    var partnerName = partner ? partner.name : partnerId;
-    var partnerPref = MEMBER_GIFT_PREFERENCE[partnerId];
+// ==================== 约会后礼物生成（按需 AI 生成 + 缓存） ====================
+export async function generateDayGifts() {
+  var datingDays = [4, 6, 8, 9];
+  var isDatingDay = datingDays.indexOf(GS.day) >= 0;
 
-    var prefTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === partnerPref; });
-    var exclusiveTmpl = prefTemplates[Math.floor(Math.random() * prefTemplates.length)];
+  // 非约会日或无约会地点时跳过
+  if (!isDatingDay && GS.day !== 10) return;
+  if (!GS.currentDatingPartner) return;
+  if (!GS.currentDatingLocation) return;
+
+  var location = GS.currentDatingLocation;
+
+  // 检查缓存池
+  if (!GS.datingGiftPools) GS.datingGiftPools = {};
+  var pool = GS.datingGiftPools[GS.day];
+
+  // 缓存不存在时调用 AI 生成 8 个符合地点的礼物
+  if (!pool || !Array.isArray(pool) || pool.length < 2) {
+    var sysPrompt = '你只输出 JSON 数组，不要输出任何思考过程或解释。';
+    var userMsg = '以下是一次约会场景的地点信息。请生成 8 个符合该场景氛围的小礼物，类型在 handcraft/food/emotion 间均匀分布。\n' +
+      '地点名称：' + location.name + '\n' +
+      '地点描述：' + location.desc + '\n' +
+      '季节：' + (GS.season || '未知') + '\n' +
+      '要求：\n' +
+      '1. 每个礼物包含 type（handcraft/food/emotion）、name（名称）、desc（一句话描述，约15字）\n' +
+      '2. 礼物应可在约会场景中自然获得或购买（如海边→贝壳、咖啡馆→咖啡豆）\n' +
+      '3. 礼物不需要符合特定成员的喜好，具有通用性\n' +
+      '4. 输出格式：[{"type":"handcraft","name":"礼物名","desc":"一句话描述"},...]\n' +
+      '5. 只输出 JSON 数组，不要任何其他文字';
+
+    try {
+      var result = await callDeepSeek(sysPrompt, userMsg, 2000, false, 0.7);
+      result = result.trim();
+      // 尝试提取 JSON（AI 可能用 ```json 包裹）
+      var jsonMatch = result.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) result = jsonMatch[1].trim();
+      var generated = JSON.parse(result);
+      if (Array.isArray(generated) && generated.length >= 8) {
+        pool = generated.slice(0, 8); // 只取前 8 个
+        GS.datingGiftPools[GS.day] = pool;
+        saveGame();
+      }
+    } catch (e) {
+      console.error('[generateDayGifts] AI 生成失败:', e);
+    }
+  }
+
+  // 若 AI 生成失败，使用已有缓存或回退
+  if (!pool || !Array.isArray(pool) || pool.length < 1) {
+    pool = GS.datingGiftPools[GS.day] || [];
+  }
+  if (pool.length < 1) return;
+
+  // 从池中抽 2 个不重复（按礼物名称去重）
+  var usedNames = (GS.datingGiftsUsed || []).slice();
+  var available = pool.filter(function(g) {
+    return g && g.name && usedNames.indexOf(g.name) < 0;
+  });
+  // 池耗尽时重置已用列表
+  if (available.length < 2) {
+    usedNames = [];
+    available = pool.slice();
+  }
+
+  var partnerId = GS.currentDatingPartner;
+  var picked = [];
+  for (var pi = 0; pi < 2 && available.length > 0; pi++) {
+    var idx = Math.floor(Math.random() * available.length);
+    var gift = available.splice(idx, 1)[0];
+    picked.push(gift);
+    if (!Array.isArray(GS.datingGiftsUsed)) GS.datingGiftsUsed = [];
+    GS.datingGiftsUsed.push(gift.name);
+  }
+
+  if (picked.length === 0) return;
+
+  // 存入 GS.gifts（保留原有礼物格式一致）
+  for (var gi = 0; gi < picked.length; gi++) {
+    var g = picked[gi];
     GS.gifts.push({
-      id: Date.now() + '_ex_' + Math.random().toString(36).slice(2, 5),
-      type: exclusiveTmpl.type,
-      name: exclusiveTmpl.name,
-      desc: exclusiveTmpl.desc,
+      id: Date.now() + '_dt' + GS.day + '_' + Math.random().toString(36).slice(2, 5),
+      type: g.type || 'handcraft',
+      name: g.name,
+      desc: g.desc || '',
       fromDay: GS.day,
       fromPartner: partnerId,
-      isExclusive: true
+      isExclusive: gi === 0 // 第一个标记为专属
     });
     if (!Array.isArray(GS.dateGiftHistory)) GS.dateGiftHistory = [];
     GS.dateGiftHistory.push({
       memberId: partnerId,
-      giftName: exclusiveTmpl.name,
-      giftDesc: exclusiveTmpl.desc,
+      giftName: g.name,
+      giftDesc: g.desc || '',
       day: GS.day,
-      isExclusive: true
-    });
-
-    var generalTmpl = GIFT_TEMPLATES[Math.floor(Math.random() * GIFT_TEMPLATES.length)];
-    GS.gifts.push({
-      id: Date.now() + '_gen_' + Math.random().toString(36).slice(2, 5),
-      type: generalTmpl.type,
-      name: generalTmpl.name,
-      desc: generalTmpl.desc,
-      fromDay: GS.day,
-      fromPartner: partnerId,
-      isExclusive: false
-    });
-    GS.dateGiftHistory.push({
-      memberId: partnerId,
-      giftName: generalTmpl.name,
-      giftDesc: generalTmpl.desc,
-      day: GS.day,
-      isExclusive: false
+      isExclusive: gi === 0
     });
   }
+  saveGame();
 }
 
 // ==================== 任务卡触发检查 ====================
