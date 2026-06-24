@@ -199,11 +199,13 @@ export function loadGame() {
 
 export function saveGame() {
   try {
-    var stateToSave = GS;
+    var stateToSave = JSON.parse(JSON.stringify(GS));
     if (GS.rememberApiKey === false) {
-      stateToSave = JSON.parse(JSON.stringify(GS));
       stateToSave.apiKey = '';
     }
+    // 剥离运行时锁，防止被持久化到存档导致刷新后卡死
+    delete stateToSave._isGenerating;
+    delete stateToSave._advancingPhase;
     var json = JSON.stringify(stateToSave);
     if (json.length > SAVE_SIZE_WARN) {
       console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');
@@ -321,6 +323,7 @@ export function migrateSave() {
     if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
     if (!GS.endingArchive) GS.endingArchive = [];
     GS._isGenerating = false;
+    GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // Phase 4 骨架模块开关
