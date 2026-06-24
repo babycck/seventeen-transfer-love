@@ -186,6 +186,8 @@ export async function generatePhaseNarrative() {
     // ====== Step 1: 剧情文本生成（不含选项） ======
     dispatch({ type: 'SET_PHASE_NARRATIVE', payload: { rawText: rawText, parsed: parsed } });
     GS.pendingAffChanges = [];  // 选项好感度在 Step 2 处理
+    // 保存 Step 1 叙事中 AI 自带的选项，作为 Step 2 生成失败时的第一级兜底
+    var narrativeOptions = (parsed.options || []).filter(function(o) { return o && o.text; });
     applyDrinksFromParsed(parsed);
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);
@@ -264,14 +266,21 @@ export async function generatePhaseNarrative() {
           if (optParsed.options && optParsed.options.length > 0) {
             GS.pendingAffChanges = optParsed.affChanges || [];
             dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
+          } else if (narrativeOptions && narrativeOptions.length > 0) {
+            console.warn('[generatePhaseNarrative] 选项生成返回空数组，复用叙事自带选项');
+            dispatch({ type: 'SET_OPTIONS', payload: { options: narrativeOptions } });
           } else {
-            console.warn('[generatePhaseNarrative] 选项生成返回空数组，使用兜底选项');
+            console.warn('[generatePhaseNarrative] 选项生成返回空数组且无叙事选项，使用骨架兜底');
             dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
           }
         } catch (optErr) {
           console.error('[generatePhaseNarrative] 选项生成失败:', optErr);
           showToast('⚠️ 选项生成失败，使用兜底选项');
-          dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
+          if (narrativeOptions && narrativeOptions.length > 0) {
+            dispatch({ type: 'SET_OPTIONS', payload: { options: narrativeOptions } });
+          } else {
+            dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
+          }
         }
       }
     }
