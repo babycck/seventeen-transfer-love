@@ -476,9 +476,16 @@ src/
 | goToNextDay 选择判断 | 已完成 | game-engine.js | 移除 indexOf('选择') |
 | store.js 生产日志 | 已完成 | store.js | import.meta.env.DEV 守卫 |
 | 打字机速度档位反转 | 已完成 | header-bar.js, narrative-box.js, ui-renderer.js | 慢=100/中=50/快=20/极快=10 + `||30`→`==null?30:x` |
-| API 超时 30s→60s | 已完成 | api.js | 修复 AbortError |
+| API 超时 30s→90s + 重试 | 已完成 | api.js, ai-generator.js | 30s→60s→90s + callDeepSeek try/catch 自动重试，修复 AbortError |
 | Day3 真心话误触发 | 已完成 | prompts.js | 明确"不是真心话游戏，没有抽卡" |
 | Day4/5 记忆物品轮转 | 已完成 | prompts.js, state.js | `xItemsRevealRound` 每次只公开 1 位成员 |
 | phaseFreeCount 重置 | 已完成 | store.js | RESET_PHASE_STATE 补充 `phaseFreeCount = 0` |
 | X档案物品格式统一 | 已完成 | x-archive.js | `buildXArchiveItemsMemberPrompt` 统一为名称/样式/故事 |
 | 选项多样性约束 | 已完成 | prompts.js | noRepeatNote 增加避免通用模板重复 |
+| parser.js 复制粘贴死分支 | 已完成 | parser.js | 删除 else-if alert 死分支，符合禁止 alert 规范 |
+| dating-dice 成员名转义 | 已完成 | dating-dice.js | 引入 escHtml，转义修罗场按钮与结果中成员名 |
+| store.js action creator 对齐 | 已完成 | store.js | pushConsequence 移除 payload 包裹，与 reducer 一致 |
+| 删除废弃 extractSmsDrafts | 已完成 | game-engine.js | 旧 markdown 短信草稿提取函数，已确认无外部引用 |
+| 简化 settlePendingAffChanges 转发 | 已完成 | game-engine.js | 直接调用 skeletonSettleAff，删除冗余包装函数 |
+| 恢复 generatePhaseNarrative finally | 已完成 | game-engine.js | 修复移除 extractSmsDrafts 时误删的 finally，确保 _isGenerating 重置 |
+
