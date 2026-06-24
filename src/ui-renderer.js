@@ -4,7 +4,7 @@
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
   API_PROVIDERS,
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection,
-  showLoading, hideLoading, showToast
+  showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc } from './affection.js';
@@ -1017,8 +1017,33 @@ export function bindGameEvents() {
 
   var midnightCallRecordBtn = document.getElementById('midnightCallRecordBtn');
   if (midnightCallRecordBtn) {
-    midnightCallRecordBtn.addEventListener('click', function() {
+    midnightCallRecordBtn.addEventListener('click', async function() {
       var mc = GS.midnightCall;
+      if (!mc || !mc.targetId) return;
+
+      // Day 7：首次点击时生成成员反馈（调用 AI）
+      if (GS.day === 7 && !mc.feedback && mc.status === 'done' && mc.content) {
+        var target = MEMBERS.find(function(m) { return m.id === mc.targetId; });
+        if (target && GS.aiEnabled) {
+          showLoading('正在生成成员的反馈...');
+          try {
+            var prompt = '你正在扮演《换乘恋爱》的成员' + target.name + '（' + target.stageName + '）。' +
+              '昨晚的心动小屋出现了午夜匿名电话亭，你接到了一个匿名电话，对方说了一段话。' +
+              '你在节目中，不知道对方是谁，但隐约能感受到对方的情绪。' +
+              '电话内容如下：\n"' + mc.content + '"\n\n' +
+              '请以第一人称「我」写一段你的内心独白（50-80字），表达你在挂断电话后第二天回想起来时的真实感受。' +
+              '不要写选项、不要写采访间格式、不要写导演OS，只输出内心独白的正文。';
+            var feedback = await callDeepSeek('你是《换乘恋爱》的成员，请根据要求输出内心独白。', prompt, 500, false, 0.7);
+            mc.feedback = feedback;
+            saveGame();
+          } catch (e) {
+            console.warn('[midnightCall] 反馈生成失败:', e);
+          }
+          hideLoading();
+        }
+      }
+
+      mc = GS.midnightCall;
       var target = MEMBERS.find(function(m) { return m.id === mc.targetId; });
       var targetName = target ? target.name : '嘉宾';
       var html = '<div class="modal-content" style="max-width:360px">' +
@@ -1026,6 +1051,7 @@ export function bindGameEvents() {
         '<p style="font-size:13px;color:#5d3a3a;margin-bottom:8px"><strong>目标：</strong>' + escHtml(targetName) + '</p>' +
         '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>你说：</strong></p>' +
         '<p style="font-size:12px;color:#5d3a3a;padding:8px;background:#fff5f5;border-radius:6px;margin-bottom:10px">' + escHtml(mc.content) + '</p>' +
+        (mc.feedback ? '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>' + targetName + '的内心独白（Day 7）：</strong></p><p style="font-size:12px;color:#5d3a3a;padding:8px;background:#f0faf0;border-radius:6px">' + escHtml(mc.feedback) + '</p>' : '') +
         (mc.reaction ? '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>接听反应：</strong></p><p style="font-size:12px;color:#5d3a3a;padding:8px;background:#f5f5f5;border-radius:6px">' + escHtml(mc.reaction) + '</p>' : '') +
         '<button class="modal-close-x" id="mcRecordClose">✕</button></div>';
       var overlay = document.createElement('div');
@@ -1388,7 +1414,7 @@ export async function enterTestMode() {
   GS.secretMissionHistory = [];
   GS.jealousyMission = null;
   GS.jealousyMissionTriggeredDays = [];
-  GS.midnightCall = null;
+  if (GS.day >= 8) GS.midnightCall = null;
   GS.questionBox = null;
   GS.truthPunishment = null;
   GS.truthState = null;

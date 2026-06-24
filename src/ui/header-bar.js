@@ -31,7 +31,7 @@ export function renderHeader() {
     '<button id="saveExportBtn" title="导出存档(JSON)">💾</button>' +
     '<button id="saveImportBtnLabel" title="导入存档(JSON)" onclick="document.getElementById(\'saveImportInput\').click()">📂</button>' +
     '<input type="file" id="saveImportInput" accept=".json" style="display:none">' +
-    (GS.midnightCall && (GS.midnightCall.status === 'done' || GS.midnightCall.status === 'skipped') ? '<button id="midnightCallRecordBtn" title="午夜电话记录">📞</button>' : '') +
+    (GS.day === 7 && GS.midnightCall && GS.midnightCall.status === 'done' ? '<button id="midnightCallRecordBtn" title="午夜电话记录（Day 7 反馈）">📞</button>' : '') +
     '<button id="resetGameBtn" title="重置游戏">🔄</button>' +
     '<button id="themeToggleBtn" title="切换深色/浅色模式">🌙</button>' +
     '<select id="typewriterSpeedSelect" title="打字机速度" style="margin-left:4px;padding:3px 6px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-soft);color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit">' +
