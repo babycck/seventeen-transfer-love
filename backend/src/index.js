@@ -31,6 +31,10 @@ export default {
       return handleDisable(request, env, corsHeaders);
     }
 
+    if (url.pathname === '/api/admin/cleanup' && request.method === 'POST') {
+      return handleCleanup(request, env, corsHeaders);
+    }
+
     return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
   }
 };
@@ -187,6 +191,30 @@ async function handleDisable(request, env, corsHeaders) {
   await env.AUTH_KV.put(codeKey, JSON.stringify(data));
 
   return jsonResponse({ success: true }, 200, corsHeaders);
+}
+
+async function handleCleanup(request, env, corsHeaders) {
+  const { adminKey } = await request.json();
+  if (adminKey !== env.ADMIN_KEY) {
+    return jsonResponse({ success: false, error: '管理员密钥错误' }, 403, corsHeaders);
+  }
+
+  const list = await env.AUTH_KV.list({ prefix: 'code:' });
+  var now = Date.now();
+  var deleted = 0;
+
+  for (const key of list.keys) {
+    const data = await env.AUTH_KV.get(key.name, { type: 'json' });
+    if (data && data.validUntil) {
+      var untilMs = new Date(data.validUntil).getTime();
+      if (!isNaN(untilMs) && now > untilMs + 24 * 60 * 60 * 1000 - 1) {
+        await env.AUTH_KV.delete(key.name);
+        deleted++;
+      }
+    }
+  }
+
+  return jsonResponse({ success: true, deleted }, 200, corsHeaders);
 }
 
 function generateToken() {

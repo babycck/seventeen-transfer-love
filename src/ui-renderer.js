@@ -229,8 +229,10 @@ export function renderSetupWizard() {
       '<div id="apiStatus" class="api-status hidden"></div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;flex-direction:column">' +
       '<button class="btn-primary" id="step1Next">下一步 →</button>' +
-      '<button class="btn-secondary" id="enterTestModeBtn" style="background:#fff8e1;border-color:#ffc107;color:#f57f17;font-size:13px">🧪 进入测试版（跳过API配置）</button>' +
-      '<p style="font-size:11px;color:#8b6b6b;margin:0">测试版使用本地预生成剧情，无需API Key即可体验游戏流程。</p></div></div>';
+      // 测试版入口已暂时屏蔽，取消下面注释即可恢复
+      //'<button class="btn-secondary" id="enterTestModeBtn" style="background:#fff8e1;border-color:#ffc107;color:#f57f17;font-size:13px">🧪 进入测试版（跳过API配置）</button>' +
+      //'<p style="font-size:11px;color:#8b6b6b;margin:0">测试版使用本地预生成剧情，无需API Key即可体验游戏流程。</p>' +
+      '</div></div>';
   } else if (GS.step === 2) {
     var hp = GS.heroineProfile;
     var locked = GS.profileLocked;
@@ -370,10 +372,13 @@ export function bindSetupEvents() {
       saveGame();
       renderAll();
     });
-    document.getElementById('enterTestModeBtn').addEventListener('click', async function() {
-      if (!(await showConfirmModal('进入测试版将跳过API配置和角色设定，使用随机生成的女主信息和本地预生成剧情。是否继续？'))) return;
-      await enterTestMode();
-    });
+    var testBtn = document.getElementById('enterTestModeBtn');
+    if (testBtn) {
+      testBtn.addEventListener('click', async function() {
+        if (!(await showConfirmModal('进入测试版将跳过API配置和角色设定，使用随机生成的女主信息和本地预生成剧情。是否继续？'))) return;
+        await enterTestMode();
+      });
+    }
   }
 
   if (GS.step === 2) {
