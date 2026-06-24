@@ -278,6 +278,7 @@ export function startTypewriter(containerId, speed) {
 // ==================== 剧情编辑功能 ====================
 
 var _narrativeEditorOverlay = null;
+var _editingConsequenceIdx = -1; // -1 = 编辑主剧情, >=0 = 编辑第几条后续剧情
 
 // 从 parsedNarrative 中提取全部剧情文本（含采访间/OS 前缀标记）
 function extractNarrativeText(parsed) {
@@ -298,19 +299,34 @@ function extractNarrativeText(parsed) {
 }
 
 export function showNarrativeEditor() {
-  if (!GS.phaseNarrative || !GS.parsedNarrative || !GS.parsedNarrative.blocks) {
+  var hasCons = GS.consequenceNarratives && GS.consequenceNarratives.length > 0;
+
+  var targetRaw, targetParsed;
+  _editingConsequenceIdx = -1;
+  if (hasCons) {
+    _editingConsequenceIdx = GS.consequenceNarratives.length - 1;
+    var last = GS.consequenceNarratives[_editingConsequenceIdx];
+    targetRaw = last.rawText;
+    targetParsed = last.parsed;
+  } else {
+    targetRaw = GS.phaseNarrative;
+    targetParsed = GS.parsedNarrative;
+  }
+
+  if (!targetRaw || !targetParsed || !targetParsed.blocks) {
     showToast('⚠️ 暂无剧情可编辑');
     return;
   }
 
-  var text = extractNarrativeText(GS.parsedNarrative);
+  var text = extractNarrativeText(targetParsed);
+  var label = hasCons ? '编辑后续剧情（自由输入/选项）' : '编辑时段剧情';
 
   var overlay = document.createElement('div');
   overlay.className = 'narrative-editor-overlay';
   overlay.innerHTML =
     '<div class="narrative-editor-panel">' +
     '<div class="narrative-editor-header">' +
-    '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ 编辑剧情</span>' +
+    '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ ' + label + '</span>' +
     '<span style="font-size:11px;color:var(--text-muted);margin-left:8px">每段用空行分隔，采访间等前缀标记保留</span>' +
     '<span class="narrative-editor-close-btn">&times;</span>' +
     '</div>' +
@@ -329,19 +345,14 @@ export function showNarrativeEditor() {
   textarea.selectionStart = textarea.value.length;
   textarea.selectionEnd = textarea.value.length;
 
-  // 关闭按钮
   overlay.querySelector('.narrative-editor-close-btn').onclick = closeNarrativeEditor;
-  // 取消按钮
   overlay.querySelector('#narrativeEditorCancel').onclick = closeNarrativeEditor;
-  // 点击遮罩层关闭
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) closeNarrativeEditor();
   });
-  // 保存按钮
   overlay.querySelector('#narrativeEditorSave').onclick = function() {
     saveNarrativeEdit(textarea.value);
   };
-  // Ctrl+Enter 保存
   textarea.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
@@ -358,10 +369,19 @@ function closeNarrativeEditor() {
 }
 
 function saveNarrativeEdit(newText) {
-  if (!GS.parsedNarrative || !GS.parsedNarrative.blocks) return;
+  var targetParsed, targetKey;
+  if (_editingConsequenceIdx >= 0 && GS.consequenceNarratives && GS.consequenceNarratives[_editingConsequenceIdx]) {
+    targetParsed = GS.consequenceNarratives[_editingConsequenceIdx].parsed;
+    targetKey = 'consequence_' + _editingConsequenceIdx;
+  } else {
+    targetParsed = GS.parsedNarrative;
+    targetKey = 'phase';
+  }
 
-  var blocks = GS.parsedNarrative.blocks;
-  var oldRaw = GS.phaseNarrative;
+  if (!targetParsed || !targetParsed.blocks) return;
+
+  var blocks = targetParsed.blocks;
+  var oldRaw = (targetKey === 'phase') ? GS.phaseNarrative : GS.consequenceNarratives[_editingConsequenceIdx].rawText;
 
   // 按段落（双换行分割）逐段映射回对应 block，不搞比例分配
   var paragraphs = newText.split(/\n{2,}/).filter(function(p) { return p.trim(); });
@@ -380,16 +400,27 @@ function saveNarrativeEdit(newText) {
   }
 
   // 重建 JSON
-  var newRaw = JSON.stringify(GS.parsedNarrative);
-  GS.phaseNarrative = newRaw;
+  var newRaw = JSON.stringify(targetParsed);
 
-  // 同步更新 todayFullText
-  var phasePrefixes = ['【上午】', '【下午】', '【傍晚】', '【深夜】'];
-  for (var ti = 0; ti < GS.todayFullText.length; ti++) {
-    var entry = GS.todayFullText[ti];
-    for (var pi = 0; pi < phasePrefixes.length; pi++) {
-      if (entry === phasePrefixes[pi] + oldRaw) {
-        GS.todayFullText[ti] = phasePrefixes[pi] + newRaw;
+  if (targetKey === 'phase') {
+    GS.phaseNarrative = newRaw;
+    // 同步更新 todayFullText（主剧情带时段前缀）
+    var phasePrefixes = ['【上午】', '【下午】', '【傍晚】', '【深夜】'];
+    for (var ti = 0; ti < GS.todayFullText.length; ti++) {
+      var entry = GS.todayFullText[ti];
+      for (var pi = 0; pi < phasePrefixes.length; pi++) {
+        if (entry === phasePrefixes[pi] + oldRaw) {
+          GS.todayFullText[ti] = phasePrefixes[pi] + newRaw;
+          break;
+        }
+      }
+    }
+  } else {
+    // 后续剧情：更新 consequence 的 rawText + todayFullText
+    GS.consequenceNarratives[_editingConsequenceIdx].rawText = newRaw;
+    for (var ti = 0; ti < GS.todayFullText.length; ti++) {
+      if (GS.todayFullText[ti] === oldRaw) {
+        GS.todayFullText[ti] = newRaw;
         break;
       }
     }
