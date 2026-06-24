@@ -44,7 +44,7 @@ function generateStandardOptions(day, phase) {
     return MEMBERS.find(function(m) { return m.id === id; });
   }).filter(function(m) { return m; });
 
-  if (memberList.length < 2) return fallbackOptions();
+  if (memberList.length < 2) return null;
   var options = [];
 
   var a = memberList[0];
@@ -60,21 +60,14 @@ function generateStandardOptions(day, phase) {
     options.push({ text: '独自待一会儿' });
   }
 
-  return options;
+  return null;
 }
 
 // 约会场景选项生成（只涉及约会对象）
 function generateDatingOptions() {
   var partner = MEMBERS.find(function(m) { return m.id === GS.currentDatingPartner; });
-  if (!partner) return fallbackOptions();
-  var phaseKey = getPhaseKey(GS.phaseIndex);
-  var pool = _datingActivities[phaseKey] || _datingActivities.afternoon;
-  var name = partner.name;
-  return [
-    { text: '和' + name + pool[(GS.day * 7 + GS.phaseIndex * 3) % pool.length] },
-    { text: '主动对' + name + pool[(GS.day * 11 + GS.phaseIndex * 5 + 3) % pool.length] },
-    { text: '和' + name + pool[(GS.day * 13 + GS.phaseIndex * 7 + 7) % pool.length] }
-  ];
+  if (!partner) return null;
+  return null;
 }
 
 function fallbackOptions() {

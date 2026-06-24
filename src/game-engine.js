@@ -235,38 +235,39 @@ export async function generatePhaseNarrative() {
       if (!GS.currentDatingLocation) {
         GS.currentDatingLocation = pickDatingLocation(GS.season, GS.weather);
       }
-    } else if (GS.skeletonConfig && GS.skeletonConfig.optionEngine) {
-      var skeletonOpts = skeletonGenOptions();
+    } else {
+      // 先试骨架（处理真心话/提问箱/深夜等特殊场景的固定选项）
+      var skeletonOpts = (GS.skeletonConfig && GS.skeletonConfig.optionEngine) ? skeletonGenOptions() : null;
       if (skeletonOpts && skeletonOpts.length > 0) {
         GS.currentOptions = skeletonOpts;
-      }
-    } else {
-      // 正常流程：将剧情文本喂给 AI 生成选项
-      showLoading('正在根据剧情生成选项...');
-      try {
-        var optSysPrompt = buildSystemPrompt();
-        var optUserMsg = buildUserMessage('generateOptions', { narrativeText: rawText });
-        var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7 });
-        var optParsed = parseNarrative(optResult.raw);
-        if (optParsed.options && optParsed.options.length > 0) {
-          GS.pendingAffChanges = optParsed.affChanges || [];
-          dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
-        } else {
-          console.warn('[generatePhaseNarrative] 选项生成返回空数组');
+      } else {
+        // 正常+约会场景：AI 基于剧情生成选项（剧情延伸 + 好感度字段）
+        showLoading('正在根据剧情生成选项...');
+        try {
+          var optSysPrompt = buildSystemPrompt();
+          var optUserMsg = buildUserMessage('generateOptions', { narrativeText: rawText });
+          var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7 });
+          var optParsed = parseNarrative(optResult.raw);
+          if (optParsed.options && optParsed.options.length > 0) {
+            GS.pendingAffChanges = optParsed.affChanges || [];
+            dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
+          } else {
+            console.warn('[generatePhaseNarrative] 选项生成返回空数组');
+            GS.currentOptions = [
+              { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+              { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+              { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+            ];
+          }
+        } catch (optErr) {
+          console.error('[generatePhaseNarrative] 选项生成失败:', optErr);
+          showToast('⚠️ 选项生成失败，使用兜底选项');
           GS.currentOptions = [
             { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
             { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
             { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
           ];
         }
-      } catch (optErr) {
-        console.error('[generatePhaseNarrative] 选项生成失败:', optErr);
-        showToast('⚠️ 选项生成失败，使用兜底选项');
-        GS.currentOptions = [
-          { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
-          { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
-          { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
-        ];
       }
     }
 
