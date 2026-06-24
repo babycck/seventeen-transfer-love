@@ -290,6 +290,19 @@ body {
 
 .narrative-box .separator::before { content: '❀ ❀ ❀'; }
 
+/* ==================== Dating Location Banner ==================== */
+.narrative-box .dating-location-banner {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  border-radius: 10px;
+  color: #880e4f;
+  letter-spacing: 1px;
+}
+
 /* ==================== Special Elements ==================== */
 .narrative-box .director-os {
   color: #8b3a8b;

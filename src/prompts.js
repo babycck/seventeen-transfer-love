@@ -356,6 +356,7 @@ export function buildUserMessage(type, extra) {
       msg += '约会地点：' + GS.currentDatingLocation.name + '——' + GS.currentDatingLocation.desc + '\n';
     }
     msg += '\n';
+    msg += '[INSTRUCTION] ⚠️ 约会约束：你和' + dateMember.name + '正在单独约会中，3个选项必须全部只涉及与' + dateMember.name + '的互动，不得出现在场其他成员。\n\n';
   }
 
   // 约会场景强制延续
@@ -595,7 +596,7 @@ export function buildUserMessage(type, extra) {
 
   var noRepeatNote = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
     '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n' +
-    '⚠️ 选项必须场景相关，避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
+    '⚠️ 选项必须严格基于当前场景和在场人物，避免出现与当前上下文无关的互动选项。避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +

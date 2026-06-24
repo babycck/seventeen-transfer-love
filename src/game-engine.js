@@ -228,6 +228,10 @@ export async function generatePhaseNarrative() {
       GS.datingDiceResult = null;
     } else {
       GS.pendingDatingResult = null;
+      // Day 9 X 约会日：设置约会对象为 X
+      if (GS.day === 9 && GS.secretX) {
+        GS.currentDatingPartner = GS.secretX;
+      }
     }
 
     saveGame();

@@ -124,6 +124,11 @@ export function renderNarrativeSection() {
 
   var html = '<div class="card"><div class="narrative-box" id="narrativeBox">';
 
+  // 约会地点横幅
+  if (GS.currentDatingLocation && GS.currentDatingLocation.name) {
+    html += '<div class="dating-location-banner">📍 ' + escHtml(GS.currentDatingLocation.name) + '</div>';
+  }
+
   if (GS.phaseNarrative) {
     html += renderParsedNarrative(GS.parsedNarrative);
   }
