@@ -22,6 +22,7 @@ export function renderHeader() {
     '<div class="header-btns">' +
     '<button id="apiSettingsBtn" title="API设置">⚙️</button>' +
     '<button id="helpBtn" title="规则速览">❓</button>' +
+    '<button id="helpManualBtn" title="使用说明">📖</button>' +
     '<button id="historyBtn" title="历史剧情回顾">📖</button>' +
     '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
     '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +

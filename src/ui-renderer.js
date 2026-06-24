@@ -11,7 +11,7 @@ import { getAffectionHint, getAffectionDesc } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
 import { generateAllXArchives } from './x-archive.js';
-import { showSmsModal, showXArchiveModal, showSmsHistoryModal, showGiftPanel, showHeartNotesModal, showHistoryModal, showHelpModal, showAffectionPanel, showApiSettingsModal, showConfirmModal } from './modals.js';
+import { showSmsModal, showXArchiveModal, showSmsHistoryModal, showGiftPanel, showHeartNotesModal, showHistoryModal, showHelpModal, showHelpManual, showAffectionPanel, showApiSettingsModal, showConfirmModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
@@ -958,6 +958,8 @@ export function bindGameEvents() {
 
   var helpBtn = document.getElementById('helpBtn');
   if (helpBtn) helpBtn.addEventListener('click', showHelpModal);
+  var helpManualBtn = document.getElementById('helpManualBtn');
+  if (helpManualBtn) helpManualBtn.addEventListener('click', showHelpManual);
 
   var resetBtn = document.getElementById('resetGameBtn');
   if (resetBtn) resetBtn.addEventListener('click', async function() { await resetGame(); renderAll(); });
