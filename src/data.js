@@ -22,7 +22,8 @@ export var API_PROVIDERS = {
     supportsJson: true,
     models: [
       { value: 'deepseek-chat', label: 'DeepSeek-V3' },
-      { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro' }
+      { value: 'deepseek-v4-pro', label: 'DeepSeek-V4 Pro' },
+      { value: 'deepseek-v4-flash', label: 'DeepSeek-V4 Flash' }
     ],
     sceneModels: {
       heavy: 'deepseek-chat',
@@ -38,6 +39,7 @@ export var API_PROVIDERS = {
     models: [
       { value: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek-V3' },
       { value: 'deepseek-ai/DeepSeek-V4-Pro', label: 'DeepSeek-V4 Pro' },
+      { value: 'deepseek-ai/DeepSeek-V4-Flash', label: 'DeepSeek-V4 Flash' },
       { value: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek-R1' },
       { value: 'Qwen/Qwen2.5-72B-Instruct', label: 'Qwen2.5-72B' },
       { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct', label: 'Llama-3.1-70B' }

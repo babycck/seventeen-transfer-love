@@ -59,7 +59,7 @@ function manualContent() {
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">按钮</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">⚙️</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">API 设置（Key、模型）</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❓</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">规则速览</td></tr>' +
-      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📖</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">完整使用说明（即本文）</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📚</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">完整使用说明（即本文）</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📖（历史）</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">历史剧情回顾</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📋</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">X 档案</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📜</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">短信历史</td></tr>' +
