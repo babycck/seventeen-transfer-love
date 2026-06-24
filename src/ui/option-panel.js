@@ -67,9 +67,9 @@ export function renderTruthPanel() {
   } else {
     var dm = MEMBERS.find(function(m) { return m.id === drawerId; });
     var dname = dm ? dm.name : '嘉宾';
-    // 非女主回合：不显示问题，只显示名称和观看按钮（问题由 AI 在剧情中抽）
+    // 非女主回合：显示预抽的问题（与传给 AI 的是同一个 currentCard）
     html += '<div style="margin-bottom:8px;padding:8px;background:#f5f5f5;border-radius:8px;font-size:13px">';
-    html += '<strong>🎴 ' + dname + '的回合</strong>';
+    html += '<strong>🎴 ' + dname + '抽到的问题</strong><br><span style="color:#5d3a3a">' + (ts.currentCard ? escHtml(ts.currentCard.text) : '（加载中...）') + '</span>';
     html += '</div>';
     html += '<button class="option-btn btn-special" data-idx="0"><span class="opt-label">▶</span>观看' + dname + '的回合</button>';
   }

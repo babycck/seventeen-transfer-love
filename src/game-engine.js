@@ -98,17 +98,19 @@ export async function generatePhaseNarrative() {
       }
       return arr;
     }
+    var shuffledLight = shuffle(lightCards);
+    var firstCard = shuffledLight.shift(); // 预抽第一张
     GS.truthState = {
       active: true,
       round: 1,              // 1=轻度轮, 2=中度轮, 3=深度轮
       subRound: 1,           // 1-4（当前轮中的第几个人）
       levelMap: {
-        light: shuffle(lightCards),
+        light: shuffledLight,
         medium: shuffle(mediumCards),
         deep: shuffle(deepCards)
       },
-      usedCards: [],
-      currentCard: null,     // 预抽卡（仅女主回合显示问题用）
+      usedCards: [firstCard],
+      currentCard: firstCard,     // 预抽卡，显示和传给 AI 的都是同一个对象
       drawerOrder: shuffleDrawers(),
       drunkDeclared: false
     };
@@ -494,14 +496,8 @@ export async function handleTruthRound(opt) {
   var promptRound = ts.round;
   var promptSubRound = ts.subRound;
 
-  // 从当前难度卡池抽取问题卡
-  var card = null;
-  if (ts.levelMap[currentLevel] && ts.levelMap[currentLevel].length > 0) {
-    card = ts.levelMap[currentLevel].shift();
-    ts.usedCards.push(card);
-    // 女主回合时存入 currentCard（用于 UI 显示，非女主回合不显示问题）
-    if (isHeroineTurn) ts.currentCard = card;
-  }
+  // 使用预抽卡（与 UI 显示的 currentCard 是同一个对象）
+  var card = ts.currentCard;
 
   var playerAnswer = '';
 
@@ -544,6 +540,20 @@ export async function handleTruthRound(opt) {
   // 检查是否结束真心话（3轮 × 4人 = 12人次完成）
   if (ts.round > 3) {
     ts.active = false;
+  }
+
+  // 预抽下一张卡（与 UI 显示以及下一轮传给 AI 的是同一个对象）
+  if (ts.active) {
+    var nextLevelName = ts.round === 1 ? 'light' : ts.round === 2 ? 'medium' : 'deep';
+    if (ts.levelMap[nextLevelName] && ts.levelMap[nextLevelName].length > 0) {
+      var nextCard = ts.levelMap[nextLevelName].shift();
+      ts.usedCards.push(nextCard);
+      ts.currentCard = nextCard;
+    } else {
+      ts.currentCard = null;
+    }
+  } else {
+    ts.currentCard = null;
   }
 
   saveGame();
