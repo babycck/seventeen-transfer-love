@@ -20,7 +20,7 @@ import { checkMissionInteract, shouldTriggerSecretMission } from './utils.js';
 import { settlePendingAffChanges as skeletonSettleAff } from './skeleton/affection-engine.js';
 import { applyDrinksFromParsed as skeletonApplyDrinks } from './skeleton/drink-engine.js';
 import { checkExMessageTrigger as skeletonCheckExMsg, handleExMessageChoice as skeletonHandleExMsg, checkJealousyMissionTrigger as skeletonJealMission, checkJealousyEvent as skeletonJealEvent } from './skeleton/event-triggers.js';
-import { generateOptions as skeletonGenOptions } from './skeleton/option-engine.js';
+import { generateOptions as skeletonGenOptions, getFallbackOptions as skeletonGetFallbackOpts } from './skeleton/option-engine.js';
 // 模态弹窗（Phase 5 模块化）
 import { showDatingDiceModal as modalDatingDice } from './modals/dating-dice.js';
 import { showDay10DatingModal as modalDay10 } from './modals/day10-dating.js';
@@ -265,21 +265,13 @@ export async function generatePhaseNarrative() {
             GS.pendingAffChanges = optParsed.affChanges || [];
             dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
           } else {
-            console.warn('[generatePhaseNarrative] 选项生成返回空数组');
-            GS.currentOptions = [
-              { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
-              { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
-              { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
-            ];
+            console.warn('[generatePhaseNarrative] 选项生成返回空数组，使用兜底选项');
+            dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
           }
         } catch (optErr) {
           console.error('[generatePhaseNarrative] 选项生成失败:', optErr);
           showToast('⚠️ 选项生成失败，使用兜底选项');
-          GS.currentOptions = [
-            { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
-            { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
-            { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
-          ];
+          dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
         }
       }
     }
@@ -942,21 +934,13 @@ export async function handleFreeAction(actionText) {
           GS.pendingAffChanges = optParsed.affChanges || [];
           dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });
         } else {
-          console.warn('[handleFreeAction] 选项生成返回空数组');
-          GS.currentOptions = [
-            { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
-            { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
-            { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
-          ];
+          console.warn('[handleFreeAction] 选项生成返回空数组，使用兜底选项');
+          dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
         }
       } catch (optErr) {
         console.error('[handleFreeAction] 选项生成失败:', optErr);
         showToast('⚠️ 选项生成失败，使用兜底选项');
-        GS.currentOptions = [
-          { label: '1', text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
-          { label: '2', text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
-          { label: '3', text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
-        ];
+        dispatch({ type: 'SET_OPTIONS', payload: { options: skeletonGetFallbackOpts() } });
       }
     }
     GS.isInConsequence = true;

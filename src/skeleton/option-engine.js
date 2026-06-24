@@ -60,7 +60,7 @@ function generateStandardOptions(day, phase) {
     options.push({ text: '独自待一会儿' });
   }
 
-  return null;
+  return options;
 }
 
 // 约会场景选项生成（只涉及约会对象）
@@ -69,11 +69,42 @@ function generateDatingOptions() {
   return null;
 }
 
-function fallbackOptions() {
-  return [
-    { text: '在客厅里坐坐' },
-    { text: '到院子里走走' }
-  ];
+// 导出兜底选项（带好感度字段），供 game-engine.js 中 AI 选项生成失败时使用
+export function getFallbackOptions() {
+  var memberList = GS.selectedMembers.map(function(id) {
+    return MEMBERS.find(function(m) { return m.id === id; });
+  }).filter(function(m) { return m; });
+
+  if (memberList.length < 2) {
+    return [
+      { text: '继续观察情况', affName: '', affDelta: 0, affReason: '' },
+      { text: '主动参与对话', affName: '', affDelta: 0, affReason: '' },
+      { text: '找个借口离开', affName: '', affDelta: 0, affReason: '' }
+    ];
+  }
+
+  var options = [];
+  var day = GS.day;
+  var phase = GS.phaseIndex;
+
+  options.push({
+    text: '和' + memberList[0].name + randomActivity(day, phase),
+    affName: memberList[0].name, affDelta: 2, affReason: '主动互动'
+  });
+  options.push({
+    text: '找' + memberList[1].name + randomActivity2(day, phase),
+    affName: memberList[1].name, affDelta: 1, affReason: '主动互动'
+  });
+  if (memberList.length >= 3) {
+    options.push({
+      text: '和' + memberList[2].name + randomActivity3(day, phase),
+      affName: memberList[2].name, affDelta: 1, affReason: '主动互动'
+    });
+  } else {
+    options.push({ text: '独自待一会儿', affName: '', affDelta: 0, affReason: '' });
+  }
+
+  return options;
 }
 
 // 活动词库（按时段分，定期轮换避免单调）
