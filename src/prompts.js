@@ -432,17 +432,17 @@ export function buildUserMessage(type, extra) {
     msg += '[INSTRUCTION] 你和X的过去（你记得的一切·驱动你对X的情感反应·不得在正文中直接复述）：' + GS.xBackstory + '\n\n';
   }
 
-  // Day 4/5 注入 X 记忆物品
+  // Day 4/5 注入 X 记忆物品（每次只展示 1 位成员的物品）
   if (GS.day === 4 || GS.day === 5) {
-    msg += '[INSTRUCTION] X记忆物品公开（今天制作组公开·请在叙事中描写公开过程）\n';
-    for (var ii = 0; ii < members.length; ii++) {
-      var mi = members[ii];
-      var items = GS.xItems[mi.id];
-      if (items) {
-        msg += mi.emoji + ' ' + mi.name + '的X记忆物品：\n' + items + '\n';
-      }
+    if (!GS.xItemsRevealRound) GS.xItemsRevealRound = 0;
+    var revealIdx = GS.xItemsRevealRound % members.length;
+    var revealMember = members[revealIdx];
+    var revealItems = GS.xItems[revealMember.id];
+    if (revealItems) {
+      msg += '[INSTRUCTION] X记忆物品公开（今天制作组公开·请在叙事中描写公开过程）\n' +
+        revealMember.emoji + ' ' + revealMember.name + '的X记忆物品：\n' + revealItems + '\n\n';
     }
-    msg += '\n';
+    GS.xItemsRevealRound = (GS.xItemsRevealRound + 1) % (members.length * 2);
   }
 
   // 随机日常事件
@@ -593,7 +593,7 @@ export function buildUserMessage(type, extra) {
       '\n请生成与上一版明显不同的版本！改变场景切入点、至少1个场景元素、对话内容不能重复、至少2个选项不同。\n\n';
   }
 
-  var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。';
+  var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。\n⚠️ 选项必须场景相关，避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
@@ -641,7 +641,7 @@ export function buildUserMessage(type, extra) {
       msg += '\n⚠️ 这是 Day 1 强制环节：X介绍信朗读！晚餐后制作组广播宣布规则，每人朗读各自前任X写给自己的介绍信。描写：拿到信封的反应、轮流朗读时的语气停顿与微表情、女主读信的核心高光、其他人的倾听表情、读完后客厅的沉默。信的内容约200字。注意：整体读信场景控制在~200字以内，不要展开过多细节，点到为止。';
     }
     if (GS.day === 3 && GS.phaseIndex === 0) {
-      msg += '\n⚠️ 今天是 Day 3「每人说一个故事」环节。故事必须由人物性格驱动：\n' +
+      msg += '\n⚠️ 今天是 Day 3「每人说一个故事」环节。这是自然讲故事环节，不是真心话游戏——没有抽卡、没有强制规则。女主和4人轮流分享一个关于自己的故事，轻松自然地展开。故事必须由人物性格驱动：\n' +
         '- X（' + xMember.name + '）的故事：可能隐约涉及过去但不暴露身份——讲述一段"人生中重要的关系"\n' +
         '- ' + otherMembers[0].name + '的故事：反映他的第二职业（' + otherMembers[0].secondCareer + '）或性格特质\n' +
         '- ' + otherMembers[1].name + '的故事：反映他的第二职业（' + otherMembers[1].secondCareer + '）或性格特质\n' +

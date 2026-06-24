@@ -109,6 +109,7 @@ function reducer(state, action) {
       state.smsDrafts = [];
       state.stayCount = 0;
       state.phaseOptionCount = 0;
+      state.phaseFreeCount = 0;
       state.freeInput = '';
       state.prevSummary = '';
       state.prevRawText = '';

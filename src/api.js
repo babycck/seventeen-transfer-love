@@ -414,7 +414,7 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
 
   // 30s 超时，防止 AI 卡住无限等待
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
 
   var resp = await fetch(cfg.endpoint + '/chat/completions', {
     method: 'POST',

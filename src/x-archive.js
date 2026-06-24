@@ -101,11 +101,13 @@ export function buildXArchiveMemberPrompt(memberId) {
 }
 
 export function buildXArchiveItemsMemberPrompt(storyText, memberName) {
-  return '基于以下分手故事，提取2-3件记忆物品（简洁索引）。\n\n' +
+  return '基于以下分手故事，生成2件记忆物品。\n\n' +
     '## 分手故事\n' + storyText + '\n\n' +
     '## 要求\n' +
-    '- 每件物品与故事中的具体场景关联\n' +
-    '- 格式：\n【记忆物品】\n1. 物品名称\n2. ...';
+    '- 生成恰好2件物品\n' +
+    '- 每件格式：\n  名称：xxx\n  样式：xxx\n  故事：xxx（约50字）\n' +
+    '- 物品必须与故事中的具体场景直接关联\n' +
+    '- 故事要克制、有画面感，不煽情';
 }
 
 export async function generateAllXArchives() {

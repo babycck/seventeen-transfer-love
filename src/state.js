@@ -151,6 +151,8 @@ export function defaultGameState() {
     phaseFreeCount: 0,
     // X记忆物品公开阶段（first=只显示名称样式，second=追加故事）
     xItemsRevealState: {},
+    // X记忆物品轮转索引（Day 4/5 每次公开 1 位成员）
+    xItemsRevealRound: 0,
     // Phase 4 骨架模块开关（渐进式迁移用）
     skeletonConfig: {
       enabled: false,
@@ -308,6 +310,7 @@ export function migrateSave() {
     if (!GS.affFatigue) GS.affFatigue = {};
     if (GS.phaseFreeCount === undefined) GS.phaseFreeCount = 0;
     if (!GS.xItemsRevealState) GS.xItemsRevealState = {};
+    if (GS.xItemsRevealRound === undefined) GS.xItemsRevealRound = 0;
     if (!GS.endingMemberChoices) GS.endingMemberChoices = [];
     if (GS.endingChosenId === undefined) GS.endingChosenId = '';
     if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
