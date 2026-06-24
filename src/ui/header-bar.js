@@ -26,7 +26,7 @@ export function renderHeader() {
     '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
     '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +
     (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
-    (GS.gifts && GS.gifts.length > 0 ? '<button id="giftBtn" title="小礼物">🎁</button>' : '') +
+    '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' +
     '<button id="exportBtn" title="导出剧情记录">📥</button>' +
     '<button id="saveExportBtn" title="导出存档(JSON)">💾</button>' +
     '<button id="saveImportBtnLabel" title="导入存档(JSON)" onclick="document.getElementById(\'saveImportInput\').click()">📂</button>' +
