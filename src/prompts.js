@@ -185,7 +185,7 @@ export function buildSystemPrompt() {
     '3. 正文中禁止女主深度自我分析——所有反思必须放在 interview 段落。\n' +
     '4. 正文中禁止直接写成员内心想法，通过 memberInterview/xInterview 呈现。\n' +
     '5. observerOS 不进 blocks，全部走 observers 数组。\n' +
-    '6. 时段语气匹配当前时段，禁止关键词粘合，不复述已发生事件。\n' +
+    '6. 时段语气匹配当前时段。narrative 中禁止复述已发生事件；interview/memberInterview/xInterview 可以提及刚发生的事件作为触发点来表达感受——不要空洞评价。\n' +
     '7. 所有角色严格禁止抽烟（含电子烟）\n' +
     '8. 同一角色当天偏好/禁忌不得矛盾；遵守成员饮食禁忌\n' +
     '9. 沉浸式恋爱小说+韩综氛围。文艺但不拗口，口语但不随意\n' +
@@ -588,12 +588,14 @@ export function buildUserMessage(type, extra) {
     msg += '[INSTRUCTION] 玩家已保存的行动意图（尚未执行）：' + GS.freeInput + '\n\n';
   }
 
-  if (GS.prevSummary && (type === 'phase' || type === 'regenerate')) {
+  if (GS.prevSummary) {
     msg += '[INSTRUCTION] 重新生成要求：上一版摘要：' + GS.prevSummary +
       '\n请生成与上一版明显不同的版本！改变场景切入点、至少1个场景元素、对话内容不能重复、至少2个选项不同。\n\n';
   }
 
-  var noRepeatNote = '⚠️ 不要大段复述/不要总结/不要回顾/不要重新描写已发生事件。\n⚠️ 选项必须场景相关，避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
+  var noRepeatNote = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
+    '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n' +
+    '⚠️ 选项必须场景相关，避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
@@ -673,6 +675,15 @@ export function buildUserMessage(type, extra) {
     if (GS.phaseIndex === 3 && !GS.smsSentToday) {
       msg += '\n深夜时段：在 smsDrafts 数组中额外输出3条短信草稿（每条≤25字）。短信草稿必须基于当天剧情动态生成——如当天去了海边则含"海风"意象。短信风格：简短、含蓄、暗示。不直白表白。\n⚠️ 正文（blocks）中禁止出现任何与短信相关的内容——不要写"收到短信""拿起手机""睡前消息"。正文仅描写深夜氛围和成员互动，短信环节在剧情结束后由玩家独立选择发送。';
     }
+  }
+
+  // [fix] 当天已用选项文本黑名单：禁止 AI 重复使用
+  if (GS.todayOptionTexts && GS.todayOptionTexts.length > 0) {
+    msg += '[INSTRUCTION] ⚠️ 以下选项文本已在本日使用过，禁止再次出现：\n';
+    for (var oti = 0; oti < GS.todayOptionTexts.length; oti++) {
+      msg += '- "' + GS.todayOptionTexts[oti] + '"\n';
+    }
+    msg += '请确保本次生成的每个选项文本与此列表中所有文本完全不同。\n\n';
   }
 
   return msg;

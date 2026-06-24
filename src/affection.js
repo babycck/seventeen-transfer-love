@@ -73,30 +73,36 @@ function unlockHeartNoteByAffection(memberId, threshold) {
   });
 }
 
-// 飘字动画防抖
-var _lastFloatTime = {};
-var _floatDebounce = 300;
+// 飘字动画：队列累积机制，100ms 窗口内同成员 delta 累加后统一飘出
+var _floatQueue = {};
+var _floatTimer = {};
 
 function spawnAffFloat(memberId, delta) {
-  var now = Date.now();
-  if (_lastFloatTime[memberId] && now - _lastFloatTime[memberId] < _floatDebounce) return;
-  _lastFloatTime[memberId] = now;
-
   var container = document.getElementById('affectionHint');
   if (!container) return;
   var m = MEMBERS.find(function(x) { return x.id === memberId; });
   if (!m) return;
-  var sign = delta > 0 ? '+' : '';
-  var color = delta > 0 ? '#2e7d32' : '#c62828';
-  var span = document.createElement('span');
-  span.className = 'aff-float';
-  span.textContent = m.emoji + ' ' + sign + delta;
-  span.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:14px;font-weight:700;color:' + color + ';pointer-events:none;white-space:nowrap;animation:affFloat 1.2s ease-out forwards;z-index:200;';
-  container.style.position = 'relative';
-  container.appendChild(span);
-  setTimeout(function() {
-    if (span.parentNode) span.parentNode.removeChild(span);
-  }, 1200);
+  // 累积 delta
+  if (!_floatQueue[memberId]) _floatQueue[memberId] = 0;
+  _floatQueue[memberId] += delta;
+  // 重置计时
+  if (_floatTimer[memberId]) clearTimeout(_floatTimer[memberId]);
+  _floatTimer[memberId] = setTimeout(function() {
+    var totalDelta = _floatQueue[memberId];
+    delete _floatQueue[memberId];
+    delete _floatTimer[memberId];
+    var sign = totalDelta > 0 ? '+' : '';
+    var color = totalDelta > 0 ? '#2e7d32' : '#c62828';
+    var span = document.createElement('span');
+    span.className = 'aff-float';
+    span.textContent = m.emoji + ' ' + sign + totalDelta;
+    span.style.cssText = 'position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:14px;font-weight:700;color:' + color + ';pointer-events:none;white-space:nowrap;animation:affFloat 1.2s ease-out forwards;z-index:200;';
+    container.style.position = 'relative';
+    container.appendChild(span);
+    setTimeout(function() {
+      if (span.parentNode) span.parentNode.removeChild(span);
+    }, 1200);
+  }, 100);
 }
 
 export function addAffectionLog(memberId, delta, reason) {

@@ -173,7 +173,7 @@ export async function generatePhaseNarrative() {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('phase');
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.7 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     dispatch({ type: 'SET_PHASE_NARRATIVE', payload: { rawText: rawText, parsed: parsed } });
@@ -336,7 +336,7 @@ export async function generateDrunkNarrative() {
             '  ① 安抚' + triggerName + '的情绪\n' +
             '  ② 和' + jealousTarget.name + '一起离开现场\n' +
             '  ③ 让两人自己解决（你退到一旁）\n';
-    var _gr = await generateWithRetry(jPrompt, jMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.7 });
+    var _gr = await generateWithRetry(jPrompt, jMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
     var jRaw = _gr.raw;
     GS.phaseNarrative = jRaw;
           GS.parsedNarrative = parseNarrative(jRaw);
@@ -378,7 +378,7 @@ export async function generateDrunkNarrative() {
         '请将以上惩罚自然地融入到醉酒剧情发展中。\n';
     }
 
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.7 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.phaseNarrative, temperature: 0.85 });
     var rawText = _gr.raw;
     GS.phaseNarrative = rawText;
     GS.parsedNarrative = parseNarrative(rawText);
@@ -625,7 +625,9 @@ export async function handleOptionChoice(opt) {
     GS.currentOptions = parsed.options;
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
-    triggerAffectionFromChoice(opt.text);
+    // 好感度快照（用于后续的 auto Toast 比对）
+    GS._affSnapshot = JSON.parse(JSON.stringify(GS.affection));
+    triggerAffectionFromChoice(opt.text, opt);
     checkJealousyEvent(opt.text);
     checkMissionInteract(opt.text);
     // 应用 pendingJealousy 好感度变化并清除
@@ -637,6 +639,34 @@ export async function handleOptionChoice(opt) {
       addAffectionLog(pj.targetId, 1, '被' + pj.observerName + '关注（吃醋事件）');
       GS.pendingJealousy = null;
     }
+
+    // 好感度变化自动汇总 Toast
+    var affParts = [];
+    for (var ai = 0; ai < GS.selectedMembers.length; ai++) {
+      var ma = GS.selectedMembers[ai];
+      var mm = MEMBERS.find(function(x) { return x.id === ma; });
+      if (!mm) continue;
+      // 从之前的 snapshot 比对
+      var oldVal = GS._affSnapshot && GS._affSnapshot[ma] !== undefined ? GS._affSnapshot[ma] : (GS.affection[ma] || 0);
+      var newVal = GS.affection[ma] || 0;
+      var diff = newVal - oldVal;
+      if (diff !== 0) {
+        affParts.push((diff > 0 ? '+' : '') + diff + ' ' + mm.name);
+      }
+    }
+    if (affParts.length > 0) {
+      showToast(affParts.join('  '));
+    }
+    GS._affSnapshot = null;
+
+    // 积累已用选项文本（用于 prompt 多样性约束）
+    if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
+    parsed.options.forEach(function(o) {
+      if (GS.todayOptionTexts.indexOf(o.text) < 0) {
+        GS.todayOptionTexts.push(o.text);
+      }
+    });
+
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
@@ -768,7 +798,7 @@ export async function handleFinalChoice(opt) {
       choiceText: GS.finalChoice,
       memberChoices: memberChoices
     });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.finalResult, temperature: 0.7 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.finalResult, temperature: 0.85 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
@@ -821,7 +851,7 @@ export async function handleFreeAction(actionText) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.7 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.85 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
@@ -871,11 +901,29 @@ export function handleExMessageChoice(choice) {
   return skeletonHandleExMsg(choice);
 }
 
-export function triggerAffectionFromChoice(choiceText) {
+export function triggerAffectionFromChoice(choiceText, opt) {
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
   var targetMember = null;
+
+  // 优先使用选项中的 affName（AI 返回的显式好感度变化）
+  if (opt && opt.affName) {
+    targetMember = members.find(function(m) { return m.name === opt.affName; });
+    if (targetMember) {
+      var delta = opt.affDelta || randInt(2, 4);
+      updateAffection(targetMember.id, delta);
+      addAffectionLog(targetMember.id, delta, opt.affReason || '你选择了与' + targetMember.name + '相关的行动');
+      var otherMembers = members.filter(function(m) { return m.id !== targetMember.id; });
+      for (var j = 0; j < otherMembers.length; j++) {
+        updateAffection(otherMembers[j].id, -1);
+        addAffectionLog(otherMembers[j].id, -1, '未选中');
+      }
+      return;
+    }
+  }
+
+  // fallback: 从文本中匹配成员名
   for (var i = 0; i < members.length; i++) {
     if (choiceText.indexOf(members[i].name) >= 0) {
       targetMember = members[i];
@@ -883,6 +931,28 @@ export function triggerAffectionFromChoice(choiceText) {
     }
   }
   if (!targetMember) {
+    // 仍然匹配不到时，从 pendingAffChanges 中查找
+    var pending = GS.pendingAffChanges || [];
+    if (pending.length > 0) {
+      var firstChange = pending[0];
+      var fallbackMember = MEMBERS.find(function(m) {
+        return m.id === firstChange.memberId || m.name === firstChange.name;
+      });
+      if (fallbackMember) {
+        targetMember = fallbackMember;
+        var delta2 = firstChange.delta || randInt(2, 4);
+        updateAffection(targetMember.id, delta2);
+        addAffectionLog(targetMember.id, delta2, firstChange.reason || '你选择了与' + targetMember.name + '相关的行动');
+        var otherMembers2 = members.filter(function(m) { return m.id !== targetMember.id; });
+        for (var j2 = 0; j2 < otherMembers2.length; j2++) {
+          updateAffection(otherMembers2[j2].id, -1);
+          addAffectionLog(otherMembers2[j2].id, -1, '未选中');
+        }
+        return;
+      }
+    }
+    // 终极 fallback：告知玩家
+    showToast('💡 好感度变化已记录至日志面板');
     return;
   }
 
@@ -955,15 +1025,21 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
 
 export async function advancePhase() {
   if (GS.dayCompleted) return;
-  var maxPhase = GS.day === 12 ? 2 : 3;
-  if (GS.phaseIndex < maxPhase) {
-    GS.phaseIndex++;
-    resetPhaseState();
-    saveGame();
-    if (window.__renderAll) window.__renderAll();
-    await generatePhaseNarrative();
-  } else {
-    await goToNextDay();
+  if (GS._advancingPhase) { console.log('[advancePhase] skip reentrant call'); return; }
+  GS._advancingPhase = true;
+  try {
+    var maxPhase = GS.day === 12 ? 2 : 3;
+    if (GS.phaseIndex < maxPhase) {
+      GS.phaseIndex++;
+      resetPhaseState();
+      saveGame();
+      if (window.__renderAll) window.__renderAll();
+      await generatePhaseNarrative();
+    } else {
+      await goToNextDay();
+    }
+  } finally {
+    GS._advancingPhase = false;
   }
 }
 
@@ -1022,6 +1098,8 @@ export async function proceedToNextDay() {
 
   skeletonResetDay();
   resetPhaseState();
+  // 重置当天选项文本黑名单
+  GS.todayOptionTexts = [];
 
   // 任务卡触发检查
   var missionCard = skeletonMissionCard();
@@ -1177,7 +1255,7 @@ export async function continueToday() {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('stay');
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.stay, temperature: 0.7 });
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.stay, temperature: 0.85 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);

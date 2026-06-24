@@ -12,9 +12,24 @@ export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
     for (var j = 0; j < opts.length; j++) {
       var isSpecial = opts[j].text.indexOf('进入约会场景') >= 0;
       var optText = opts[j].text;
+      var optAffHtml = '';
+      if (opts[j].affName && opts[j].affDelta) {
+        var aSign = opts[j].affDelta > 0 ? '+' : '';
+        var aColor = opts[j].affDelta > 0 ? '#2e7d32' : '#c62828';
+        optAffHtml += '<span style="display:block;font-size:10px;color:' + aColor + ';margin-top:2px">' +
+          escHtml(opts[j].affName) + ' ' + aSign + opts[j].affDelta;
+        if (opts[j].affReason) optAffHtml += ' · ' + escHtml(opts[j].affReason);
+        optAffHtml += '</span>';
+      }
+      if (opts[j].riskMember && opts[j].riskDelta) {
+        var rSign = opts[j].riskDelta > 0 ? '+' : '';
+        var rColor = opts[j].riskDelta > 0 ? '#2e7d32' : '#c62828';
+        optAffHtml += '<span style="display:block;font-size:10px;color:' + rColor + ';margin-top:2px">风险：' +
+          escHtml(opts[j].riskMember) + ' ' + rSign + opts[j].riskDelta + '</span>';
+      }
       html += '<button class="option-btn' + (isSpecial ? ' btn-special' : '') + '" data-idx="' + j + '">' +
         '<span class="opt-label">' + (labels[j] || (j + 1)) + '</span>' +
-        escHtml(optText) + '</button>';
+        escHtml(optText) + optAffHtml + '</button>';
     }
     if (!isDay11) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余选项次数：' +

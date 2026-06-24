@@ -9,7 +9,7 @@ import { GS } from './state.js';
 export async function generateWithRetry(sysPrompt, userMsg, opts) {
   opts = opts || {};
   var tokens = opts.tokens || 5000;
-  var temp = opts.temperature || 0.7;
+  var temp = opts.temperature || 0.85;
   var sceneType = opts.sceneType || 'phase';
   var maxAttempts = opts.maxAttempts || 2;
 

@@ -227,10 +227,10 @@ src/
 - `updateAffection(memberId, delta)` — 更新 + 飘字动画 + 里程碑解锁
 - `addAffectionLog(memberId, delta, reason)` — 记录日志
 - `getAffectionDesc(aff)` — 5 档描述：💔(负) → 💙(0-14) → 😐(15-39) → 💚(40-59) → ❤️(60-79) → ❤️🔥(80+)
-- `spawnAffFloat(memberId, delta)` — 好感度变化飘字动画（绿色+N/红色-N，300ms 防抖）
+- `spawnAffFloat(memberId, delta)` — 好感度变化飘字动画（绿色+N/红色-N，100ms 窗口累积后飘出，替代原 300ms 防抖）
 - `unlockHeartNoteByAffection(memberId, threshold)` — 好感度 40/60/80 阈值解锁心动笔记
-- `triggerAffectionFromChoice(choiceText)` — 根据选项文本推断目标成员加分
-  - 未匹配到成员时直接返回，不随机加分/扣分（避免误伤）
+- `triggerAffectionFromChoice(choiceText, opt)` — 根据选项文本推断目标成员加分
+  - 优先使用 `opt.affName/affDelta`（AI 显式返回值）；未匹配到成员时依次 fallback 到 `pendingAffChanges` → Toast 提示；不再 silent return
 - 面板：`showAffectionPanel()`（affection-panel.js）
 
 ### 好感度结算引擎（skeleton/affection-engine.js）
@@ -347,7 +347,7 @@ src/
 - 触发：`updateAffection()` 中 `delta !== 0` 时创建 `<span class="aff-float">`
 - 动画：`@keyframes affFloat`（translateY(-50px) + opacity 0→1→0，1.2s）
 - 颜色：正数 `#2e7d32`（绿色），负数 `#c62828`（红色）
-- 防抖：同一成员 300ms 内只触发一次
+- 队列累积：100ms 窗口内同成员 delta 累加后统一飘出（替代原 300ms 防抖）
 
 ## 全屏特效框架（screen-effect.js）
 - `triggerScreenEffect(type)` — 三种类型：
@@ -488,4 +488,12 @@ src/
 | 删除废弃 extractSmsDrafts | 已完成 | game-engine.js | 旧 markdown 短信草稿提取函数，已确认无外部引用 |
 | 简化 settlePendingAffChanges 转发 | 已完成 | game-engine.js | 直接调用 skeletonSettleAff，删除冗余包装函数 |
 | 恢复 generatePhaseNarrative finally | 已完成 | game-engine.js | 修复移除 extractSmsDrafts 时误删的 finally，确保 _isGenerating 重置 |
+| 改造按钮事件丢失 | 已完成 | modals/gift-panel.js | innerHTML 重渲染后事件丢失 → 改为事件委托 |
+| 深夜短信时序错位 | 已完成 | prompts.js | prompt 指令矛盾"短信已经发出"→改为"短信在剧情后独立进行" |
+| 送礼剧情不显示 | 已完成 | modals/gift-panel.js | parseNarrative 返回空对象时降级为自由叙事兜底 |
+| 好感度显示混乱（4 合 1） | 已完成 | affection.js, game-engine.js, option-panel.js | A: triggerAffectionFromChoice 接受 opt 参数 + pendingAffChanges fallback + Toast 提示; B: 选项面板追加 affDelta/affReason 小字标签; C: 飘字防抖→队列累积机制(100ms); D: 选择后自动 Toast 汇总 |
+| 采访间衔接断裂 | 已完成 | prompts.js, data.js | rule 6 区分 narrative/interview 复述规则; noRepeatNote 同上; TODAY_TEXT_CAP 8000→12000 |
+| advancePhase 重入锁 | 已完成 | game-engine.js | 添加 _advancingPhase 锁，防止双击按钮跳过时段 |
+| 选项多样性不足（4 合 1） | 已完成 | prompts.js, ai-generator.js, state.js, game-engine.js | P0: todayOptionTexts 黑名单注入 prompt; P0: prevSummary 移除 type 限制; P1: temperature 0.7→0.85; P1: noRepeatNote 强化 |
+| 飘字动画说明 | 已更新 | AGENTS.md | spawnAffFloat 防抖说明 300ms→队列累积 |
 

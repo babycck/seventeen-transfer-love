@@ -175,7 +175,9 @@ export function defaultGameState() {
     // [v22] X幽灵事件
     xGhostEvent: null,
     // [v22] 记忆闪回已触发记录
-    flashbackShown: {}
+    flashbackShown: {},
+    // [fix] 当天已使用过的选项文本（用于多样性约束）
+    todayOptionTexts: []
   };
 }
 
@@ -316,6 +318,8 @@ export function migrateSave() {
     if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
     if (!GS.endingArchive) GS.endingArchive = [];
     GS._isGenerating = false;
+    // [fix] 选项历史黑名单
+    if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // Phase 4 骨架模块开关
     if (!GS.skeletonConfig) GS.skeletonConfig = {
       enabled: false,
