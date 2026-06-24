@@ -279,15 +279,20 @@ export function startTypewriter(containerId, speed) {
 
 var _narrativeEditorOverlay = null;
 
-// 从 parsedNarrative 中提取剧情文本（仅 narrative 类型，不含采访间/OS）
+// 从 parsedNarrative 中提取全部剧情文本（含采访间/OS 前缀标记）
 function extractNarrativeText(parsed) {
   if (!parsed || !parsed.blocks || parsed.blocks.length === 0) return '';
   var parts = [];
   for (var i = 0; i < parsed.blocks.length; i++) {
     var b = parsed.blocks[i];
-    if (b.type === 'narrative' && b.content) {
-      parts.push(b.content);
-    }
+    if (!b.content) continue;
+    var prefix = '';
+    if (b.type === 'interview') { prefix = '🎙 '; }
+    else if (b.type === 'xInterview') { prefix = '🎙️💔 '; }
+    else if (b.type === 'memberInterview') { prefix = '🎤【' + (b.member || '') + '】 '; }
+    else if (b.type === 'directorOS') { prefix = '🎬 '; }
+    else if (b.type === 'observerOS') { prefix = '💭 '; }
+    parts.push(prefix + b.content);
   }
   return parts.join('\n\n');
 }
@@ -306,7 +311,7 @@ export function showNarrativeEditor() {
     '<div class="narrative-editor-panel">' +
     '<div class="narrative-editor-header">' +
     '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ 编辑剧情</span>' +
-    '<span style="font-size:11px;color:var(--text-muted);margin-left:8px">仅剧情文本，采访间/OS 保持不变</span>' +
+    '<span style="font-size:11px;color:var(--text-muted);margin-left:8px">每段用空行分隔，采访间等前缀标记保留</span>' +
     '<span class="narrative-editor-close-btn">&times;</span>' +
     '</div>' +
     '<textarea class="narrative-editor-textarea" spellcheck="false">' + escHtml(text) + '</textarea>' +
@@ -358,29 +363,20 @@ function saveNarrativeEdit(newText) {
   var blocks = GS.parsedNarrative.blocks;
   var oldRaw = GS.phaseNarrative;
 
-  // 只更新 narrative 类型的 block，采访间/OS 保持不变
-  var narrativeIndices = [];
-  for (var i = 0; i < blocks.length; i++) {
-    if (blocks[i].type === 'narrative' && blocks[i].content !== undefined) {
-      narrativeIndices.push(i);
-    }
-  }
-  if (narrativeIndices.length === 0) return;
+  // 按段落（双换行分割）逐段映射回对应 block，不搞比例分配
+  var paragraphs = newText.split(/\n{2,}/).filter(function(p) { return p.trim(); });
 
-  var totalOldLen = 0;
-  for (var ni = 0; ni < narrativeIndices.length; ni++) {
-    totalOldLen += blocks[narrativeIndices[ni]].content.length;
-  }
-  if (totalOldLen === 0) return;
+  var pi = 0;
+  for (var bi = 0; bi < blocks.length && pi < paragraphs.length; bi++) {
+    var b = blocks[bi];
+    if (b.content === undefined) continue;
 
-  var newLen = newText.length;
-  var start = 0;
-  for (var ni = 0; ni < narrativeIndices.length; ni++) {
-    var idx = narrativeIndices[ni];
-    var portion = Math.floor(newLen * (blocks[idx].content.length / totalOldLen));
-    if (ni === narrativeIndices.length - 1) portion = newLen - start;
-    blocks[idx].content = newText.slice(start, start + portion).trim() || '(空)';
-    start += portion;
+    var para = paragraphs[pi].trim();
+
+    // 去掉 block 类型前缀标记（🎙 🎬 💭 🎤 等），只取纯内容
+    var clean = para.replace(/^(🎙 |🎙️💔 |🎤【[^】]*】 |🎬 |💭 )/, '').trim();
+    b.content = clean || '(空)';
+    pi++;
   }
 
   // 重建 JSON
