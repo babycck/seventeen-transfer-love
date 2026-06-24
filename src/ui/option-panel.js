@@ -6,7 +6,8 @@ import { MEMBERS, PHASE_ACTION_LIMIT } from '../data.js';
 export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
   var isNight = GS.phaseIndex === 3;
   var opts = GS.currentOptions;
-  if (opts.length > 0 && (!phaseChoicesExhausted || isDay11) && !isNight) {
+  var isDatingDayPhase0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
+  if (opts.length > 0 && (!phaseChoicesExhausted || isDay11 || isDatingDayPhase0) && !isNight) {
     var html = '<div class="card"><div class="options-area" id="optionsArea">';
     var labels = ['A', 'B', 'C'];
     for (var j = 0; j < opts.length; j++) {

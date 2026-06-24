@@ -902,7 +902,9 @@ export async function handleFreeAction(actionText) {
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由剧情：' + actionText });
     GS.phaseFreeCount++;
     // 自由剧情不生成选项、不影响好感度、不触发吃醋/任务检测，纯剧情体验
-    GS.currentOptions = [];
+    // 约会日 phase 0 保留"进入约会场景"按钮，让玩家扩写完剧情后仍能进入约会
+    var isDatingDayPhase0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
+    GS.currentOptions = isDatingDayPhase0 ? GS.currentOptions : [];
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
     GS.freeInput = '';
