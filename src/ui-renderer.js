@@ -1120,7 +1120,7 @@ export function bindGameEvents() {
     actInputBtn.addEventListener('click', async function() {
       var inputText = ((document.getElementById('freeInput') || {}).value || '').trim();
       if (!inputText) {
-        showToast('请先输入你的行动或想法');
+        showToast('请先写下你想发生的一段剧情');
         return;
       }
       this.disabled = true;

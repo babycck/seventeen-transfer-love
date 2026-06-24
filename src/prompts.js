@@ -610,12 +610,16 @@ export function buildUserMessage(type, extra) {
       '⚠️ 选项必须基于你刚刚生成的后续剧情来推导——从这段剧情中的具体事件、对话、氛围中提取行动方向，禁止使用与剧情无关的通用选项模板。\n' +
       '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote;
   } else if (type === 'freeAction') {
-    msg += '[INSTRUCTION] 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText + '"\n\n' +
-      '⚠️ 玩家的行动已经在故事中执行完毕。你现在写的是执行之后紧接着发生的事。当前时间：Day ' + GS.day + ' ' + phaseLabel + '。\n' +
-      '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~1600字 JSON）：\n' +
-      '- 这是紧接着已有剧情的后续发展，不要重复已有内容\n' +
-      '- 将玩家的行动意图自然融入剧情\n' +
-      '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote;
+    var freeNoRepeat = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
+      '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n';
+    msg += '[INSTRUCTION] 生成任务·自由剧情扩写\n玩家是这一段的剧情导演，写下了以下期望发生的剧情梗概：\n"' + extra.actionText + '"\n\n' +
+      '当前时间：Day ' + GS.day + ' ' + phaseLabel + '。请将这段梗概扩写为完整的剧情段落（~800-1200字 JSON）。\n' +
+      '扩写要求：\n' +
+      '- 以玩家输入的剧情梗概为主干，扩写出完整的场景、对话、氛围、心理描写\n' +
+      '- 允许基于成员人设调整不合理之处（如某成员不会做的事可适当改写），但关键事件和走向尽量贴近玩家输入\n' +
+      '- 与已有剧情自然衔接，不要重复已发生的内容\n' +
+      '- 不要生成 options（玩家用自由剧情替代了选项选择）\n' +
+      '- 必须包含 narrative + interview + memberInterview + observers\n' + freeNoRepeat;
   } else if (type === 'sms') {
     msg += '[INSTRUCTION] 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent + '"\n' +
       '请生成短信发送后的剧情（~300字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +

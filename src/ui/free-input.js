@@ -17,10 +17,10 @@ export function renderFreeInput(freeInputExhausted) {
     html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-bottom:4px">本时段剩余行动次数：' + remaining + '/' + PHASE_ACTION_LIMIT + '</p>';
   }
   html += '<div class="free-input-area">' +
-    '<input type="text" id="freeInput" placeholder="✍️ 自由输入你的行动/想法..." value="' +
+    '<input type="text" id="freeInput" placeholder="✍️ 写下你想发生的一段剧情..." value="' +
     escHtml(GS.freeInput || '') + '"' + (freeDisabled ? ' disabled' : '') + '>' +
     '<button class="btn-save-input" id="btnSaveInput">💾</button>' +
     '<button class="btn-clear-input" id="btnClearInput">❌</button>' +
-    '<button class="btn-act-input" id="btnActInput"' + (freeDisabled ? ' disabled' : '') + '>✍️ 行动</button></div></div>';
+    '<button class="btn-act-input" id="btnActInput"' + (freeDisabled ? ' disabled' : '') + '>✍️ 生成剧情</button></div></div>';
   return html;
 }

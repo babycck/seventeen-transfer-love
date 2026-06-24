@@ -888,7 +888,7 @@ export async function handleFreeAction(actionText) {
     return;
   }
 
-  showLoading('正在按你的行动生成剧情...');
+  showLoading('正在扩写你的剧情...');
   try {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
@@ -899,26 +899,12 @@ export async function handleFreeAction(actionText) {
     applyParsedSideEffects(parsed);
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);
-    dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由行动：' + actionText });
+    dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由剧情：' + actionText });
     GS.phaseFreeCount++;
-    if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT && parsed.options && parsed.options.length > 0) {
-      parsed.options.push({ text: '✍️ 本时段行动次数已用完，继续使用选项', disabled: true });
-    }
-    GS.currentOptions = parsed.options;
+    // 自由剧情不生成选项、不影响好感度、不触发吃醋/任务检测，纯剧情体验
+    GS.currentOptions = [];
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
-    triggerAffectionFromChoice(actionText);
-    checkJealousyEvent(actionText);
-    checkMissionInteract(actionText);
-    // 应用 pendingJealousy 好感度变化并清除
-    if (GS.pendingJealousy) {
-      var pj = GS.pendingJealousy;
-      updateAffection(pj.observerId, -3);
-      addAffectionLog(pj.observerId, -3, '看到女主与' + pj.targetName + '互动，心生醋意');
-      updateAffection(pj.targetId, 1);
-      addAffectionLog(pj.targetId, 1, '被' + pj.observerName + '关注（吃醋事件）');
-      GS.pendingJealousy = null;
-    }
     GS.freeInput = '';
     saveGame();
     if (window.__renderAll) window.__renderAll();
