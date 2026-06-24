@@ -12,6 +12,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   var temp = opts.temperature || 0.8;
   var sceneType = opts.sceneType || 'phase';
   var maxAttempts = opts.maxAttempts || 2;
+  var skipValidate = opts.skipValidate || false;
 
   var lastResult = null;
 
@@ -27,6 +28,13 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
       throw e;
     }
     var parsed = parseNarrative(raw);
+
+    // skipValidate：选项生成等非 narrative 任务跳过 validator（validator 针对 blocks 设计，
+    // 对 {"options":[...]} 格式会误判 blocks 为空触发 error）
+    if (skipValidate) {
+      return { raw: raw, parsed: parsed, corrections: [], attempts: attempt + 1 };
+    }
+
     var corr = validateNarrative(raw, parsed);
 
     // 分离 error 和 warning

@@ -252,8 +252,15 @@ export async function generatePhaseNarrative() {
         try {
           var optSysPrompt = buildSystemPrompt();
           var optUserMsg = buildUserMessage('generateOptions', { narrativeText: rawText });
-          var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7 });
-          var optParsed = parseNarrative(optResult.raw);
+          var optResult = await generateWithRetry(optSysPrompt, optUserMsg, { tokens: 1000, temperature: 0.7, skipValidate: true });
+          // AI 选项生成返回 {"options":[...]} 格式，优先直接 JSON.parse 提取 options，
+          // 避免 parseNarrative（针对 blocks 修复）兜底返回空 options 导致回退默认项
+          var optParsed;
+          try {
+            optParsed = JSON.parse(optResult.raw);
+          } catch (e) {
+            optParsed = parseNarrative(optResult.raw);
+          }
           if (optParsed.options && optParsed.options.length > 0) {
             GS.pendingAffChanges = optParsed.affChanges || [];
             dispatch({ type: 'SET_OPTIONS', payload: { options: optParsed.options } });

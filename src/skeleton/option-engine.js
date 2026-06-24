@@ -64,9 +64,8 @@ function generateStandardOptions(day, phase) {
 }
 
 // 约会场景选项生成（只涉及约会对象）
+// 返回 null 让 AI 基于剧情生成带好感度的选项
 function generateDatingOptions() {
-  var partner = MEMBERS.find(function(m) { return m.id === GS.currentDatingPartner; });
-  if (!partner) return null;
   return null;
 }
 
