@@ -18,7 +18,14 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   var currentUserMsg = userMsg;
 
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
-    var raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType);
+    var raw;
+    try {
+      raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType);
+    } catch (e) {
+      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' network error: ' + e.message);
+      if (attempt < maxAttempts - 1) continue;
+      throw e;
+    }
     var parsed = parseNarrative(raw);
     var corr = validateNarrative(raw, parsed);
 

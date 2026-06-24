@@ -132,12 +132,13 @@ src/
 | 字段 | 类型 | 用途 |
 |---|---|---|
 | `theme` | `string` | 主题偏好：`'auto'` / `'light'` / `'dark'`，持久化 `localStorage('svt_theme')` |
-| `typewriterSpeed` | `number` | 打字机速度：0=即时 / 10-100=ms/字符，默认 30 |
+| `typewriterSpeed` | `number` | 打字机速度：0=即时 / 100=慢 / 50=中 / 20=快 / 10=极快，默认 50 |
 | `affectionHistory` | `array` | 每日好感度快照 `[{day, aff, drinkCounts, rivalryIntensity}]` |
 | `rivalryIntensity` | `number` | 修罗场强度值（>=2 成员好感度 >=60 时递增） |
 | `xGhostEvent` | `object` | X 幽灵事件 `{day}`，Day 3-5 15% 触发 |
 | `flashbackShown` | `object` | 记忆闪回状态 `{memberId: 'pending'|true}` |
 | `nextEpisodePreview` | `string` | 下集预告文本 |
+| `xItemsRevealRound` | `number` | X记忆物品轮转索引（Day 4/5 每次公开 1 位成员），默认 0 |
 
 ## 2. AI 文本生成流程
 1. `buildSystemPrompt()` + `buildUserMessage(sceneType, opts)` → 生成 prompt
@@ -263,6 +264,8 @@ src/
 - `generateAllXArchives()` — 批量生成
 - 失败标记文本为 `"X档案生成失败"`，而非仅 `"失败"`（避免正常文本误判）
 - 展示面板：`showXArchiveModal()` / `showXItemsModal()`
+- `buildXArchiveItemsPrompt` 与 `buildXArchiveItemsMemberPrompt` 输出格式已统一为「名称/样式/故事」，`x-items-modal.js` 按「故事：」前缀解析
+- Day 4/5 记忆物品公开使用 `GS.xItemsRevealRound` 轮转，每次只注入 1 位成员的物品
 
 ## 10. 心动笔记系统（heart-notes）
 - **好感度解锁**：阈值 40/60/80 分别解锁 HEART_NOTE_TEMPLATES index 0/1/2
@@ -317,6 +320,9 @@ src/
 | Day 12 仪式感 | buildUserMessage | 1000 字铺垫 + 选项 |
 | 约会配对日 | buildUserMessage | 只生成「▶ 进入约会场景」选项 |
 | X 约会双向读信 | buildUserMessage | Day 9 |
+| Day4/5 记忆物品轮转 | buildUserMessage | 每次只注入 1 位成员，`GS.xItemsRevealRound` 轮转 |
+| Day3 故事环节澄清 | buildUserMessage | 明确"不是真心话游戏，没有抽卡/强制规则" |
+| 选项多样性约束 | noRepeatNote | 避免"主动搭话""保持距离"等通用模板重复 |
 
 ## 16. 激活码鉴权系统（已关闭）
 - 状态：已关闭，代码保留，可随时开启
@@ -352,7 +358,7 @@ src/
 - 限制：粒子数 ≤ 25，自动清理 Canvas/DOM
 
 ## 打字机速度可调
-- `GS.typewriterSpeed`：0=即时显示 / 15=慢 / 30=中 / 60=快 / 100=极快，默认 30
+- `GS.typewriterSpeed`：0=即时显示 / 100=慢 / 50=中 / 20=快 / 10=极快，默认 50
 - `narrative-box.js`：speed=0 跳过逐字逻辑，直接 `container.innerHTML = fullHtml`
 - `header-bar.js`：`<select>` 下拉框，change 事件更新 `GS.typewriterSpeed` + `saveGame()`
 
@@ -469,3 +475,10 @@ src/
 | flushText 延迟计算 | 已完成 | narrative-box.js | 先缓存 length |
 | goToNextDay 选择判断 | 已完成 | game-engine.js | 移除 indexOf('选择') |
 | store.js 生产日志 | 已完成 | store.js | import.meta.env.DEV 守卫 |
+| 打字机速度档位反转 | 已完成 | header-bar.js, narrative-box.js, ui-renderer.js | 慢=100/中=50/快=20/极快=10 + `||30`→`==null?30:x` |
+| API 超时 30s→60s | 已完成 | api.js | 修复 AbortError |
+| Day3 真心话误触发 | 已完成 | prompts.js | 明确"不是真心话游戏，没有抽卡" |
+| Day4/5 记忆物品轮转 | 已完成 | prompts.js, state.js | `xItemsRevealRound` 每次只公开 1 位成员 |
+| phaseFreeCount 重置 | 已完成 | store.js | RESET_PHASE_STATE 补充 `phaseFreeCount = 0` |
+| X档案物品格式统一 | 已完成 | x-archive.js | `buildXArchiveItemsMemberPrompt` 统一为名称/样式/故事 |
+| 选项多样性约束 | 已完成 | prompts.js | noRepeatNote 增加避免通用模板重复 |
