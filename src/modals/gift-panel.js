@@ -1,6 +1,6 @@
 import {
   MEMBERS, GIFT_TEMPLATES, MEMBER_GIFT_PREFERENCE, RETURN_GIFTS,
-  GS, saveGame, escHtml, randInt, callDeepSeek, showLoading, hideLoading
+  GS, saveGame, escHtml, randInt, callDeepSeek, showLoading, hideLoading, showToast
 } from '../core.js';
 import { parseNarrative } from '../parser.js';
 import { updateAffection, addAffectionLog } from '../affection.js';
@@ -44,21 +44,23 @@ export function showGiftPanel() {
     this.style.background = '#fce4ec'; this.style.color = '#c2185b'; this.style.fontWeight = '600';
   });
 
-  overlay.querySelectorAll('[data-gift-idx]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var giftIdx = parseInt(this.dataset.giftIdx);
-      var memberId = this.dataset.memberId;
+  // 事件委托：Tab 切换会用 innerHTML 重渲染，直接绑定会丢失事件
+  overlay.querySelector('#giftTabContent').addEventListener('click', function(e) {
+    var remakeBtn = e.target.closest('[data-remake-idx]');
+    if (remakeBtn) {
+      var remakeIdx = parseInt(remakeBtn.dataset.remakeIdx);
       overlay.remove();
-      await sendGift(memberId, giftIdx);
-    });
-  });
-
-  overlay.querySelectorAll('[data-remake-idx]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var giftIdx = parseInt(this.dataset.remakeIdx);
+      showRemakeGiftModal(remakeIdx);
+      return;
+    }
+    var giftBtn = e.target.closest('[data-gift-idx]');
+    if (giftBtn) {
+      var giftIdx = parseInt(giftBtn.dataset.giftIdx);
+      var memberId = giftBtn.dataset.memberId;
       overlay.remove();
-      showRemakeGiftModal(giftIdx);
-    });
+      sendGift(memberId, giftIdx);
+      return;
+    }
   });
 }
 
@@ -136,6 +138,16 @@ export async function sendGift(memberId, giftIdx) {
     var reaction = await callDeepSeek(sysPrompt, '生成送礼剧情', 800, false, 0.7);
 
     var parsed = parseNarrative(reaction);
+    // 修复：AI 返回纯文本而非 JSON 时，parseNarrative 返回空对象，剧情不显示
+    if ((!parsed.blocks || parsed.blocks.length === 0) && !parsed.narrative && reaction.trim()) {
+      parsed = {
+        narrative: reaction,
+        blocks: [{ type: 'narrative', content: reaction }],
+        interviews: [], memberInterviews: [], xInterviews: [],
+        directorOS: '', observerOS: '', observers: [],
+        options: [], affChanges: [], drinks: [], smsDrafts: []
+      };
+    }
     GS.consequenceNarratives.push({
       rawText: reaction,
       parsed: parsed,
