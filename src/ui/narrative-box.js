@@ -279,20 +279,15 @@ export function startTypewriter(containerId, speed) {
 
 var _narrativeEditorOverlay = null;
 
-// 从 parsedNarrative 中提取纯文本（不含 JSON 格式标记）
+// 从 parsedNarrative 中提取剧情文本（仅 narrative 类型，不含采访间/OS）
 function extractNarrativeText(parsed) {
   if (!parsed || !parsed.blocks || parsed.blocks.length === 0) return '';
   var parts = [];
   for (var i = 0; i < parsed.blocks.length; i++) {
     var b = parsed.blocks[i];
-    if (!b.content) continue;
-    var prefix = '';
-    if (b.type === 'interview') { prefix = '🎙 '; }
-    else if (b.type === 'xInterview') { prefix = '🎙️💔 '; }
-    else if (b.type === 'memberInterview') { prefix = '🎤【' + (b.member || '') + '】 '; }
-    else if (b.type === 'directorOS') { prefix = '🎬 '; }
-    else if (b.type === 'observerOS') { prefix = '💭 '; }
-    parts.push(prefix + b.content);
+    if (b.type === 'narrative' && b.content) {
+      parts.push(b.content);
+    }
   }
   return parts.join('\n\n');
 }
@@ -310,7 +305,8 @@ export function showNarrativeEditor() {
   overlay.innerHTML =
     '<div class="narrative-editor-panel">' +
     '<div class="narrative-editor-header">' +
-    '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ 编辑剧情（修改后自动保存到记忆）</span>' +
+    '<span style="font-weight:700;font-size:14px;color:var(--text-secondary)">✏️ 编辑剧情</span>' +
+    '<span style="font-size:11px;color:var(--text-muted);margin-left:8px">仅剧情文本，采访间/OS 保持不变</span>' +
     '<span class="narrative-editor-close-btn">&times;</span>' +
     '</div>' +
     '<textarea class="narrative-editor-textarea" spellcheck="false">' + escHtml(text) + '</textarea>' +
@@ -362,27 +358,27 @@ function saveNarrativeEdit(newText) {
   var blocks = GS.parsedNarrative.blocks;
   var oldRaw = GS.phaseNarrative;
 
-  // 收集有 content 的 block 索引
-  var contentIndices = [];
+  // 只更新 narrative 类型的 block，采访间/OS 保持不变
+  var narrativeIndices = [];
   for (var i = 0; i < blocks.length; i++) {
-    if (blocks[i].content) contentIndices.push(i);
+    if (blocks[i].type === 'narrative' && blocks[i].content !== undefined) {
+      narrativeIndices.push(i);
+    }
   }
-  if (contentIndices.length === 0) return;
+  if (narrativeIndices.length === 0) return;
 
-  // 按原比例分配新文本到各 content block
   var totalOldLen = 0;
-  for (var ci = 0; ci < contentIndices.length; ci++) {
-    totalOldLen += blocks[contentIndices[ci]].content.length;
+  for (var ni = 0; ni < narrativeIndices.length; ni++) {
+    totalOldLen += blocks[narrativeIndices[ni]].content.length;
   }
   if (totalOldLen === 0) return;
 
   var newLen = newText.length;
   var start = 0;
-  for (var ci = 0; ci < contentIndices.length; ci++) {
-    var idx = contentIndices[ci];
-    var oldLen = blocks[idx].content.length;
-    var portion = Math.floor(newLen * (oldLen / totalOldLen));
-    if (ci === contentIndices.length - 1) portion = newLen - start;
+  for (var ni = 0; ni < narrativeIndices.length; ni++) {
+    var idx = narrativeIndices[ni];
+    var portion = Math.floor(newLen * (blocks[idx].content.length / totalOldLen));
+    if (ni === narrativeIndices.length - 1) portion = newLen - start;
     blocks[idx].content = newText.slice(start, start + portion).trim() || '(空)';
     start += portion;
   }
