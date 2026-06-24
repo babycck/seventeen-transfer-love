@@ -52,6 +52,21 @@ async function handleActivate(request, env, corsHeaders) {
     return jsonResponse({ success: false, error: '激活码已禁用' }, 200, corsHeaders);
   }
 
+  // 有效期校验（v22 新增）
+  var now = Date.now();
+  if (codeData.validFrom) {
+    var fromMs = new Date(codeData.validFrom).getTime();
+    if (!isNaN(fromMs) && now < fromMs) {
+      return jsonResponse({ success: false, error: '激活码尚未生效' }, 200, corsHeaders);
+    }
+  }
+  if (codeData.validUntil) {
+    var untilMs = new Date(codeData.validUntil).getTime();
+    if (!isNaN(untilMs) && now > untilMs + 24 * 60 * 60 * 1000 - 1) {
+      return jsonResponse({ success: false, error: '激活码已过期' }, 200, corsHeaders);
+    }
+  }
+
   var deviceIds = codeData.deviceIds || [];
   var isNewDevice = deviceIds.indexOf(deviceFingerprint) < 0;
 
@@ -102,7 +117,7 @@ async function handleVerify(request, env, corsHeaders) {
 }
 
 async function handleGenerate(request, env, corsHeaders) {
-  const { adminKey, code, maxDevices } = await request.json();
+  const { adminKey, code, maxDevices, validFrom, validUntil } = await request.json();
   if (adminKey !== env.ADMIN_KEY) {
     return jsonResponse({ success: false, error: '管理员密钥错误' }, 403, corsHeaders);
   }
@@ -122,10 +137,12 @@ async function handleGenerate(request, env, corsHeaders) {
     usedDevices: 0,
     createdAt: Date.now(),
     disabled: false,
-    deviceIds: []
+    deviceIds: [],
+    validFrom: validFrom || null,
+    validUntil: validUntil || null
   }));
 
-  return jsonResponse({ success: true, code, maxDevices: maxDevices || 3 }, 200, corsHeaders);
+  return jsonResponse({ success: true, code, maxDevices: maxDevices || 3, validFrom: validFrom || null, validUntil: validUntil || null }, 200, corsHeaders);
 }
 
 async function handleList(request, env, corsHeaders) {
@@ -144,7 +161,9 @@ async function handleList(request, env, corsHeaders) {
         maxDevices: data.maxDevices,
         usedDevices: (data.deviceIds || []).length,
         disabled: data.disabled,
-        createdAt: data.createdAt
+        createdAt: data.createdAt,
+        validFrom: data.validFrom || null,
+        validUntil: data.validUntil || null
       });
     }
   }

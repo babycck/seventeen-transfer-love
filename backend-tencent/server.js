@@ -31,6 +31,23 @@ function generateToken() {
   return 'svt_' + crypto.randomBytes(24).toString('hex');
 }
 
+// 获取今天的日期字符串 (YYYY-MM-DD)
+function todayDateStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// 检查激活码是否在有效期内
+function isCodeDateValid(codeData) {
+  var today = todayDateStr();
+  if (codeData.validFrom && today < codeData.validFrom) {
+    return { valid: false, error: '激活码尚未生效（生效日：' + codeData.validFrom + '）' };
+  }
+  if (codeData.validUntil && today > codeData.validUntil) {
+    return { valid: false, error: '激活码已过期（有效期至：' + codeData.validUntil + '）' };
+  }
+  return { valid: true };
+}
+
 function jsonResponse(res, data, statusCode = 200) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
@@ -81,6 +98,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 检查激活码有效期
+    const dateCheck = isCodeDateValid(codeData);
+    if (!dateCheck.valid) {
+      jsonResponse(res, { success: false, error: dateCheck.error });
+      return;
+    }
+
     const deviceIds = codeData.deviceIds || [];
     const isNewDevice = !deviceIds.includes(deviceFingerprint);
 
@@ -127,6 +151,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 检查原始激活码是否仍在有效期内
+    // 如 code 已过期，即使 Token 未到期也强制失效
+    const codeData = readJSON('code_' + tokenData.code);
+    if (codeData) {
+      const dateCheck = isCodeDateValid(codeData);
+      if (!dateCheck.valid) {
+        jsonResponse(res, { success: false, error: dateCheck.error });
+        return;
+      }
+    }
+
     if (tokenData.deviceFingerprint !== deviceFingerprint) {
       jsonResponse(res, { success: false, error: '设备不匹配' });
       return;
@@ -137,7 +172,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (urlPath === '/api/admin/generate' && req.method === 'POST') {
-    const { adminKey, code, maxDevices = 3 } = await parseBody(req);
+    const { adminKey, code, maxDevices = 3, validFrom, validUntil } = await parseBody(req);
     if (adminKey !== ADMIN_KEY) {
       jsonResponse(res, { success: false, error: '管理员密钥错误' }, 403);
       return;
@@ -153,14 +188,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 验证日期格式
+    if (validFrom && !/^\d{4}-\d{2}-\d{2}$/.test(validFrom)) {
+      jsonResponse(res, { success: false, error: 'validFrom 格式错误，应为 YYYY-MM-DD' }, 400);
+      return;
+    }
+    if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
+      jsonResponse(res, { success: false, error: 'validUntil 格式错误，应为 YYYY-MM-DD' }, 400);
+      return;
+    }
+
     writeJSON('code_' + code, {
       maxDevices,
       createdAt: Date.now(),
       disabled: false,
-      deviceIds: []
+      deviceIds: [],
+      validFrom: validFrom || null,
+      validUntil: validUntil || null
     });
 
-    jsonResponse(res, { success: true, code, maxDevices });
+    jsonResponse(res, { success: true, code, maxDevices, validFrom: validFrom || null, validUntil: validUntil || null });
     return;
   }
 
@@ -177,12 +224,18 @@ const server = http.createServer(async (req, res) => {
       if (file.startsWith('code_') && file.endsWith('.json')) {
         const data = readJSON(file.replace('.json', ''));
         if (data) {
+          var today = todayDateStr();
+          var expired = data.validUntil && today > data.validUntil;
+          var notYet = data.validFrom && today < data.validFrom;
           codes.push({
             code: file.replace('code_', '').replace('.json', ''),
             maxDevices: data.maxDevices,
             usedDevices: (data.deviceIds || []).length,
             disabled: data.disabled,
-            createdAt: data.createdAt
+            createdAt: data.createdAt,
+            validFrom: data.validFrom || null,
+            validUntil: data.validUntil || null,
+            status: data.disabled ? '已禁用' : expired ? '已过期' : notYet ? '未生效' : '有效'
           });
         }
       }

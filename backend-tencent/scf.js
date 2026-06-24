@@ -32,6 +32,23 @@ function generateToken() {
   return 'svt_' + crypto.randomBytes(24).toString('hex');
 }
 
+// 获取今天的日期字符串 (YYYY-MM-DD)
+function todayDateStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// 检查激活码是否在有效期内
+function isCodeDateValid(codeData) {
+  var today = todayDateStr();
+  if (codeData.validFrom && today < codeData.validFrom) {
+    return { valid: false, error: '激活码尚未生效（生效日：' + codeData.validFrom + '）' };
+  }
+  if (codeData.validUntil && today > codeData.validUntil) {
+    return { valid: false, error: '激活码已过期（有效期至：' + codeData.validUntil + '）' };
+  }
+  return { valid: true };
+}
+
 function jsonResponse(data, statusCode = 200) {
   return {
     statusCode,
@@ -70,6 +87,12 @@ exports.main_handler = async (event, context) => {
     const codeData = JSON.parse(codeDataRaw);
     if (codeData.disabled) {
       return jsonResponse({ success: false, error: '激活码已禁用' });
+    }
+
+    // 检查激活码有效期
+    const dateCheck = isCodeDateValid(codeData);
+    if (!dateCheck.valid) {
+      return jsonResponse({ success: false, error: dateCheck.error });
     }
 
     const deviceIds = codeData.deviceIds || [];
@@ -114,6 +137,16 @@ exports.main_handler = async (event, context) => {
       return jsonResponse({ success: false, error: 'Token 已过期' });
     }
 
+    // 检查原始激活码是否仍在有效期内
+    const codeDataRaw = await redis.get('code:' + tokenData.code);
+    if (codeDataRaw) {
+      const codeData = JSON.parse(codeDataRaw);
+      const dateCheck = isCodeDateValid(codeData);
+      if (!dateCheck.valid) {
+        return jsonResponse({ success: false, error: dateCheck.error });
+      }
+    }
+
     if (tokenData.deviceFingerprint !== deviceFingerprint) {
       return jsonResponse({ success: false, error: '设备不匹配' });
     }
@@ -122,12 +155,20 @@ exports.main_handler = async (event, context) => {
   }
 
   if (path === '/api/admin/generate' && httpMethod === 'POST') {
-    const { adminKey, code, maxDevices = 3 } = parsedBody;
+    const { adminKey, code, maxDevices = 3, validFrom, validUntil } = parsedBody;
     if (adminKey !== ADMIN_KEY) {
       return jsonResponse({ success: false, error: '管理员密钥错误' }, 403);
     }
     if (!code) {
       return jsonResponse({ success: false, error: '缺少激活码' }, 400);
+    }
+
+    // 验证日期格式
+    if (validFrom && !/^\d{4}-\d{2}-\d{2}$/.test(validFrom)) {
+      return jsonResponse({ success: false, error: 'validFrom 格式错误，应为 YYYY-MM-DD' }, 400);
+    }
+    if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
+      return jsonResponse({ success: false, error: 'validUntil 格式错误，应为 YYYY-MM-DD' }, 400);
     }
 
     const redis = getRedis();
@@ -140,10 +181,12 @@ exports.main_handler = async (event, context) => {
       maxDevices,
       createdAt: Date.now(),
       disabled: false,
-      deviceIds: []
+      deviceIds: [],
+      validFrom: validFrom || null,
+      validUntil: validUntil || null
     }));
 
-    return jsonResponse({ success: true, code, maxDevices });
+    return jsonResponse({ success: true, code, maxDevices, validFrom: validFrom || null, validUntil: validUntil || null });
   }
 
   if (path === '/api/admin/list' && httpMethod === 'POST') {
@@ -157,12 +200,18 @@ exports.main_handler = async (event, context) => {
     const codes = [];
     for (const key of keys) {
       const data = JSON.parse(await redis.get(key));
+      var today = todayDateStr();
+      var expired = data.validUntil && today > data.validUntil;
+      var notYet = data.validFrom && today < data.validFrom;
       codes.push({
         code: key.replace('code:', ''),
         maxDevices: data.maxDevices,
         usedDevices: (data.deviceIds || []).length,
         disabled: data.disabled,
-        createdAt: data.createdAt
+        createdAt: data.createdAt,
+        validFrom: data.validFrom || null,
+        validUntil: data.validUntil || null,
+        status: data.disabled ? '已禁用' : expired ? '已过期' : notYet ? '未生效' : '有效'
       });
     }
 

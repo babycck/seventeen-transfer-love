@@ -3,7 +3,7 @@
 } from './core.js';
 import { renderAll, renderAuthScreen, bindAuthEvents, initTheme } from './ui-renderer.js';
 import { generatePhaseNarrative } from './game-engine.js';
-import { verifyToken, isBackendConfigured } from './auth.js';
+import { verifyToken } from './auth.js';
 
 // 将 renderAll 挂到全局，供循环依赖模块（sms.js / modals.js）使用
 window.__renderAll = renderAll;
@@ -85,17 +85,9 @@ window.onunhandledrejection = function(event) {
 
 // ==================== 初始化 ====================
 export async function init() {
-  // 激活码功能已关闭（如需开启，取消下方注释并部署后端）
-  initGame();
-  return;
-
-  /* 激活码鉴权（需要部署后端后开启）
-  if (!isBackendConfigured()) {
-    console.log('[Auth] 后端未配置，跳过鉴权');
-    initGame();
-    return;
-  }
-
+  // 激活码鉴权流程
+  // 管理员码（SVT-ADMIN-2024 等）本地生效，无需后端
+  // 其他激活码需要部署后端并配置 BACKEND_URL
   var result = await verifyToken();
   if (result.valid) {
     initGame();
@@ -103,7 +95,6 @@ export async function init() {
     renderAuthScreen(result.error);
     bindAuthEvents(initGame);
   }
-  */
 }
 
 function initGame() {

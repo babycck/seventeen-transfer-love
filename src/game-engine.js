@@ -902,9 +902,19 @@ export async function handleFreeAction(actionText) {
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由剧情：' + actionText });
     GS.phaseFreeCount++;
     // 自由剧情不生成选项、不影响好感度、不触发吃醋/任务检测，纯剧情体验
-    // 约会日 phase 0 保留"进入约会场景"按钮，让玩家扩写完剧情后仍能进入约会
+    // 约会日 phase 0：未进入约会场景时，强制塞回按钮
     var isDatingDayPhase0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
-    GS.currentOptions = isDatingDayPhase0 ? GS.currentOptions : [];
+    var hasEnteredDating = false;
+    for (var ci = 0; ci < GS.consequenceNarratives.length; ci++) {
+      if (GS.consequenceNarratives[ci].choiceText &&
+          GS.consequenceNarratives[ci].choiceText.indexOf('进入约会场景') >= 0) {
+        hasEnteredDating = true;
+        break;
+      }
+    }
+    GS.currentOptions = (isDatingDayPhase0 && !hasEnteredDating)
+      ? [{ label: '\u25B6', text: '\u25B6 进入约会场景' }]
+      : [];
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
     GS.freeInput = '';
@@ -1036,6 +1046,21 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
       pushCorrections(corrections);
       dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: choiceText });
       GS.currentOptions = parsed.options;
+      // 约会日 phase 0 未进入约会场景时，强制保留按钮
+      var _isDatingDay0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
+      if (_isDatingDay0) {
+        var _hasEntered = (last.choiceText && last.choiceText.indexOf('进入约会场景') >= 0);
+        for (var _ci = 0; _ci < GS.consequenceNarratives.length; _ci++) {
+          if (GS.consequenceNarratives[_ci].choiceText &&
+              GS.consequenceNarratives[_ci].choiceText.indexOf('进入约会场景') >= 0) {
+            _hasEntered = true;
+            break;
+          }
+        }
+        if (!_hasEntered) {
+          GS.currentOptions = [{ label: '\u25B6', text: '\u25B6 进入约会场景' }];
+        }
+      }
       GS.isInConsequence = true;
       dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
       saveGame();
