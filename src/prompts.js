@@ -596,11 +596,14 @@ export function buildUserMessage(type, extra) {
 
   var noRepeatNote = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
     '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n' +
-    '⚠️ 选项必须严格基于当前场景和在场人物，避免出现与当前上下文无关的互动选项。避免重复使用"主动搭话""保持距离""沉默不语"等通用模板，每个选项指向不同的行动方向。';
+    '⚠️ 选项必须严格基于你刚刚写出的剧情文本中的具体场景、对话、细节来推导，每个选项要像「从剧情中长出来」的一样自然。\n' +
+    '⚠️ 第一个选项（选项A）尤其必须直接从本段剧情的核心场景/冲突/氛围中提取行动方向，绝对禁止使用"主动搭话""保持距离""沉默不语"等独立于剧情的通用模板。\n' +
+    '⚠️ 三个选项指向完全不同的行动方向，禁止出现语义重复的选项。';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
       '请生成后续剧情（~500字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
+      '⚠️ 选项必须基于你刚刚生成的后续剧情来推导——从这段剧情中的具体事件、对话、氛围中提取行动方向，禁止使用与剧情无关的通用选项模板。\n' +
       '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote;
   } else if (type === 'freeAction') {
     msg += '[INSTRUCTION] 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText + '"\n\n' +

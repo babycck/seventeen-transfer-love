@@ -1018,6 +1018,7 @@ export function checkJealousyEvent(choiceText) {
 export async function handleRegenerate() {
   // 重置生成锁，允许重新尝试
   GS._isGenerating = false;
+  GS._advancingPhase = false;  // 重置重入锁，避免卡死
   // 重新生成时旧pending被自然覆盖，不结算
   GS.pendingAffChanges = [];
   if (!GS.aiEnabled) {
@@ -1334,6 +1335,7 @@ export async function handleQuestionBoxChoice(opt) {
     content: playerAnswer
   });
   qb.active = false;
+  GS.currentOptions = [];  // 清空残留选项，防止 renderOptionPanel 渲染提问箱按钮
   saveGame();
 
   showLoading('正在生成提问箱后续...');
