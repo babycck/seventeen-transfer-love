@@ -605,7 +605,7 @@ export function buildUserMessage(type, extra) {
   } else if (type === 'freeAction') {
     msg += '[INSTRUCTION] 生成任务\n玩家通过自由输入表达了以下行动意图：\n"' + extra.actionText + '"\n\n' +
       '⚠️ 玩家的行动已经在故事中执行完毕。你现在写的是执行之后紧接着发生的事。当前时间：Day ' + GS.day + ' ' + phaseLabel + '。\n' +
-      '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~800字 JSON）：\n' +
+      '请基于当前场景和已有剧情，生成女主执行此行动后的后续剧情（~1600字 JSON）：\n' +
       '- 这是紧接着已有剧情的后续发展，不要重复已有内容\n' +
       '- 将玩家的行动意图自然融入剧情\n' +
       '- 必须包含 narrative + interview + memberInterview + observers + options（3个）\n' + noRepeatNote;
