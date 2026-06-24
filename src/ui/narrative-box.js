@@ -1,4 +1,4 @@
-import { escHtml, saveGame } from '../core.js';
+import { escHtml, showToast, saveGame } from '../core.js';
 import { GS } from '../state.js';
 
 // 中文自动断句：按句末标点断，不依赖 AI 的 \n，引号内不断
@@ -183,6 +183,7 @@ export function startTypewriter(containerId, speed) {
 
   if (speed === 0) {
     container.innerHTML = fullHtml;
+    showEditButton();
     return;
   }
 
