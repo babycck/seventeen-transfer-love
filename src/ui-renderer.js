@@ -1,5 +1,5 @@
 ﻿import {
-  MAX_STAY_COUNT, OPTION_PHASE_LIMIT, FREE_INPUT_PHASE_LIMIT, ZODIAC_SIGNS,
+  MAX_STAY_COUNT, PHASE_ACTION_LIMIT, ZODIAC_SIGNS,
   MEMBERS, PHASES, PHASE_LABELS,
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
   API_PROVIDERS,
@@ -571,8 +571,9 @@ export function renderGameScreen() {
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
-  var phaseChoicesExhausted = GS.phaseOptionCount >= OPTION_PHASE_LIMIT;
-  var freeInputExhausted = GS.phaseFreeCount >= FREE_INPUT_PHASE_LIMIT;
+  var actionsRemaining = PHASE_ACTION_LIMIT - (GS.phaseOptionCount + GS.phaseFreeCount);
+  var phaseChoicesExhausted = actionsRemaining <= 0;
+  var freeInputExhausted = actionsRemaining <= 0;
   var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
   var html = '';
 

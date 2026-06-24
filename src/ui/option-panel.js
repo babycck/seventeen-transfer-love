@@ -1,6 +1,6 @@
 import { escHtml } from '../core.js';
 import { GS } from '../state.js';
-import { MEMBERS, OPTION_PHASE_LIMIT } from '../data.js';
+import { MEMBERS, PHASE_ACTION_LIMIT } from '../data.js';
 
 // 渲染普通选项面板
 export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
@@ -32,8 +32,8 @@ export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
         escHtml(optText) + optAffHtml + '</button>';
     }
     if (!isDay11) {
-      html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余选项次数：' +
-        (OPTION_PHASE_LIMIT - GS.phaseOptionCount) + '/' + OPTION_PHASE_LIMIT + '</p>';
+      html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余行动次数：' +
+        Math.max(0, PHASE_ACTION_LIMIT - (GS.phaseOptionCount + GS.phaseFreeCount)) + '/' + PHASE_ACTION_LIMIT + '</p>';
     } else if (!GS.truthState) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">Day 11 真心话环节 · 不限制选项次数</p>';
     }

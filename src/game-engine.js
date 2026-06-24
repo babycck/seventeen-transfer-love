@@ -1,5 +1,5 @@
 ﻿import {
-  MAX_STAY_COUNT, OPTION_PHASE_LIMIT, FREE_INPUT_PHASE_LIMIT, MEMBERS, TRUTH_CARDS,
+  MAX_STAY_COUNT, PHASE_ACTION_LIMIT, MEMBERS, TRUTH_CARDS,
   GIFT_TEMPLATES, MEMBER_GIFT_PREFERENCE, PHASES, PHASE_LABELS,
   QUESTION_BOX_QUESTIONS, TOKEN_CONFIG, HOLIDAYS, RETURN_GIFTS,
   GS, saveGame, showLoading, hideLoading, showToast, randInt, escHtml, dispatch
@@ -602,8 +602,8 @@ export async function handleOptionChoice(opt) {
 
   // Day 11 不限制选项次数（非真心话的普通剧情）
   var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
-  if (!isDay11 && GS.phaseOptionCount >= OPTION_PHASE_LIMIT) {
-    showToast('⚠️ 本时段选项次数已用完，请进入下一时段。');
+  if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
+    showToast('⚠️ 本时段行动次数已用完，请进入下一时段。');
     return;
   }
 
@@ -625,7 +625,7 @@ export async function handleOptionChoice(opt) {
     pushCorrections(corrections);
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: opt.text });
     GS.phaseOptionCount++;
-    if (!isDay11 && GS.phaseOptionCount >= OPTION_PHASE_LIMIT) parsed.options = [];
+    if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) parsed.options = [];
     GS.currentOptions = parsed.options;
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
@@ -840,8 +840,8 @@ export async function handleFreeAction(actionText) {
     GS.stayCount++;
   }
   var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
-  if (!isDay11 && GS.phaseFreeCount >= FREE_INPUT_PHASE_LIMIT) {
-    showToast('⚠️ 本时段自由输入次数已用完（' + FREE_INPUT_PHASE_LIMIT + '/' + FREE_INPUT_PHASE_LIMIT + '），请使用选项。');
+  if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
+    showToast('⚠️ 本时段行动次数已用完（' + PHASE_ACTION_LIMIT + '/' + PHASE_ACTION_LIMIT + '），请进入下一时段。');
     return;
   }
 
@@ -863,8 +863,8 @@ export async function handleFreeAction(actionText) {
     pushCorrections(corrections);
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '✍️ 自由行动：' + actionText });
     GS.phaseFreeCount++;
-    if (!isDay11 && GS.phaseFreeCount >= FREE_INPUT_PHASE_LIMIT && parsed.options && parsed.options.length > 0) {
-      parsed.options.push({ text: '✍️ 自由输入已用完，继续使用选项', disabled: true });
+    if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT && parsed.options && parsed.options.length > 0) {
+      parsed.options.push({ text: '✍️ 本时段行动次数已用完，继续使用选项', disabled: true });
     }
     GS.currentOptions = parsed.options;
     GS.isInConsequence = true;

@@ -3,8 +3,9 @@ export var STORAGE_KEY = 'svt_transfer_v20';
 export var PLAYER_BIRTH_YEAR = 2000; // 女主设定出生年份，2025年25岁
 
 export var MAX_STAY_COUNT = 2;
-export var OPTION_PHASE_LIMIT = 2;
-export var FREE_INPUT_PHASE_LIMIT = 1;
+export var PHASE_ACTION_LIMIT = 2; // 每时段总行动次数上限（选项+自由输入合并计数）
+export var OPTION_PHASE_LIMIT = PHASE_ACTION_LIMIT; // 向下兼容（旧引用值不变）
+export var FREE_INPUT_PHASE_LIMIT = PHASE_ACTION_LIMIT; // 向下兼容（旧引用值不变）
 export var TODAY_TEXT_CAP = 12000;
 export var PHASE_TAIL_CHARS = 800;
 export var CONSEQUENCE_TAIL_CHARS = 500;

@@ -1,4 +1,4 @@
-import { MEMBERS, GS, PHASES, PHASE_LABELS, OPTION_PHASE_LIMIT, FREE_INPUT_PHASE_LIMIT, MAX_STAY_COUNT, escHtml } from '../core.js';
+import { MEMBERS, GS, PHASES, PHASE_LABELS, PHASE_ACTION_LIMIT, MAX_STAY_COUNT, escHtml } from '../core.js';
 import { createModal } from './modal-factory.js';
 
 export function showHelpModal() {
@@ -21,7 +21,7 @@ export function showHelpModal() {
     '<p style="margin-left:12px">Day 9：X约会日（情感高潮）</p>' +
     '<p style="margin-left:12px">Day 11：真心话环节</p>' +
     '<p style="margin-left:12px">Day 12：最终选择（复合 or 换乘）</p>' +
-    '<p><strong>✍️ 选项限制：</strong>每时段最多选择' + OPTION_PHASE_LIMIT + '次选项 + ' + FREE_INPUT_PHASE_LIMIT + '次自由输入，分别计数。超过后自动进入下一时段。Day 11 不限制。</p>' +
+    '<p><strong>✍️ 行动规则：</strong>每时段共有' + PHASE_ACTION_LIMIT + '次行动机会（选选项或自由输入均可），行动次数用完后自动进入下一时段。Day 11 不限制。</p>' +
     '<p><strong>🌙 继续今天：</strong>深夜短信后可继续' + MAX_STAY_COUNT + '次（含自由输入）</p>' +
     (GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
     '</div>' +
