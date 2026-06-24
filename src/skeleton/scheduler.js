@@ -38,7 +38,7 @@ export function resetDayState() {
   GS.drinkCounts = {};
   GS.exMessage = null;
   GS.truthPunishment = null;
-  GS.midnightCall = null;
+  if (GS.day >= 8) GS.midnightCall = null;
   GS.questionBox = null;
   GS.jealousyTriggeredToday = false;
   GS.secretMissionInteracted = false;

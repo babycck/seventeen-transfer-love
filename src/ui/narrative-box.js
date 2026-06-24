@@ -404,26 +404,39 @@ function saveNarrativeEdit(newText) {
 
   if (targetKey === 'phase') {
     GS.phaseNarrative = newRaw;
-    // 同步更新 todayFullText（主剧情带时段前缀）
+    // 同步更新 todayFullText：从末尾向前找第一条带时段前缀的（当前阶段剧情）
     var phasePrefixes = ['【上午】', '【下午】', '【傍晚】', '【深夜】'];
-    for (var ti = 0; ti < GS.todayFullText.length; ti++) {
+    var phaseIdx = GS.phaseIndex !== undefined ? GS.phaseIndex : 0;
+    var prefix = phasePrefixes[phaseIdx] || '';
+    for (var ti = GS.todayFullText.length - 1; ti >= 0; ti--) {
       var entry = GS.todayFullText[ti];
-      for (var pi = 0; pi < phasePrefixes.length; pi++) {
-        if (entry === phasePrefixes[pi] + oldRaw) {
-          GS.todayFullText[ti] = phasePrefixes[pi] + newRaw;
-          break;
+      if (entry.indexOf('【') === 0) {
+        // 找到当前时段：替换前缀后的内容
+        var entryContent = entry.slice(entry.indexOf('】') + 1);
+        if (entryContent.length > 50 && (oldRaw.indexOf(entryContent.slice(0, 30)) >= 0 || entryContent.indexOf(oldRaw.slice(0, 30)) >= 0)) {
+          GS.todayFullText[ti] = prefix + newRaw;
         }
+        break;
       }
     }
   } else {
     // 后续剧情：更新 consequence 的 rawText + todayFullText
     GS.consequenceNarratives[_editingConsequenceIdx].rawText = newRaw;
-    for (var ti = 0; ti < GS.todayFullText.length; ti++) {
-      if (GS.todayFullText[ti] === oldRaw) {
+    // 从末尾向前找第一条匹配旧内容的条目
+    for (var ti = GS.todayFullText.length - 1; ti >= 0; ti--) {
+      var entry = GS.todayFullText[ti];
+      if (entry === oldRaw || (entry.length > 50 && oldRaw.length > 50 && entry.slice(0, 80) === oldRaw.slice(0, 80))) {
         GS.todayFullText[ti] = newRaw;
         break;
       }
     }
+  }
+
+  // 额外保险：同步更新 dailyFullTexts 中当天（已存档）的记录
+  var dayIdx = GS.day - 1;
+  if (GS.dailyFullTexts && GS.dailyFullTexts[dayIdx]) {
+    // 用 todayFullText 替换当天记录（保持引用）
+    GS.dailyFullTexts[dayIdx] = GS.todayFullText.slice();
   }
 
   saveGame();

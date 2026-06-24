@@ -10,15 +10,22 @@ export function showHistoryModal() {
     '<button class="history-tab" id="historyTabSummary">📅 记忆摘要</button>' +
     '</div>';
 
-  var totalDays = GS.dailyFullTexts.length;
+  // 已完成的天数 + 当前天（如果 todayFullText 有内容）
+  var completedDays = GS.dailyFullTexts.length;
+  var hasCurrentDay = GS.todayFullText && GS.todayFullText.length > 0 && !GS.gameOver;
+  var totalDays = completedDays + (hasCurrentDay ? 1 : 0);
+
   inner += '<div id="historyStoryContent">';
   if (totalDays === 0) {
     inner += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无历史剧情（当前为 Day 1）</p>';
   } else {
     inner += '<div class="history-tabs" id="historyTabs">';
-    for (var d = 0; d < totalDays; d++) {
-      inner += '<button class="history-day-tab' + (d === totalDays - 1 ? ' active' : '') +
-        '" data-day="' + d + '">Day ' + (d + 1) + '</button>';
+    for (var d = 0; d < completedDays; d++) {
+      inner += '<button class="history-day-tab' + (d === totalDays - 1 && !hasCurrentDay ? ' active' : '') +
+        '" data-day="' + d + '" data-source="daily">Day ' + (d + 1) + '</button>';
+    }
+    if (hasCurrentDay) {
+      inner += '<button class="history-day-tab active" data-day="' + GS.day + '" data-source="today">Day ' + GS.day + '（当前）</button>';
     }
     inner += '</div><div class="history-content" id="historyContent"></div>';
   }
@@ -44,10 +51,10 @@ export function showHistoryModal() {
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 
-  function showDayContent(dayIdx) {
+  function showDayContent(dayIdx, source) {
     var content = document.getElementById('historyContent');
     if (!content) return;
-    var texts = GS.dailyFullTexts[dayIdx] || [];
+    var texts = source === 'today' ? GS.todayFullText : (GS.dailyFullTexts[dayIdx] || []);
     var html = '';
     for (var i = 0; i < texts.length; i++) {
       var parsed = parseNarrative(texts[i]);
@@ -60,7 +67,11 @@ export function showHistoryModal() {
     content.innerHTML = html;
   }
 
-  if (totalDays > 0) showDayContent(totalDays - 1);
+  if (hasCurrentDay) {
+    showDayContent(GS.day, 'today');
+  } else if (completedDays > 0) {
+    showDayContent(completedDays - 1, 'daily');
+  }
 
   // Tab 切换
   overlay.querySelector('#historyTabStory').addEventListener('click', function() {
@@ -81,7 +92,7 @@ export function showHistoryModal() {
     tab.addEventListener('click', function() {
       overlay.querySelectorAll('.history-day-tab').forEach(function(t) { t.classList.remove('active'); });
       this.classList.add('active');
-      showDayContent(parseInt(this.dataset.day));
+      showDayContent(parseInt(this.dataset.day), this.dataset.source || 'daily');
     });
   });
 
