@@ -412,9 +412,9 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   // 剧情生成（JSON 模式）强制结构化，记忆压缩/送礼等自定义 prompt 仍用自然文本
   if (useJson && cfg.supportsJson !== false) requestBody.response_format = { type: 'json_object' };
 
-  // 60s 超时，防止 AI 卡住无限等待（含重试余量）
+  // 90s 超时，防止 AI 卡住无限等待（含重试余量）
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 90000);
 
   var resp = await fetch(cfg.endpoint + '/chat/completions', {
     method: 'POST',
