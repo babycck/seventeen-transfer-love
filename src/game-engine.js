@@ -1075,6 +1075,7 @@ export async function advancePhase() {
       GS.phaseIndex++;
       resetPhaseState();
       saveGame();
+      showLoading('正在进入下一时段...');
       if (window.__renderAll) window.__renderAll();
       await generatePhaseNarrative();
     } else {

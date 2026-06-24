@@ -878,6 +878,7 @@ export function bindGameEvents() {
   var skipBtn = document.getElementById('btnSkip') || document.getElementById('btnNextPhase');
   if (skipBtn) {
     skipBtn.addEventListener('click', async function() {
+      if (GS._advancingPhase) { console.log('[skip btn] already advancing, skip'); return; }
       this.disabled = true;
       await advancePhase();
       this.disabled = false;
