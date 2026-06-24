@@ -221,6 +221,12 @@ export async function generatePhaseNarrative() {
       }
     }
 
+    // 约会日 phase 0：提前抽取约会地点，让首次渲染时横幅就能显示
+    var _isDatingDayEarly = ([4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0);
+    if (_isDatingDayEarly && !GS.currentDatingLocation) {
+      GS.currentDatingLocation = pickDatingLocation(GS.season, GS.weather);
+    }
+
     saveGame();
     if (window.__renderAll) window.__renderAll();
 
