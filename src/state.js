@@ -96,6 +96,8 @@ export function defaultGameState() {
     // 成员回礼系统
     pendingReturnGifts: [],
     returnGiftHistory: [],
+    // 约会礼物历史
+    dateGiftHistory: [],
     // [P0-2] 小礼物系统
     gifts: [],
     // [P0-3] Day 11 喝酒计数
@@ -264,6 +266,7 @@ export function migrateSave() {
     if (GS.xBackstoryHidden === undefined) GS.xBackstoryHidden = '';
     if (!Array.isArray(GS.pendingReturnGifts)) GS.pendingReturnGifts = [];
     if (!Array.isArray(GS.returnGiftHistory)) GS.returnGiftHistory = [];
+    if (!Array.isArray(GS.dateGiftHistory)) GS.dateGiftHistory = [];
     if (GS.todayMissionCard === undefined) GS.todayMissionCard = null;
     if (!Array.isArray(GS.missionCardHistory)) GS.missionCardHistory = [];
     if (!Array.isArray(GS.missionCardUsedIds)) GS.missionCardUsedIds = [];

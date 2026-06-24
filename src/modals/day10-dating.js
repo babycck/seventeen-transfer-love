@@ -27,6 +27,7 @@ export function showDay10DatingModal(onChosen) {
       var chosenId = this.dataset.id;
       overlay.remove();
       GS.day10ChosenDate = chosenId;
+      GS.currentDatingPartner = chosenId;
       saveGame();
       if (typeof onChosen === 'function') await onChosen();
     });

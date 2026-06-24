@@ -14,11 +14,12 @@ export function showGiftPanel() {
 
   var inner = '<div class="modal-content" style="max-width:420px"><h3>🎁 礼物</h3>' +
     '<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1.5px solid #e0c0c0">' +
-    '<button class="gift-tab active" id="giftTabInventory" style="flex:1;padding:8px;border:none;background:#fce4ec;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#c2185b;font-weight:600">🎁 礼物柜</button>' +
-    '<button class="gift-tab" id="giftTabHistory" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#8b6b6b">📖 送礼记录</button>' +
+    '<button class="gift-tab active" id="giftTabMyGifts" style="flex:1;padding:8px;border:none;background:#fce4ec;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#c2185b;font-weight:600">🎁 我的礼物</button>' +
+    '<button class="gift-tab" id="giftTabReceived" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#8b6b6b">📦 礼物柜</button>' +
+    '<button class="gift-tab" id="giftTabRecords" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#8b6b6b">📖 记录</button>' +
     '</div>' +
     '<div id="giftTabContent">' +
-    renderGiftInventory(members) +
+    renderMyGifts(members) +
     '</div>' +
     '<button class="modal-close-x" id="giftPanelClose">✕</button></div>';
   overlay.innerHTML = inner;
@@ -31,20 +32,27 @@ export function showGiftPanel() {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
 
-  overlay.querySelector('#giftTabInventory').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.getElementById('giftTabContent').innerHTML = renderGiftInventory(members);
-    document.querySelectorAll('.gift-tab').forEach(function(t) { t.style.background = 'transparent'; t.style.color = '#8b6b6b'; t.style.fontWeight = 'normal'; });
-    this.style.background = '#fce4ec'; this.style.color = '#c2185b'; this.style.fontWeight = '600';
+  // Tab 切换
+  function switchTab(tabId, renderFn) {
+    document.getElementById('giftTabContent').innerHTML = renderFn();
+    document.querySelectorAll('.gift-tab').forEach(function(t) {
+      t.style.background = 'transparent'; t.style.color = '#8b6b6b'; t.style.fontWeight = 'normal';
+    });
+    var btn = document.getElementById(tabId);
+    if (btn) { btn.style.background = '#fce4ec'; btn.style.color = '#c2185b'; btn.style.fontWeight = '600'; }
+  }
+
+  overlay.querySelector('#giftTabMyGifts').addEventListener('click', function() {
+    switchTab('giftTabMyGifts', function() { return renderMyGifts(members); });
   });
-  overlay.querySelector('#giftTabHistory').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.getElementById('giftTabContent').innerHTML = renderGiftHistory();
-    document.querySelectorAll('.gift-tab').forEach(function(t) { t.style.background = 'transparent'; t.style.color = '#8b6b6b'; t.style.fontWeight = 'normal'; });
-    this.style.background = '#fce4ec'; this.style.color = '#c2185b'; this.style.fontWeight = '600';
+  overlay.querySelector('#giftTabReceived').addEventListener('click', function() {
+    switchTab('giftTabReceived', renderReceivedGifts);
+  });
+  overlay.querySelector('#giftTabRecords').addEventListener('click', function() {
+    switchTab('giftTabRecords', renderAllGiftRecords);
   });
 
-  // 事件委托：Tab 切换会用 innerHTML 重渲染，直接绑定会丢失事件
+  // 事件委托：Tab 内容中的送礼/改造按钮
   overlay.querySelector('#giftTabContent').addEventListener('click', function(e) {
     var remakeBtn = e.target.closest('[data-remake-idx]');
     if (remakeBtn) {
@@ -64,7 +72,8 @@ export function showGiftPanel() {
   });
 }
 
-function renderGiftInventory(members) {
+// ==================== Tab 1: 我的礼物（可送人） ====================
+function renderMyGifts(members) {
   var html = '';
   if (GS.gifts.length === 0) {
     html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无礼物</p>';
@@ -75,8 +84,16 @@ function renderGiftInventory(members) {
       var typeLabel = g.type === 'handcraft' ? '手作' : g.type === 'food' ? '食物' : g.type === 'xMemory' ? '回忆' : '情感';
       var badge = g.isExclusive ? '<span style="background:#e91e63;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px">专属</span>' : '';
       if (g.type === 'xMemory') badge += '<span style="background:#333;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px">🖤 X</span>';
+
+      // 来源标注
+      var fromLabel = '';
+      if (g.fromPartner) {
+        var fromMember = MEMBERS.find(function(m) { return m.id === g.fromPartner; });
+        if (fromMember) fromLabel = '<span style="font-size:10px;color:#999;margin-left:6px">来自 ' + escHtml(fromMember.name) + ' · Day ' + g.fromDay + '</span>';
+      }
+
       html += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:8px">' +
-        '<p style="font-weight:700;font-size:13px;margin-bottom:4px">' + escHtml(g.name) + badge + ' <span style="font-size:11px;color:#8b6b6b">[' + typeLabel + ']</span>' + (g.isRemade ? '<span style="color:#4caf50;font-size:11px;margin-left:4px">✅ 已改造</span>' : '') + '</p>' +
+        '<p style="font-weight:700;font-size:13px;margin-bottom:4px">' + escHtml(g.name) + badge + ' <span style="font-size:11px;color:#8b6b6b">[' + typeLabel + ']</span>' + fromLabel + (g.isRemade ? '<span style="color:#4caf50;font-size:11px;margin-left:4px">✅ 已改造</span>' : '') + '</p>' +
         '<p style="font-size:11px;color:#8b6b6b;margin-bottom:6px">' + escHtml(g.desc) + '</p>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">';
       for (var j = 0; j < members.length; j++) {
@@ -97,41 +114,107 @@ function renderGiftInventory(members) {
   return html;
 }
 
-function renderGiftHistory() {
+// ==================== Tab 2: 礼物柜（我收到的） ====================
+function renderReceivedGifts() {
   var html = '';
-  var hasSent = GS.smsHistory && GS.smsHistory.filter(function(s) { return s.isGift; }).length;
-  var hasReturn = GS.returnGiftHistory && GS.returnGiftHistory.length;
-  if (!hasSent && !hasReturn) {
-    html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无送礼记录</p>';
-  } else {
-    // 已送出的礼物
-    var sentGifts = GS.smsHistory ? GS.smsHistory.filter(function(s) { return s.isGift; }) : [];
-    if (sentGifts.length > 0) {
-      html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">🎁 你送出的礼物</p>';
-      for (var sg = sentGifts.length - 1; sg >= 0; sg--) {
-        var sent = sentGifts[sg];
-        var sm = MEMBERS.find(function(m) { return m.id === sent.target; });
-        html += '<div style="background:#fff5f5;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
-          (sm ? sm.emoji + ' ' + sm.name : '成员') + '：' + escHtml(sent.content) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + sent.day + '</span></div>';
-      }
-    }
-    // 收到的回礼
-    if (GS.returnGiftHistory && GS.returnGiftHistory.length > 0) {
-      html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">📩 收到的回礼</p>';
-      for (var r = GS.returnGiftHistory.length - 1; r >= 0; r--) {
-        var rg = GS.returnGiftHistory[r];
-        var rm = MEMBERS.find(function(m) { return m.id === rg.memberId; });
-        html += '<div style="background:#f0faf0;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
-          (rm ? rm.emoji + ' ' + rm.name : '成员') + '：' + escHtml(rg.gift) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + rg.day + '</span></div>';
-      }
-    }
-    if (!hasSent && !hasReturn) {
-      html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无送礼记录</p>';
+  var hasDateGifts = GS.dateGiftHistory && GS.dateGiftHistory.length > 0;
+  var hasReturns = GS.returnGiftHistory && GS.returnGiftHistory.length > 0;
+
+  if (!hasDateGifts && !hasReturns) {
+    html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无收到礼物</p>';
+    return html;
+  }
+
+  // 约会礼物（按 day 倒序）
+  if (hasDateGifts) {
+    html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;font-weight:600">🎯 约会礼物</p>';
+    for (var dg = GS.dateGiftHistory.length - 1; dg >= 0; dg--) {
+      var d = GS.dateGiftHistory[dg];
+      var dm = MEMBERS.find(function(m) { return m.id === d.memberId; });
+      var tag = d.isExclusive ? '<span style="background:#e91e63;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">专属</span>' : '';
+      html += '<div style="background:#fff5f5;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
+        (dm ? dm.emoji + ' ' + escHtml(dm.name) + '：' : '') + escHtml(d.giftName) + tag + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + d.day + '</span></div>';
     }
   }
+
+  // 回礼（按 day 倒序）
+  if (hasReturns) {
+    html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:6px;margin-top:10px;font-weight:600">📩 回礼</p>';
+    for (var r = GS.returnGiftHistory.length - 1; r >= 0; r--) {
+      var rg = GS.returnGiftHistory[r];
+      var rm = MEMBERS.find(function(m) { return m.id === rg.memberId; });
+      html += '<div style="background:#f0faf0;border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
+        (rm ? rm.emoji + ' ' + escHtml(rm.name) + '：' : '') + escHtml(rg.gift) + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + rg.day + '</span></div>';
+    }
+  }
+
   return html;
 }
 
+// ==================== Tab 3: 记录（收送记录） ====================
+function renderAllGiftRecords() {
+  var records = [];
+
+  // 送出的礼物
+  if (GS.smsHistory) {
+    for (var si = 0; si < GS.smsHistory.length; si++) {
+      var s = GS.smsHistory[si];
+      if (s.isGift) {
+        records.push({ type: 'sent', day: s.day, memberId: s.target, text: s.content });
+      }
+    }
+  }
+
+  // 约会收到的礼物
+  if (GS.dateGiftHistory) {
+    for (var di = 0; di < GS.dateGiftHistory.length; di++) {
+      var d = GS.dateGiftHistory[di];
+      records.push({ type: 'dateGift', day: d.day, memberId: d.memberId, text: d.giftName, isExclusive: d.isExclusive });
+    }
+  }
+
+  // 回礼
+  if (GS.returnGiftHistory) {
+    for (var ri = 0; ri < GS.returnGiftHistory.length; ri++) {
+      var rg = GS.returnGiftHistory[ri];
+      records.push({ type: 'return', day: rg.day, memberId: rg.memberId, text: rg.gift });
+    }
+  }
+
+  // 按 day 倒序
+  records.sort(function(a, b) { return b.day - a.day || 0; });
+
+  if (records.length === 0) {
+    return '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无记录</p>';
+  }
+
+  var html = '';
+  for (var i = 0; i < records.length; i++) {
+    var rec = records[i];
+    var rm = MEMBERS.find(function(m) { return m.id === rec.memberId; });
+    var label = '';
+    var bgColor = '';
+
+    if (rec.type === 'sent') {
+      label = '🎁 送出 → ' + (rm ? rm.name : '成员');
+      bgColor = '#fff5f5';
+    } else if (rec.type === 'dateGift') {
+      label = '🎯 约会收到 · ' + (rm ? rm.name : '成员');
+      bgColor = '#f0f4fa';
+    } else if (rec.type === 'return') {
+      label = '📩 回礼 · ' + (rm ? rm.name : '成员');
+      bgColor = '#f0faf0';
+    }
+
+    var extra = rec.isExclusive ? '<span style="background:#e91e63;color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">专属</span>' : '';
+    html += '<div style="background:' + bgColor + ';border-radius:8px;padding:8px;margin-bottom:6px;font-size:12px">' +
+      '<span style="font-weight:600">' + label + '</span>：' + escHtml(rec.text) + extra + '<span style="color:#999;font-size:10px;margin-left:6px">Day ' + rec.day + '</span></div>';
+  }
+
+  return html;
+}
+
+// ==================== 送礼逻辑（不变） ====================
 export async function sendGift(memberId, giftIdx) {
   var gift = GS.gifts[giftIdx];
   if (!gift) return;
@@ -150,7 +233,6 @@ export async function sendGift(memberId, giftIdx) {
     var reaction = await callDeepSeek(sysPrompt, '生成送礼剧情', 800, false, 0.7);
 
     var parsed = parseNarrative(reaction);
-    // 修复：AI 返回纯文本而非 JSON 时，parseNarrative 返回空对象，剧情不显示
     if ((!parsed.blocks || parsed.blocks.length === 0) && !parsed.narrative && reaction.trim()) {
       parsed = {
         narrative: reaction,
@@ -179,7 +261,6 @@ export async function sendGift(memberId, giftIdx) {
     }
 
     GS.gifts.splice(giftIdx, 1);
-    // 记录送礼历史
     if (!Array.isArray(GS.smsHistory)) GS.smsHistory = [];
     GS.smsHistory.push({
       day: GS.day,
@@ -191,7 +272,6 @@ export async function sendGift(memberId, giftIdx) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
 
-    // 安排回礼（下一天触发）
     window.scheduleReturnGift(memberId);
   } catch (e) {
     console.error('[sendGift] 送礼剧情生成失败:', e);
@@ -200,6 +280,7 @@ export async function sendGift(memberId, giftIdx) {
   hideLoading();
 }
 
+// ==================== 改造礼物（不变） ====================
 export function showRemakeGiftModal(giftIdx) {
   var gift = GS.gifts[giftIdx];
   if (!gift) return;

@@ -72,8 +72,10 @@ export function updateObserverGuestPrevious() {
 
 // ==================== 约会后礼物生成 ====================
 export function generateDayGifts() {
-  if ((GS.day === 4 || GS.day === 8) && GS.currentDatingPartner) {
+  if ((GS.day === 4 || GS.day === 6 || GS.day === 8 || GS.day === 9 || GS.day === 10) && GS.currentDatingPartner) {
     var partnerId = GS.currentDatingPartner;
+    var partner = MEMBERS.find(function(m) { return m.id === partnerId; });
+    var partnerName = partner ? partner.name : partnerId;
     var partnerPref = MEMBER_GIFT_PREFERENCE[partnerId];
 
     var prefTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === partnerPref; });
@@ -87,6 +89,14 @@ export function generateDayGifts() {
       fromPartner: partnerId,
       isExclusive: true
     });
+    if (!Array.isArray(GS.dateGiftHistory)) GS.dateGiftHistory = [];
+    GS.dateGiftHistory.push({
+      memberId: partnerId,
+      giftName: exclusiveTmpl.name,
+      giftDesc: exclusiveTmpl.desc,
+      day: GS.day,
+      isExclusive: true
+    });
 
     var generalTmpl = GIFT_TEMPLATES[Math.floor(Math.random() * GIFT_TEMPLATES.length)];
     GS.gifts.push({
@@ -96,6 +106,13 @@ export function generateDayGifts() {
       desc: generalTmpl.desc,
       fromDay: GS.day,
       fromPartner: partnerId,
+      isExclusive: false
+    });
+    GS.dateGiftHistory.push({
+      memberId: partnerId,
+      giftName: generalTmpl.name,
+      giftDesc: generalTmpl.desc,
+      day: GS.day,
       isExclusive: false
     });
   }
