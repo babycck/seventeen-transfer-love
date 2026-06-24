@@ -170,6 +170,12 @@ export async function generatePhaseNarrative() {
 
   showLoading('正在生成时段剧情...');
   try {
+    // 每时段触发一次回礼（非阻塞弹窗）
+    var returnGiftInfo = checkPendingReturnGifts();
+    if (returnGiftInfo) {
+      showReturnGiftModal(returnGiftInfo.member, returnGiftInfo.gift);
+    }
+
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('phase');
@@ -1078,12 +1084,6 @@ export async function goToNextDay() {
 
 export async function proceedToNextDay() {
   GS.dailyFullTexts.push(GS.todayFullText.slice());
-
-  // 成员回礼检查
-  var returnGiftInfo = checkPendingReturnGifts();
-  if (returnGiftInfo) {
-    showReturnGiftModal(returnGiftInfo.member, returnGiftInfo.gift);
-  }
 
   skeletonGenGifts();
   skeletonCleanupMission();
