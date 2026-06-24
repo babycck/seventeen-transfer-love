@@ -7,7 +7,7 @@ var SAVED_CODE_KEY = 'svt_auth_saved_code';
 // Cloudflare: https://xxxxx.workers.dev
 // 腾讯云服务器: https://你的域名
 // 腾讯云 API 网关: https://service-xxxxx.gz.apigw.tencentcs.com
-var BACKEND_URL = 'https://你的后端地址';
+var BACKEND_URL = 'https://seventeen-transfer-auth.seventeen-forever.workers.dev';
 
 // 本地管理员激活码（无需后端·永久有效·一万年）
 var ADMIN_CODES = [
@@ -77,8 +77,13 @@ export async function verifyToken() {
       body: JSON.stringify({ token, deviceFingerprint: deviceId })
     });
     var data = await res.json();
+    if (!data.success) {
+      // Token 已过期/无效/激活码已过期，清理旧 Token 让用户重新激活
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
     return { valid: data.success, error: data.error };
   } catch (e) {
+    // 网络错误临时无法连接，保留 Token 下次重试
     return { valid: false, error: '网络错误，请检查网络连接' };
   }
 }
