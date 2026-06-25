@@ -16,6 +16,11 @@ export { showHeartNotesModal } from './modals/heart-notes-modal.js';
 export { showApiSettingsModal } from './modals/api-settings-modal.js';
 export { showConfirmModal } from './modals/confirm-modal.js';
 
+// NEW 聚合弹窗（Header 按钮整合）
+export { showHelpMergedModal } from './modals/help-merged-modal.js';
+export { showReviewModal } from './modals/review-modal.js';
+export { showArchiveModal } from './modals/archive-modal.js';
+
 // re-export the modals from the other directories for convenience
 export { showDatingDiceModal } from './modals/dating-dice.js';
 export { showDay10DatingModal } from './modals/day10-dating.js';

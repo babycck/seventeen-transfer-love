@@ -2,7 +2,7 @@ import { GS } from '../state.js';
 import { MEMBERS, PHASES, PHASE_LABELS } from '../data.js';
 import { getAffectionHint, getAffectionDesc } from '../affection.js';
 
-// 渲染顶部 Header（日期/时段/天气/好感度提示/功能按钮）
+// 渲染顶部 Header（日期/时段/天气/好感度提示/6个功能按钮）
 export function renderHeader() {
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
@@ -20,23 +20,12 @@ export function renderHeader() {
     members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
     '</span>' +
     '<div class="header-btns">' +
-    '<button id="apiSettingsBtn" title="API设置">⚙️</button>' +
-    '<button id="helpBtn" title="规则速览">❓</button>' +
-    '<button id="helpManualBtn" title="使用说明">📚</button>' +
-    '<button id="historyBtn" title="历史剧情回顾">📖</button>' +
-    '<button id="xArchiveBtn" title="查看X档案">📋</button>' +
-    '<button id="smsHistoryBtn" title="查看短信历史">📜</button>' +
-    (Object.keys(GS.heartNotes).length > 0 ? '<button id="heartNotesBtn" title="心动笔记">📝</button>' : '') +
+    '<button id="settingsBtn" title="设置">⚙️</button>' +
+    '<button id="helpBtn" title="帮助（规则速览·使用说明）">❓</button>' +
+    '<button id="reviewBtn" title="回顾（历史剧情·短信历史）">📚</button>' +
+    '<button id="archiveBtn" title="档案（X档案·记忆物品·心动笔记·秘密任务）">📋</button>' +
     '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' +
-    '<button id="exportBtn" title="导出剧情记录">📥</button>' +
-    '<button id="saveExportBtn" title="导出存档(JSON)">💾</button>' +
-    '<button id="saveImportBtnLabel" title="导入存档(JSON)" onclick="document.getElementById(\'saveImportInput\').click()">📂</button>' +
-    '<input type="file" id="saveImportInput" accept=".json" style="display:none">' +
     (GS.day === 7 && GS.midnightCall && GS.midnightCall.status === 'done' ? '<button id="midnightCallRecordBtn" title="午夜电话记录（Day 7 反馈）">📞</button>' : '') +
-    '<button id="resetGameBtn" title="重置游戏">🔄</button>' +
-    '<button id="themeToggleBtn" title="切换深色/浅色模式">🌙</button>' +
-    '<select id="typewriterSpeedSelect" title="打字机速度" style="margin-left:4px;padding:3px 6px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-soft);color:var(--text-secondary);font-size:11px;cursor:pointer;font-family:inherit">' +
-    '<option value="0">即时</option><option value="100">慢</option><option value="50" selected>中</option><option value="20">快</option><option value="10">极快</option></select>' +
     '</div></div>';
 
   return html;

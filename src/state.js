@@ -389,5 +389,35 @@ export async function resetGame() {
   saveGame();
 }
 
+// 重置缓存：清除所有本地数据（含 API 设置、主题、存档），完全重新开始
+export async function resetCache() {
+  var confirmed = await showConfirmModal(
+    '⚠️ 重置缓存会清除所有本地文件，包括：\n\n' +
+    '• 当前游戏进度\n• API 设置和 Key\n• 主题偏好和打字机速度\n• 已生成的剧情数据\n\n' +
+    '再次启动游戏时所有剧情需要重新生成。\n\n确定要继续吗？'
+  );
+  if (!confirmed) return;
+
+  // 清除所有 svt_* localStorage 项
+  var keysToRemove = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.indexOf('svt_') === 0) {
+      keysToRemove.push(key);
+    }
+  }
+  for (var j = 0; j < keysToRemove.length; j++) {
+    localStorage.removeItem(keysToRemove[j]);
+  }
+  // 同时清除存档 KEY
+  localStorage.removeItem(STORAGE_KEY);
+
+  Object.assign(GS, defaultGameState());
+
+  // 重新加载页面以重置所有模块状态
+  location.reload();
+}
+
+
 
 

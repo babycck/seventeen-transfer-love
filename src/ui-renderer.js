@@ -11,7 +11,7 @@ import { getAffectionHint, getAffectionDesc } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
 import { generateAllXArchives } from './x-archive.js';
-import { showSmsModal, showXArchiveModal, showSmsHistoryModal, showGiftPanel, showHeartNotesModal, showHistoryModal, showHelpModal, showHelpManual, showAffectionPanel, showApiSettingsModal, showConfirmModal } from './modals.js';
+import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
@@ -37,12 +37,6 @@ export function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
   }
   localStorage.setItem('svt_theme', theme);
-  // 更新按钮图标
-  var btn = document.getElementById('themeToggleBtn');
-  if (btn) {
-    var currentIsDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    btn.textContent = currentIsDark ? '☀️' : '🌙';
-  }
 }
 
 export function initTheme() {
@@ -50,12 +44,6 @@ export function initTheme() {
   applyTheme(saved);
 }
 
-function toggleTheme() {
-  var current = document.documentElement.getAttribute('data-theme');
-  var next = (current === 'dark') ? 'light' : 'dark';
-  GS.theme = next;
-  applyTheme(next);
-}
 
 // ==================== UI 渲染 ====================
 export function renderAll() {
@@ -961,19 +949,25 @@ export function bindGameEvents() {
     });
   }
 
-  var xBtn = document.getElementById('xArchiveBtn');
-  if (xBtn) xBtn.addEventListener('click', showXArchiveModal);
+  // [NEW] 设置按钮 → 设置面板（含API/主题/速度/存档/重置）
+  var settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) settingsBtn.addEventListener('click', showApiSettingsModal);
 
-  var smsHistBtn = document.getElementById('smsHistoryBtn');
-  if (smsHistBtn) smsHistBtn.addEventListener('click', showSmsHistoryModal);
+  // [NEW] 帮助按钮 → Tab弹窗（规则速览+使用说明）
+  var helpBtn = document.getElementById('helpBtn');
+  if (helpBtn) helpBtn.addEventListener('click', showHelpMergedModal);
+
+  // [NEW] 回顾按钮 → Tab弹窗（历史剧情+短信历史）
+  var reviewBtn = document.getElementById('reviewBtn');
+  if (reviewBtn) reviewBtn.addEventListener('click', showReviewModal);
+
+  // [NEW] 档案按钮 → Tab弹窗（X档案+记忆物品+心动笔记+秘密任务）
+  var archiveBtn = document.getElementById('archiveBtn');
+  if (archiveBtn) archiveBtn.addEventListener('click', showArchiveModal);
 
   // [P0-2] 小礼物面板
   var giftBtn = document.getElementById('giftBtn');
   if (giftBtn) giftBtn.addEventListener('click', showGiftPanel);
-
-  // 心动笔记
-  var heartNotesBtn = document.getElementById('heartNotesBtn');
-  if (heartNotesBtn) heartNotesBtn.addEventListener('click', showHeartNotesModal);
 
   // 秘密任务通知条折叠
   var missionToggle = document.getElementById('missionToggle');
@@ -1000,76 +994,7 @@ export function bindGameEvents() {
     });
   }
 
-  var historyBtn = document.getElementById('historyBtn');
-  if (historyBtn) historyBtn.addEventListener('click', showHistoryModal);
-
-  var helpBtn = document.getElementById('helpBtn');
-  if (helpBtn) helpBtn.addEventListener('click', showHelpModal);
-  var helpManualBtn = document.getElementById('helpManualBtn');
-  if (helpManualBtn) helpManualBtn.addEventListener('click', showHelpManual);
-
-  var resetBtn = document.getElementById('resetGameBtn');
-  if (resetBtn) resetBtn.addEventListener('click', async function() { await resetGame(); renderAll(); });
-
-  var themeToggleBtn = document.getElementById('themeToggleBtn');
-  if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
-
-  var speedSelect = document.getElementById('typewriterSpeedSelect');
-  if (speedSelect) {
-    speedSelect.value = GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed;
-    speedSelect.addEventListener('change', function() {
-      GS.typewriterSpeed = parseInt(this.value);
-      saveGame();
-    });
-  }
-
-  // 存档导出
-  var saveExportBtn = document.getElementById('saveExportBtn');
-  if (saveExportBtn) {
-    saveExportBtn.addEventListener('click', async function() {
-      if (!(await showConfirmModal('确定要导出存档吗？'))) return;
-      var json = JSON.stringify(GS, null, 2);
-      var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      var d = new Date();
-      a.download = 'SEVENTEEN_存档_' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2) + '.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('✅ 存档已导出');
-    });
-  }
-
-  // 存档导入
-  var saveImportInput = document.getElementById('saveImportInput');
-  if (saveImportInput) {
-    saveImportInput.addEventListener('change', async function() {
-      var file = this.files[0];
-      if (!file) return;
-      try {
-        var text = await file.text();
-        var parsed = JSON.parse(text);
-        if (!parsed.version || !Array.isArray(parsed.selectedMembers)) {
-          showToast('⚠️ 存档文件格式无效');
-          return;
-        }
-        var confirmed = await showConfirmModal('将覆盖当前存档并载入「' + (parsed.heroineProfile ? parsed.heroineProfile.name : '?') + '」（Day ' + parsed.day + '），是否继续？');
-        if (!confirmed) { this.value = ''; return; }
-        setGS(parsed);
-        saveGame();
-        renderAll();
-        showToast('✅ 存档已导入');
-      } catch (e) {
-        showToast('⚠️ 存档文件损坏或格式错误');
-      }
-      this.value = '';
-    });
-  }
-
-  var apiSettingsBtn = document.getElementById('apiSettingsBtn');
-  if (apiSettingsBtn) apiSettingsBtn.addEventListener('click', showApiSettingsModal);
-
+  // 午夜电话记录按钮
   var midnightCallRecordBtn = document.getElementById('midnightCallRecordBtn');
   if (midnightCallRecordBtn) {
     midnightCallRecordBtn.addEventListener('click', async function() {
@@ -1119,31 +1044,6 @@ export function bindGameEvents() {
       overlay.addEventListener('click', function(e) {
         if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
       });
-    });
-  }
-
-  var exportBtn = document.getElementById('exportBtn');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', async function() {
-      if (!(await showConfirmModal('确定要导出剧情记录吗？'))) return;
-      var text = '';
-      for (var i = 0; i < GS.dailyFullTexts.length; i++) {
-        text += '========== Day ' + (i + 1) + ' ==========\n\n';
-        var dayTexts = GS.dailyFullTexts[i];
-        for (var j = 0; j < dayTexts.length; j++) {
-          text += dayTexts[j] + '\n\n';
-        }
-        text += '\n';
-      }
-      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = '换乘恋爱_剧情记录.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
     });
   }
 
