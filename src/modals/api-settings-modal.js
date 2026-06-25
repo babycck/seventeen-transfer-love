@@ -1,6 +1,7 @@
-import { API_PROVIDERS, GS, saveGame, resetGame, resetCache, escHtml, testAPIConnection, showConfirmModal, showToast } from '../core.js';
+import { API_PROVIDERS, GS, saveGame, resetGame, resetCache, escHtml, testAPIConnection, showToast } from '../core.js';
 import { STORAGE_KEY } from '../data.js';
 import { setGS } from '../state.js';
+import { showConfirmModal } from './confirm-modal.js';
 
 function buildModelOptionsHtml(providerKey, selectedModel) {
   var provider = API_PROVIDERS[providerKey] || API_PROVIDERS.deepseek;
