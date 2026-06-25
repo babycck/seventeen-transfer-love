@@ -184,8 +184,35 @@ export function parseNarrative(rawText) {
     if (s.blocks.length === 0 && rawText) {
       var trimmedRaw = rawText.trim();
       if (trimmedRaw.charAt(0) !== '{' && trimmedRaw.length > 50) {
-        s.blocks = [{ type: 'narrative', content: trimmedRaw, member: '' }];
-        console.warn('[parseNarrative] blocks 为空，rawText 非 JSON，作为 fallback narrative');
+        // 检测 AI 思考过程泄漏（模型把内部推理当输出返回，非剧情文本）
+        // 这类文本含"我们需要生成/我决定/先构思/blocks[0]/选项A"等推理关键词
+        // 检测到时不塞入 narrative，保持 blocks 为空，让 validator 报 error 触发重试
+        var reasoningKeywords = [
+          '我们需要生成', '我决定', '先构思', '现在构思', '我这样安排', '基于此',
+          '我需要确保', '我们被要求', '所以选项', '调整选项', '可以这样', '不如设定',
+          'blocks[0]', '选项A', '选项B', '选项C', 'affName', 'affDelta', 'affReason',
+          '生成JSON', '输出格式', '输出JSON', '构思具体内容', '先写具体', '这段剧情',
+          '我没想到', '不太合适', '或许可以', '为了简化', '按年龄顺序', 'riskMember'
+        ];
+        var isReasoningLeak = false;
+        for (var ri = 0; ri < reasoningKeywords.length; ri++) {
+          if (trimmedRaw.indexOf(reasoningKeywords[ri]) >= 0) {
+            isReasoningLeak = true;
+            break;
+          }
+        }
+        // 额外特征：推理泄漏文本通常含「我」+ 多个换行段落 + JSON 字段名
+        if (!isReasoningLeak && trimmedRaw.indexOf('我') >= 0 &&
+            trimmedRaw.split('\n').length > 8 &&
+            (trimmedRaw.indexOf('affName') >= 0 || trimmedRaw.indexOf('options') >= 0 || trimmedRaw.indexOf('blocks') >= 0)) {
+          isReasoningLeak = true;
+        }
+        if (isReasoningLeak) {
+          console.warn('[parseNarrative] 检测到 AI 思考过程泄漏，跳过 fallback，保持 blocks 为空以触发重试');
+        } else {
+          s.blocks = [{ type: 'narrative', content: trimmedRaw, member: '' }];
+          console.warn('[parseNarrative] blocks 为空，rawText 非 JSON，作为 fallback narrative');
+        }
       }
     }
   }

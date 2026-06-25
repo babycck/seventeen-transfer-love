@@ -11,7 +11,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   var tokens = opts.tokens || 5000;
   var temp = opts.temperature || 0.8;
   var sceneType = opts.sceneType || 'phase';
-  var maxAttempts = opts.maxAttempts || 2;
+  var maxAttempts = opts.maxAttempts || 3;
   var skipValidate = opts.skipValidate || false;
 
   var lastResult = null;
