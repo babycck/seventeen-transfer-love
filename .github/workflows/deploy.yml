@@ -22,13 +22,16 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build
+      - name: Build
+        run: npm run build
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist
 
-      - id: deployment
+      - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
