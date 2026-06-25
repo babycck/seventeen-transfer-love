@@ -16,11 +16,9 @@ export function showLoading(msg) {
 
 export function hideLoading() {
   var actionLoading = document.getElementById('actionLoading');
-  if (actionLoading) {
-    actionLoading.classList.add('hidden');
-    return;
-  }
-  document.getElementById('loadingOverlay').classList.add('hidden');
+  if (actionLoading) actionLoading.classList.add('hidden');
+  var overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 export function randInt(min, max) {
