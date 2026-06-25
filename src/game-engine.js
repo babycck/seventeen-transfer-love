@@ -575,6 +575,12 @@ export async function handleTruthRound(opt) {
     var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.6 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
+    // 去重：本地已给女主 +1，防止 AI 返回的 drinks 中再重复累加
+    if (parsed && parsed.drinks && drankThisRound) {
+      parsed.drinks = parsed.drinks.filter(function(d) {
+        return !(d && (d.name === '女主' || d.name === '你'));
+      });
+    }
     applyParsedSideEffects(parsed);
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);

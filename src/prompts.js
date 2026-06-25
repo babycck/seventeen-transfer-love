@@ -77,14 +77,14 @@ export function buildSystemPrompt() {
     '  "observers": [ { "name": "李龙真|金叡园|郑基锡|特约嘉宾", "line": "≤50字一句话" } ],\n' +
     '  "options": [ { "text": "行动描述", "affName":"成员名", "affDelta": 2, "affReason": "10-20字原因", "riskMember":"(可选)", "riskDelta": -2 } ],\n' +
     '  "smsDrafts": ["深夜短信草稿1","草稿2","草稿3"],\n' +
-    '  "drinks": [ { "name": "成员名或\"女主\"", "count": 1 } ],\n' +
+    '  "drinks": [ { "name": "成员名或\"女主\"", "count": 1 } ],   // count 为本轮新增杯数（增量），不是累计值\n' +
 
     '}\n' +
     '⚠️ blocks 必须按输出顺序排列，正文与采访间交替穿插：narrative → interview → narrative → memberInterview → ...\n' +
     'directorOS block 放在 block 数组的末尾（在最后一个 memberInterview 之后），只输出 1 条。\n' +
     '⚠️ observerOS 不进 blocks，只在 observers 数组中输出。\n' +
     '⚠️ 深夜短信剧情(type=sms)不输出 options。约配对日只输出 1 个「▶ 进入约会场景」选项。\n' +
-    '⚠️ smsDrafts 只在深夜(phaseIndex===3)输出；drinks 只在真心话/提问箱环节输出。\n' +
+    '⚠️ smsDrafts 只在深夜(phaseIndex===3)输出；drinks 只在真心话/提问箱环节输出。drinks 只填写本轮新增喝酒的人（增量），禁止重复输出之前已喝的人的累计杯数。累计值由系统自动维护。\n' +
     '⚠️ 所有 content 字段使用中文叙述，不要包含 emoji 标记。第二人称写正文。对话使用「」引用。\n' +
     '⚠️ content 字段的值中禁止使用 ASCII 双引号 "，如需引用对话请使用中文引号「」或「」。\n\n' +
 
@@ -391,7 +391,7 @@ export function buildUserMessage(type, extra) {
       var dm = MEMBERS.find(function(m) { return m.id === drawerId; });
       if (dm) drawerName = dm.name;
     }
-    var currentCard = ts.levelMap[currentLevel].length > 0 ? ts.levelMap[currentLevel][0] : null;
+    var currentCard = ts.currentCard;
     var drinkLines = [];
     for (var did in GS.drinkCounts) {
       var dname = did === 'heroine' ? '你' : (MEMBERS.find(function(m){return m.id===did})||{}).name;
@@ -409,9 +409,9 @@ export function buildUserMessage(type, extra) {
       '1. 当前抽卡人是' + drawerName + '。描写他/她听到问题后的反应、思考、最终选择\n' +
       '2. AI 嘉宾（非女主）回合：在剧情中直接体现该嘉宾的选择（回答或喝酒），60%概率选择喝酒。不需要给玩家 options\n' +
       '3. 女主回合：options 由本地固定，AI 不需要再生成 options。\n' +
-      '4. 喝酒后导演OS中体现当前每人已喝酒杯数\n' +
+      '4. 喝酒后导演OS中体现本轮新增喝酒情况（不要重复累加历史杯数）\n' +
       '5. 输出：blocks（narrative + interview + memberInterview + directorOS）+ observers\n' +
-      '7. 第3轮第4人（最后一人），剧情要在结尾自然收束，准备进入深夜\n\n';
+      '7. 最后一人剧情自然收束即可，不要在其他轮次提前收束或提及进入深夜\n\n';
   }
   if (GS.day === 11 && GS.phaseIndex === 2 && type === 'phase' && !GS.truthState) {
     // 第一次进入真心话：注入完整规则（仅这一次 user message 注入）
@@ -556,7 +556,10 @@ export function buildUserMessage(type, extra) {
       if (extra.truthCard) msg += '本轮问题：' + extra.truthCard.text + '\n';
       if (extra.truthAnswer) msg += '女主的回答：「' + extra.truthAnswer + '」\n';
       if (extra.choiceText && extra.choiceText.indexOf('喝酒') >= 0) msg += truthDrawerName + '选择了拒绝回答并喝酒（+1杯）\n';
-      msg += '\n生成步骤：\n1. 描写 ' + truthDrawerName + ' 听到问题后的第一反应、思考过程、最终行动\n2. 其他嘉宾的反应（表情、眼神、窃窃私语）\n3. 导演OS体现当前每人已喝酒杯数\n4. 第3轮第4人剧情要自然收束，准备进入深夜\n\n';
+      var step4 = (extra.truthRound === 3 && extra.truthSubRound === 4)
+        ? '4. 第3轮第4人剧情要自然收束，准备进入深夜'
+        : '4. 剧情自然延续，不要提前收束，不要提及进入深夜或结束';
+      msg += '\n生成步骤：\n1. 描写 ' + truthDrawerName + ' 听到问题后的第一反应、思考过程、最终行动\n2. 其他嘉宾的反应（表情、眼神、窃窃私语）\n3. 导演OS体现本轮新增喝酒情况（不要重复累加历史杯数）\n' + step4 + '\n\n';
       // 社恐反转
       if (extra.truthDrawer === 'heroine' && GS.heroineProfile.personality.indexOf('社恐小透明') >= 0 && extra.choiceText && extra.choiceText.indexOf('喝酒') >= 0) {
         msg += '[INSTRUCTION] 社恐反转：女主选了「社恐小透明」性格，喝酒后暂时不再社恐——话变多、大胆直视、主动靠近。酒醒后在采访间震惊于自己刚才的表现。\n\n';
@@ -603,12 +606,13 @@ export function buildUserMessage(type, extra) {
     '⚠️ 选项必须严格基于你刚刚写出的剧情文本中的具体场景、对话、细节来推导，每个选项要像「从剧情中长出来」的一样自然。\n' +
     '⚠️ 第一个选项（选项A）尤其必须直接从本段剧情的核心场景/冲突/氛围中提取行动方向，绝对禁止使用"主动搭话""保持距离""沉默不语"等独立于剧情的通用模板。\n' +
     '⚠️ 三个选项指向完全不同的行动方向，禁止出现语义重复的选项。';
+  var optionLengthRule = '⚠️ 每个选项 text 控制在 10-15 字以内，简洁明了，不要写成长句。\n';
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
       '请生成后续剧情（~500字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
       '⚠️ 选项必须基于你刚刚生成的后续剧情来推导——从这段剧情中的具体事件、对话、氛围中提取行动方向，禁止使用与剧情无关的通用选项模板。\n' +
-      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote;
+      '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote + optionLengthRule;
   } else if (type === 'freeAction') {
     var freeNoRepeat = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
       '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n';
@@ -627,7 +631,7 @@ export function buildUserMessage(type, extra) {
       '⚠️ 不要描写女主发短信的动作，短信已经发出了。这是深夜睡前。\n' +
       '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote;
   } else if (type === 'stay') {
-    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~800字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote;
+    msg += '[INSTRUCTION] 生成任务\n玩家选择"继续今天"（今日第' + GS.stayCount + '次）。请基于当前记忆生成新的后续剧情（~800字 JSON），包含 narrative + interview + memberInterview + observers + options（3个）。\n' + noRepeatNote + optionLengthRule;
   } else if (type === 'finalResult') {
     msg += '[INSTRUCTION] 生成任务·最终结局\n玩家选择了：' + extra.choiceText + '\n\n3位成员的最终选择结果：\n';
     for (var k = 0; k < extra.memberChoices.length; k++) {
@@ -659,12 +663,12 @@ export function buildUserMessage(type, extra) {
         '1. 选择X（复合）- 文本包含X成员的名字\n' +
         '2. 选择成员A（换乘）- 文本包含成员A的名字\n' +
         '3. 选择成员B（换乘）- 文本包含成员B的名字\n' +
-        '每个选项的文本要体现女主的内心纠结，不要直接只写名字。\n\n';
+        '每个选项用 10-15 字体现选择倾向，可含成员名+一个动作/情感词，不要写成完整长句。\n\n';
     }
     msg += '请根据以下剧情文本生成选项：\n' + extra.narrativeText + '\n\n' + noRepeatNote;
   } else {
     msg += '[INSTRUCTION] 生成任务\n请生成 Day ' + GS.day + ' ' + phaseLabel + ' 的时段剧情（~800字 JSON）。\n' +
-      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote;
+      '必须包含：至少1段 narrative + 1段 interview + 至少1段 memberInterview + 1段 directorOS + observers 数组 + options 数组（' + (isDatingDay ? '1个，文本为"▶ 进入约会场景"' : '3个，每个含 affName/affDelta/affReason') + '）。\n' + noRepeatNote + optionLengthRule;
 
     if (GS.day === 1 && GS.phaseIndex === 0) {
       msg += '\n这是节目第一天上午！请描写入住心动小屋的场景：你拖着行李箱到达，成员们陆续到来。成员之间彼此非常熟悉（多年队友），只有你是新人。描写每个人进门时的样子、第一句对话。注意：读信环节在傍晚，现在不要写。';
