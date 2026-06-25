@@ -251,6 +251,10 @@ export async function generatePhaseNarrative() {
       var skeletonOpts = (GS.skeletonConfig && GS.skeletonConfig.optionEngine) ? skeletonGenOptions() : null;
       if (skeletonOpts && skeletonOpts.length > 0) {
         GS.currentOptions = skeletonOpts;
+      } else if (narrativeOptions && narrativeOptions.length >= 3) {
+        // [优化] Step 1 已返回 >= 3 个有效选项，直接复用叙事自带选项，跳过 Step 2 AI 调用
+        GS.pendingAffChanges = [];
+        dispatch({ type: 'SET_OPTIONS', payload: { options: narrativeOptions } });
       } else {
         // 正常+约会场景：AI 基于剧情生成选项（剧情延伸 + 好感度字段）
         showLoading('正在根据剧情生成选项...');
