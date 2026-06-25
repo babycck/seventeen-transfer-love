@@ -3,7 +3,7 @@ import { createModal } from './modal-factory.js';
 export function showHelpManual() {
   var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<h3 style="margin:0 0 8px 0">📖 完整使用说明</h3>' +
-    '<div style="flex:1;overflow-y:auto;padding-right:6px;font-size:11px;line-height:1.6;color:var(--text-primary)">' +
+    '<div style="flex:1;overflow-y:auto;padding-right:6px;font-size:12px;line-height:1.7;color:var(--text-primary)">' +
     manualContent() +
     '</div>' +
     '<button class="modal-close-x" id="helpManualClose">✕</button></div>';
@@ -29,7 +29,7 @@ function manualContent() {
 
     section('二、核心玩法', '' +
       sub('12 天节目流程', '每天分 4 个时段：') +
-      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:11px">' +
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:3px 6px;border:1px solid var(--border-primary);text-align:left">时段</th><th style="padding:3px 6px;border:1px solid var(--border-primary);text-align:left">内容</th></tr>' +
       '<tr><td style="padding:3px 6px;border:1px solid var(--border-primary)">☀️ 上午</td><td style="padding:3px 6px;border:1px solid var(--border-primary)">早餐、日常互动、约会配对日</td></tr>' +
       '<tr><td style="padding:3px 6px;border:1px solid var(--border-primary)">🌤 下午</td><td style="padding:3px 6px;border:1px solid var(--border-primary)">约会场景、延续上午剧情</td></tr>' +
@@ -55,7 +55,7 @@ function manualContent() {
       '<li>⏳ Day ≥ 10 显示倒计时</li>' +
       '</ul>' +
       '<p style="margin:4px 0"><strong>功能按钮（右侧）</strong></p>' +
-      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:11px">' +
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">按钮</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">⚙️</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">API 设置（Key、模型）</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❓</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">规则速览</td></tr>' +
@@ -86,7 +86,7 @@ function manualContent() {
     ) +
 
     section('五、底部操作栏', '' +
-      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:11px">' +
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">按钮</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🔄 重新生成本段</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">重新调用 AI 生成当前时段剧情</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">▶ 跳过进入下一时段</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">推进到下一时段</td></tr>' +
@@ -102,7 +102,7 @@ function manualContent() {
     ) +
 
     section('六、弹窗与面板一览', '' +
-      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:11px">' +
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">弹窗</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">入口</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">好感度面板</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">Header ❤️ 文字</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">心动短信</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">深夜 📨 按钮</td></tr>' +
@@ -118,7 +118,7 @@ function manualContent() {
     ) +
 
     section('七、特殊事件', '' +
-      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:11px">' +
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">事件</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">触发</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">前任来电/来信</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">Day 5-9 傍晚/深夜，15% 概率</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">午夜匿名电话</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">Day 6 深夜</td></tr>' +
@@ -176,7 +176,7 @@ function manualContent() {
 }
 
 function section(title, content) {
-  return '<div style="margin:10px 0"><h4 style="margin:0 0 4px 0;font-size:12px;color:var(--text-primary)">' + title + '</h4>' + content + '</div>';
+  return '<div style="margin:10px 0"><h4 style="margin:0 0 4px 0;font-size:13px;color:var(--text-primary)">' + title + '</h4>' + content + '</div>';
 }
 
 function sub(title, content) {

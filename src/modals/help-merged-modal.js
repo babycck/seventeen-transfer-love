@@ -18,7 +18,7 @@ export function showHelpMergedModal() {
     '</div>' +
 
     // Tab 2：使用说明
-    '<div id="helpManualContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    '<div id="helpManualContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px;font-size:12px;line-height:1.7">' +
     buildManualContent() +
     '</div>' +
 
