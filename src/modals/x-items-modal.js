@@ -9,8 +9,8 @@ export function showXItemsModal() {
   var inner = '<div class="modal-content"><h3>📦 X 记忆物品</h3>' +
     '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">制作组公开了以下与X相关的记忆物品：</p>';
   var items = GS.xItems[GS.secretX];
-  if (items) {
-    var reveal = GS.xItemsRevealState[GS.secretX] || 'first';
+  var reveal = GS.xItemsRevealState[GS.secretX];
+  if (items && reveal) {
     var lines = items.split('\n');
     var filtered = [];
     for (var i = 0; i < lines.length; i++) {
@@ -24,6 +24,8 @@ export function showXItemsModal() {
       '<p style="font-size:12px;color:#5d3a3a;white-space:pre-wrap">' + escHtml(filtered.join('\n')).replace(/\n/g, '<br>') + '</p>' +
       (reveal === 'first' ? '<p style="font-size:11px;color:#e91e63;margin-top:6px">⚠️ 故事将在下次公开时解锁</p>' : '') +
       '</div>';
+  } else if (!reveal) {
+    inner += '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂未公开记忆物品</p>';
   }
   inner += '<button class="modal-close-x" id="xItemsClose">✕</button></div>';
   var overlay = createModal(inner);

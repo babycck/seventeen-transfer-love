@@ -38,18 +38,12 @@ export function showXArchiveModal() {
   var inner = '<div class="modal-content"><h3>📋 X 关系档案</h3>' +
     '<p><span class="x-member-name">💔 ' + escHtml(GS.heroineProfile.name) + ' ↔ ' +
     escHtml(xMember.name) + '（' + escHtml(xMember.stageName) + '）· 场内X</span></p>';
-  if (GS.xItems[xMember.id]) {
-    inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(xMember.id, GS.xItems[xMember.id]) + '</p>';
-  }
   inner += formatXStory(GS.xBackstory) +
     '<hr style="border-color:#f0d0d0;margin:10px 0">';
   for (var i = 0; i < otherMembers.length; i++) {
     var om = otherMembers[i];
     inner += '<p><span class="x-member-name">' + om.emoji + ' ' +
       escHtml(om.name) + '（' + escHtml(om.stageName) + '）↔ 场外X（女性）</span></p>';
-    if (GS.xItems[om.id]) {
-      inner += '<p style="font-size:11px;color:#8b6b6b;background:#fff5f5;padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(om.id, GS.xItems[om.id]) + '</p>';
-    }
     inner += formatXStory(GS.memberXBackstories[om.id]) +
       '<hr style="border-color:#f0d0d0;margin:10px 0">';
   }

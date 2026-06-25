@@ -73,9 +73,6 @@ function buildXArchiveContent() {
 
   html += '<p><span class="x-member-name">💔 ' + escHtml(GS.heroineProfile.name) + ' ↔ ' +
     escHtml(xMember.name) + '（' + escHtml(xMember.stageName) + '）· 场内X</span></p>';
-  if (GS.xItems && GS.xItems[xMember.id]) {
-    html += '<p style="font-size:11px;color:var(--text-muted);background:var(--bg-soft);padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(xMember.id, GS.xItems[xMember.id]) + '</p>';
-  }
   html += formatXStory(GS.xBackstory) +
     '<hr style="border-color:var(--border-primary);margin:10px 0">';
 
@@ -83,9 +80,6 @@ function buildXArchiveContent() {
     var om = otherMembers[i];
     html += '<p><span class="x-member-name">' + om.emoji + ' ' +
       escHtml(om.name) + '（' + escHtml(om.stageName) + '）↔ 场外X（女性）</span></p>';
-    if (GS.xItems && GS.xItems[om.id]) {
-      html += '<p style="font-size:11px;color:var(--text-muted);background:var(--bg-soft);padding:6px;border-radius:6px">📦 记忆物品：' + filterItemsByReveal(om.id, GS.xItems[om.id]) + '</p>';
-    }
     html += formatXStory(GS.memberXBackstories && GS.memberXBackstories[om.id] || '') +
       '<hr style="border-color:var(--border-primary);margin:10px 0">';
   }
@@ -129,7 +123,8 @@ function buildXItemsContent() {
     var items = GS.xItems && GS.xItems[m.id];
     if (!items) continue;
     hasItems = true;
-    var reveal = GS.xItemsRevealState && GS.xItemsRevealState[m.id] || 'first';
+    var reveal = GS.xItemsRevealState && GS.xItemsRevealState[m.id];
+    if (!reveal) continue;
     var lines = items.split('\n');
     var filtered = [];
     for (var j = 0; j < lines.length; j++) {
