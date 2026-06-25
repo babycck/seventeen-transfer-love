@@ -169,6 +169,27 @@ export function parseNarrative(rawText) {
   }
   var s = sanitizeScene(obj);
 
+  // fallback：blocks 为空时尝试从其他字段或 rawText 提取内容，避免完全丢失 AI 返回的剧情
+  if (s.blocks.length === 0 && obj) {
+    var fallbackFields = ['narrative', 'content', 'text', 'story'];
+    for (var fi = 0; fi < fallbackFields.length; fi++) {
+      var val = obj[fallbackFields[fi]];
+      if (typeof val === 'string' && val.trim().length > 20) {
+        s.blocks = [{ type: 'narrative', content: val.trim(), member: '' }];
+        console.warn('[parseNarrative] blocks 为空，从 obj.' + fallbackFields[fi] + ' 提取 fallback narrative');
+        break;
+      }
+    }
+    // 如果 obj 中没有其他文本字段，但 rawText 本身不是 JSON 格式（AI 可能返回了纯文本）
+    if (s.blocks.length === 0 && rawText) {
+      var trimmedRaw = rawText.trim();
+      if (trimmedRaw.charAt(0) !== '{' && trimmedRaw.length > 50) {
+        s.blocks = [{ type: 'narrative', content: trimmedRaw, member: '' }];
+        console.warn('[parseNarrative] blocks 为空，rawText 非 JSON，作为 fallback narrative');
+      }
+    }
+  }
+
   // ---- 按块类型分组，给旧字段做兼容映射 ----
   var narrativeLines = [];
   var directorLines = [];

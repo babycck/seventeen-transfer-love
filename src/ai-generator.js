@@ -57,9 +57,10 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
     if (attempt < maxAttempts - 1) {
       var errMsgs = errors.map(function(e) { return '[' + (e.type || '?') + '] ' + e.message; }).join(' | ');
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' failed with ' + errors.length + ' error(s): ' + errMsgs);
-      if (GS._lastParseError) {
-        console.warn('[ai-generator] lastParseError rawText (first 600 chars):', (GS._lastParseError.rawText || '').slice(0, 600));
-      }
+      // 总是记录 rawText 前 800 字符，方便定位 AI 返回了什么
+      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' rawText (first 800 chars):', (raw || '').slice(0, 800));
+      // 额外记录 parsed.blocks 状态，判断是解析失败还是 AI 返回空内容
+      console.warn('[ai-generator] attempt ' + (attempt + 1) + ' parsed.blocks.length:', (parsed.blocks || []).length);
       currentUserMsg = currentUserMsg + '\n\n' + formatCorrections(errors);
       continue;
     }
