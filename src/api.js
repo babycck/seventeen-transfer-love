@@ -350,21 +350,21 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
 
       // 从 userMessage 推断场景类型
       var um = (userMessage || '').toLowerCase();
-      var sceneType = 'phase';
-      if (um.indexOf('真心话') >= 0 || um.indexOf('truth') >= 0) sceneType = 'truth';
-      else if (um.indexOf('醉酒') >= 0 || um.indexOf('drunk') >= 0) sceneType = 'drunk';
-      else if (um.indexOf('提问箱') >= 0 || um.indexOf('question') >= 0) sceneType = 'questionBox';
-      else if (um.indexOf('后续') >= 0 || um.indexOf('consequence') >= 0) sceneType = 'consequence';
-      else if (um.indexOf('自由行动') >= 0 || um.indexOf('free') >= 0) sceneType = 'freeAction';
-      else if (um.indexOf('继续今天') >= 0 || um.indexOf('stay') >= 0) sceneType = 'stay';
-      else if (um.indexOf('短信') >= 0 || um.indexOf('sms') >= 0) sceneType = 'sms';
-      else if (um.indexOf('最终选择') >= 0 || um.indexOf('final') >= 0) sceneType = 'finalResult';
+      var inferredSceneType = 'phase';
+      if (um.indexOf('真心话') >= 0 || um.indexOf('truth') >= 0) inferredSceneType = 'truth';
+      else if (um.indexOf('醉酒') >= 0 || um.indexOf('drunk') >= 0) inferredSceneType = 'drunk';
+      else if (um.indexOf('提问箱') >= 0 || um.indexOf('question') >= 0) inferredSceneType = 'questionBox';
+      else if (um.indexOf('后续') >= 0 || um.indexOf('consequence') >= 0) inferredSceneType = 'consequence';
+      else if (um.indexOf('自由行动') >= 0 || um.indexOf('free') >= 0) inferredSceneType = 'freeAction';
+      else if (um.indexOf('继续今天') >= 0 || um.indexOf('stay') >= 0) inferredSceneType = 'stay';
+      else if (um.indexOf('短信') >= 0 || um.indexOf('sms') >= 0) inferredSceneType = 'sms';
+      else if (um.indexOf('最终选择') >= 0 || um.indexOf('final') >= 0) inferredSceneType = 'finalResult';
 
-      var sceneJson = _pickTestScene(sceneType);
+      var sceneJson = _pickTestScene(inferredSceneType);
       if (sceneJson) return sceneJson;
 
       // finalResult 没有对应数据时返回硬编码 fallback
-      if (sceneType === 'finalResult') {
+      if (inferredSceneType === 'finalResult') {
         return JSON.stringify({
           blocks: [
             { type: 'narrative', content: '十二天的心动旅程走到了终点。你站在心动小屋的门前，回头看了一眼这栋承载了无数回忆的房子。阳光依旧从落地窗洒进来，厨房里仿佛还能听到他们三个人的笑声。你闭上眼睛，深吸一口气——无论结局如何，这段旅程已经改变了你。' },

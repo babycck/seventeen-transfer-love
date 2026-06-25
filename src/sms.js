@@ -7,7 +7,7 @@ import { updateAffection, addAffectionLog } from './affection.js';
 import { buildSystemPrompt, buildUserMessage } from './prompts.js';
 import { compressTodayForInjection } from './memory.js';
 import { validateNarrative } from './validator.js';
-import { checkMissionInteract } from './utils.js';
+import { checkMissionInteract, escHtml } from './utils.js';
 
 export async function sendSms(targetId, smsContent) {
   var targetMember = MEMBERS.find(function(m) { return m.id === targetId; });
@@ -57,7 +57,7 @@ export async function sendSms(targetId, smsContent) {
     saveGame();
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
-    alert('⚠️ 短信生成失败：' + e.message + '\n请点击刷新按钮重试。');
+    showToast('⚠️ 短信生成失败：' + escHtml(e.message));
     saveGame();
     if (window.__renderAll) window.__renderAll();
   }

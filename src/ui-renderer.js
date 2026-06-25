@@ -21,7 +21,6 @@ import { renderParsedNarrative, renderNarrativeSection, startTypewriter } from '
 import { renderOptionPanel, renderTruthPanel, renderQuestionBoxPanel } from './ui/option-panel.js';
 import { renderActionBar } from './ui/action-bar.js';
 import { renderFreeInput } from './ui/free-input.js';
-import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { parseNarrative, completeSecretMission } from './parser.js';
 import { loadTestScene } from './api.js';
 import { activateCode, saveCodePreference, getSavedCode, isRememberCode } from './auth.js';
@@ -668,6 +667,7 @@ export function renderGameScreen() {
   }
 
   // 选项面板（使用 UI 组件）
+  html += '<div id="actionSection" style="position:relative">';
   if (GS.truthState && GS.truthState.active) {
     html += renderTruthPanel();
   } else if (GS.questionBox && GS.questionBox.active) {
@@ -681,6 +681,10 @@ export function renderGameScreen() {
 
   // 自由输入（使用 UI 组件）
   html += renderFreeInput(freeInputExhausted);
+
+  // 局部 loading 遮罩（仅覆盖操作区，不遮挡剧情区）
+  html += '<div id="actionLoading" class="action-loading hidden"><div class="spinner"></div><div id="actionLoadingText" style="margin-top:10px;color:#c2185b;font-weight:600;font-size:13px">加载中...</div></div>';
+  html += '</div>';
 
   // 游戏结束
   if (GS.gameOver) {

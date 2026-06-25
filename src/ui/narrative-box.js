@@ -470,9 +470,6 @@ function showEditButton() {
   if (btn) btn.classList.add('visible');
 }
 
-// 导出暴露给点击事件绑定
-window.__showNarrativeEditor = showNarrativeEditor;
-
 // 全局点击委托：捕获编辑按钮点击
 document.addEventListener('click', function(e) {
   var target = e.target;

@@ -1,4 +1,4 @@
-import { GS, saveGame } from '../state.js';
+import { GS } from '../state.js';
 import { MEMBERS } from '../data.js';
 
 // 午夜匿名电话亭

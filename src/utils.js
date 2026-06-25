@@ -3,11 +3,23 @@ import { PHASES, RANDOM_EVENTS_POOL, SECRET_MISSIONS, MEMBERS } from './data.js'
 
 // ==================== 工具函数 ====================
 export function showLoading(msg) {
+  var actionLoading = document.getElementById('actionLoading');
+  if (actionLoading) {
+    var textEl = document.getElementById('actionLoadingText');
+    if (textEl) textEl.textContent = msg || '加载中...';
+    actionLoading.classList.remove('hidden');
+    return;
+  }
   document.getElementById('loadingText').textContent = msg || '加载中...';
   document.getElementById('loadingOverlay').classList.remove('hidden');
 }
 
 export function hideLoading() {
+  var actionLoading = document.getElementById('actionLoading');
+  if (actionLoading) {
+    actionLoading.classList.add('hidden');
+    return;
+  }
   document.getElementById('loadingOverlay').classList.add('hidden');
 }
 

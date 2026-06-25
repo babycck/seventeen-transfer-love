@@ -1,6 +1,6 @@
 ﻿import {
   MEMBERS, PHASES, PHASE_LABELS, PHASE_BOUNDARIES, PHASE_TONE,
-  CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, BEHAVIOR_MAP, shouldTriggerRandomEvent, GS, callDeepSeek
+  CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, shouldTriggerRandomEvent, GS
 } from './core.js';
 import { formatCorrections } from './validator.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask } from './formatters.js';
