@@ -6,7 +6,7 @@ export function showHelpMergedModal() {
   overlay.className = 'modal-overlay';
   overlay.style.zIndex = '200';
 
-  var inner = '<div class="modal-content" style="width:520px;max-width:98vw;display:flex;flex-direction:column;max-height:90vh">' +
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">' +
     '<button class="tab-btn active" id="helpTabRules">❓ 规则速览</button>' +
     '<button class="tab-btn" id="helpTabManual">📖 使用说明</button>' +

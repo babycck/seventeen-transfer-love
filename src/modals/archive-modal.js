@@ -6,7 +6,7 @@ export function showArchiveModal() {
   overlay.className = 'modal-overlay';
   overlay.style.zIndex = '200';
 
-  var inner = '<div class="modal-content" style="width:520px;max-width:98vw;display:flex;flex-direction:column;max-height:90vh">' +
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0;flex-wrap:wrap">' +
     '<button class="tab-btn active" id="archiveTabX">📋 X 档案</button>' +
     '<button class="tab-btn" id="archiveTabItems">📦 记忆物品</button>' +

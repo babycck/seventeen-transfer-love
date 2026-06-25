@@ -98,7 +98,7 @@ export function showApiSettingsModal() {
   var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
   var themeVal = GS.theme || 'auto';
 
-  var inner = '<div class="modal-content" style="width:460px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column">' +
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<h3 style="flex-shrink:0">⚙️ 设置</h3>' +
     '<div class="settings-scroll" style="flex:1;overflow-y:auto;padding-right:4px">' +
 

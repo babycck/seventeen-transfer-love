@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深色模式样式预览 - OS/采访间</title>
+<link rel="stylesheet" href="/src/style.css">
+<style>
+  body { font-family: -apple-system, "Microsoft YaHei", sans-serif; margin: 0; padding: 24px; min-height: 100vh; background: var(--bg-gradient); color: var(--text-primary); transition: background .3s; }
+  .preview-wrap { max-width: 760px; margin: 0 auto; }
+  .preview-card { background: var(--bg-card); border-radius: 14px; padding: 20px 24px; box-shadow: var(--shadow-card); margin-bottom: 18px; }
+  .preview-card h2 { margin: 0 0 6px; font-size: 18px; color: var(--accent-primary); }
+  .preview-card .desc { font-size: 12px; color: var(--text-muted); margin: 0 0 14px; }
+  .theme-switch { position: fixed; top: 18px; right: 18px; z-index: 99; display: flex; gap: 6px; background: var(--bg-card); padding: 6px; border-radius: 999px; box-shadow: var(--shadow-card); }
+  .theme-switch button { border: none; background: var(--bg-soft); color: var(--text-secondary); padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+  .theme-switch button.active { background: var(--accent-primary); color: #fff; }
+  .narrative-box { font-size: 14px; line-height: 1.8; }
+  .tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:4px; background:var(--accent-success-bg); color:var(--accent-success); margin-left:8px; vertical-align:middle; }
+  .tag.old { background:#ffebee; color:#c62828; }
+</style>
+</head>
+<body>
+<div class="theme-switch">
+  <button onclick="setTheme('light')" id="btn-light">☀️ 浅色</button>
+  <button onclick="setTheme('dark')" id="btn-dark">🌙 深色</button>
+</div>
+<div class="preview-wrap">
+  <div class="preview-card">
+    <h2>深色模式 OS / 采访间背景修复预览</h2>
+    <p class="desc">点击右上角切换主题。下方展示 5 种剧情元素在当前主题下的实际渲染效果。修复前 observer/interview/member-interview 在深色模式下背景刺眼（硬编码浅色），修复后统一使用 CSS 变量。</p>
+  </div>
+
+  <div class="preview-card">
+    <h2>🎬 导演 OS <span class="tag">已用变量</span></h2>
+    <p class="desc">.director-os — 浅色 #f9f0f9 / 深色 #1e1e2e</p>
+    <div class="narrative-box">
+      <div class="director-os">【导演OS】今天的天气晴朗，心动小屋的早晨阳光透过窗帘洒进来。女主起床后发现厨房已经有人在做早餐了。</div>
+    </div>
+  </div>
+
+  <div class="preview-card">
+    <h2>💭 观察员 OS <span class="tag">已修复</span></h2>
+    <p class="desc">.observer-os — 修复前 #fef9e7（刺眼）→ 修复后 var(--bg-observer) 深色 #222240</p>
+    <div class="narrative-box">
+      <div class="observer-os"><span class="obs-name">夫胜宽：</span>哇，这个开场也太甜了吧！你们看到没有，她进门的时候明显愣了一下。这就是心动啊朋友们，这就是心动！</div>
+    </div>
+  </div>
+
+  <div class="preview-card">
+    <h2>🎙 女主采访间 <span class="tag">已修复</span></h2>
+    <p class="desc">.interview — 修复前 #f5f0fa（刺眼）→ 修复后 var(--bg-interview) 深色 #2a1a24</p>
+    <div class="narrative-box">
+      <div class="interview">【采访间·女主】说实话，早上看到他在厨房的时候，我的心跳确实漏了一拍。但我还不确定那是因为习惯，还是因为……别的什么。</div>
+    </div>
+  </div>
+
+  <div class="preview-card">
+    <h2>🎙️💔 X 采访间 <span class="tag">已用变量</span></h2>
+    <p class="desc">.x-interview — 浅色 #fff0f3 / 深色 #2a1a24</p>
+    <div class="narrative-box">
+      <div class="x-interview">【采访间·X】看到她和别人笑得那么开心，说不出的感觉。明明是我先放手的，可现在后悔的却是我。</div>
+    </div>
+  </div>
+
+  <div class="preview-card">
+    <h2>🎤 成员采访间 <span class="tag">已修复</span></h2>
+    <p class="desc">.member-interview — 修复前 #f0f4fa（刺眼）→ 修复后 var(--bg-mc-interview) 深色 #1e2a3e（新增变量）</p>
+    <div class="narrative-box">
+      <div class="member-interview">【采访间·圆佑】她今天早上看起来心情不错。我本来想主动搭话的，但看到她先去找别人聊了……算了，不急。</div>
+    </div>
+  </div>
+
+  <div class="preview-card">
+    <h2>📝 对比说明</h2>
+    <p class="desc">深色模式下，修复前的 3 个元素背景是亮色块（浅黄/浅紫/浅蓝），在深色主背景 #1a1a2e 下非常刺眼。修复后统一为深色调，文字颜色也提亮（金色/亮紫/亮蓝）保证对比度。</p>
+  </div>
+</div>
+
+<script>
+  function setTheme(t) {
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+    try { localStorage.setItem('svt_theme', t); } catch(e) {}
+  }
+  var saved = 'dark';
+  try { saved = localStorage.getItem('svt_theme') || 'dark'; } catch(e) {}
+  setTheme(saved);
+</script>
+</body>
+</html>

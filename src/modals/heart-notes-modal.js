@@ -6,7 +6,7 @@ export function showHeartNotesModal() {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
 
-  var inner = '<div class="modal-content" style="width:480px;max-width:98vw"><h3>📝 心动笔记</h3>' +
+  var inner = '<div class="modal-content"><h3>📝 心动笔记</h3>' +
     '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">随着好感度提升和秘密任务完成，逐步解锁成员的隐藏细节。</p>';
 
   var hasAnyNote = false;

@@ -7,7 +7,7 @@ export function showHelpModal() {
   });
   var xMember = members.find(function(m) { return m.id === GS.secretX; });
 
-  var inner = '<div class="modal-content" style="width:500px;max-width:98vw"><h3>❓ 规则速览</h3>' +
+  var inner = '<div class="modal-content"><h3>❓ 规则速览</h3>' +
     '<div style="font-size:12px;line-height:1.8;color:#5d3a3a">' +
     '<p><strong>📅 当前：Day ' + GS.day + ' · ' + PHASE_LABELS[PHASES[GS.phaseIndex]] + '</strong></p>' +
     '<p><strong>💔 你的X：</strong>' + xMember.emoji + ' ' + xMember.name + '（秘密恋爱2年，分手1年，团内无人知晓）</p>' +

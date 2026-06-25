@@ -1503,7 +1503,7 @@ export function checkPendingReturnGifts() {
 export function showReturnGiftModal(member, gift) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = '<div class="modal-content" style="text-align:center;max-width:360px">' +
+  overlay.innerHTML = '<div class="modal-content" style="text-align:center">' +
     '<button class="modal-close-x" id="returnGiftClose">✕</button>' +
     '<h3>🎁 收到回礼</h3>' +
     '<p style="font-size:36px;margin:12px 0">' + member.emoji + '</p>' +
@@ -1529,7 +1529,7 @@ export function showReturnGiftModal(member, gift) {
 export function showMissionCardModal(card) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = '<div class="modal-content" style="max-width:380px;text-align:center;border:2px solid #c62828">' +
+  overlay.innerHTML = '<div class="modal-content" style="text-align:center;border:2px solid #c62828">' +
     '<button class="modal-close-x" id="missionCardClose" style="color:#fff">✕</button>' +
     '<div style="background:#c62828;color:#fff;padding:16px;border-radius:10px 10px 0 0;margin:-16px -16px 16px -16px">' +
     '<p style="font-size:11px;letter-spacing:2px;opacity:0.8">制作组任务卡</p>' +

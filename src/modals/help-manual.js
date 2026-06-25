@@ -1,7 +1,7 @@
 import { createModal } from './modal-factory.js';
 
 export function showHelpManual() {
-  var inner = '<div class="modal-content" style="width:580px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column">' +
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<h3 style="margin:0 0 8px 0">📖 完整使用说明</h3>' +
     '<div style="flex:1;overflow-y:auto;padding-right:6px;font-size:12px;line-height:1.7;color:var(--text-primary)">' +
     manualContent() +

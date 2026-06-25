@@ -8,7 +8,7 @@ export function showAffectionPanel() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 
-  var inner = '<div class="modal-content" style="width:480px;max-width:98vw"><h3>💕 好感度面板</h3>';
+  var inner = '<div class="modal-content"><h3>💕 好感度面板</h3>';
   for (var i = 0; i < members.length; i++) {
     var m = members[i];
     var aff = GS.affection[m.id] || 0;

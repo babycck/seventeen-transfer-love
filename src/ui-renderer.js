@@ -1026,7 +1026,7 @@ export function bindGameEvents() {
       mc = GS.midnightCall;
       var target = MEMBERS.find(function(m) { return m.id === mc.targetId; });
       var targetName = target ? target.name : '嘉宾';
-      var html = '<div class="modal-content" style="max-width:360px">' +
+      var html = '<div class="modal-content">' +
         '<h3>📞 午夜电话记录</h3>' +
         '<p style="font-size:13px;color:#5d3a3a;margin-bottom:8px"><strong>目标：</strong>' + escHtml(targetName) + '</p>' +
         '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>你说：</strong></p>' +

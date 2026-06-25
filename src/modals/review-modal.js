@@ -7,7 +7,7 @@ export function showReviewModal() {
   overlay.className = 'modal-overlay';
   overlay.style.zIndex = '200';
 
-  var inner = '<div class="modal-content" style="width:540px;max-width:98vw;display:flex;flex-direction:column;max-height:90vh">' +
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">' +
     '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
     '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>' +

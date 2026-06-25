@@ -4,7 +4,7 @@ import { parseNarrative } from '../parser.js';
 export function showHistoryModal() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  var inner = '<div class="modal-content" style="width:520px;max-width:98vw"><h3>📖 历史剧情回顾</h3>' +
+  var inner = '<div class="modal-content"><h3>📖 历史剧情回顾</h3>' +
     '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' +
     '<button class="history-tab active" id="historyTabStory">📖 剧情</button>' +
     '<button class="history-tab" id="historyTabSummary">📅 记忆摘要</button>' +

@@ -12,7 +12,7 @@ export function showConfirmModal(message, opts) {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
 
-    var inner = '<div class="modal-content confirm-modal-content" style="max-width:400px;text-align:center">' +
+    var inner = '<div class="modal-content confirm-modal-content" style="text-align:center">' +
       '<h3 style="margin-bottom:12px;color:var(--text-primary,#3d2c2c)">' + title + '</h3>' +
       '<p style="font-size:14px;color:var(--text-muted,#8b6b6b);margin-bottom:20px;line-height:1.6">' + message + '</p>' +
       '<div style="display:flex;gap:10px;justify-content:center">' +

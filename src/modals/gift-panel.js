@@ -12,7 +12,7 @@ export function showGiftPanel() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 
-  var inner = '<div class="modal-content" style="max-width:420px"><h3>🎁 礼物</h3>' +
+  var inner = '<div class="modal-content"><h3>🎁 礼物</h3>' +
     '<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1.5px solid #e0c0c0">' +
     '<button class="gift-tab active" id="giftTabMyGifts" style="flex:1;padding:8px;border:none;background:#fce4ec;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#c2185b;font-weight:600">🎁 我的礼物</button>' +
     '<button class="gift-tab" id="giftTabReceived" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:#8b6b6b">📦 礼物柜</button>' +
@@ -191,7 +191,7 @@ function showGiftDescModal(rg, member, desc) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 
-  var inner = '<div class="modal-content" style="max-width:360px">' +
+  var inner = '<div class="modal-content">' +
     '<p style="font-size:12px;color:#8b6b6b;margin-bottom:4px">' + member.emoji + ' ' + escHtml(member.name) + ' 的回礼</p>' +
     '<h3 style="margin-bottom:12px">' + escHtml(rg.gift) + '<span style="font-size:11px;color:#999;margin-left:8px">Day ' + rg.day + '</span></h3>' +
     '<div style="background:#f0faf0;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:#3d2c2c">' +
