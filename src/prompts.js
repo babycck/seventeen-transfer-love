@@ -857,7 +857,7 @@ export function buildOneHeartUserMessage(type, extra) {
     if (todayText.trim()) {
       msg += '今日已发生剧情（最后部分）：\n' + todayText + '\n\n';
     }
-    msg += '请生成下一段剧情（~800字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
+    msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
     // 注入故事上下文
     if (GS.day >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
