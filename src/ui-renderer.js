@@ -1519,6 +1519,7 @@ function showOneHeartMainlineModal() {
     if (e.target === overlay) overlay.remove();
   });
 }
+window.showOneHeartMainlineModal = showOneHeartMainlineModal;
 
 
       mc = GS.midnightCall;
