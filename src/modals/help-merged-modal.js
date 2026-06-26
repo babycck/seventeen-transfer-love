@@ -1,4 +1,5 @@
 import { MEMBERS, GS, PHASES, PHASE_LABELS, PHASE_ACTION_LIMIT, MAX_STAY_COUNT, escHtml } from '../core.js';
+import { ONE_HEART_WORLDS, ONE_HEART_STYLES } from '../data.js';
 import { createModal } from './modal-factory.js';
 
 export function showHelpMergedModal() {
@@ -48,6 +49,32 @@ export function showHelpMergedModal() {
 }
 
 function buildRulesContent() {
+  if (GS.gameMode === 'oneHeart') {
+    var ohMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    var world = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
+    var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
+    return '<div style="font-size:12px;line-height:1.8;color:var(--text-secondary)">' +
+      '<p><strong>💗 只为你心动（1v1 模式）</strong></p>' +
+      '<p><strong>📅 当前：Day ' + GS.day + '</strong></p>' +
+      '<p><strong>❤️ 心动对象：</strong>' + (ohMember ? ohMember.emoji + ' ' + escHtml(ohMember.name) : '未选择') + '</p>' +
+      '<p><strong>🌍 世界观：</strong>' + (world ? world.name : '未选择') + ' · <strong>✍️ 风格：</strong>' + (style ? style.name : '未选择') + '</p>' +
+      '<p><strong>📋 核心机制</strong></p>' +
+      '<p style="margin-left:12px">📖 <strong>剧情</strong>：AI 实时生成你跟他的专属恋爱故事。每次选择走向不同的分支。</p>' +
+      '<p style="margin-left:12px">💬 <strong>聊天</strong>：与他实时对话，AI 会根据当前剧情进展和聊天记录自然回复。</p>' +
+      '<p style="margin-left:12px">📸 <strong>朋友圈</strong>：随机触发生成一条朋友圈动态，他会评论互动。</p>' +
+      '<p style="margin-left:12px">🎭 <strong>剧场</strong>：生成独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）。</p>' +
+      '<p><strong>⚡ 快捷指令</strong>（剧情区上方展开）</p>' +
+      '<p style="margin-left:12px">🔄 自由推演 · 📌 设定/拉回主线 · 🎲 随机事件 · 🏁 走向大结局</p>' +
+      '<p><strong>✍️ 操作方式</strong></p>' +
+      '<p style="margin-left:12px">• 点击 A/B/C 选项推进剧情</p>' +
+      '<p style="margin-left:12px">• 在底部输入框写下自由行动，点击「▶ 进入下一段」提交</p>' +
+      '<p style="margin-left:12px">• 🔄 重新生成当前剧情</p>' +
+      '<p style="margin-left:12px">• 💬 聊天 Tab 实时对话，无次数限制</p>' +
+      (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
+      '</div>';
+  }
+
+  // 换乘模式规则
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
@@ -73,10 +100,81 @@ function buildRulesContent() {
 }
 
 function buildManualContent() {
-  return manualHTML();
+  if (GS.gameMode === 'oneHeart') {
+    return oneHeartManualHTML();
+  }
+  return transferManualHTML();
 }
 
-function manualHTML() {
+function oneHeartManualHTML() {
+  return '' +
+    section('一、快速开始',
+      '<ol style="margin:4px 0;padding-left:20px">' +
+      '<li>打开游戏：浏览器访问游戏地址</li>' +
+      '<li>输入 API Key：点击 ⚙️ 按钮填写 DeepSeek API Key（sk-...）</li>' +
+      '<li>设定女主 + 选择心动对象（同一页面完成）</li>' +
+      '<li>选择世界观（11 种可选）和写作风格</li>' +
+      '<li>确认设定后点击「🎮 开始故事！」</li>' +
+      '</ol>'
+    ) +
+
+    section('二、核心玩法',
+      '<p style="margin:4px 0"><strong>无限推进式剧情</strong></p>' +
+      '<p style="margin:4px 0">没有固定天数限制，AI 实时生成你和他的专属故事。每个选择影响后续剧情走向。</p>' +
+      '<p style="margin:4px 0"><strong>四大互动方式</strong></p>' +
+      '<ol style="margin:4px 0;padding-left:20px">' +
+      '<li><strong>点击选项</strong>：剧情下方出现 A/B/C 选项，点击后推进</li>' +
+      '<li><strong>自由输入</strong>：底部输入框写下你想发生的一段剧情，点击「▶ 进入下一段」提交</li>' +
+      '<li><strong>⚡ 快捷指令</strong>：展开抽屉使用自由推演、设主线、拉回主线、随机事件、走向大结局</li>' +
+      '<li><strong>💬 聊天 Tab</strong>：与他实时对话，无次数限制</li>' +
+      '</ol>'
+    ) +
+
+    section('三、底部 Tab 系统',
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
+      '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">Tab</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📖 剧情</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">主剧情区，所有故事在这里展开</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">💬 聊天</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">与他实时对话，AI 会根据剧情进展自然回复</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📸 朋友圈</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">随机朋友圈动态 + 他的评论互动</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🎭 剧场</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）</td></tr>' +
+      '</table>'
+    ) +
+
+    section('四、顶部功能按钮',
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
+      '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">按钮</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❤️ 好感度</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">点击打开好感度详细面板</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">⚙️</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">设置面板（API/主题/速度/存档/重置）</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❓</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">帮助（规则速览 + 使用说明）</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📚</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">回顾（历史剧情 + 每日压缩记忆）</td></tr>' +
+      '</table>'
+    ) +
+
+    section('五、快捷指令详解',
+      '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
+      '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">指令</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">效果</th></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🔄 自由推演</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">聚焦输入框，让你自由写下想发生的新剧情方向</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📌 设定主线</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">弹出输入框，设定故事主线方向（如「我想发展温馨日常」）</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📌 拉回主线</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">AI 回到你设定的主线方向推进剧情</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🎲 随机事件</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">触发一段随机剧情事件</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🏁 走向大结局</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">结束当前故事，进入结局</td></tr>' +
+      '</table>'
+    ) +
+
+    section('六、注意事项',
+      '<ul style="margin:4px 0;padding-left:20px">' +
+      '<li>AI 生成剧情需要网络连接，首次生成可能需要 10-30 秒</li>' +
+      '<li>聊天有50条上限，超过后自动清理最早记录</li>' +
+      '<li>朋友圈 30% 概率每段剧情后生成</li>' +
+      '<li>AI 生成失败时点击「🔄 重新生成」重试</li>' +
+      '<li>建议 Chrome / Edge 浏览器</li>' +
+      '</ul>' +
+      '<hr style="margin:8px 0;border:none;border-top:1px solid var(--border-primary)">' +
+      '<p style="text-align:center;color:var(--text-secondary)">本游戏由 AI 实时生成剧情，每一次选择都是独特的恋爱线。<br>享受这场只为你心动的旅程 💗</p>'
+    );
+}
+
+function transferManualHTML() {
   return '' +
     section('一、快速开始',
       '<ol style="margin:4px 0;padding-left:20px">' +

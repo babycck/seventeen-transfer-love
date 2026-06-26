@@ -1,45 +1,66 @@
-import { GS, escHtml } from '../core.js';
+import { GS, escHtml, saveGame } from '../core.js';
 import { MEMBERS } from '../data.js';
 import { parseNarrative } from '../parser.js';
 
 export function showReviewModal() {
+  var isOneHeart = GS.gameMode === 'oneHeart';
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.style.zIndex = '200';
 
-  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
-    '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">' +
+  // Tab 按钮
+  var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">' +
     '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
-    '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>' +
-    '</div>' +
+    '<button class="tab-btn" id="reviewTabSummary">📅 每日压缩记忆</button>';
+  if (!isOneHeart) {
+    tabsHtml += '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>';
+  }
+  tabsHtml += '</div>';
 
+  var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
+    tabsHtml +
     // Tab 1：历史剧情
     '<div id="reviewHistoryContent" style="flex:1;overflow-y:auto;padding-right:4px">' +
     buildHistoryContent() +
     '</div>' +
-
-    // Tab 2：短信历史
-    '<div id="reviewSmsContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
-    buildSmsHistoryContent() +
+    // Tab 2：每日压缩记忆
+    '<div id="reviewSummaryContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    buildSummaryContent() +
     '</div>' +
-
+    // Tab 3：短信历史（仅换乘）
+    (!isOneHeart ? '<div id="reviewSmsContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    buildSmsHistoryContent() +
+    '</div>' : '') +
     '<button class="modal-close-x" id="reviewClose">✕</button></div>';
 
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 
   overlay.querySelector('#reviewTabHistory').addEventListener('click', function() {
-    this.classList.add('active');
-    overlay.querySelector('#reviewTabSms').classList.remove('active');
+    document.querySelectorAll('#reviewSummaryContent, #reviewSmsContent').forEach(function(el) {
+      if (el) el.style.display = 'none';
+    });
     document.getElementById('reviewHistoryContent').style.display = '';
-    document.getElementById('reviewSmsContent').style.display = 'none';
-  });
-  overlay.querySelector('#reviewTabSms').addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     this.classList.add('active');
-    overlay.querySelector('#reviewTabHistory').classList.remove('active');
-    document.getElementById('reviewHistoryContent').style.display = 'none';
-    document.getElementById('reviewSmsContent').style.display = '';
   });
+  overlay.querySelector('#reviewTabSummary').addEventListener('click', function() {
+    document.getElementById('reviewHistoryContent').style.display = 'none';
+    if (!isOneHeart) document.getElementById('reviewSmsContent').style.display = 'none';
+    document.getElementById('reviewSummaryContent').style.display = '';
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+  });
+  var smsTab = overlay.querySelector('#reviewTabSms');
+  if (smsTab) {
+    smsTab.addEventListener('click', function() {
+      document.getElementById('reviewHistoryContent').style.display = 'none';
+      document.getElementById('reviewSummaryContent').style.display = 'none';
+      document.getElementById('reviewSmsContent').style.display = '';
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+    });
+  }
   overlay.querySelector('#reviewClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
@@ -49,6 +70,21 @@ export function showReviewModal() {
 
   // 默认加载最后一天的剧情
   loadDayContent();
+
+  // 摘要保存
+  overlay.querySelectorAll('.btn-summary-save').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var day = parseInt(this.dataset.day);
+      var textarea = overlay.querySelector('.summary-edit[data-day="' + day + '"]');
+      if (textarea) {
+        GS.dailySummaries[day] = textarea.value.trim();
+        saveGame();
+        this.textContent = '✅ 已保存';
+        var self = this;
+        setTimeout(function() { self.textContent = '保存'; }, 2000);
+      }
+    });
+  });
 }
 
 function buildHistoryContent() {
@@ -83,7 +119,6 @@ function loadDayContent() {
     showDayContent(parseInt(dayTabs[dayTabs.length - 1].dataset.day), dayTabs[dayTabs.length - 1].dataset.source);
   }
 
-  // 绑定 day tab 点击
   setTimeout(function() {
     document.querySelectorAll('#reviewDayTabs .tab-btn-sm').forEach(function(tab) {
       tab.addEventListener('click', function() {
@@ -109,6 +144,23 @@ function showDayContent(dayIdx, source) {
     if (i < texts.length - 1) html += '<hr style="border:none;border-top:1px solid var(--border-light);margin:8px 0">';
   }
   container.innerHTML = html || '<p style="color:var(--text-muted);text-align:center;padding:20px 0">该天暂无剧情记录</p>';
+}
+
+function buildSummaryContent() {
+  var summaries = GS.dailySummaries || [];
+  if (summaries.length === 0) {
+    return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无记忆摘要（进入下一天后自动生成）</p>';
+  }
+  var html = '';
+  for (var si = 0; si < summaries.length; si++) {
+    var dayNum = si + 1;
+    html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
+      '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">Day ' + dayNum + '</p>' +
+      '<textarea class="summary-edit" data-day="' + si + '" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
+      escHtml(summaries[si]) + '</textarea>' +
+      '<button class="btn-summary-save" data-day="' + si + '" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
+  }
+  return html;
 }
 
 function buildSmsHistoryContent() {

@@ -268,6 +268,15 @@ export function buildUserMessage(type, extra) {
   }
   msg += '\n';
 
+  // 历史压缩记忆（dailySummaries）
+  if (GS.dailySummaries && GS.dailySummaries.length > 0) {
+    msg += '[历史回顾]\n';
+    for (var _dsi = 0; _dsi < GS.dailySummaries.length; _dsi++) {
+      msg += 'Day ' + (_dsi + 1) + '：' + GS.dailySummaries[_dsi] + '\n';
+    }
+    msg += '\n';
+  }
+
   // 记忆闪回：好感度80+触发
   if (GS.flashbackShown) {
     for (var fk in GS.flashbackShown) {
@@ -806,12 +815,37 @@ export function buildOneHeartUserMessage(type, extra) {
   msg += '\n';
 
   if (type === 'phase') {
+    // 注入历史压缩记忆
+    if (GS.dailySummaries && GS.dailySummaries.length > 0) {
+      msg += '[历史回顾]\n';
+      for (var _dsi = 0; _dsi < GS.dailySummaries.length; _dsi++) {
+        msg += 'Day ' + (_dsi + 1) + '：' + GS.dailySummaries[_dsi] + '\n';
+      }
+      msg += '\n';
+    }
     var todayText = GS.todayFullText.join('\n').slice(-1500);
     if (todayText.trim()) {
       msg += '今日已发生剧情（最后部分）：\n' + todayText + '\n\n';
     }
     msg += '请生成下一段剧情（~800字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
+    // 注入故事上下文
+    if (GS.day >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
+      msg += '[历史回顾]\n';
+      for (var _ci = 0; _ci < GS.dailySummaries.length; _ci++) {
+        msg += 'Day ' + (_ci + 1) + '：' + GS.dailySummaries[_ci].slice(0, 400) + '\n';
+      }
+      msg += '\n';
+      var curText = GS.todayFullText.join('\n').slice(-800);
+      if (curText.trim()) {
+        msg += '[当前进展]\n' + curText + '\n\n';
+      }
+    } else if (GS.day === 1) {
+      var day1Text = GS.todayFullText.join('\n').slice(-2000);
+      if (day1Text.trim()) {
+        msg += '[今日剧情]\n' + day1Text + '\n\n';
+      }
+    }
     var contextChats = GS.chatHistory.slice(-14);
     msg += '你正在和' + member.name + '聊天。他正在回复你的消息。\n\n';
     msg += '近期聊天记录：\n';
