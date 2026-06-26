@@ -855,7 +855,7 @@ export var ONE_HEART_STYLES = [
 
 // 1v1 模式 Token 配置
 export var ONE_HEART_TOKEN_CONFIG = {
-  phaseNarrative: 6000,
+  phaseNarrative: 8000,
   chatReply: 2000,
   momentGen: 800,
   theaterGen: 3000

@@ -381,7 +381,9 @@ export async function resetGame() {
   var savedApiModel = GS.apiModel || '';
   // 保留用户偏好
   var savedTheme = GS.theme || 'auto';
-  var savedTypewriterSpeed = GS.typewriterSpeed || 30;
+  var savedTypewriterSpeed = GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed;
+  // 保留女主档案 + 上次配置，重置后自动填回选单
+  var savedHeroineProfile = GS.heroineProfile ? JSON.parse(JSON.stringify(GS.heroineProfile)) : null;
   // 保留 1v1 模式设置
   var savedGameMode = GS.gameMode || 'transfer';
   var savedOneHeartMember = GS.oneHeartMember || '';
@@ -417,6 +419,8 @@ export async function resetGame() {
   GS.writingStyle = savedWritingStyle;
   GS.oneHeartCustomWorld = savedOneHeartCustomWorld;
   GS.oneHeartMainLine = savedOneHeartMainLine;
+  GS.step = 0; // 回到 setup 第一步
+  if (savedHeroineProfile) GS.heroineProfile = savedHeroineProfile;
   saveGame();
 }
 
