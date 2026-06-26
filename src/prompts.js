@@ -646,7 +646,7 @@ export function buildUserMessage(type, extra) {
       '- 必须包含 narrative + interview + memberInterview + observers\n' + freeNoRepeat;
   } else if (type === 'sms') {
     msg += '[INSTRUCTION] 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent + '"\n' +
-      '请生成短信发送后的剧情（~300字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
+      '请生成短信发送后的剧情（不超过50字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
       '⚠️ 不需要生成 options（深夜短信剧情不加选项）\n' +
       '⚠️ 不要描写女主发短信的动作，短信已经发出了。这是深夜睡前。\n' +
       '输出格式必须包含：narrative + interview + memberInterview + directorOS + observers 数组。\n' + noRepeatNote;
@@ -876,7 +876,7 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += '[今日剧情]\n' + day1Text + '\n\n';
       }
     }
-    var contextChats = GS.chatHistory.slice(-14);
+      var contextChats = GS.chatHistory.slice(-14);
     msg += '你正在和' + member.name + '聊天。他正在回复你的消息。\n\n';
     msg += '近期聊天记录：\n';
     for (var i = 0; i < contextChats.length; i++) {
@@ -885,7 +885,7 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += prefix + c.content + '\n';
     }
     msg += '\n' + hp.name + '说：「' + extra.userMessage + '」\n\n';
-    msg += '请生成' + member.name + '的回复（口语、自然、符合人设）。只输出纯文本回复，不加前缀或JSON。回复控制在200字以内。\n';
+    msg += '请生成' + member.name + '的回复（口语、自然、符合人设）。只输出纯文本回复，不加前缀或JSON，禁止输出思考过程。回复控制在200字以内。\n';
   } else if (type === 'moment') {
     msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
     msg += '输出格式：{"post":"...","reply":"..."}\n';
