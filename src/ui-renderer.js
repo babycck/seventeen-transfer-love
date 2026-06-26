@@ -1097,6 +1097,19 @@ function renderOneHeartGameScreen() {
   // Narrative
   html += renderNarrativeSection();
 
+  // Quick command toggle + drawer（在正文和选项之间）
+  html += '<div style="text-align:center;margin:8px 0">' +
+    '<button id="quickCmdToggle" style="padding:6px 16px;border:1px solid var(--border-primary);border-radius:999px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:11px;font-family:inherit">⚡ 快捷指令</button></div>';
+  html += '<div class="quick-drawer" id="quickDrawer">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:4px">' +
+    '<span style="font-size:11px;color:var(--text-muted)">快捷操作</span>' +
+    '<button id="quickDrawerClose" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-muted);padding:2px 6px">✕</button></div>' +
+    '<button class="quick-cmd" data-cmd="rewind">🔄 自由推演</button>' +
+    '<button class="quick-cmd" data-cmd="set_mainline">📌 设定主线</button>' +
+    '<button class="quick-cmd" data-cmd="mainline">📌 拉回主线</button>' +
+    '<button class="quick-cmd" data-cmd="random">🎲 随机事件</button>' +
+    '<button class="quick-cmd" data-cmd="ending">🏁 走向大结局</button></div>';
+
   // Options
   if (GS.currentOptions && GS.currentOptions.length > 0 && !GS.gameOver) {
     html += '<div class="card" id="optionsArea">';
@@ -1108,33 +1121,16 @@ function renderOneHeartGameScreen() {
     html += '</div>';
   }
 
-  // Skip / Regenerate buttons
+  // Skip / Regenerate + Free input（合并到一个卡片）
   if (!GS.gameOver) {
-    html += '<div class="card"><div class="action-bar" id="oneHeartActionBar">' +
+    html += '<div class="card">' +
+      '<div class="action-bar" id="oneHeartActionBar">' +
       '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成</button>' +
       '<button class="btn-skip" id="btnSkip">▶ 进入下一段</button>' +
-      '</div></div>';
+      '</div>' +
+      '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;margin-top:8px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;min-height:50px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box"></textarea>' +
+      '</div>';
   }
-
-  // Free input
-  html += '<div class="card"><div class="free-input-area">' +
-    '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;resize:vertical;min-height:60px;font-family:inherit;background:var(--bg-card);color:var(--text-primary)"></textarea>' +
-    '<div style="display:flex;gap:6px;margin-top:6px">' +
-    '<button class="btn-secondary" id="btnSaveInput" style="flex:1;padding:6px">💾 保存</button>' +
-    '<button class="btn-primary" id="btnActInput" style="flex:1;padding:6px">🎬 执行</button></div></div></div>';
-
-  // Quick command toggle button
-  html += '<div style="text-align:center;margin:8px 0 60px 0">' +
-    '<button id="quickCmdToggle" style="padding:8px 20px;border:1px solid var(--border-primary);border-radius:999px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:12px;font-family:inherit">⚡ 快捷指令</button></div>';
-
-  // Quick command drawer
-  html += '<div class="quick-drawer" id="quickDrawer">' +
-    '<button class="quick-cmd" data-cmd="option">📋 生成选项</button>' +
-    '<button class="quick-cmd" data-cmd="free">✍️ 自由输入</button>' +
-    '<button class="quick-cmd" data-cmd="rewind">🔄 自由推演</button>' +
-    '<button class="quick-cmd" data-cmd="mainline">📌 拉回主线</button>' +
-    '<button class="quick-cmd" data-cmd="random">🎲 随机事件</button>' +
-    '<button class="quick-cmd" data-cmd="ending">🏁 走向大结局</button></div>';
 
   // Bottom tab bar
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
@@ -1928,6 +1924,16 @@ function bindOneHeartEvents() {
   if (regenBtn) {
     regenBtn.addEventListener('click', async function() {
       this.disabled = true;
+      // 读取自由输入框内容
+      var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
+      if (freeText) {
+        GS.freeInput = freeText;
+        if (GS.todayFullText.length > 0) {
+          GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
+        }
+      } else {
+        GS.freeInput = '';
+      }
       GS.phaseNarrative = '';
       GS.currentOptions = [];
       GS._isGenerating = false;
@@ -1944,6 +1950,16 @@ function bindOneHeartEvents() {
       if (GS._advancingPhase) return;
       GS._advancingPhase = true;
       this.disabled = true;
+      // 读取自由输入框内容
+      var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
+      if (freeText) {
+        GS.freeInput = freeText;
+        if (GS.todayFullText.length > 0) {
+          GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
+        }
+      } else {
+        GS.freeInput = '';
+      }
       GS.phaseNarrative = '';
       GS.currentOptions = [];
       saveGame();
@@ -1953,39 +1969,18 @@ function bindOneHeartEvents() {
     });
   }
 
-  // 自由输入保存
-  var saveInputBtn = document.getElementById('btnSaveInput');
-  if (saveInputBtn) {
-    saveInputBtn.addEventListener('click', function() {
-      GS.freeInput = (document.getElementById('freeInput') || {}).value || '';
-      saveGame();
-      showToast('✅ 已保存');
-    });
-  }
-
-  // 自由输入执行（1v1）
-  var actInputBtn = document.getElementById('btnActInput');
-  if (actInputBtn) {
-    actInputBtn.addEventListener('click', async function() {
-      var inputText = ((document.getElementById('freeInput') || {}).value || '').trim();
-      if (!inputText) { showToast('请先写下你想发生的一段剧情'); return; }
-      this.disabled = true;
-      GS.freeInput = inputText;
-      if (GS.todayFullText.length > 0) {
-        GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + inputText;
-      }
-      saveGame();
-      await generateOneHeartRound();
-      this.disabled = false;
-    });
-  }
-
-  // 快捷指令抽屉
+  // 快捷指令抽屉 toggle + close
   var cmdToggle = document.getElementById('quickCmdToggle');
   var drawer = document.getElementById('quickDrawer');
   if (cmdToggle && drawer) {
     cmdToggle.addEventListener('click', function() {
       drawer.classList.toggle('open');
+    });
+  }
+  var drawerClose = document.getElementById('quickDrawerClose');
+  if (drawerClose && drawer) {
+    drawerClose.addEventListener('click', function() {
+      drawer.classList.remove('open');
     });
   }
 
@@ -1995,22 +1990,26 @@ function bindOneHeartEvents() {
       var cmd = this.dataset.cmd;
       if (drawer) drawer.classList.remove('open');
       switch (cmd) {
-        case 'option':
-          showToast('📋 正在生成选项...');
-          await advancePhase();
-          break;
-        case 'free':
-          document.getElementById('freeInput').focus();
-          break;
         case 'rewind':
-          showToast('🔄 自由推演功能：请输入你想发生的新剧情方向');
+          showToast('🔄 自由推演：输入你想发生的新剧情方向，然后点击进入下一段');
           document.getElementById('freeInput').focus();
+          break;
+        case 'set_mainline':
+          var mainline = prompt('请输入故事主线方向（例如：我想发展一段温馨的日常，他希望向我告白但犹豫不决）', GS.oneHeartMainLine || '');
+          if (mainline !== null) {
+            GS.oneHeartMainLine = mainline.trim();
+            saveGame();
+            showToast('📌 主线已设定');
+          }
           break;
         case 'mainline':
+          if (!GS.oneHeartMainLine) {
+            showToast('请先在快捷指令中「设定主线」'); return;
+          }
           showToast('📌 拉回主线中...');
-          GS.freeInput = '';
+          GS.freeInput = '(按照主线推进剧情：' + GS.oneHeartMainLine + ')';
           saveGame();
-          await advancePhase();
+          await generateOneHeartRound();
           break;
         case 'random':
           showToast('🎲 触发随机事件...');

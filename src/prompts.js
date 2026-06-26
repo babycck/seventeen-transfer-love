@@ -786,6 +786,8 @@ export function buildOneHeartSystemPrompt() {
     '8. 遵守饮食禁忌。\n' +
     '9. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
 
+    (GS.oneHeartMainLine ? '[主线方向] 玩家预设的故事发展方向：' + GS.oneHeartMainLine + '\n请优先沿着这个方向推进剧情。\n\n' : '') +
+
     '请基于以上设定和当前场景上下文，生成沉浸式剧情，只输出 JSON。';
 
   return result;
