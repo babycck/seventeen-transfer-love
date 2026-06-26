@@ -28,6 +28,8 @@ export function defaultGameState() {
     diaryEntries: [],
     oneHeartDiaryCounter: 0,
     oneHeartMomentCounter: 0,
+    oneHeartArchivedNarratives: [],
+    oneHeartGenCount: 0,
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -359,6 +361,8 @@ export function migrateSave() {
     if (!Array.isArray(GS.diaryEntries)) GS.diaryEntries = [];
     if (GS.oneHeartDiaryCounter === undefined) GS.oneHeartDiaryCounter = 0;
     if (GS.oneHeartMomentCounter === undefined) GS.oneHeartMomentCounter = 0;
+    if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
+    if (GS.oneHeartGenCount === undefined) GS.oneHeartGenCount = 0;
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

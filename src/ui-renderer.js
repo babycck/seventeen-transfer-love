@@ -51,6 +51,12 @@ export function initTheme() {
 // ==================== UI 渲染 ====================
 export function renderAll() {
   var app = document.getElementById('app');
+  // 1v1 模式标识，供 CSS 做差异化布局
+  if (GS.gameMode === 'oneHeart' && GS.step >= 5) {
+    app.classList.add('oneheart-mode');
+  } else {
+    app.classList.remove('oneheart-mode');
+  }
   if (GS.step < 5) {
     app.innerHTML = renderSetupWizard();
     bindSetupEvents();
@@ -1910,10 +1916,7 @@ function bindOneHeartEvents() {
     operationToggle.addEventListener('click', function() {
       var isHidden = operationBody.style.display === 'none';
       operationBody.style.display = isHidden ? 'block' : 'none';
-      if (isHidden) {
-        var inp = document.getElementById('freeInput');
-        if (inp) inp.focus();
-      }
+      // 不再自动 focus，避免手机端弹键盘
     });
   }
 
@@ -1963,7 +1966,7 @@ function bindOneHeartEvents() {
           GS.currentOptions = [];
           GS._isGenerating = false;
           saveGame();
-          await generateOneHeartRound();
+          await generateOneHeartRound({ isRegenerate: true });
           this.disabled = false;
           break;
         case 'rewind':
@@ -2047,6 +2050,10 @@ function bindOneHeartEvents() {
 
   var reviewBtn = document.getElementById('reviewBtn');
   if (reviewBtn) reviewBtn.addEventListener('click', showReviewModal);
+
+  // 礼物按钮
+  var giftBtn = document.getElementById('giftBtn');
+  if (giftBtn) giftBtn.addEventListener('click', showGiftPanel);
 
   // 好感度提示点击
   var affectionHint = document.getElementById('affectionHint');

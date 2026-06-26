@@ -26,19 +26,53 @@ function applyThemeDirect(theme) {
 
 function exportStoryTxt() {
   var text = '';
-  for (var i = 0; i < GS.dailyFullTexts.length; i++) {
-    text += '========== Day ' + (i + 1) + ' ==========\n\n';
-    var dayTexts = GS.dailyFullTexts[i];
-    for (var j = 0; j < dayTexts.length; j++) {
-      text += dayTexts[j] + '\n\n';
+  var isOneHeart = GS.gameMode === 'oneHeart';
+  if (isOneHeart) {
+    // 1v1 模式：从缓存 + 当前剧情拼接完整原文
+    var allNarratives = [];
+    // 已归档的旧剧情
+    if (GS.oneHeartArchivedNarratives) {
+      for (var ai = 0; ai < GS.oneHeartArchivedNarratives.length; ai++) {
+        var archived = GS.oneHeartArchivedNarratives[ai];
+        if (archived.parsed && archived.parsed.narrative) {
+          allNarratives.push(archived.parsed.narrative);
+        } else if (archived.rawText) {
+          allNarratives.push(archived.rawText);
+        }
+      }
     }
-    text += '\n';
+    // 当前未压缩的剧情
+    if (GS.consequenceNarratives) {
+      for (var ci = 0; ci < GS.consequenceNarratives.length; ci++) {
+        var item = GS.consequenceNarratives[ci];
+        if (item.choiceText) allNarratives.push('【' + item.choiceText + '】');
+        if (item.parsed && item.parsed.narrative) {
+          allNarratives.push(item.parsed.narrative);
+        } else if (item.rawText) {
+          allNarratives.push(item.rawText);
+        }
+      }
+    }
+    // 当前主剧情
+    if (GS.phaseNarrative) {
+      allNarratives.push(GS.phaseNarrative);
+    }
+    text = allNarratives.join('\n\n---\n\n');
+  } else {
+    for (var i = 0; i < GS.dailyFullTexts.length; i++) {
+      text += '========== Day ' + (i + 1) + ' ==========\n\n';
+      var dayTexts = GS.dailyFullTexts[i];
+      for (var j = 0; j < dayTexts.length; j++) {
+        text += dayTexts[j] + '\n\n';
+      }
+      text += '\n';
+    }
   }
   var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = '换乘恋爱_剧情记录.txt';
+  a.download = isOneHeart ? 'SEVENTEEN_1v1_剧情记录.txt' : '换乘恋爱_剧情记录.txt';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

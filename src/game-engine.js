@@ -1650,6 +1650,50 @@ export async function generateOneHeartRound(extra) {
     GS.phaseOptionCount = 0;
     GS.isInConsequence = false;
     GS.smsSentToday = false;
+
+    // 1v1 剧情压缩计数 + 触发
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+      GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
+      if (GS.oneHeartGenCount >= 15 && GS.consequenceNarratives && GS.consequenceNarratives.length >= 10) {
+        // 取前 10 条压缩
+        var toCompress = GS.consequenceNarratives.splice(0, 10);
+        // 原文缓存
+        if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
+        GS.oneHeartArchivedNarratives = GS.oneHeartArchivedNarratives.concat(toCompress);
+        // 异步 AI 压缩（不阻塞渲染）
+        (async function() {
+          try {
+            var compressText = '';
+            for (var ci = 0; ci < toCompress.length; ci++) {
+              var item = toCompress[ci];
+              if (item.parsed && item.parsed.narrative) {
+                compressText += (ci + 1) + '. ' + item.parsed.narrative + '\n';
+              } else if (item.rawText) {
+                compressText += (ci + 1) + '. ' + item.rawText + '\n';
+              }
+            }
+            if (compressText.length > 100) {
+              var summary = await callDeepSeek(
+                '你是记忆压缩助手。将以下多段剧情压缩为约1000字的详细摘要。保留关键事件、对话和情感转折。去掉冗余描写。只输出压缩后的文本。',
+                '请将以下剧情压缩为约1000字摘要：\n\n' + compressText,
+                TOKEN_CONFIG.dailySummary || 2000,
+                false,
+                0.2
+              );
+              if (summary && summary.trim()) {
+                if (!GS.dailySummaries) GS.dailySummaries = [];
+                GS.dailySummaries.push('第' + (GS.oneHeartArchivedNarratives.length - 10 + 1) + '-' + GS.oneHeartArchivedNarratives.length + '回合压缩记忆：\n' + summary.trim());
+              }
+            }
+            GS.oneHeartGenCount -= 10;
+            saveGame();
+          } catch (e) {
+            console.error('[1v1 compress] error:', e);
+          }
+        })();
+      }
+    }
+
     saveGame();
 
     // 如果是走向结局，生成后结束游戏

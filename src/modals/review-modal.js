@@ -9,25 +9,32 @@ export function showReviewModal() {
   overlay.style.zIndex = '200';
 
   // Tab 按钮
-  var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">' +
-    '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
-    '<button class="tab-btn" id="reviewTabSummary">📅 每日压缩记忆</button>';
-  if (!isOneHeart) {
-    tabsHtml += '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>';
+  var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">';
+  if (isOneHeart) {
+    // 1v1 模式：只显示压缩记忆 tab
+    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 每日压缩记忆</button>';
+  } else {
+    tabsHtml += '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
+      '<button class="tab-btn" id="reviewTabSummary">📅 每日压缩记忆</button>' +
+      '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>';
   }
   tabsHtml += '</div>';
 
   var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
-    tabsHtml +
+    tabsHtml;
+  if (!isOneHeart) {
+    inner +=
     // Tab 1：历史剧情
     '<div id="reviewHistoryContent" style="flex:1;overflow-y:auto;padding-right:4px">' +
     buildHistoryContent() +
-    '</div>' +
-    // Tab 2：每日压缩记忆
-    '<div id="reviewSummaryContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    '</div>';
+  }
+  inner +=
+    // 压缩记忆（1v1 默认显示，换乘模式第二个 tab）
+    '<div id="reviewSummaryContent" style="' + (isOneHeart ? '' : 'display:none;') + 'flex:1;overflow-y:auto;padding-right:4px">' +
     buildSummaryContent() +
     '</div>' +
-    // Tab 3：短信历史（仅换乘）
+    // 短信历史（仅换乘）
     (!isOneHeart ? '<div id="reviewSmsContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
     buildSmsHistoryContent() +
     '</div>' : '') +
@@ -36,16 +43,18 @@ export function showReviewModal() {
   overlay.innerHTML = inner;
   document.body.appendChild(overlay);
 
-  overlay.querySelector('#reviewTabHistory').addEventListener('click', function() {
-    document.querySelectorAll('#reviewSummaryContent, #reviewSmsContent').forEach(function(el) {
-      if (el) el.style.display = 'none';
+  if (!isOneHeart) {
+    overlay.querySelector('#reviewTabHistory').addEventListener('click', function() {
+      document.querySelectorAll('#reviewSummaryContent, #reviewSmsContent').forEach(function(el) {
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('reviewHistoryContent').style.display = '';
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
     });
-    document.getElementById('reviewHistoryContent').style.display = '';
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    this.classList.add('active');
-  });
+  }
   overlay.querySelector('#reviewTabSummary').addEventListener('click', function() {
-    document.getElementById('reviewHistoryContent').style.display = 'none';
+    if (!isOneHeart) document.getElementById('reviewHistoryContent').style.display = 'none';
     if (!isOneHeart) document.getElementById('reviewSmsContent').style.display = 'none';
     document.getElementById('reviewSummaryContent').style.display = '';
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
