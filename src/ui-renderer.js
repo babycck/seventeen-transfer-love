@@ -1289,6 +1289,7 @@ export function renderEndingScreen(members) {
 }
 
 export function bindGameEvents() {
+  window.showOneHeartMainlineModal = showOneHeartMainlineModal;
   // 1v1 模式事件绑定
   if (GS.gameMode === 'oneHeart') {
     bindOneHeartEvents();
