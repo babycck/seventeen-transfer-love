@@ -1637,8 +1637,8 @@ export async function generateOneHeartRound(extra) {
     showToast('剧情生成失败：' + e.message);
   } finally {
     GS._isGenerating = false;
-    hideLoading();
     window.__renderAll && window.__renderAll();
+    hideLoading();
   }
 }
 

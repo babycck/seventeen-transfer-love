@@ -1128,7 +1128,8 @@ function renderOneHeartGameScreen() {
       '</div>' +
       '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;margin-top:8px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;min-height:50px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box"></textarea>' +
       '<button id="btnSubmitFreeInput" style="width:100%;margin-top:6px;padding:8px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">▶ 提交剧情</button>' +
-      '</div>';
+      '</div>' +
+      '<div id="actionLoading" class="action-loading hidden"><div class="spinner"></div><div id="actionLoadingText" style="margin-top:10px;color:var(--accent-primary);font-weight:600;font-size:13px">正在生成剧情...</div></div>';
   }
 
   // Bottom tab bar
