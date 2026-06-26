@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1v1 浮层预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  max-width: 420px; margin: 20px auto; padding: 12px 12px 150px;
+  background: linear-gradient(135deg,#fce4ec 0%,#f8e8e8 30%,#fff5f5 60%,#fce4ec 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* 正文卡片 */
+.header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: rgba(255,255,255,0.85);
+  border-radius: 12px; margin-bottom: 10px; font-size: 12px;
+}
+.day-badge { background: #e91e63; color: #fff; padding: 3px 10px; border-radius: 8px; font-weight: 700; font-size: 12px; }
+.affection-hint { flex: 1; text-align: right; color: #e91e63; font-size: 11px; }
+.header-btns { display: flex; gap: 4px; }
+.header-btns button { border: none; background: none; cursor: pointer; font-size: 16px; padding: 2px; }
+
+.narrative {
+  background: #fff; border-radius: 12px; padding: 16px;
+  margin-bottom: 10px; font-size: 13px; line-height: 1.8; color: #3d2c2c;
+}
+.narrative p { margin-bottom: 8px; }
+
+/* ===== 浮层 ===== */
+.interact-overlay {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 和整体风格一致的白卡片 */
+.interact-area {
+  width: 100%;
+  background: var(--bg-card, #fff);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e8d0d0;
+  border-bottom: none;
+}
+
+/* 横杠 toggle 区域 - 只有横杠 */
+.interact-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.toggle-bar {
+  color: #d0b0b0;
+  font-size: 18px;
+  letter-spacing: 4px;
+}
+.toggle-badge {
+  background: #e91e63;
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* 可折叠内容区 */
+.interact-body {
+  display: none;
+  padding: 0 18px 18px;
+  flex-direction: column;
+  gap: 10px;
+}
+.interact-body.open {
+  display: flex;
+}
+
+/* 选项 */
+.option-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 14px;
+  border: 1.5px solid #e0c0c0;
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.option-btn:active {
+  border-color: #e91e63;
+}
+.opt-label {
+  display: inline-block;
+  width: 24px; height: 24px;
+  line-height: 24px; text-align: center;
+  border-radius: 50%;
+  background: #fce4ec; color: #e91e63;
+  font-size: 13px; font-weight: 700;
+  margin-right: 10px;
+}
+
+/* 输入框 */
+.interact-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border: 1.5px solid #e0c0c0;
+  border-radius: 12px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  background: var(--bg-card, #fff);
+  box-sizing: border-box;
+}
+.interact-input:focus {
+  outline: none;
+  border-color: #e91e63;
+}
+
+/* 提交按钮 */
+.interact-submit {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: #e91e63;
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+/* 2×3 网格 */
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+.action-grid button {
+  padding: 13px 8px;
+  border: 1px solid #e0c0c0;
+  border-radius: 12px;
+  background: #fff5f5;
+  cursor: pointer;
+  font-size: 13px;
+  color: #5d3a3a;
+  text-align: center;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.action-grid button:active {
+  background: #fce4ec;
+  border-color: #f06292;
+}
+
+/* Bottom Tab */
+.bottom-tab {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  background: rgba(255,255,255,0.95);
+  border-top: 1px solid #e0c0c0;
+}
+.bottom-tab button {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: #8b6b6b;
+  text-align: center;
+  font-family: inherit;
+}
+.bottom-tab button.active {
+  color: #e91e63;
+  border-top: 2px solid #e91e63;
+  font-weight: 600;
+}
+.tab-emoji { display: block; font-size: 18px; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <span class="day-badge">回合 5</span>
+  <span class="affection-hint">❤️ 45 · 心动</span>
+  <div class="header-btns">
+    <button>⚙️</button>
+    <button>❓</button>
+    <button>📚</button>
+    <button>🎁</button>
+  </div>
+</div>
+
+<!-- Narrative -->
+<div class="narrative">
+  <p>你坐在客厅的沙发上，暖黄的灯光把整个房间照得柔软。崔胜澈刚从厨房出来，手里端着两杯热牛奶，一杯递到你面前。</p>
+  <p>"今天累了吧？"他在你身边坐下，声音比平时低了一些。</p>
+  <p>你接过杯子，指尖碰到他微凉的手。他没有立刻松开——杯子在你们之间成了一个短暂的借口。</p>
+</div>
+
+<!-- ===== 浮层 ===== -->
+<div class="interact-overlay">
+  <div class="interact-area">
+
+    <!-- 横杠 toggle（只有横杠 + 角标） -->
+    <div class="interact-toggle" id="toggleBtn">
+      <span class="toggle-bar">━━━</span>
+      <span class="toggle-badge">3</span>
+    </div>
+
+    <!-- 可折叠内容 -->
+    <div class="interact-body" id="interactBody">
+      <!-- 选项 -->
+      <button class="option-btn"><span class="opt-label">A</span>接过牛奶，指尖轻轻碰一下他的手</button>
+      <button class="option-btn"><span class="opt-label">B</span>说"还好"，低头喝了一口</button>
+      <button class="option-btn"><span class="opt-label">C</span>抬头看着他，直接问"你是不是有事想跟我说"</button>
+
+      <!-- 输入框 -->
+      <textarea class="interact-input" placeholder="写下你想发生的一段剧情…"></textarea>
+
+      <!-- 提交 -->
+      <button class="interact-submit">▶ 提交剧情</button>
+
+      <!-- 2×3 网格 -->
+      <div class="action-grid">
+        <button>🔄 重新生成</button>
+        <button>🔄 自由推演</button>
+        <button>📌 设定主线</button>
+        <button>📌 拉回主线</button>
+        <button>🎲 随机事件</button>
+        <button>🏁 走向大结局</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bottom Tab -->
+<div class="bottom-tab">
+  <button class="active"><span class="tab-emoji">📖</span>剧情</button>
+  <button><span class="tab-emoji">📝</span>日记</button>
+  <button><span class="tab-emoji">📸</span>朋友圈</button>
+  <button><span class="tab-emoji">🎭</span>剧场</button>
+</div>
+
+<script>
+var toggleBtn = document.getElementById('toggleBtn');
+var body = document.getElementById('interactBody');
+var open = false;
+
+toggleBtn.addEventListener('click', function() {
+  open = !open;
+  body.classList.toggle('open', open);
+});
+</script>
+
+</body>
+</html>

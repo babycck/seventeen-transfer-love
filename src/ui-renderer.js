@@ -1093,11 +1093,12 @@ function renderOneHeartGameScreen() {
   if (!GS.gameOver) {
     var hasOptions = GS.currentOptions && GS.currentOptions.length > 0;
     html += '<div class="oneheart-operation-overlay" id="operationOverlay">' +
-      '<div class="oneheart-operation-toggle" id="operationToggle">' +
+      '<div class="interact-area">' +
+      '<div class="interact-toggle" id="operationToggle">' +
       '<span class="toggle-bar">━━━</span>' +
       (hasOptions ? '<span class="toggle-badge">' + GS.currentOptions.length + '</span>' : '') +
       '</div>' +
-      '<div class="oneheart-operation-body" id="operationBody" style="display:none">' +
+      '<div class="interact-body" id="operationBody" style="display:none">' +
       // 选项区
       '<div class="operation-options" id="operationOptions"' + (hasOptions ? '' : ' style="display:none"') + '>';
     if (hasOptions) {
@@ -1120,7 +1121,7 @@ function renderOneHeartGameScreen() {
       '<button class="oneheart-action-btn" data-cmd="random">🎲 随机事件</button>' +
       '<button class="oneheart-action-btn" data-cmd="ending">🏁 走向大结局</button>' +
       '</div>' +
-      '</div></div>' +
+      '</div></div></div>' +
       '<div id="actionLoading" class="action-loading hidden"><div class="spinner"></div><div id="actionLoadingText" style="margin-top:10px;color:var(--accent-primary);font-weight:600;font-size:13px">正在生成剧情...</div></div>';
   }
 

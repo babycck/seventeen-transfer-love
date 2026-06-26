@@ -1856,16 +1856,16 @@ body {
 .oneheart-action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 10px;
 }
 .oneheart-action-btn {
-  padding: 10px;
+  padding: 13px 8px;
   border: 1px solid var(--border-primary);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-soft);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   text-align: center;
   font-family: inherit;
@@ -1884,87 +1884,104 @@ body {
 .oneheart-operation-overlay {
   position: fixed;
   bottom: 48px;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
   z-index: 99;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.oneheart-operation-toggle {
+.interact-area {
+  width: 100%;
   background: var(--bg-card);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-primary);
   border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  padding: 6px 20px;
-  cursor: pointer;
+}
+.interact-toggle {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
-  transition: background 0.2s;
-}
-.oneheart-operation-toggle:hover {
-  background: var(--bg-soft-hover);
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .toggle-bar {
   color: var(--text-muted);
-  font-size: 10px;
-  letter-spacing: 2px;
-  user-select: none;
+  font-size: 18px;
+  letter-spacing: 4px;
 }
 .toggle-badge {
   background: var(--accent-primary);
   color: #fff;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 8px;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 10px;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.5;
 }
-.oneheart-operation-body {
+.interact-body {
+  display: none;
   width: 100%;
-  max-width: 420px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-primary);
-  border-radius: 12px 12px 0 0;
-  padding: 12px;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+  padding: 0 18px 18px;
+  flex-direction: column;
+  gap: 10px;
   max-height: 60vh;
   overflow-y: auto;
 }
+.interact-body[style*="block"] {
+  display: flex;
+}
 .operation-options {
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 .operation-input {
   width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 50px;
+  padding: 12px 14px;
   border: 1.5px solid var(--border-primary);
-  border-radius: 10px;
-  font-size: 12px;
+  border-radius: 12px;
+  font-size: 14px;
   resize: vertical;
   font-family: inherit;
   background: var(--bg-card);
   color: var(--text-primary);
   box-sizing: border-box;
-  margin-bottom: 6px;
 }
 .operation-submit {
   width: 100%;
-  padding: 8px;
+  padding: 13px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--accent-primary);
   color: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 600;
   font-family: inherit;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
-.oneheart-operation-body .oneheart-action-grid {
+.interact-body .oneheart-action-grid {
   margin-bottom: 0;
+}
+.interact-body .option-btn {
+  padding: 14px 14px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+.interact-body .opt-label {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 13px;
+  margin-right: 10px;
 }
 
 /* 日记卡片 */
