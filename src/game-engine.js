@@ -1702,6 +1702,16 @@ export async function sendChatMessage(userMessage) {
     if (!diaMatch) diaMatch = clean.match(/“([^”]+)”/g);
     if (diaMatch && diaMatch.length > 0) {
       clean = diaMatch[diaMatch.length - 1].replace(/[「」“”]/g, '');
+      // 检测复述：如果最后一段与用户输入相同或仅差语气词，取倒数第二段
+      var strippedUser = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
+      var strippedClean = clean.replace(/[〜～~!！?？。、\s]/g, '');
+      if (strippedClean === strippedUser || strippedClean.indexOf(strippedUser) >= 0) {
+        if (diaMatch.length >= 2) {
+          clean = diaMatch[diaMatch.length - 2].replace(/[「」“”]/g, '');
+        } else {
+          clean = '……';
+        }
+      }
     } else {
       var parts = clean.split('\n').filter(Boolean);
       if (parts.length > 0) clean = parts[parts.length - 1];
@@ -1711,6 +1721,12 @@ export async function sendChatMessage(userMessage) {
         clean = sentences[sentences.length - 1];
       }
       if (clean.length > 80) clean = clean.slice(-50);
+      // 检测复述（无引号路径）
+      var strippedUser2 = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
+      var strippedClean2 = clean.replace(/[〜～~!！?？。、\s]/g, '');
+      if (strippedClean2 === strippedUser2 || strippedClean2.indexOf(strippedUser2) >= 0) {
+        clean = '……';
+      }
     }
     GS.chatHistory.push({ role: 'ai', content: clean });
     if (GS.chatHistory.length > 50) {

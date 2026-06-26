@@ -1817,3 +1817,65 @@ body {
   color: var(--text-muted);
   opacity: 0.7;
 }
+
+/* 1v1 折叠选项 */
+.oneheart-options-section {
+  margin-bottom: 10px;
+}
+.oneheart-options-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  user-select: none;
+}
+.oneheart-options-toggle:hover {
+  background: var(--bg-soft-hover);
+  border-color: var(--accent-primary-light);
+}
+.toggle-icon {
+  margin-right: 4px;
+  font-size: 10px;
+}
+.oneheart-options-body {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 10px;
+}
+
+/* 1v1 动作按钮网格（2列3行） */
+.oneheart-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.oneheart-action-btn {
+  padding: 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.oneheart-action-btn:hover {
+  background: var(--bg-soft-hover);
+  border-color: var(--accent-primary-light);
+}
+.oneheart-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1096,38 +1096,43 @@ function renderOneHeartGameScreen() {
   // Narrative
   html += renderNarrativeSection();
 
-  // Quick command toggle + drawer（在正文和选项之间）
-  html += '<div style="text-align:center;margin:8px 0">' +
-    '<button id="quickCmdToggle" style="padding:6px 16px;border:1px solid var(--border-primary);border-radius:999px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:11px;font-family:inherit">⚡ 快捷指令</button></div>';
-  html += '<div class="quick-drawer" id="quickDrawer">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:4px">' +
-    '<span style="font-size:11px;color:var(--text-muted)">快捷操作</span>' +
-    '<button id="quickDrawerClose" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-muted);padding:2px 6px">✕</button></div>' +
-    '<button class="quick-cmd" data-cmd="rewind">🔄 自由推演</button>' +
-    '<button class="quick-cmd" data-cmd="set_mainline">📌 设定主线</button>' +
-    '<button class="quick-cmd" data-cmd="mainline">📌 拉回主线</button>' +
-    '<button class="quick-cmd" data-cmd="random">🎲 随机事件</button>' +
-    '<button class="quick-cmd" data-cmd="ending">🏁 走向大结局</button></div>';
+  // Quick command toggle + drawer（在正文和选项之间）removed: 改为 2×3 网格按钮，选项折叠
 
-  // Options
-  if (GS.currentOptions && GS.currentOptions.length > 0 && !GS.gameOver) {
-    html += '<div class="card" id="optionsArea">';
-    for (var i = 0; i < GS.currentOptions.length; i++) {
-      var opt = GS.currentOptions[i];
-      html += '<button class="option-btn" data-idx="' + i + '"><span class="opt-label">' + ['A','B','C'][i] + '</span>' +
-        escHtml(opt.text) + '</button>';
+  // 折叠选项（点击横杠展开/收起）
+  if (!GS.gameOver) {
+    var hasOptions = GS.currentOptions && GS.currentOptions.length > 0;
+    html += '<div class="oneheart-options-section">' +
+      '<div class="oneheart-options-toggle" id="optionsToggle">' +
+      '<span class="toggle-icon" id="optionsToggleIcon">' + (hasOptions ? '▾' : '▸') + '</span>' +
+      '</div>' +
+      '<div class="oneheart-options-body" id="optionsBody"' + (hasOptions ? '' : ' style="display:none"') + '>';
+    if (hasOptions) {
+      for (var oi = 0; oi < GS.currentOptions.length; oi++) {
+        var opt = GS.currentOptions[oi];
+        html += '<button class="option-btn" data-idx="' + oi + '"><span class="opt-label">' + ['A','B','C'][oi] + '</span>' +
+          escHtml(opt.text) + '</button>';
+      }
     }
-    html += '</div>';
+    html += '</div></div>';
   }
 
-  // Skip / Regenerate + Free input（合并到一个卡片）
+  // Free input + submit（独立卡片）
   if (!GS.gameOver) {
     html += '<div class="card">' +
-      '<div class="action-bar" id="oneHeartActionBar">' +
-      '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成</button>' +
-      '</div>' +
-      '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;margin-top:8px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;min-height:50px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box"></textarea>' +
-      '<button id="btnSubmitFreeInput" style="width:100%;margin-top:6px;padding:8px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">▶ 提交剧情</button>' +
+      '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;min-height:50px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;margin-bottom:6px"></textarea>' +
+      '<button id="btnSubmitFreeInput" style="width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">▶ 提交剧情</button>' +
+      '</div>';
+  }
+
+  // 2×3 动作按钮网格（替代原快捷指令抽屉 + 重新生成按钮）
+  if (!GS.gameOver) {
+    html += '<div class="oneheart-action-grid">' +
+      '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
+      '<button class="oneheart-action-btn" data-cmd="rewind">🔄 自由推演</button>' +
+      '<button class="oneheart-action-btn" data-cmd="set_mainline">📌 设定主线</button>' +
+      '<button class="oneheart-action-btn" data-cmd="mainline">📌 拉回主线</button>' +
+      '<button class="oneheart-action-btn" data-cmd="random">🎲 随机事件</button>' +
+      '<button class="oneheart-action-btn" data-cmd="ending">🏁 走向大结局</button>' +
       '</div>' +
       '<div id="actionLoading" class="action-loading hidden"><div class="spinner"></div><div id="actionLoadingText" style="margin-top:10px;color:var(--accent-primary);font-weight:600;font-size:13px">正在生成剧情...</div></div>';
   }
@@ -1910,14 +1915,26 @@ export async function enterTestMode() {
 
 // ==================== 1v1 事件绑定 ====================
 function bindOneHeartEvents() {
+  // 选项折叠切换
+  var optionsToggle = document.getElementById('optionsToggle');
+  var optionsBody = document.getElementById('optionsBody');
+  var optionsIcon = document.getElementById('optionsToggleIcon');
+  if (optionsToggle && optionsBody) {
+    optionsToggle.addEventListener('click', function() {
+      var isHidden = optionsBody.style.display === 'none';
+      optionsBody.style.display = isHidden ? 'block' : 'none';
+      if (optionsIcon) optionsIcon.textContent = isHidden ? '▾' : '▸';
+    });
+  }
+
   // 选项（1v1 简化处理）
-  document.querySelectorAll('#optionsArea .option-btn').forEach(function(btn) {
+  document.querySelectorAll('#optionsBody .option-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var idx = parseInt(this.dataset.idx);
       var opt = GS.currentOptions[idx];
       if (!opt) return;
       this.innerHTML = '<span class="opt-label">⋯</span>';
-      document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
+      document.querySelectorAll('#optionsBody .option-btn').forEach(function(b) { b.disabled = true; });
       // 1v1 模式：应用好感变化
       if (opt && opt.affDelta) {
         var mid = GS.oneHeartMember;
@@ -1936,51 +1953,29 @@ function bindOneHeartEvents() {
     });
   });
 
-  // 重新生成（1v1）
-  var regenBtn = document.getElementById('btnRegenerate');
-  if (regenBtn) {
-    regenBtn.addEventListener('click', async function() {
-      this.disabled = true;
-      // 读取自由输入框内容
-      var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
-      if (freeText) {
-        GS.freeInput = freeText;
-        if (GS.todayFullText.length > 0) {
-          GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
-        }
-      } else {
-        GS.freeInput = '';
-      }
-      GS.phaseNarrative = '';
-      GS.currentOptions = [];
-      GS._isGenerating = false;
-      saveGame();
-      await generateOneHeartRound();
-      this.disabled = false;
-    });
-  }
-
-  // 快捷指令抽屉 toggle + close
-  var cmdToggle = document.getElementById('quickCmdToggle');
-  var drawer = document.getElementById('quickDrawer');
-  if (cmdToggle && drawer) {
-    cmdToggle.addEventListener('click', function() {
-      drawer.classList.toggle('open');
-    });
-  }
-  var drawerClose = document.getElementById('quickDrawerClose');
-  if (drawerClose && drawer) {
-    drawerClose.addEventListener('click', function() {
-      drawer.classList.remove('open');
-    });
-  }
-
-  // 快捷指令按钮
-  document.querySelectorAll('.quick-cmd').forEach(function(btn) {
+  // 动作网格按钮（统一事件委托）
+  document.querySelectorAll('.oneheart-action-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var cmd = this.dataset.cmd;
-      if (drawer) drawer.classList.remove('open');
       switch (cmd) {
+        case 'regenerate':
+          this.disabled = true;
+          var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
+          if (freeText) {
+            GS.freeInput = freeText;
+            if (GS.todayFullText.length > 0) {
+              GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
+            }
+          } else {
+            GS.freeInput = '';
+          }
+          GS.phaseNarrative = '';
+          GS.currentOptions = [];
+          GS._isGenerating = false;
+          saveGame();
+          await generateOneHeartRound();
+          this.disabled = false;
+          break;
         case 'rewind':
           showToast('🔄 自由推演：输入你想发生的新剧情方向，然后点击进入下一段');
           document.getElementById('freeInput').focus();
