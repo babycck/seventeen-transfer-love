@@ -25,7 +25,7 @@ export function renderHeader() {
     '<button id="helpBtn" title="帮助（规则速览·使用说明）">❓</button>' +
     '<button id="reviewBtn" title="回顾（历史剧情·短信历史）">📚</button>' +
     (GS.gameMode !== 'oneHeart' ? '<button id="archiveBtn" title="档案（X档案·记忆物品·心动笔记·秘密任务）">📋</button>' : '') +
-    (GS.gameMode !== 'oneHeart' ? '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' : '') +
+    (GS.gameMode === 'oneHeart' || (GS.gifts && GS.gifts.length > 0) ? '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' : '') +
     (GS.day === 7 && GS.midnightCall && GS.midnightCall.status === 'done' ? '<button id="midnightCallRecordBtn" title="午夜电话记录（Day 7 反馈）">📞</button>' : '') +
     '</div></div>';
 

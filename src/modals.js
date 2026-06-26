@@ -28,6 +28,7 @@ export { showMidnightCallModal } from './modals/midnight-call.js';
 export { showDrunkMemberSelectModal } from './modals/drunk-select.js';
 export { showTruthAnswerModal } from './modals/truth-answer.js';
 // 1v1 模式
+export { showDiaryModal } from './modals/diary-modal.js';
 export { showChatModal } from './modals/chat-modal.js';
 export { showMomentsModal } from './modals/moments-modal.js';
 export { showTheaterModal } from './modals/theater-modal.js';

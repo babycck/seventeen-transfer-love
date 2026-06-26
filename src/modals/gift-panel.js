@@ -4,11 +4,19 @@ import {
 } from '../core.js';
 import { parseNarrative } from '../parser.js';
 import { updateAffection, addAffectionLog } from '../affection.js';
+import { buildOneHeartSystemPrompt, buildOneHeartUserMessage } from '../prompts.js';
+import { generateWithRetry } from '../ai-generator.js';
 
 export function showGiftPanel() {
-  var members = GS.selectedMembers.map(function(id) {
-    return MEMBERS.find(function(m) { return m.id === id; });
-  });
+  var members;
+  if (GS.gameMode === 'oneHeart') {
+    var om = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    members = om ? [om] : [];
+  } else {
+    members = GS.selectedMembers.map(function(id) {
+      return MEMBERS.find(function(m) { return m.id === id; });
+    });
+  }
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 
@@ -54,6 +62,17 @@ export function showGiftPanel() {
 
   // 事件委托：Tab 内容中的送礼/改造按钮
   overlay.querySelector('#giftTabContent').addEventListener('click', function(e) {
+    var getBtn = e.target.closest('#getGiftBtn');
+    if (getBtn) {
+      var gift = GIFT_TEMPLATES[Math.floor(Math.random() * GIFT_TEMPLATES.length)];
+      if (!GS.gifts) GS.gifts = [];
+      GS.gifts.push({ type: gift.type, name: gift.name, desc: gift.desc, isExclusive: false });
+      saveGame();
+      showToast('🎁 获得了「' + gift.name + '」');
+      // 重渲染礼物列表
+      switchTab('giftTabMyGifts', function() { return renderMyGifts(members); });
+      return;
+    }
     var remakeBtn = e.target.closest('[data-remake-idx]');
     if (remakeBtn) {
       var remakeIdx = parseInt(remakeBtn.dataset.remakeIdx);
@@ -94,7 +113,10 @@ export function showGiftPanel() {
 function renderMyGifts(members) {
   var html = '';
   if (GS.gifts.length === 0) {
-    html += '<p style="color:#8b6b6b;text-align:center;padding:20px 0">暂无礼物</p>';
+    html += '<div style="text-align:center;padding:20px 0">' +
+      '<p style="color:var(--text-muted);margin-bottom:12px;font-size:13px">暂无礼物</p>' +
+      '<button id="getGiftBtn" style="padding:10px 24px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:13px;font-weight:600">🎁 获取礼物</button>' +
+      '</div>';
   } else {
     html += '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px">选择一份礼物送给谁。对口+5，通用+2~3。</p>';
     for (var i = 0; i < GS.gifts.length; i++) {
@@ -274,13 +296,35 @@ function renderAllGiftRecords() {
   return html;
 }
 
-// ==================== 送礼逻辑（不变） ====================
+// ==================== 送礼逻辑（1v1 兼容） ====================
 export async function sendGift(memberId, giftIdx) {
   var gift = GS.gifts[giftIdx];
   if (!gift) return;
   var member = MEMBERS.find(function(m) { return m.id === memberId; });
   if (!member) return;
 
+  if (GS.gameMode === 'oneHeart') {
+    // 1v1 模式：走 AI 完整生成
+    showLoading('正在生成送礼剧情...');
+    try {
+      var prefType = MEMBER_GIFT_PREFERENCE[member.id];
+      var bonus = (gift.type === prefType) ? 5 : randInt(2, 3);
+      updateAffection(memberId, bonus);
+      addAffectionLog(memberId, bonus, '收到礼物「' + gift.name + '」' + (bonus >= 5 ? '（对口）' : '（通用）'));
+      GS.gifts.splice(giftIdx, 1);
+      GS.pendingChoiceText = '🎁 送礼给 ' + member.name + '：' + gift.name;
+      saveGame();
+      window.scheduleReturnGift(memberId);
+      await window.generateOneHeartRound();
+    } catch (e) {
+      console.error('[sendGift] 1v1 送礼失败:', e);
+      showToast('⚠️ 送礼失败：' + e.message);
+    }
+    hideLoading();
+    return;
+  }
+
+  // 换乘模式（原逻辑不变）
   showLoading('正在生成送礼剧情...');
   try {
     var hp = GS.heroineProfile;
@@ -340,13 +384,19 @@ export async function sendGift(memberId, giftIdx) {
   hideLoading();
 }
 
-// ==================== 改造礼物（不变） ====================
+// ==================== 改造礼物（1v1 兼容） ====================
 export function showRemakeGiftModal(giftIdx) {
   var gift = GS.gifts[giftIdx];
   if (!gift) return;
-  var members = GS.selectedMembers.map(function(id) {
-    return MEMBERS.find(function(m) { return m.id === id; });
-  });
+  var members;
+  if (GS.gameMode === 'oneHeart') {
+    var om = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    members = om ? [om] : [];
+  } else {
+    members = GS.selectedMembers.map(function(id) {
+      return MEMBERS.find(function(m) { return m.id === id; });
+    });
+  }
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';

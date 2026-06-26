@@ -858,6 +858,7 @@ export var ONE_HEART_TOKEN_CONFIG = {
   phaseNarrative: 8000,
   chatReply: 2000,
   momentGen: 800,
+  diaryGen: 1200,
   theaterGen: 3000
 };
 

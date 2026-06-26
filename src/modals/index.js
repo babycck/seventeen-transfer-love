@@ -16,6 +16,7 @@ export { showMidnightCallModal } from './midnight-call.js';
 export { showDrunkMemberSelectModal } from './drunk-select.js';
 export { showTruthAnswerModal } from './truth-answer.js';
 export { showConfirmModal } from './confirm-modal.js';
+export { showDiaryModal } from './diary-modal.js';
 export { showChatModal } from './chat-modal.js';
 export { showMomentsModal } from './moments-modal.js';
 export { showTheaterModal } from './theater-modal.js';

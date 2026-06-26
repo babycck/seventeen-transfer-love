@@ -17,7 +17,7 @@ import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
 // 1v1 模态弹窗
-import { showChatModal, showMomentsModal, showTheaterModal } from './modals.js';
+import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal } from './modals.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
 import { renderParsedNarrative, renderNarrativeSection, startTypewriter } from './ui/narrative-box.js';
@@ -1089,14 +1089,17 @@ function renderOneHeartGameScreen() {
 
   // Quick command toggle + drawer（在正文和选项之间）removed: 改为 2×3 网格按钮，选项折叠
 
-  // 折叠选项（点击横杠展开/收起）
+  // 操作区浮层（合并选项+输入框+2×3网格，默认收起）
   if (!GS.gameOver) {
     var hasOptions = GS.currentOptions && GS.currentOptions.length > 0;
-    html += '<div class="oneheart-options-section">' +
-      '<div class="oneheart-options-toggle" id="optionsToggle">' +
-      '<span class="toggle-icon" id="optionsToggleIcon">' + (hasOptions ? '▾' : '▸') + '</span>' +
+    html += '<div class="oneheart-operation-overlay" id="operationOverlay">' +
+      '<div class="oneheart-operation-toggle" id="operationToggle">' +
+      '<span class="toggle-bar">━━━</span>' +
+      (hasOptions ? '<span class="toggle-badge">' + GS.currentOptions.length + '</span>' : '') +
       '</div>' +
-      '<div class="oneheart-options-body" id="optionsBody"' + (hasOptions ? '' : ' style="display:none"') + '>';
+      '<div class="oneheart-operation-body" id="operationBody" style="display:none">' +
+      // 选项区
+      '<div class="operation-options" id="operationOptions"' + (hasOptions ? '' : ' style="display:none"') + '>';
     if (hasOptions) {
       for (var oi = 0; oi < GS.currentOptions.length; oi++) {
         var opt = GS.currentOptions[oi];
@@ -1104,20 +1107,12 @@ function renderOneHeartGameScreen() {
           escHtml(opt.text) + '</button>';
       }
     }
-    html += '</div></div>';
-  }
-
-  // Free input + submit（独立卡片）
-  if (!GS.gameOver) {
-    html += '<div class="card">' +
-      '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;min-height:50px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;margin-bottom:6px"></textarea>' +
-      '<button id="btnSubmitFreeInput" style="width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">▶ 提交剧情</button>' +
-      '</div>';
-  }
-
-  // 2×3 动作按钮网格（替代原快捷指令抽屉 + 重新生成按钮）
-  if (!GS.gameOver) {
-    html += '<div class="oneheart-action-grid">' +
+    html += '</div>' +
+      // 自由输入
+      '<textarea id="freeInput" class="operation-input" placeholder="写下你想发生的一段剧情…"></textarea>' +
+      '<button id="btnSubmitFreeInput" class="operation-submit">▶ 提交剧情</button>' +
+      // 2×3 网格
+      '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
       '<button class="oneheart-action-btn" data-cmd="rewind">🔄 自由推演</button>' +
       '<button class="oneheart-action-btn" data-cmd="set_mainline">📌 设定主线</button>' +
@@ -1125,13 +1120,14 @@ function renderOneHeartGameScreen() {
       '<button class="oneheart-action-btn" data-cmd="random">🎲 随机事件</button>' +
       '<button class="oneheart-action-btn" data-cmd="ending">🏁 走向大结局</button>' +
       '</div>' +
+      '</div></div>' +
       '<div id="actionLoading" class="action-loading hidden"><div class="spinner"></div><div id="actionLoadingText" style="margin-top:10px;color:var(--accent-primary);font-weight:600;font-size:13px">正在生成剧情...</div></div>';
   }
 
   // Bottom tab bar
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
-    '<button class="oneheart-tab" data-tab="chat"><span class="tab-emoji">💬</span>聊天</button>' +
+    '<button class="oneheart-tab" data-tab="diary"><span class="tab-emoji">📝</span>日记</button>' +
     '<button class="oneheart-tab" data-tab="moments"><span class="tab-emoji">📸</span>朋友圈</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
 
@@ -1906,26 +1902,28 @@ export async function enterTestMode() {
 
 // ==================== 1v1 事件绑定 ====================
 function bindOneHeartEvents() {
-  // 选项折叠切换
-  var optionsToggle = document.getElementById('optionsToggle');
-  var optionsBody = document.getElementById('optionsBody');
-  var optionsIcon = document.getElementById('optionsToggleIcon');
-  if (optionsToggle && optionsBody) {
-    optionsToggle.addEventListener('click', function() {
-      var isHidden = optionsBody.style.display === 'none';
-      optionsBody.style.display = isHidden ? 'block' : 'none';
-      if (optionsIcon) optionsIcon.textContent = isHidden ? '▾' : '▸';
+  // 操作区浮层 toggle（默认收起）
+  var operationToggle = document.getElementById('operationToggle');
+  var operationBody = document.getElementById('operationBody');
+  if (operationToggle && operationBody) {
+    operationToggle.addEventListener('click', function() {
+      var isHidden = operationBody.style.display === 'none';
+      operationBody.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        var inp = document.getElementById('freeInput');
+        if (inp) inp.focus();
+      }
     });
   }
 
   // 选项（1v1 简化处理）
-  document.querySelectorAll('#optionsBody .option-btn').forEach(function(btn) {
+  document.querySelectorAll('#operationOptions .option-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var idx = parseInt(this.dataset.idx);
       var opt = GS.currentOptions[idx];
       if (!opt) return;
       this.innerHTML = '<span class="opt-label">⋯</span>';
-      document.querySelectorAll('#optionsBody .option-btn').forEach(function(b) { b.disabled = true; });
+      document.querySelectorAll('#operationOptions .option-btn').forEach(function(b) { b.disabled = true; });
       // 1v1 模式：应用好感变化
       if (opt && opt.affDelta) {
         var mid = GS.oneHeartMember;
@@ -2026,8 +2024,8 @@ function bindOneHeartEvents() {
           // Already showing story, scroll to top
           window.scrollTo({ top: 0, behavior: 'smooth' });
           break;
-        case 'chat':
-          showChatModal();
+        case 'diary':
+          showDiaryModal();
           break;
         case 'moments':
           showMomentsModal();

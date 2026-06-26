@@ -1619,6 +1619,33 @@ export async function generateOneHeartRound(extra) {
       GS.todayFullText.push(parsed.narrative);
     }
 
+    // 1v1 天数推进 + 日记/朋友圈计数器
+    if (GS.gameMode === 'oneHeart') {
+      GS.day++;
+      // 同步更新 currentDate
+      if (GS.gameDates && GS.gameDates.length > 0 && GS.day <= GS.gameDates.length) {
+        GS.currentDate = GS.gameDates[GS.day - 1];
+      }
+      // 回礼检测
+      var returnGiftInfo = checkPendingReturnGifts();
+      if (returnGiftInfo) {
+        showReturnGiftModal(returnGiftInfo.member, returnGiftInfo.gift);
+      }
+      // 日记计数器
+      GS.oneHeartDiaryCounter++;
+      if (GS.oneHeartDiaryCounter >= 3) {
+        GS.oneHeartDiaryCounter = 0;
+        generateDiary();
+      }
+      // 朋友圈计数器（随机 3-5 段触发）
+      GS.oneHeartMomentCounter++;
+      var momentThreshold = randInt(3, 5);
+      if (GS.oneHeartMomentCounter >= momentThreshold) {
+        GS.oneHeartMomentCounter = 0;
+        generateMoment();
+      }
+    }
+
     GS.phaseFreeCount = 0;
     GS.phaseOptionCount = 0;
     GS.isInConsequence = false;
@@ -1641,6 +1668,8 @@ export async function generateOneHeartRound(extra) {
     hideLoading();
   }
 }
+
+window.generateOneHeartRound = generateOneHeartRound;
 
 function parseOneHeartNarrative(raw) {
   try {
@@ -1738,6 +1767,42 @@ export async function sendChatMessage(userMessage) {
     console.error('[1v1] chat error:', e);
     showToast('聊天回复生成失败');
     return '';
+  }
+}
+
+export async function generateDiary() {
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartUserMessage('diary');
+
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.diaryGen, temperature: 0.8, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
+    if (!raw) return null;
+
+    var json;
+    try {
+      json = JSON.parse(raw);
+    } catch (e) {
+      var match = raw.match(/\{[\s\S]*\}/);
+      if (match) json = JSON.parse(match[0]);
+      else throw e;
+    }
+
+    var entry = {
+      date: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day,
+      day: GS.day,
+      heroineEntry: json.heroineEntry || '',
+      memberEntry: json.memberEntry || ''
+    };
+
+    if (!GS.diaryEntries) GS.diaryEntries = [];
+    GS.diaryEntries.push(entry);
+    saveGame();
+    return entry;
+  } catch (e) {
+    console.error('[1v1] diary error:', e);
+    return null;
   }
 }
 

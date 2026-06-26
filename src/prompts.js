@@ -889,7 +889,36 @@ export function buildOneHeartUserMessage(type, extra) {
   } else if (type === 'moment') {
     msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
     msg += '输出格式：{"post":"...","reply":"..."}\n';
-    msg += '内容基于当前剧情阶段自然生成。';
+    msg += '内容基于当前剧情阶段自然生成。\n';
+    var recentNarr = GS.todayFullText.join('\n').slice(-800);
+    if (recentNarr.trim()) {
+      msg += '近期剧情：\n' + recentNarr + '\n\n';
+    }
+    if (Array.isArray(GS.moments) && GS.moments.length > 0) {
+      msg += '已有动态（请避免重复类似内容）：\n';
+      var lastMoments = GS.moments.slice(-3);
+      for (var _mmi = 0; _mmi < lastMoments.length; _mmi++) {
+        msg += '- ' + lastMoments[_mmi].post + '\n';
+      }
+      msg += '\n';
+    }
+  } else if (type === 'diary') {
+    msg += '请根据当前剧情生成两篇日记（各~150字）。\n\n';
+    msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录当天印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他当天对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    var diaryNarr = GS.todayFullText.join('\n').slice(-1200);
+    if (diaryNarr.trim()) {
+      msg += '今天发生的剧情：\n' + diaryNarr + '\n\n';
+    }
+    if (Array.isArray(GS.diaryEntries) && GS.diaryEntries.length > 0) {
+      msg += '已有日记（请避免重复类似内容）：\n';
+      var lastEntries = GS.diaryEntries.slice(-2);
+      for (var _dei = 0; _dei < lastEntries.length; _dei++) {
+        msg += '- Day ' + lastEntries[_dei].day + ': ' + (lastEntries[_dei].heroineEntry || '').slice(0, 60) + '\n';
+      }
+      msg += '\n';
+    }
+    msg += '输出格式：{"heroineEntry":"日期\\n\\n正文...","memberEntry":"日期\\n\\n正文..."}';
   } else if (type === 'theater') {
     msg += '请根据以下主题生成一段独立番外剧情（约1000字）：\n';
     msg += extra.themePrompt || '一段你和' + member.name + '的日常温馨片段。';

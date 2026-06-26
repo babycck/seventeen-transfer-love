@@ -25,6 +25,9 @@ export function defaultGameState() {
     theaterHistory: [],
     oneHeartCustomWorld: '',
     oneHeartMainLine: '',
+    diaryEntries: [],
+    oneHeartDiaryCounter: 0,
+    oneHeartMomentCounter: 0,
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -352,6 +355,10 @@ export function migrateSave() {
     if (!GS.endingArchive) GS.endingArchive = [];
     GS._isGenerating = false;
     GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
+    // [diary] 日记系统
+    if (!Array.isArray(GS.diaryEntries)) GS.diaryEntries = [];
+    if (GS.oneHeartDiaryCounter === undefined) GS.oneHeartDiaryCounter = 0;
+    if (GS.oneHeartMomentCounter === undefined) GS.oneHeartMomentCounter = 0;
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存
