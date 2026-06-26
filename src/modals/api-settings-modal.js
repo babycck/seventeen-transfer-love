@@ -264,6 +264,10 @@ export function showApiSettingsModal() {
   overlay.querySelector('#settingsTypewriterSpeed').addEventListener('change', function() {
     GS.typewriterSpeed = parseInt(this.value);
     saveGame();
+    if (GS.typewriterSpeed === 0) {
+      window.stopTypewriter && window.stopTypewriter('narrativeBox');
+      window.stopTypewriter && window.stopTypewriter('narrativeNewContent');
+    }
   });
 
   // === 导入存档事件 ===

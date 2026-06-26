@@ -181,6 +181,11 @@ export function startTypewriter(containerId, speed) {
   if (speed == null) speed = 30;
   var container = document.getElementById(containerId);
   if (!container) return;
+  // 清除容器上已有的打字机动画
+  if (container._typewriterTimer) {
+    clearInterval(container._typewriterTimer);
+    container._typewriterTimer = null;
+  }
   var fullHtml = container.getAttribute('data-narrative-html');
   if (!fullHtml) return;
   container.innerHTML = '';
@@ -240,6 +245,7 @@ export function startTypewriter(containerId, speed) {
     if (unitIdx >= units.length) {
       container.innerHTML = html;
       clearInterval(timer);
+      container._typewriterTimer = null;
       showEditButton();
       return;
     }
@@ -278,7 +284,21 @@ export function startTypewriter(containerId, speed) {
     // 只在用户位于底部时自动滚动
     if (atBottom) container.scrollTop = container.scrollHeight;
   }, speed);
+  container._typewriterTimer = timer;
 }
+
+window.stopTypewriter = function(containerId) {
+  var el = document.getElementById(containerId);
+  if (el && el._typewriterTimer) {
+    clearInterval(el._typewriterTimer);
+    el._typewriterTimer = null;
+  }
+  if (el && el.getAttribute && el.getAttribute('data-narrative-html')) {
+    el.innerHTML = el.getAttribute('data-narrative-html');
+    el.removeAttribute('data-narrative-html');
+    showEditButton();
+  }
+};
 
 // ==================== 剧情编辑功能 ====================
 
