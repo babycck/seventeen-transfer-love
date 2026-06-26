@@ -395,7 +395,7 @@ export async function resetGame() {
   var savedCode = localStorage.getItem('svt_auth_saved_code');
   var savedDeviceId = localStorage.getItem('svt_auth_device_id');
   localStorage.removeItem(STORAGE_KEY);
-  var clearCache = await showConfirmModal('是否同时清除已缓存的 X 档案故事？（清除后下次开局会重新生成）');
+  var clearCache = GS.gameMode === 'oneHeart' ? false : await showConfirmModal('是否同时清除已缓存的 X 档案故事？（清除后下次开局会重新生成）');
   if (clearCache) {
     clearStoryCache();
   }
