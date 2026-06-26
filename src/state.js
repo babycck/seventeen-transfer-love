@@ -23,6 +23,7 @@ export function defaultGameState() {
     chatHistory: [],
     moments: [],
     theaterHistory: [],
+    oneHeartCustomWorld: '',
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -249,6 +250,7 @@ export function migrateSave() {
       if (!GS.flashbackShown) GS.flashbackShown = {};
     }
     GS.version = 'v22';
+    if (GS.oneHeartCustomWorld === undefined) GS.oneHeartCustomWorld = '';
     if (GS.heroineProfile && GS.heroineProfile.identity) delete GS.heroineProfile.identity;
     if (!GS.heroineProfile.zodiac) GS.heroineProfile.zodiac = '';
     if (GS.dailyMemories && GS.dailyMemories.length > 0 && (!GS.dailySummaries || GS.dailySummaries.length === 0)) {
@@ -383,6 +385,7 @@ export async function resetGame() {
   var savedOneHeartMember = GS.oneHeartMember || '';
   var savedWorldSetting = GS.worldSetting || '';
   var savedWritingStyle = GS.writingStyle || '';
+  var savedOneHeartCustomWorld = GS.oneHeartCustomWorld || '';
   // 保留激活码设置
   var savedAuthToken = localStorage.getItem('svt_auth_token');
   var savedRememberCode = localStorage.getItem('svt_auth_remember_code');
@@ -409,6 +412,7 @@ export async function resetGame() {
   GS.oneHeartMember = savedOneHeartMember;
   GS.worldSetting = savedWorldSetting;
   GS.writingStyle = savedWritingStyle;
+  GS.oneHeartCustomWorld = savedOneHeartCustomWorld;
   saveGame();
 }
 

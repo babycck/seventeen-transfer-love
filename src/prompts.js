@@ -752,7 +752,7 @@ export function buildOneHeartSystemPrompt() {
 
     '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
 
-    '[SYSTEM] 世界观设定\n' + (world ? world.promptSuffix : '你们正在一段浪漫的关系中发展。') + '\n\n' +
+    '[SYSTEM] 世界观设定\n' + (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? GS.oneHeartCustomWorld : (world ? world.promptSuffix : '你们正在一段浪漫的关系中发展。')) + '\n\n' +
 
     '[SYSTEM] 女主人设\n' +
     '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +

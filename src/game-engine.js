@@ -1565,7 +1565,9 @@ export async function generateOneHeartRound() {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('phase');
 
-    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
     if (!raw) {
       GS.phaseNarrative = '';
       GS.currentOptions = [];
@@ -1651,7 +1653,9 @@ export async function sendChatMessage(userMessage) {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
 
-    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.9 });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.9, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
     if (!raw) {
       showToast('聊天回复生成失败');
       return '';
@@ -1676,7 +1680,9 @@ export async function generateMoment() {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('moment');
 
-    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.momentGen, temperature: 0.85 });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.momentGen, temperature: 0.85, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
     if (!raw) return null;
 
     var json;
@@ -1713,7 +1719,9 @@ export async function generateTheater(themePrompt) {
     GS._isGenerating = true;
     showLoading('正在生成番外剧情...');
 
-    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.theaterGen, temperature: 0.9 });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.theaterGen, temperature: 0.9, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
     if (!raw) {
       hideLoading();
       GS._isGenerating = false;

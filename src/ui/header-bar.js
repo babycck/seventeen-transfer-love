@@ -15,7 +15,7 @@ export function renderHeader() {
     '<span class="day-badge">' + dateText + '</span>' +
     '<span class="phase-tag">' + phaseLabel + '</span>' +
     (GS.weather ? '<span class="weather-tag" style="font-size:11px;padding:2px 8px;background:rgba(255,255,255,0.7);border-radius:8px;margin-left:4px">' + GS.weather + '</span>' : '') +
-    (GS.day >= 10 && !GS.gameOver ? '<span class="countdown-tag" style="font-size:12px;font-weight:700;color:#c62828;padding:3px 10px;background:rgba(255,205,210,0.85);border-radius:12px;margin-left:6px;animation:pulse-sms 1.5s infinite">⏳ 距离最终选择还有 ' + (12 - GS.day) + ' 天</span>' : '') +
+    (GS.gameMode === 'transfer' && GS.day >= 10 && !GS.gameOver ? '<span class="countdown-tag" style="font-size:12px;font-weight:700;color:#c62828;padding:3px 10px;background:rgba(255,205,210,0.85);border-radius:12px;margin-left:6px;animation:pulse-sms 1.5s infinite">⏳ 距离最终选择还有 ' + (12 - GS.day) + ' 天</span>' : '') +
     '<span class="affection-hint" id="affectionHint" title="点击查看好感度详情">' +
     members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
     '</span>' +
@@ -23,8 +23,8 @@ export function renderHeader() {
     '<button id="settingsBtn" title="设置">⚙️</button>' +
     '<button id="helpBtn" title="帮助（规则速览·使用说明）">❓</button>' +
     '<button id="reviewBtn" title="回顾（历史剧情·短信历史）">📚</button>' +
-    '<button id="archiveBtn" title="档案（X档案·记忆物品·心动笔记·秘密任务）">📋</button>' +
-    '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' +
+    (GS.gameMode !== 'oneHeart' ? '<button id="archiveBtn" title="档案（X档案·记忆物品·心动笔记·秘密任务）">📋</button>' : '') +
+    (GS.gameMode !== 'oneHeart' ? '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' : '') +
     (GS.day === 7 && GS.midnightCall && GS.midnightCall.status === 'done' ? '<button id="midnightCallRecordBtn" title="午夜电话记录（Day 7 反馈）">📞</button>' : '') +
     '</div></div>';
 

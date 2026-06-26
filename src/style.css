@@ -1795,3 +1795,25 @@ body {
   line-height: 1.8;
   white-space: pre-wrap;
 }
+
+/* 1v1 Step 3 世界观下拉条 */
+#worldSelect {
+  font-family: inherit;
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+#worldSelect:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(194,24,91,0.15);
+}
+#customWorldInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(194,24,91,0.15);
+}
+#customWorldInput::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}

@@ -2,6 +2,7 @@
   MAX_STAY_COUNT, PHASE_ACTION_LIMIT, ZODIAC_SIGNS,
   MEMBERS, PHASES, PHASE_LABELS,
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
+  HEROINE_PUBLIC_IDENTITIES, HEROINE_TEMPLATES,
   API_PROVIDERS, ONE_HEART_WORLDS, ONE_HEART_STYLES,
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection,
   showLoading, hideLoading, showToast, callDeepSeek
@@ -237,13 +238,58 @@ export function renderSetupWizard() {
       '</div></div>';
   } else if (GS.step === 2) {
     if (GS.gameMode === 'oneHeart') {
-      html = '<div class="setup-step"><h2>💗 Step 2：选择心动对象</h2>' +
-        '<p class="step-desc">选择 1 位 SEVENTEEN 成员作为你的专属心动对象</p>' +
+      var hp = GS.heroineProfile;
+      html = '<div class="setup-step"><h2>💗 Step 2：心动对象 + 女主</h2>' +
+        '<p class="step-desc">选择 1 位成员并设定你的角色</p>' +
+        '<h4 style="margin:12px 0 6px;font-size:14px;color:var(--text-primary)">选择心动对象</h4>' +
         '<div class="member-grid" id="oneHeartMemberGrid">' +
         MEMBERS.map(function(m) {
           var sel = GS.oneHeartMember === m.id;
           return '<div class="member-chip' + (sel ? ' selected' : '') + '" data-id="' + m.id + '">' +
             m.emoji + '<br>' + m.name + '<br><small>' + m.stageName + '</small></div>';
+        }).join('') + '</div>' +
+        // 分割线
+        '<hr style="margin:16px 0;border:none;border-top:1px solid var(--border-primary);opacity:0.3">' +
+        '<h4 style="margin:0 0 8px;font-size:14px;color:var(--text-primary)">设定你的角色</h4>' +
+        // 人设模板
+        '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+        '<select id="templateSelect" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit">' +
+        '<option value="">💎 人设模板（选填）</option>' +
+        HEROINE_TEMPLATES.map(function(t) {
+          return '<option value="' + t.id + '">' + t.name + '</option>';
+        }).join('') + '</select>' +
+        '<button class="btn-secondary" id="randomTemplateBtn" style="flex:1;padding:8px;font-size:12px">🎲 随机</button></div>' +
+        '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '">' +
+        '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40">' +
+        '<label>公开身份</label>' +
+        '<select id="hpJob" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:6px">' +
+        '<option value="">-- 选择公开身份 --</option>' +
+        HEROINE_PUBLIC_IDENTITIES.map(function(id) {
+          return '<option value="' + id + '"' + (hp.job === id ? ' selected' : '') + '>' + id + '</option>';
+        }).join('') +
+        '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
+        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') +
+        '<label>生日（月 / 日）</label>' +
+        '<div style="display:flex;gap:8px">' +
+        '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '" style="flex:1">' +
+        '<input type="number" id="hpBirthDay" min="1" max="31" placeholder="日" value="' + (hp.birthday && hp.birthday.day ? hp.birthday.day : '') + '" style="flex:1">' +
+        '</div>' +
+        '<p id="zodiacDisplay" style="font-size:12px;color:var(--text-muted);margin-top:4px">' + (hp.zodiac ? '星座：' + hp.zodiac : '输入生日后自动计算星座') + '</p>' +
+        '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
+        APPEARANCE_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.appearance.indexOf(s) >= 0 ? ' selected' : '') + '" data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>性格（多选）</label><div class="chip-row" id="personalityChips">' +
+        PERSONALITY_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.personality.indexOf(s) >= 0 ? ' selected' : '') + '" data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>MBTI</label><div class="chip-row" id="mbtiChips">' +
+        MBTI_TYPES.map(function(s) {
+          return '<span class="chip' + (hp.mbti === s ? ' selected' : '') + '" data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>私密体质（多选，可选）</label><div class="chip-row" id="privateChips">' +
+        PRIVATE_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.privateTraits.indexOf(s) >= 0 ? ' selected' : '') + '" data-val="' + s + '">' + s + '</span>';
         }).join('') + '</div>' +
         '<button class="btn-primary" id="step2Next" ' + (GS.oneHeartMember ? '' : 'disabled') + '>' +
         (GS.oneHeartMember ? '下一步 →' : '请选择 1 位成员') + '</button>' +
@@ -255,9 +301,23 @@ export function renderSetupWizard() {
       var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
       html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
         '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
+        (!locked ? '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+        '<select id="templateSelect" style="flex:2;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit">' +
+        '<option value="">💎 人设模板（选填）</option>' +
+        HEROINE_TEMPLATES.map(function(t) {
+          return '<option value="' + t.id + '">' + t.name + '</option>';
+        }).join('') + '</select>' +
+        '<button class="btn-secondary" id="randomTemplateBtn" style="flex:1;padding:8px;font-size:12px">🎲 随机</button></div>' : '') +
         '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '"' + ro + '>' +
         '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40"' + ro + '>' +
-        '<label>职业（自由填写）</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>' +
+        (!locked ? '<label>公开身份</label>' +
+        '<select id="hpJob" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:6px">' +
+        '<option value="">-- 选择公开身份 --</option>' +
+        HEROINE_PUBLIC_IDENTITIES.map(function(id) {
+          return '<option value="' + id + '"' + (hp.job === id ? ' selected' : '') + '>' + id + '</option>';
+        }).join('') +
+        '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
+        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') +
         '<label>生日（月 / 日）</label>' +
         '<div style="display:flex;gap:8px">' +
         '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '"' + ro + ' style="flex:1">' +
@@ -286,16 +346,41 @@ export function renderSetupWizard() {
     }
   } else if (GS.step === 3) {
     if (GS.gameMode === 'oneHeart') {
+      // 超过 6 个世界观时使用下拉条而非卡片网格
+      var worlds = ONE_HEART_WORLDS;
+      var useDropdown = worlds.length > 6;
+      var isCustomWorld = GS.worldSetting === 'custom';
       html = '<div class="setup-step"><h2>🌍 Step 3：世界设定</h2>' +
-        '<p class="step-desc">选择你们相遇的世界</p>' +
-        '<div class="world-grid" id="worldGrid">' +
-        ONE_HEART_WORLDS.map(function(w) {
+        '<p class="step-desc">选择你们相遇的世界</p>';
+      if (useDropdown) {
+        html += '<select id="worldSelect" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;background:var(--bg-card);color:var(--text-primary);margin-bottom:12px;font-family:inherit">' +
+          '<option value="">-- 请选择世界观 --</option>' +
+          worlds.map(function(w) {
+            return '<option value="' + w.id + '"' + (GS.worldSetting === w.id ? ' selected' : '') + '>' + w.name + '</option>';
+          }).join('') + '</select>' +
+          '<div id="worldDesc" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:8px 12px;background:var(--bg-soft,#fff5f5);border-radius:8px">' +
+          (isCustomWorld ? '自定义世界观，请在下方描述。' : (GS.worldSetting ? ((worlds.find(function(w){return w.id===GS.worldSetting})||{}).desc || '') : '')) +
+          '</div>';
+      } else {
+        html += '<div class="world-grid" id="worldGrid">' +
+        worlds.map(function(w) {
           var sel = GS.worldSetting === w.id;
           return '<div class="world-card' + (sel ? ' selected' : '') + '" data-id="' + w.id + '">' +
             '<div class="world-name">' + w.name + '</div>' +
             '<div class="world-desc">' + w.desc + '</div></div>';
-        }).join('') + '</div>' +
-        '<label style="margin-top:16px;display:block">写作风格</label>' +
+        }).join('') + '</div>';
+      }
+      // 自定义世界观文本输入
+      if (isCustomWorld) {
+        html += '<div id="customWorldArea"><label style="font-size:12px;color:var(--text-muted)">世界设定描述（最多 1500 字）：</label>' +
+          '<textarea id="customWorldInput" maxlength="1500" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;resize:vertical;min-height:100px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-top:4px" placeholder="写下你想要的完整世界设定，包括背景、人物关系、氛围……">' + escHtml(GS.oneHeartCustomWorld || '') + '</textarea>' +
+          '<div style="text-align:right;font-size:11px;color:var(--text-muted);margin-top:2px"><span id="customWorldCount">' + (GS.oneHeartCustomWorld ? GS.oneHeartCustomWorld.length : 0) + '</span>/1500</div></div>';
+      }
+      // 自定义场景的保存按钮
+      if (isCustomWorld) {
+        html += '<button class="btn-secondary" id="saveCustomWorldBtn" style="width:100%;margin-bottom:12px">💾 保存世界观设定</button>';
+      }
+      html += '<label style="margin-top:16px;display:block">写作风格</label>' +
         '<div class="style-grid" id="styleGrid">' +
         ONE_HEART_STYLES.map(function(s) {
           var sel = GS.writingStyle === s.id;
@@ -303,8 +388,8 @@ export function renderSetupWizard() {
             '<div class="style-name">' + s.name + '</div>' +
             '<div class="style-desc">' + s.desc + '</div></div>';
         }).join('') + '</div>' +
-        '<button class="btn-primary" id="step3Next" ' + (GS.worldSetting && GS.writingStyle ? '' : 'disabled') + '>' +
-        (GS.worldSetting && GS.writingStyle ? '下一步 →' : '请选择世界观和写作风格') + '</button>' +
+        '<button class="btn-primary" id="step3Next" ' + ((useDropdown ? GS.worldSetting : GS.worldSetting) && GS.writingStyle ? '' : 'disabled') + '>' +
+        (GS.worldSetting && GS.writingStyle ? (isCustomWorld && !GS.oneHeartCustomWorld ? '请设定世界观' : '下一步 →') : '请选择世界观和写作风格') + '</button>' +
         '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
     } else {
       html = '<div class="setup-step"><h2>⭐ Step 3：选择成员</h2>' +
@@ -331,6 +416,7 @@ export function renderSetupWizard() {
         '<div class="confirm-row"><span class="confirm-label">游戏模式</span><span>只为你心动（1v1）</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">心动对象</span><span>' + (confirmMember ? confirmMember.emoji + ' ' + confirmMember.name + '（' + confirmMember.stageName + '）' : '未选择') + '</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : '未选择') + '</span></div>' +
+        (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? '<div class="confirm-row"><span class="confirm-label">世界设定</span><span style="font-size:11px;max-height:60px;overflow-y:auto">' + escHtml(GS.oneHeartCustomWorld.substring(0, 200)) + (GS.oneHeartCustomWorld.length > 200 ? '...' : '') + '</span></div>' : '') +
         '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + hp.name + ' · ' + hp.age + '岁 · ' + hp.job + '</span></div>' +
         '</div>' +
@@ -494,6 +580,122 @@ export function bindSetupEvents() {
   }
 
   if (GS.step === 2) {
+    // 公共绑定：模板下拉 + 随机按钮 + 女主档案（不分模式）
+    var templateSelect = document.getElementById('templateSelect');
+    if (templateSelect) {
+      templateSelect.addEventListener('change', function() {
+        var tpl = HEROINE_TEMPLATES.find(function(t) { return t.id === this.value; }.bind(this));
+        if (!tpl) return;
+        GS.heroineProfile.name = '沈' + ['也','安','希','晴','薇','樱','琳','菲','雅','媛'][Math.floor(Math.random()*10)];
+        GS.heroineProfile.age = tpl.age;
+        GS.heroineProfile.job = tpl.publicIdentity;
+        GS.heroineProfile.appearance = tpl.appearance.slice();
+        GS.heroineProfile.personality = tpl.personality.slice();
+        GS.heroineProfile.mbti = tpl.mbti;
+        GS.heroineProfile.privateTraits = tpl.privateTraits.slice();
+        GS.heroineProfile.birthday = { month: Math.floor(Math.random()*12)+1, day: Math.floor(Math.random()*28)+1 };
+        GS.heroineProfile.zodiac = getZodiacFromBirthday(GS.heroineProfile.birthday.month, GS.heroineProfile.birthday.day);
+        saveGame();
+        renderAll();
+        showToast('✅ 已套用人设模板：' + tpl.name);
+      });
+    }
+
+    var randomBtn = document.getElementById('randomTemplateBtn');
+    if (randomBtn) {
+      randomBtn.addEventListener('click', function() {
+        var identities = HEROINE_PUBLIC_IDENTITIES;
+        GS.heroineProfile.name = '沈' + ['也','安','希','晴','薇','樱','琳','菲','雅','媛'][Math.floor(Math.random()*10)];
+        GS.heroineProfile.age = 18 + Math.floor(Math.random()*18);
+        GS.heroineProfile.job = identities[Math.floor(Math.random()*identities.length)];
+        // 随机抽 2-4 项外貌
+        var shuffledApp = APPEARANCE_TRAITS.slice().sort(function(){return Math.random()-0.5});
+        GS.heroineProfile.appearance = shuffledApp.slice(0, 2 + Math.floor(Math.random()*3));
+        // 随机抽 2 项性格
+        var shuffledPer = PERSONALITY_TRAITS.slice().sort(function(){return Math.random()-0.5});
+        GS.heroineProfile.personality = shuffledPer.slice(0, 2);
+        // 随机 MBTI
+        GS.heroineProfile.mbti = MBTI_TYPES[Math.floor(Math.random()*MBTI_TYPES.length)];
+        // 50% 概率随机 0-1 项私密体质
+        GS.heroineProfile.privateTraits = Math.random() < 0.5 ? [PRIVATE_TRAITS[Math.floor(Math.random()*PRIVATE_TRAITS.length)]] : [];
+        GS.heroineProfile.birthday = { month: Math.floor(Math.random()*12)+1, day: Math.floor(Math.random()*28)+1 };
+        GS.heroineProfile.zodiac = getZodiacFromBirthday(GS.heroineProfile.birthday.month, GS.heroineProfile.birthday.day);
+        saveGame();
+        renderAll();
+        showToast('🎲 已随机生成女主人设');
+      });
+    }
+
+    // 公开身份下拉 + 自定义输入
+    var hpJobSelect = document.getElementById('hpJob');
+    if (hpJobSelect) {
+      hpJobSelect.addEventListener('change', function() {
+        var customInput = document.getElementById('hpJobCustom');
+        if (this.value === '__custom__') {
+          GS.heroineProfile.job = customInput ? customInput.value.trim() : '';
+          if (customInput) customInput.style.display = '';
+        } else {
+          GS.heroineProfile.job = this.value;
+          if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
+        }
+        saveGame();
+        renderAll();
+      });
+    }
+    var hpJobCustom = document.getElementById('hpJobCustom');
+    if (hpJobCustom) {
+      hpJobCustom.addEventListener('input', function() {
+        GS.heroineProfile.job = this.value.trim();
+        saveGame();
+      });
+    }
+
+    // 女主档案基础字段（不分模式）
+    var hpName = document.getElementById('hpName');
+    if (hpName) {
+      hpName.addEventListener('input', function() {
+        GS.heroineProfile.name = this.value;
+        saveGame();
+      });
+    }
+    var hpAge = document.getElementById('hpAge');
+    if (hpAge) {
+      hpAge.addEventListener('input', function() {
+        GS.heroineProfile.age = parseInt(this.value) || 25;
+        saveGame();
+      });
+    }
+    var updateZodiac = function() {
+      var m = parseInt(document.getElementById('hpBirthMonth').value) || 0;
+      var d = parseInt(document.getElementById('hpBirthDay').value) || 0;
+      GS.heroineProfile.birthday = { month: m, day: d };
+      GS.heroineProfile.zodiac = getZodiacFromBirthday(m, d);
+      var disp = document.getElementById('zodiacDisplay');
+      if (disp) disp.textContent = GS.heroineProfile.zodiac ? '星座：' + GS.heroineProfile.zodiac : '输入生日后自动计算星座';
+      saveGame();
+    };
+    var hpBirthMonth = document.getElementById('hpBirthMonth');
+    if (hpBirthMonth) hpBirthMonth.addEventListener('input', updateZodiac);
+    var hpBirthDay = document.getElementById('hpBirthDay');
+    if (hpBirthDay) hpBirthDay.addEventListener('input', updateZodiac);
+    bindChipGroup('appearanceChips', function(val) {
+      toggleArrayItem(GS.heroineProfile.appearance, val);
+      saveGame();
+    }, false);
+    bindChipGroup('personalityChips', function(val) {
+      toggleArrayItem(GS.heroineProfile.personality, val);
+      saveGame();
+    }, false);
+    bindChipGroup('mbtiChips', function(val) {
+      GS.heroineProfile.mbti = val;
+      saveGame();
+    }, true);
+    bindChipGroup('privateChips', function(val) {
+      toggleArrayItem(GS.heroineProfile.privateTraits, val);
+      saveGame();
+    }, false);
+
+    // 模式特定绑定
     if (GS.gameMode === 'oneHeart') {
       document.querySelectorAll('#oneHeartMemberGrid .member-chip').forEach(function(chip) {
         chip.addEventListener('click', function() {
@@ -514,46 +716,8 @@ export function bindSetupEvents() {
         renderAll();
       });
     } else {
-      if (!GS.profileLocked) {
-        document.getElementById('hpName').addEventListener('input', function() {
-          GS.heroineProfile.name = this.value;
-          saveGame();
-        });
-        document.getElementById('hpAge').addEventListener('input', function() {
-          GS.heroineProfile.age = parseInt(this.value) || 25;
-          saveGame();
-        });
-        document.getElementById('hpJob').addEventListener('input', function() {
-          GS.heroineProfile.job = this.value;
-          saveGame();
-        });
-        var updateZodiac = function() {
-          var m = parseInt(document.getElementById('hpBirthMonth').value) || 0;
-          var d = parseInt(document.getElementById('hpBirthDay').value) || 0;
-          GS.heroineProfile.birthday = { month: m, day: d };
-          GS.heroineProfile.zodiac = getZodiacFromBirthday(m, d);
-          var disp = document.getElementById('zodiacDisplay');
-          if (disp) disp.textContent = GS.heroineProfile.zodiac ? '星座：' + GS.heroineProfile.zodiac : '输入生日后自动计算星座';
-          saveGame();
-        };
-        document.getElementById('hpBirthMonth').addEventListener('input', updateZodiac);
-        document.getElementById('hpBirthDay').addEventListener('input', updateZodiac);
-        bindChipGroup('appearanceChips', function(val) {
-          toggleArrayItem(GS.heroineProfile.appearance, val);
-          saveGame();
-        }, false);
-        bindChipGroup('personalityChips', function(val) {
-          toggleArrayItem(GS.heroineProfile.personality, val);
-          saveGame();
-        }, false);
-        bindChipGroup('mbtiChips', function(val) {
-          GS.heroineProfile.mbti = val;
-          saveGame();
-        }, true);
-        bindChipGroup('privateChips', function(val) {
-          toggleArrayItem(GS.heroineProfile.privateTraits, val);
-          saveGame();
-        }, false);
+      if (GS.profileLocked) {
+        // 锁定状态：只保留 hpJob 为静态显示（已用 label 替代）
       }
       document.getElementById('step2Next').addEventListener('click', function() {
         if (!GS.profileLocked) {
@@ -576,13 +740,48 @@ export function bindSetupEvents() {
 
   if (GS.step === 3) {
     if (GS.gameMode === 'oneHeart') {
-      document.querySelectorAll('#worldGrid .world-card').forEach(function(card) {
-        card.addEventListener('click', function() {
-          GS.worldSetting = this.dataset.id;
-          saveGame();
-          renderAll();
+      var worlds = ONE_HEART_WORLDS;
+      var useDropdown = worlds.length > 6;
+      if (useDropdown) {
+        var worldSelect = document.getElementById('worldSelect');
+        if (worldSelect) {
+          worldSelect.addEventListener('change', function() {
+            GS.worldSetting = this.value;
+            if (this.value !== 'custom') {
+              GS.oneHeartCustomWorld = '';
+            }
+            saveGame();
+            renderAll();
+          });
+        }
+        var saveCustomBtn = document.getElementById('saveCustomWorldBtn');
+        if (saveCustomBtn) {
+          saveCustomBtn.addEventListener('click', function() {
+            var input = document.getElementById('customWorldInput');
+            if (input) {
+              GS.oneHeartCustomWorld = input.value.trim();
+              saveGame();
+              showToast('✅ 世界观已保存');
+              renderAll();
+            }
+          });
+        }
+        var customInput = document.getElementById('customWorldInput');
+        if (customInput) {
+          customInput.addEventListener('input', function() {
+            var count = document.getElementById('customWorldCount');
+            if (count) count.textContent = this.value.length;
+          });
+        }
+      } else {
+        document.querySelectorAll('#worldGrid .world-card').forEach(function(card) {
+          card.addEventListener('click', function() {
+            GS.worldSetting = this.dataset.id;
+            saveGame();
+            renderAll();
+          });
         });
-      });
+      }
       document.querySelectorAll('#styleGrid .style-chip').forEach(function(chip) {
         chip.addEventListener('click', function() {
           GS.writingStyle = this.dataset.id;
@@ -591,6 +790,8 @@ export function bindSetupEvents() {
         });
       });
       document.getElementById('step3Next').addEventListener('click', function() {
+        var isCustomWorld = GS.worldSetting === 'custom';
+        if (isCustomWorld && !GS.oneHeartCustomWorld) { showToast('请先填写并保存自定义世界观设定'); return; }
         if (!GS.worldSetting || !GS.writingStyle) { showToast('请选择世界观和写作风格'); return; }
         GS.step = 4;
         saveGame();
@@ -878,19 +1079,20 @@ export function renderGameScreen() {
 // ==================== 1v1 游戏界面 ====================
 function renderOneHeartGameScreen() {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
-  var phaseLabel = PHASE_LABELS[PHASES[GS.phaseIndex]] || '';
   var html = '';
 
-  // Header
+  // Header (使用通用组件)
+  html += renderHeader();
+
+  // 成员信息卡（头像 + 名称 + 好感度档位）
   html += '<div class="card" style="padding:12px 16px;margin-bottom:12px">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
-    '<div style="display:flex;align-items:center;gap:8px">' +
-    '<span style="font-size:24px">' + (member ? member.emoji : '💗') + '</span>' +
-    '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary)">' +
+    '<div style="display:flex;align-items:center;gap:12px">' +
+    '<span style="font-size:36px">' + (member ? member.emoji : '💗') + '</span>' +
+    '<div><div style="font-size:15px;font-weight:700;color:var(--text-primary)">' +
     (member ? escHtml(member.name) : '只为你心动') + '</div>' +
-    '<div style="font-size:11px;color:var(--text-muted)">Day ' + GS.day + ' · ' + phaseLabel + '</div></div></div>' +
-    '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent-primary);font-weight:600">' +
-    (member ? '❤️ ' + (GS.affection[member.id] || 0) : '') + '</div></div></div>';
+    '<div style="font-size:12px;color:var(--accent-primary);font-weight:600">' +
+    (member ? '❤️ ' + (GS.affection[member.id] || 0) + ' · ' + getAffectionDesc(GS.affection[member.id] || 0) : '') +
+    '</div></div></div></div>';
 
   // Narrative
   html += renderNarrativeSection();
@@ -1850,6 +2052,20 @@ function bindOneHeartEvents() {
       }
     });
   });
+
+  // 顶部功能按钮（同 transfer 模式）
+  var settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) settingsBtn.addEventListener('click', showApiSettingsModal);
+
+  var helpBtn = document.getElementById('helpBtn');
+  if (helpBtn) helpBtn.addEventListener('click', showHelpMergedModal);
+
+  var reviewBtn = document.getElementById('reviewBtn');
+  if (reviewBtn) reviewBtn.addEventListener('click', showReviewModal);
+
+  // 好感度提示点击
+  var affectionHint = document.getElementById('affectionHint');
+  if (affectionHint) affectionHint.addEventListener('click', showAffectionPanel);
 
   // Back to top
   var backBtn = document.getElementById('backToTopBtn');
