@@ -2,6 +2,7 @@
   MAX_STAY_COUNT, PHASE_ACTION_LIMIT, MEMBERS, TRUTH_CARDS,
   GIFT_TEMPLATES, MEMBER_GIFT_PREFERENCE, PHASES, PHASE_LABELS,
   QUESTION_BOX_QUESTIONS, TOKEN_CONFIG, HOLIDAYS, RETURN_GIFTS,
+  ONE_HEART_TOKEN_CONFIG,
   GS, saveGame, showLoading, hideLoading, showToast, randInt, escHtml, dispatch
 } from './core.js';
 import { generateWithRetry, formatAIError } from './ai-generator.js';
@@ -9,7 +10,7 @@ import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
-import { buildSystemPrompt, buildUserMessage } from './prompts.js';
+import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
 import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
@@ -44,6 +45,9 @@ function pushCorrections(corrections) {
 }
 
 export async function generatePhaseNarrative() {
+  if (GS.gameMode === 'oneHeart') {
+    return generateOneHeartRound();
+  }
   if (GS._isGenerating) { console.log('[gen] skip reentrant call'); return; }
   GS._isGenerating = true;
   try {
@@ -1551,5 +1555,207 @@ export function showMissionCardModal(card) {
   });
 }
 
+// ==================== 1v1「只为你心动」模式 ====================
 
+export async function generateOneHeartRound() {
+  if (GS._isGenerating) { console.log('[1v1] skip reentrant'); return; }
+  GS._isGenerating = true;
+  showLoading('正在生成剧情...');
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartUserMessage('phase');
 
+    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative });
+    if (!raw) {
+      GS.phaseNarrative = '';
+      GS.currentOptions = [];
+      GS.parsedNarrative = { narrative: '', directorOS: '', options: [] };
+      return;
+    }
+
+    var parsed = parseOneHeartNarrative(raw);
+    if (!parsed || !parsed.narrative) {
+      GS.phaseNarrative = '';
+      GS.currentOptions = [];
+      GS.parsedNarrative = { narrative: '', directorOS: '', options: [] };
+      return;
+    }
+
+    GS.parsedNarrative = parsed;
+    GS.phaseNarrative = parsed.narrative;
+    GS.currentOptions = parsed.options || [];
+
+    if (GS.todayFullText.length === 0) {
+      GS.todayFullText = [parsed.narrative];
+    } else {
+      GS.todayFullText.push(parsed.narrative);
+    }
+
+    GS.phaseFreeCount = 0;
+    GS.phaseOptionCount = 0;
+    GS.isInConsequence = false;
+    GS.consequenceNarratives = [];
+    GS.smsSentToday = false;
+    saveGame();
+  } catch (e) {
+    console.error('[1v1] generation error:', e);
+    showToast('剧情生成失败：' + e.message);
+  } finally {
+    GS._isGenerating = false;
+    hideLoading();
+    window.__renderAll && window.__renderAll();
+  }
+}
+
+function parseOneHeartNarrative(raw) {
+  try {
+    var json;
+    try {
+      json = JSON.parse(raw);
+    } catch (e) {
+      var match = raw.match(/\{[\s\S]*\}/);
+      if (match) json = JSON.parse(match[0]);
+      else throw e;
+    }
+
+    var narrative = '';
+    var options = [];
+
+    if (json.blocks && Array.isArray(json.blocks)) {
+      for (var i = 0; i < json.blocks.length; i++) {
+        var b = json.blocks[i];
+        if ((b.type === 'narrative' || b.type === 'directorOS') && b.content) {
+          narrative += (narrative ? '\n\n' : '') + b.content;
+        }
+      }
+    }
+
+    if (json.options && Array.isArray(json.options)) {
+      options = json.options.map(function(o) { return { text: o.text || '' }; });
+    }
+
+    return { narrative: narrative, options: options };
+  } catch (e) {
+    console.error('[1v1] parse error:', e);
+    return null;
+  }
+}
+
+export async function sendChatMessage(userMessage) {
+  if (!userMessage || !userMessage.trim()) return '';
+  if (!GS.chatHistory) GS.chatHistory = [];
+
+  GS.chatHistory.push({ role: 'user', content: userMessage.trim() });
+
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
+
+    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.9 });
+    if (!raw) {
+      showToast('聊天回复生成失败');
+      return '';
+    }
+
+    var clean = raw.replace(/^["'\s]+|["'\s]+$/g, '');
+    GS.chatHistory.push({ role: 'ai', content: clean });
+    if (GS.chatHistory.length > 50) {
+      GS.chatHistory = GS.chatHistory.slice(-50);
+    }
+    saveGame();
+    return clean;
+  } catch (e) {
+    console.error('[1v1] chat error:', e);
+    showToast('聊天回复生成失败');
+    return '';
+  }
+}
+
+export async function generateMoment() {
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartUserMessage('moment');
+
+    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.momentGen, temperature: 0.85 });
+    if (!raw) return null;
+
+    var json;
+    try {
+      json = JSON.parse(raw);
+    } catch (e) {
+      var match = raw.match(/\{[\s\S]*\}/);
+      if (match) json = JSON.parse(match[0]);
+      else throw e;
+    }
+
+    var moment = {
+      id: 'moment_' + Date.now(),
+      post: json.post || '',
+      reply: json.reply || '',
+      timestamp: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day
+    };
+
+    if (!GS.moments) GS.moments = [];
+    GS.moments.push(moment);
+    saveGame();
+    return moment;
+  } catch (e) {
+    console.error('[1v1] moment error:', e);
+    return null;
+  }
+}
+
+export async function generateTheater(themePrompt) {
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartUserMessage('theater', { themePrompt: themePrompt });
+
+    GS._isGenerating = true;
+    showLoading('正在生成番外剧情...');
+
+    var raw = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.theaterGen, temperature: 0.9 });
+    if (!raw) {
+      hideLoading();
+      GS._isGenerating = false;
+      return null;
+    }
+
+    var json;
+    try {
+      json = JSON.parse(raw);
+    } catch (e) {
+      var match = raw.match(/\{[\s\S]*\}/);
+      if (match) json = JSON.parse(match[0]);
+      else throw e;
+    }
+
+    var narrativeBlocks = '';
+    if (json.blocks && Array.isArray(json.blocks)) {
+      for (var i = 0; i < json.blocks.length; i++) {
+        if (json.blocks[i].content) {
+          narrativeBlocks += (narrativeBlocks ? '\n\n' : '') + json.blocks[i].content;
+        }
+      }
+    }
+
+    var theater = {
+      id: 'theater_' + Date.now(),
+      title: '番外_' + (GS.oneHeartMember ? (MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }) || {}).name : ''),
+      type: 'custom',
+      content: narrativeBlocks,
+      timestamp: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day
+    };
+
+    if (!GS.theaterHistory) GS.theaterHistory = [];
+    GS.theaterHistory.push(theater);
+    saveGame();
+    hideLoading();
+    GS._isGenerating = false;
+    return theater;
+  } catch (e) {
+    console.error('[1v1] theater error:', e);
+    hideLoading();
+    GS._isGenerating = false;
+    return null;
+  }
+}

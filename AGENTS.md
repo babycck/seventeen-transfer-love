@@ -1,7 +1,10 @@
 # SEVENTEEN Project — Agent Guide
 
 ## Project Overview
-《换乘恋爱 × SEVENTEEN》是一款基于 AI 生成的沉浸式恋爱综艺文字游戏。玩家扮演女主，与 3 位 SEVENTEEN 成员（其中一位是秘密前任 X）在心动小屋共度 12 天，通过选择、自由输入、发短信等方式推动剧情，最终做出「复合」或「换乘」的选择。
+《换乘恋爱 × SEVENTEEN》是一款基于 AI 生成的沉浸式恋爱文字游戏。包含两种模式：
+
+1. **💔 换乘恋爱（经典模式）** — 玩家扮演女主，与 3 位 SEVENTEEN 成员（其中一位是秘密前任 X）在心动小屋共度 12 天，通过选择、自由输入、发短信等方式推动剧情，最终做出「复合」或「换乘」的选择。
+2. **💗 只为你心动（1v1 模式）** — 玩家与 1 位 SEVENTEEN 成员展开专属恋爱故事。可选世界观（心动小屋/校园/办公室/邻居/旅途）、写作风格（甜宠/现实/慢热/热烈）。底部 4 Tab（剧情/聊天/朋友圈/剧场）+ 快捷指令抽屉。
 
 ## Tech Stack
 - **Language / Runtime:** JavaScript (ES Modules), Node.js 18+
@@ -43,15 +46,15 @@
 
 ---
 
-# 架构总览（v22）
+# 架构总览（v22 + 1v1）
 
 ```
 src/
 ├── main.js             — 入口（import style.css + app.js）
 ├── app.js              — 模块集合入口（import 所有模块）
 ├── app.js.backup       — ⚠️ 保留备份，不要删除
-├── game-engine.js      — 游戏核心逻辑（约 1400 行）
-├── ui-renderer.js      — 页面渲染调度 + 主题切换 + Canvas图表
+├── game-engine.js      — 游戏核心逻辑（约 1550 行）+ 1v1 模式函数
+├── ui-renderer.js      — 页面渲染调度 + 主题切换 + Canvas图表 + 1v1 界面
 ├── state.js            — 状态管理、读写存档、迁移（v22）
 ├── store.js            — 状态机（dispatch/reducer/subscribe）
 ├── parser.js           — 解析 AI 返回文本（narrative / options）
@@ -86,7 +89,7 @@ src/
 │   └── free-input.js        自由输入框
 │
 ├── modals.js           — Barrel（re-export 所有弹窗）
-├── modals/             — 模态弹窗（16 模块）
+├── modals/             — 模态弹窗（19 模块）
 │   ├── modal-factory.js      Modal DOM 工厂
 │   ├── confirm-modal.js      [NEW] 确认弹窗（Promise<boolean>，防遮罩穿透）
 │   ├── dating-dice.js        约会骰子
@@ -103,14 +106,17 @@ src/
 │   ├── help-modal.js         规则速览
 │   ├── affection-panel.js    好感度面板
 │   ├── heart-notes-modal.js  心动笔记（好感度+任务双来源标签）
-│   └── api-settings-modal.js API 设置
+│   ├── api-settings-modal.js API 设置
+│   ├── chat-modal.js         [1v1] 实时聊天弹窗
+│   ├── moments-modal.js      [1v1] 朋友圈弹窗
+│   └── theater-modal.js      [1v1] 剧场番外弹窗
 │
 └── prompts/            — Prompt 模块化
     ├── index.js
     └── context-snapshot.js
 ```
 
-**构建产物：** 56 modules, ~221KB JS, ~23KB CSS（gzip: ~100KB JS + 5KB CSS）
+**构建产物：** 63 modules, ~287KB JS, ~34KB CSS（gzip: ~124KB JS + 6KB CSS）
 
 **调试工具：** 控制台输入 `window.__skeleton` 可查看/切换骨架模块状态。
 
@@ -274,12 +280,56 @@ src/
 - 向后兼容：旧数据无 `source` 字段默认 `'mission'`
 - 展示面板：`showHeartNotesModal()`（来源标签区分 💚好感度 / 🎯秘密任务）
 
-## 11. 选项选择提示（choiceText）
+## 11. 1v1「只为你心动」模式
+
+### Setup Wizard 流程
+- Step 1: API 设置 + 模式选择（换乘恋爱 / 只为你心动）
+- 换乘恋爱：Step 2（女主人设）→ Step 3（选3人）→ Step 4（标X）→ Step 5（游戏）
+- 只为你心动：Step 2（选1人）→ Step 3（世界观+风格）→ Step 4（确认）→ Step 5（游戏）
+
+### 状态字段
+| 字段 | 默认值 | 说明 |
+|---|---|---|
+| `gameMode` | `'transfer'` | `'transfer'`=换乘恋爱，`'oneHeart'`=只为你心动 |
+| `oneHeartMember` | `''` | 1v1 模式下选中的成员 ID |
+| `worldSetting` | `''` | 世界观 ID（data.js ONE_HEART_WORLDS） |
+| `writingStyle` | `''` | 写作风格 ID（data.js ONE_HEART_STYLES） |
+| `chatHistory` | `[]` | `[{role:'user'|'ai', content}]` |
+| `moments` | `[]` | 朋友圈动态 `[{id, post, reply, timestamp}]` |
+| `theaterHistory` | `[]` | 番外故事 `[{id, title, type, content, timestamp}]` |
+
+### 游戏界面
+- 底部 4 Tab Bar（剧情/聊天/朋友圈/剧场）
+- 简化剧情区（无采访间、观察员、任务卡）
+- 快捷指令抽屉：选项/自由输入/自由推演/拉回主线/随机事件/走向大结局
+- 自由输入框在剧情区下方
+
+### AI Prompt
+- `buildOneHeartSystemPrompt()` — 1v1 系统 prompt（含世界观/风格/成员设定）
+- `buildOneHeartUserMessage(type, extra)` — 支持 type: phase/chat/moment/theater
+
+### 核心函数（game-engine.js）
+- `generateOneHeartRound()` — 1v1 剧情轮生成
+- `sendChatMessage(msg)` — 实时聊天
+- `generateMoment()` — 生成朋友圈动态
+- `generateTheater(themePrompt)` — 生成番外
+
+### 新弹窗（modals/）
+- `chat-modal.js` — 实时聊天（正在输入动画，15条上下文窗口）
+- `moments-modal.js` — 朋友圈时间线（AI 生成 + 成员评论）
+- `theater-modal.js` — 番外剧场（婚后/校园IF/男主视角/结局回忆录）
+
+### 安全分支原则
+- `buildSystemPrompt()` `buildUserMessage()` `generatePhaseNarrative()` `renderGameScreen()`
+  开头均加 `if (GS.gameMode === 'oneHeart') return oneHeartVersion()`
+- 换乘恋爱代码完全不受影响
+
+## 12. 选项选择提示（choiceText）
 - 每段 consequence 剧情前显示橙色标签 `❥ 你的选择：xxx`
 - 场景覆盖：普通选项、自由行动、短信、真心话、提问箱、继续今天、最终选择、醉酒后续
 - 渲染在 `narrative-box.js` 中通过 `choice-tag` 样式实现
 
-## 12. 安全与输入处理
+## 13. 安全与输入处理
 - **escHtml：** 所有 AI 生成文本插入 DOM 前必须经过 `escHtml()` 转义
   - 转义范围：`& < > " '` → `&amp; &lt; &gt; &quot; &#39;`
 - **XSS 重点检查位置：**
@@ -292,15 +342,15 @@ src/
   - `resetGame()` 已改为 async，内部嵌套 confirm 已解耦
   - 5 处原 `confirm()` 全部替换完毕
 
-## 13. 食物禁忌（foodTaboos）
+## 14. 食物禁忌（foodTaboos）
 - 数据定义在 `data.js` — MEMBERS 数组的 `foodTaboos` 字段
 - System Prompt 中注入规则，涉及用餐/做饭场景时 AI 必须遵守
 
-## 14. 观察者嘉宾（Observer Guest）
+## 15. 观察者嘉宾（Observer Guest）
 - 格式：`夫胜宽 Seungkwan`（中文名 + 空格 + 英文昵称）
 - 特约嘉宾提到其他成员时直接叫英文名（如 Joshua、Wonwoo、Mingyu）
 
-## 15. Prompt 系统（prompts.js）
+## 16. Prompt 系统（prompts.js）
 
 ### 注入的规则清单
 | 规则 | 注入位置 | 说明 |
@@ -324,7 +374,7 @@ src/
 | Day3 故事环节澄清 | buildUserMessage | 明确"不是真心话游戏，没有抽卡/强制规则" |
 | 选项多样性约束 | noRepeatNote | 避免"主动搭话""保持距离"等通用模板重复 |
 
-## 16. 激活码鉴权系统（已关闭）
+## 17. 激活码鉴权系统（已关闭）
 - 状态：已关闭，代码保留，可随时开启
 - 前端：`src/auth.js`（设备指纹、Token 验证）、`src/init.js`（鉴权入口，已注释）
 - 后端：`backend/`（Cloudflare Workers + KV）、`backend-tencent/`（腾讯云）
@@ -419,7 +469,7 @@ src/
 ## 构建与发布
 - 构建前务必运行 `node ./node_modules/vite/bin/vite.js build` 验证
 - 生产环境构建使用 `node ./node_modules/vite/bin/vite.js build`
-- 当前构建产物：56 modules, ~221KB JS, ~23KB CSS
+- 当前构建产物：63 modules, ~287KB JS, ~34KB CSS（gzip: ~124KB JS + 6KB CSS）
 
 ## 保留文件
 - **不要删除 `src/app.js.backup`** — 旧版单文件备份，部分函数结构参考自它
@@ -496,4 +546,5 @@ src/
 | advancePhase 重入锁 | 已完成 | game-engine.js | 添加 _advancingPhase 锁，防止双击按钮跳过时段 |
 | 选项多样性不足（4 合 1） | 已完成 | prompts.js, ai-generator.js, state.js, game-engine.js | P0: todayOptionTexts 黑名单注入 prompt; P0: prevSummary 移除 type 限制; P1: temperature 0.7→0.85; P1: noRepeatNote 强化 |
 | 飘字动画说明 | 已更新 | AGENTS.md | spawnAffFloat 防抖说明 300ms→队列累积 |
+| 1v1「只为你心动」模式 | ✅ 已完成 | 全模块 | 9 阶段实施，详见上方 1v1 模式文档 |
 

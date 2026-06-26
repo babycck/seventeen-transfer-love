@@ -2,19 +2,21 @@
   MAX_STAY_COUNT, PHASE_ACTION_LIMIT, ZODIAC_SIGNS,
   MEMBERS, PHASES, PHASE_LABELS,
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
-  API_PROVIDERS,
+  API_PROVIDERS, ONE_HEART_WORLDS, ONE_HEART_STYLES,
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection,
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
+// 1v1 模态弹窗
+import { showChatModal, showMomentsModal, showTheaterModal } from './modals.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
 import { renderParsedNarrative, renderNarrativeSection, startTypewriter } from './ui/narrative-box.js';
@@ -184,6 +186,7 @@ export function renderSetupWizard() {
   var html = '';
 
   if (GS.step === 1) {
+    var modeSel = (GS.gameMode || 'transfer') === 'oneHeart' ? 'oneHeart' : 'transfer';
     var hasKey = GS.apiKey && GS.apiKey.length > 0;
     var providerOptions = '';
     for (var pk in API_PROVIDERS) {
@@ -191,7 +194,17 @@ export function renderSetupWizard() {
       providerOptions += '<option value="' + pk + '"' + (GS.apiProvider === pk ? ' selected' : '') + '>' + p.name + '</option>';
     }
     var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
-    html = '<div class="setup-step"><h2>🔑 Step 1：API 设置</h2>' +
+    html = '<div class="setup-step">' +
+      '<h2>🎮 选择游戏模式</h2>' +
+      '<div class="mode-select">' +
+      '<button class="mode-option' + (modeSel === 'transfer' ? ' selected' : '') + '" id="modeTransfer">' +
+      '<span class="mode-emoji">💔</span><span class="mode-name">换乘恋爱</span>' +
+      '<span class="mode-desc">经典模式 · 与 3 位成员在心动小屋共度 12 天</span></button>' +
+      '<button class="mode-option' + (modeSel === 'oneHeart' ? ' selected' : '') + '" id="modeOneHeart">' +
+      '<span class="mode-emoji">💗</span><span class="mode-name">只为你心动</span>' +
+      '<span class="mode-desc">1v1 模式 · 与 1 位成员展开专属恋爱</span></button></div>' +
+      '<hr style="margin:16px 0;border:none;border-top:1px solid #f0e0e0">' +
+      '<h2>🔑 API 设置</h2>' +
       '<p class="step-desc">选择 AI 提供商并输入 API Key 以启用 AI 剧情生成</p>' +
       '<label>AI 提供商</label>' +
       '<select id="apiProviderSelect" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
@@ -223,68 +236,123 @@ export function renderSetupWizard() {
       //'<p style="font-size:11px;color:#8b6b6b;margin:0">测试版使用本地预生成剧情，无需API Key即可体验游戏流程。</p>' +
       '</div></div>';
   } else if (GS.step === 2) {
-    var hp = GS.heroineProfile;
-    var locked = GS.profileLocked;
-    var ro = locked ? ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"' : '';
-    var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
-    html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
-      '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
-      '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '"' + ro + '>' +
-      '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40"' + ro + '>' +
-      '<label>职业（自由填写）</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>' +
-      '<label>生日（月 / 日）</label>' +
-      '<div style="display:flex;gap:8px">' +
-      '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '"' + ro + ' style="flex:1">' +
-      '<input type="number" id="hpBirthDay" min="1" max="31" placeholder="日" value="' + (hp.birthday && hp.birthday.day ? hp.birthday.day : '') + '"' + ro + ' style="flex:1">' +
-      '</div>' +
-      '<p id="zodiacDisplay" style="font-size:12px;color:#8b6b6b;margin-top:4px">' + (hp.zodiac ? '星座：' + hp.zodiac : '输入生日后自动计算星座') + '</p>' +
-      '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
-      APPEARANCE_TRAITS.map(function(s) {
-        return '<span class="chip' + (hp.appearance.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
-      }).join('') + '</div>' +
-      '<label>性格（多选）</label><div class="chip-row" id="personalityChips">' +
-      PERSONALITY_TRAITS.map(function(s) {
-        return '<span class="chip' + (hp.personality.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
-      }).join('') + '</div>' +
-      '<label>MBTI</label><div class="chip-row" id="mbtiChips">' +
-      MBTI_TYPES.map(function(s) {
-        return '<span class="chip' + (hp.mbti === s ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
-      }).join('') + '</div>' +
-      '<label>私密体质（多选，可选）</label><div class="chip-row" id="privateChips">' +
-      PRIVATE_TRAITS.map(function(s) {
-        return '<span class="chip' + (hp.privateTraits.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
-      }).join('') + '</div>' +
-      (locked ? '<button class="btn-primary" id="step2Next">继续到成员选择 →</button>' :
-        '<button class="btn-primary" id="step2Next">下一步 →</button>' +
-        '<button class="btn-secondary" id="step2Back">← 返回</button>') + '</div>';
+    if (GS.gameMode === 'oneHeart') {
+      html = '<div class="setup-step"><h2>💗 Step 2：选择心动对象</h2>' +
+        '<p class="step-desc">选择 1 位 SEVENTEEN 成员作为你的专属心动对象</p>' +
+        '<div class="member-grid" id="oneHeartMemberGrid">' +
+        MEMBERS.map(function(m) {
+          var sel = GS.oneHeartMember === m.id;
+          return '<div class="member-chip' + (sel ? ' selected' : '') + '" data-id="' + m.id + '">' +
+            m.emoji + '<br>' + m.name + '<br><small>' + m.stageName + '</small></div>';
+        }).join('') + '</div>' +
+        '<button class="btn-primary" id="step2Next" ' + (GS.oneHeartMember ? '' : 'disabled') + '>' +
+        (GS.oneHeartMember ? '下一步 →' : '请选择 1 位成员') + '</button>' +
+        '<button class="btn-secondary" id="step2Back">← 返回</button></div>';
+    } else {
+      var hp = GS.heroineProfile;
+      var locked = GS.profileLocked;
+      var ro = locked ? ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"' : '';
+      var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
+      html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
+        '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
+        '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '"' + ro + '>' +
+        '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40"' + ro + '>' +
+        '<label>职业（自由填写）</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>' +
+        '<label>生日（月 / 日）</label>' +
+        '<div style="display:flex;gap:8px">' +
+        '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '"' + ro + ' style="flex:1">' +
+        '<input type="number" id="hpBirthDay" min="1" max="31" placeholder="日" value="' + (hp.birthday && hp.birthday.day ? hp.birthday.day : '') + '"' + ro + ' style="flex:1">' +
+        '</div>' +
+        '<p id="zodiacDisplay" style="font-size:12px;color:#8b6b6b;margin-top:4px">' + (hp.zodiac ? '星座：' + hp.zodiac : '输入生日后自动计算星座') + '</p>' +
+        '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
+        APPEARANCE_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.appearance.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>性格（多选）</label><div class="chip-row" id="personalityChips">' +
+        PERSONALITY_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.personality.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>MBTI</label><div class="chip-row" id="mbtiChips">' +
+        MBTI_TYPES.map(function(s) {
+          return '<span class="chip' + (hp.mbti === s ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        '<label>私密体质（多选，可选）</label><div class="chip-row" id="privateChips">' +
+        PRIVATE_TRAITS.map(function(s) {
+          return '<span class="chip' + (hp.privateTraits.indexOf(s) >= 0 ? ' selected' : '') + '"' + chipStyle + ' data-val="' + s + '">' + s + '</span>';
+        }).join('') + '</div>' +
+        (locked ? '<button class="btn-primary" id="step2Next">继续到成员选择 →</button>' :
+          '<button class="btn-primary" id="step2Next">下一步 →</button>' +
+          '<button class="btn-secondary" id="step2Back">← 返回</button>') + '</div>';
+    }
   } else if (GS.step === 3) {
-    html = '<div class="setup-step"><h2>⭐ Step 3：选择成员</h2>' +
-      '<p class="step-desc">从 13 位 SEVENTEEN 成员中选择 3 位参加节目 <small>（已选 ' + GS.selectedMembers.length + '/3）</small></p>' +
-      '<div class="member-grid" id="memberGrid">' +
-      MEMBERS.map(function(m) {
-        var sel = GS.selectedMembers.indexOf(m.id) >= 0;
-        return '<div class="member-chip' + (sel ? ' selected' : '') + '" data-id="' + m.id + '">' +
-          m.emoji + '<br>' + m.name + '<br><small>' + m.stageName + '</small></div>';
-      }).join('') + '</div>' +
-      '<button class="btn-primary" id="step3Next" ' + (GS.selectedMembers.length !== 3 ? 'disabled' : '') + '>' +
-      (GS.selectedMembers.length === 3 ? '下一步 →' : '请选择 3 位成员') + '</button>' +
-      '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
+    if (GS.gameMode === 'oneHeart') {
+      html = '<div class="setup-step"><h2>🌍 Step 3：世界设定</h2>' +
+        '<p class="step-desc">选择你们相遇的世界</p>' +
+        '<div class="world-grid" id="worldGrid">' +
+        ONE_HEART_WORLDS.map(function(w) {
+          var sel = GS.worldSetting === w.id;
+          return '<div class="world-card' + (sel ? ' selected' : '') + '" data-id="' + w.id + '">' +
+            '<div class="world-name">' + w.name + '</div>' +
+            '<div class="world-desc">' + w.desc + '</div></div>';
+        }).join('') + '</div>' +
+        '<label style="margin-top:16px;display:block">写作风格</label>' +
+        '<div class="style-grid" id="styleGrid">' +
+        ONE_HEART_STYLES.map(function(s) {
+          var sel = GS.writingStyle === s.id;
+          return '<div class="style-chip' + (sel ? ' selected' : '') + '" data-id="' + s.id + '">' +
+            '<div class="style-name">' + s.name + '</div>' +
+            '<div class="style-desc">' + s.desc + '</div></div>';
+        }).join('') + '</div>' +
+        '<button class="btn-primary" id="step3Next" ' + (GS.worldSetting && GS.writingStyle ? '' : 'disabled') + '>' +
+        (GS.worldSetting && GS.writingStyle ? '下一步 →' : '请选择世界观和写作风格') + '</button>' +
+        '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
+    } else {
+      html = '<div class="setup-step"><h2>⭐ Step 3：选择成员</h2>' +
+        '<p class="step-desc">从 13 位 SEVENTEEN 成员中选择 3 位参加节目 <small>（已选 ' + GS.selectedMembers.length + '/3）</small></p>' +
+        '<div class="member-grid" id="memberGrid">' +
+        MEMBERS.map(function(m) {
+          var sel = GS.selectedMembers.indexOf(m.id) >= 0;
+          return '<div class="member-chip' + (sel ? ' selected' : '') + '" data-id="' + m.id + '">' +
+            m.emoji + '<br>' + m.name + '<br><small>' + m.stageName + '</small></div>';
+        }).join('') + '</div>' +
+        '<button class="btn-primary" id="step3Next" ' + (GS.selectedMembers.length !== 3 ? 'disabled' : '') + '>' +
+        (GS.selectedMembers.length === 3 ? '下一步 →' : '请选择 3 位成员') + '</button>' +
+        '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
+    }
   } else if (GS.step === 4) {
-    var selMembers = GS.selectedMembers.map(function(id) {
-      return MEMBERS.find(function(m) { return m.id === id; });
-    });
-    html = '<div class="setup-step"><h2>💔 Step 4：标记秘密前任 X</h2>' +
-      '<p class="step-desc">从 3 位成员中选择 1 位作为你的秘密前任（恋爱2年，分手1年）</p>' +
-      '<div class="member-grid" id="xGrid">' +
-      selMembers.map(function(m) {
-        var isX = GS.secretX === m.id;
-        return '<div class="member-chip' + (isX ? ' x-marked' : '') + '" data-id="' + m.id + '">' +
-          m.emoji + '<br>' + m.name + '<br><small>' + (isX ? '💔 前任X' : '攻略对象') + '</small></div>';
-      }).join('') + '</div>' +
-      '<p style="color:#8b6b6b;font-size:11px;margin-top:6px">💡 其余2位成员各有场外女性X。X身份在节目中保密——当年是秘密恋爱，团内无人知晓。</p>' +
-      '<button class="btn-primary" id="step4Start" ' + (!GS.secretX ? 'disabled' : '') + '>' +
-      (GS.secretX ? '🎮 开始游戏！' : '请选择你的秘密前任') + '</button>' +
-      '<button class="btn-secondary" id="step4Back">← 返回</button></div>';
+    if (GS.gameMode === 'oneHeart') {
+      var confirmMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+      var confirmWorld = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
+      var confirmStyle = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
+      var hp = GS.heroineProfile;
+      html = '<div class="setup-step"><h2>💗 准备开始</h2>' +
+        '<p class="step-desc">确认你的设定，然后开始你的专属恋爱故事</p>' +
+        '<div class="confirm-card">' +
+        '<div class="confirm-row"><span class="confirm-label">游戏模式</span><span>只为你心动（1v1）</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">心动对象</span><span>' + (confirmMember ? confirmMember.emoji + ' ' + confirmMember.name + '（' + confirmMember.stageName + '）' : '未选择') + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : '未选择') + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + hp.name + ' · ' + hp.age + '岁 · ' + hp.job + '</span></div>' +
+        '</div>' +
+        '<button class="btn-primary" id="step4Start">🎮 开始故事！</button>' +
+        '<button class="btn-secondary" id="step4Back">← 返回修改</button></div>';
+    } else {
+      var selMembers = GS.selectedMembers.map(function(id) {
+        return MEMBERS.find(function(m) { return m.id === id; });
+      });
+      html = '<div class="setup-step"><h2>💔 Step 4：标记秘密前任 X</h2>' +
+        '<p class="step-desc">从 3 位成员中选择 1 位作为你的秘密前任（恋爱2年，分手1年）</p>' +
+        '<div class="member-grid" id="xGrid">' +
+        selMembers.map(function(m) {
+          var isX = GS.secretX === m.id;
+          return '<div class="member-chip' + (isX ? ' x-marked' : '') + '" data-id="' + m.id + '">' +
+            m.emoji + '<br>' + m.name + '<br><small>' + (isX ? '💔 前任X' : '攻略对象') + '</small></div>';
+        }).join('') + '</div>' +
+        '<p style="color:#8b6b6b;font-size:11px;margin-top:6px">💡 其余2位成员各有场外女性X。X身份在节目中保密——当年是秘密恋爱，团内无人知晓。</p>' +
+        '<button class="btn-primary" id="step4Start" ' + (!GS.secretX ? 'disabled' : '') + '>' +
+        (GS.secretX ? '🎮 开始游戏！' : '请选择你的秘密前任') + '</button>' +
+        '<button class="btn-secondary" id="step4Back">← 返回</button></div>';
+    }
   }
 
   return html;
@@ -292,6 +360,31 @@ export function renderSetupWizard() {
 
 export function bindSetupEvents() {
   if (GS.step === 1) {
+    // 模式选择
+    var modeTransfer = document.getElementById('modeTransfer');
+    var modeOneHeart = document.getElementById('modeOneHeart');
+    if (modeTransfer) {
+      modeTransfer.addEventListener('click', function() {
+        GS.gameMode = 'transfer';
+        GS.oneHeartMember = '';
+        GS.worldSetting = '';
+        GS.writingStyle = '';
+        GS.chatHistory = [];
+        GS.moments = [];
+        GS.theaterHistory = [];
+        saveGame();
+        renderAll();
+      });
+    }
+    if (modeOneHeart) {
+      modeOneHeart.addEventListener('click', function() {
+        GS.gameMode = 'oneHeart';
+        GS.selectedMembers = [];
+        GS.secretX = '';
+        saveGame();
+        renderAll();
+      });
+    }
     document.getElementById('apiProviderSelect').addEventListener('change', function() {
       GS.apiProvider = this.value;
       var provider = API_PROVIDERS[this.value];
@@ -401,103 +494,197 @@ export function bindSetupEvents() {
   }
 
   if (GS.step === 2) {
-    if (!GS.profileLocked) {
-      document.getElementById('hpName').addEventListener('input', function() {
-        GS.heroineProfile.name = this.value;
-        saveGame();
+    if (GS.gameMode === 'oneHeart') {
+      document.querySelectorAll('#oneHeartMemberGrid .member-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          GS.oneHeartMember = this.dataset.id;
+          saveGame();
+          renderAll();
+        });
       });
-      document.getElementById('hpAge').addEventListener('input', function() {
-        GS.heroineProfile.age = parseInt(this.value) || 25;
+      document.getElementById('step2Next').addEventListener('click', function() {
+        if (!GS.oneHeartMember) { showToast('请选择 1 位成员'); return; }
+        GS.step = 3;
         saveGame();
+        renderAll();
       });
-      document.getElementById('hpJob').addEventListener('input', function() {
-        GS.heroineProfile.job = this.value;
-        saveGame();
-      });
-      var updateZodiac = function() {
-        var m = parseInt(document.getElementById('hpBirthMonth').value) || 0;
-        var d = parseInt(document.getElementById('hpBirthDay').value) || 0;
-        GS.heroineProfile.birthday = { month: m, day: d };
-        GS.heroineProfile.zodiac = getZodiacFromBirthday(m, d);
-        var disp = document.getElementById('zodiacDisplay');
-        if (disp) disp.textContent = GS.heroineProfile.zodiac ? '星座：' + GS.heroineProfile.zodiac : '输入生日后自动计算星座';
-        saveGame();
-      };
-      document.getElementById('hpBirthMonth').addEventListener('input', updateZodiac);
-      document.getElementById('hpBirthDay').addEventListener('input', updateZodiac);
-      bindChipGroup('appearanceChips', function(val) {
-        toggleArrayItem(GS.heroineProfile.appearance, val);
-        saveGame();
-      }, false);
-      bindChipGroup('personalityChips', function(val) {
-        toggleArrayItem(GS.heroineProfile.personality, val);
-        saveGame();
-      }, false);
-      bindChipGroup('mbtiChips', function(val) {
-        GS.heroineProfile.mbti = val;
-        saveGame();
-      }, true);
-      bindChipGroup('privateChips', function(val) {
-        toggleArrayItem(GS.heroineProfile.privateTraits, val);
-        saveGame();
-      }, false);
-    }
-    document.getElementById('step2Next').addEventListener('click', function() {
-      if (!GS.profileLocked) {
-        GS.profileLocked = true;
-        GS.secretX = '';
-      }
-      GS.step = 3;
-      saveGame();
-      renderAll();
-    });
-    if (!GS.profileLocked) {
       document.getElementById('step2Back').addEventListener('click', function() {
         GS.step = 1;
         saveGame();
         renderAll();
       });
+    } else {
+      if (!GS.profileLocked) {
+        document.getElementById('hpName').addEventListener('input', function() {
+          GS.heroineProfile.name = this.value;
+          saveGame();
+        });
+        document.getElementById('hpAge').addEventListener('input', function() {
+          GS.heroineProfile.age = parseInt(this.value) || 25;
+          saveGame();
+        });
+        document.getElementById('hpJob').addEventListener('input', function() {
+          GS.heroineProfile.job = this.value;
+          saveGame();
+        });
+        var updateZodiac = function() {
+          var m = parseInt(document.getElementById('hpBirthMonth').value) || 0;
+          var d = parseInt(document.getElementById('hpBirthDay').value) || 0;
+          GS.heroineProfile.birthday = { month: m, day: d };
+          GS.heroineProfile.zodiac = getZodiacFromBirthday(m, d);
+          var disp = document.getElementById('zodiacDisplay');
+          if (disp) disp.textContent = GS.heroineProfile.zodiac ? '星座：' + GS.heroineProfile.zodiac : '输入生日后自动计算星座';
+          saveGame();
+        };
+        document.getElementById('hpBirthMonth').addEventListener('input', updateZodiac);
+        document.getElementById('hpBirthDay').addEventListener('input', updateZodiac);
+        bindChipGroup('appearanceChips', function(val) {
+          toggleArrayItem(GS.heroineProfile.appearance, val);
+          saveGame();
+        }, false);
+        bindChipGroup('personalityChips', function(val) {
+          toggleArrayItem(GS.heroineProfile.personality, val);
+          saveGame();
+        }, false);
+        bindChipGroup('mbtiChips', function(val) {
+          GS.heroineProfile.mbti = val;
+          saveGame();
+        }, true);
+        bindChipGroup('privateChips', function(val) {
+          toggleArrayItem(GS.heroineProfile.privateTraits, val);
+          saveGame();
+        }, false);
+      }
+      document.getElementById('step2Next').addEventListener('click', function() {
+        if (!GS.profileLocked) {
+          GS.profileLocked = true;
+          GS.secretX = '';
+        }
+        GS.step = 3;
+        saveGame();
+        renderAll();
+      });
+      if (!GS.profileLocked) {
+        document.getElementById('step2Back').addEventListener('click', function() {
+          GS.step = 1;
+          saveGame();
+          renderAll();
+        });
+      }
     }
   }
 
   if (GS.step === 3) {
-    document.querySelectorAll('#memberGrid .member-chip').forEach(function(chip) {
-      chip.addEventListener('click', function() {
-        var id = this.dataset.id;
-        if (GS.selectedMembers.indexOf(id) >= 0) {
-          GS.selectedMembers = GS.selectedMembers.filter(function(x) { return x !== id; });
-        } else if (GS.selectedMembers.length < 3) {
-          GS.selectedMembers.push(id);
-        }
+    if (GS.gameMode === 'oneHeart') {
+      document.querySelectorAll('#worldGrid .world-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          GS.worldSetting = this.dataset.id;
+          saveGame();
+          renderAll();
+        });
+      });
+      document.querySelectorAll('#styleGrid .style-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          GS.writingStyle = this.dataset.id;
+          saveGame();
+          renderAll();
+        });
+      });
+      document.getElementById('step3Next').addEventListener('click', function() {
+        if (!GS.worldSetting || !GS.writingStyle) { showToast('请选择世界观和写作风格'); return; }
+        GS.step = 4;
         saveGame();
         renderAll();
       });
-    });
-    document.getElementById('step3Next').addEventListener('click', function() {
-      if (GS.selectedMembers.length !== 3) return;
-      GS.step = 4;
-      GS.secretX = '';
-      saveGame();
-      renderAll();
-    });
-    document.getElementById('step3Back').addEventListener('click', function() {
-      GS.step = 2;
-      saveGame();
-      renderAll();
-    });
+      document.getElementById('step3Back').addEventListener('click', function() {
+        GS.step = 2;
+        saveGame();
+        renderAll();
+      });
+    } else {
+      document.querySelectorAll('#memberGrid .member-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          var id = this.dataset.id;
+          if (GS.selectedMembers.indexOf(id) >= 0) {
+            GS.selectedMembers = GS.selectedMembers.filter(function(x) { return x !== id; });
+          } else if (GS.selectedMembers.length < 3) {
+            GS.selectedMembers.push(id);
+          }
+          saveGame();
+          renderAll();
+        });
+      });
+      document.getElementById('step3Next').addEventListener('click', function() {
+        if (GS.selectedMembers.length !== 3) return;
+        GS.step = 4;
+        GS.secretX = '';
+        saveGame();
+        renderAll();
+      });
+      document.getElementById('step3Back').addEventListener('click', function() {
+        GS.step = 2;
+        saveGame();
+        renderAll();
+      });
+    }
   }
 
   if (GS.step === 4) {
-    document.querySelectorAll('#xGrid .member-chip').forEach(function(chip) {
-      chip.addEventListener('click', function() {
-        GS.secretX = this.dataset.id;
+    if (GS.gameMode === 'oneHeart') {
+      document.getElementById('step4Start').addEventListener('click', async function() {
+        if (!GS.oneHeartMember) return;
+        GS.selectedMembers = [GS.oneHeartMember];
+        GS.affection = {};
+        GS.affection[GS.oneHeartMember] = randInt(10, 25);
+        GS.step = 5;
+        GS.day = 1;
+        GS.phaseIndex = 0;
+        GS.stayCount = 0;
+        GS.phaseOptionCount = 0; GS.phaseFreeCount = 0;
+        GS.todayFullText = [];
+        GS.consequenceNarratives = [];
+        GS.currentOptions = [];
+        GS.phaseNarrative = '';
+        GS._isGenerating = false;
+        var seasonResult = generateSeasonAndDates();
+        GS.season = seasonResult.season;
+        GS.gameMonth = seasonResult.month;
+        GS.gameDates = seasonResult.dates;
+        GS.currentDate = seasonResult.dates[0];
+        GS.weathers = [];
+        var prevW = '';
+        for (var wi = 0; wi < 12; wi++) {
+          prevW = generateDailyWeather(prevW, GS.season);
+          GS.weathers.push(prevW);
+        }
+        GS.weather = GS.weathers[0];
+        GS.todayHoliday = null;
+        saveGame();
+        if (GS.aiEnabled) {
+          showLoading('正在准备第一天...');
+        }
+        renderAll();
+        if (GS.aiEnabled) {
+          hideLoading();
+          await generatePhaseNarrative();
+        }
+      });
+      document.getElementById('step4Back').addEventListener('click', function() {
+        GS.step = 3;
         saveGame();
         renderAll();
       });
-    });
-    document.getElementById('step4Start').addEventListener('click', async function() {
-      if (!GS.secretX) return;
-      invalidateSystemPromptCache();
+    } else {
+      document.querySelectorAll('#xGrid .member-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          GS.secretX = this.dataset.id;
+          saveGame();
+          renderAll();
+        });
+      });
+      document.getElementById('step4Start').addEventListener('click', async function() {
+        if (!GS.secretX) return;
+        invalidateSystemPromptCache();
       var otherMembers = GS.selectedMembers.filter(function(id) { return id !== GS.secretX; });
       GS.affection = {};
       GS.affection[GS.secretX] = randInt(35, 50);
@@ -564,6 +751,7 @@ export function bindSetupEvents() {
       saveGame();
       renderAll();
     });
+    }
   }
 }
 
@@ -592,6 +780,9 @@ export function toggleArrayItem(arr, val) {
 
 // ==================== 游戏界面渲染 ====================
 export function renderGameScreen() {
+  if (GS.gameMode === 'oneHeart') {
+    return renderOneHeartGameScreen();
+  }
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
@@ -677,6 +868,82 @@ export function renderGameScreen() {
   // 游戏结束
   if (GS.gameOver) {
     html += renderEndingScreen(members);
+  }
+
+  html += '<button id="backToTopBtn" title="回到顶部">⬆</button>';
+
+  return html;
+}
+
+// ==================== 1v1 游戏界面 ====================
+function renderOneHeartGameScreen() {
+  var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+  var phaseLabel = PHASE_LABELS[PHASES[GS.phaseIndex]] || '';
+  var html = '';
+
+  // Header
+  html += '<div class="card" style="padding:12px 16px;margin-bottom:12px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+    '<span style="font-size:24px">' + (member ? member.emoji : '💗') + '</span>' +
+    '<div><div style="font-size:14px;font-weight:700;color:var(--text-primary)">' +
+    (member ? escHtml(member.name) : '只为你心动') + '</div>' +
+    '<div style="font-size:11px;color:var(--text-muted)">Day ' + GS.day + ' · ' + phaseLabel + '</div></div></div>' +
+    '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent-primary);font-weight:600">' +
+    (member ? '❤️ ' + (GS.affection[member.id] || 0) : '') + '</div></div></div>';
+
+  // Narrative
+  html += renderNarrativeSection();
+
+  // Options
+  if (GS.currentOptions && GS.currentOptions.length > 0 && !GS.gameOver) {
+    html += '<div class="card" id="optionsArea">';
+    for (var i = 0; i < GS.currentOptions.length; i++) {
+      var opt = GS.currentOptions[i];
+      html += '<button class="option-btn" data-idx="' + i + '"><span class="opt-label">' + ['A','B','C'][i] + '</span>' +
+        escHtml(opt.text) + '</button>';
+    }
+    html += '</div>';
+  }
+
+  // Skip / Regenerate buttons
+  if (!GS.gameOver) {
+    html += '<div class="card"><div class="action-bar" id="oneHeartActionBar">' +
+      '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成</button>' +
+      '<button class="btn-skip" id="btnSkip">▶ 进入下一段</button>' +
+      '</div></div>';
+  }
+
+  // Free input
+  html += '<div class="card"><div class="free-input-area">' +
+    '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;padding:10px 12px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;resize:vertical;min-height:60px;font-family:inherit;background:var(--bg-card);color:var(--text-primary)"></textarea>' +
+    '<div style="display:flex;gap:6px;margin-top:6px">' +
+    '<button class="btn-secondary" id="btnSaveInput" style="flex:1;padding:6px">💾 保存</button>' +
+    '<button class="btn-primary" id="btnActInput" style="flex:1;padding:6px">🎬 执行</button></div></div></div>';
+
+  // Quick command toggle button
+  html += '<div style="text-align:center;margin:8px 0 60px 0">' +
+    '<button id="quickCmdToggle" style="padding:8px 20px;border:1px solid var(--border-primary);border-radius:999px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:12px;font-family:inherit">⚡ 快捷指令</button></div>';
+
+  // Quick command drawer
+  html += '<div class="quick-drawer" id="quickDrawer">' +
+    '<button class="quick-cmd" data-cmd="option">📋 生成选项</button>' +
+    '<button class="quick-cmd" data-cmd="free">✍️ 自由输入</button>' +
+    '<button class="quick-cmd" data-cmd="rewind">🔄 自由推演</button>' +
+    '<button class="quick-cmd" data-cmd="mainline">📌 拉回主线</button>' +
+    '<button class="quick-cmd" data-cmd="random">🎲 随机事件</button>' +
+    '<button class="quick-cmd" data-cmd="ending">🏁 走向大结局</button></div>';
+
+  // Bottom tab bar
+  html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
+    '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
+    '<button class="oneheart-tab" data-tab="chat"><span class="tab-emoji">💬</span>聊天</button>' +
+    '<button class="oneheart-tab" data-tab="moments"><span class="tab-emoji">📸</span>朋友圈</button>' +
+    '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
+
+  // Game over
+  if (GS.gameOver) {
+    html += '<div style="text-align:center;padding:20px;color:var(--accent-primary);font-size:18px;font-weight:700">💗 故事结束</div>';
   }
 
   html += '<button id="backToTopBtn" title="回到顶部">⬆</button>';
@@ -824,6 +1091,11 @@ export function renderEndingScreen(members) {
 }
 
 export function bindGameEvents() {
+  // 1v1 模式事件绑定
+  if (GS.gameMode === 'oneHeart') {
+    bindOneHeartEvents();
+    return;
+  }
   // 记忆审查面板事件
   var mrToggle = document.getElementById('mrToggle');
   if (mrToggle) {
@@ -1427,6 +1699,172 @@ export async function enterTestMode() {
   invalidateSystemPromptCache();
   saveGame();
   renderAll();
+}
+
+// ==================== 1v1 事件绑定 ====================
+function bindOneHeartEvents() {
+  // 选项（1v1 简化处理）
+  document.querySelectorAll('#optionsArea .option-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var idx = parseInt(this.dataset.idx);
+      var opt = GS.currentOptions[idx];
+      if (!opt) return;
+      this.innerHTML = '<span class="opt-label">⋯</span>';
+      document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
+      // 1v1 模式：记录选择文本，清空选项，推进
+      if (GS.todayFullText.length > 0) {
+        GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 你的选择：' + (opt.text || '');
+      }
+      GS.currentOptions = [];
+      saveGame();
+      await generateOneHeartRound();
+    });
+  });
+
+  // 重新生成（1v1）
+  var regenBtn = document.getElementById('btnRegenerate');
+  if (regenBtn) {
+    regenBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      GS.phaseNarrative = '';
+      GS.currentOptions = [];
+      GS._isGenerating = false;
+      saveGame();
+      await generateOneHeartRound();
+      this.disabled = false;
+    });
+  }
+
+  // 跳过/下一段（1v1）
+  var skipBtn = document.getElementById('btnSkip');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', async function() {
+      if (GS._advancingPhase) return;
+      GS._advancingPhase = true;
+      this.disabled = true;
+      GS.phaseNarrative = '';
+      GS.currentOptions = [];
+      saveGame();
+      await generateOneHeartRound();
+      GS._advancingPhase = false;
+      this.disabled = false;
+    });
+  }
+
+  // 自由输入保存
+  var saveInputBtn = document.getElementById('btnSaveInput');
+  if (saveInputBtn) {
+    saveInputBtn.addEventListener('click', function() {
+      GS.freeInput = (document.getElementById('freeInput') || {}).value || '';
+      saveGame();
+      showToast('✅ 已保存');
+    });
+  }
+
+  // 自由输入执行（1v1）
+  var actInputBtn = document.getElementById('btnActInput');
+  if (actInputBtn) {
+    actInputBtn.addEventListener('click', async function() {
+      var inputText = ((document.getElementById('freeInput') || {}).value || '').trim();
+      if (!inputText) { showToast('请先写下你想发生的一段剧情'); return; }
+      this.disabled = true;
+      GS.freeInput = inputText;
+      if (GS.todayFullText.length > 0) {
+        GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + inputText;
+      }
+      saveGame();
+      await generateOneHeartRound();
+      this.disabled = false;
+    });
+  }
+
+  // 快捷指令抽屉
+  var cmdToggle = document.getElementById('quickCmdToggle');
+  var drawer = document.getElementById('quickDrawer');
+  if (cmdToggle && drawer) {
+    cmdToggle.addEventListener('click', function() {
+      drawer.classList.toggle('open');
+    });
+  }
+
+  // 快捷指令按钮
+  document.querySelectorAll('.quick-cmd').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var cmd = this.dataset.cmd;
+      if (drawer) drawer.classList.remove('open');
+      switch (cmd) {
+        case 'option':
+          showToast('📋 正在生成选项...');
+          await advancePhase();
+          break;
+        case 'free':
+          document.getElementById('freeInput').focus();
+          break;
+        case 'rewind':
+          showToast('🔄 自由推演功能：请输入你想发生的新剧情方向');
+          document.getElementById('freeInput').focus();
+          break;
+        case 'mainline':
+          showToast('📌 拉回主线中...');
+          GS.freeInput = '';
+          saveGame();
+          await advancePhase();
+          break;
+        case 'random':
+          showToast('🎲 触发随机事件...');
+          await advancePhase();
+          break;
+        case 'ending':
+          if (await showConfirmModal('确定要走向大结局吗？这将结束当前故事。')) {
+            GS.gameOver = true;
+            GS.finalChoice = '与大结局';
+            GS.finalResult = '故事结束';
+            saveGame();
+            renderAll();
+          }
+          break;
+      }
+    });
+  });
+
+  // Bottom Tab 切换
+  document.querySelectorAll('.oneheart-tab').forEach(function(tab) {
+    tab.addEventListener('click', async function() {
+      var tabName = this.dataset.tab;
+      document.querySelectorAll('.oneheart-tab').forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+      switch (tabName) {
+        case 'story':
+          // Already showing story, scroll to top
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          break;
+        case 'chat':
+          showChatModal();
+          break;
+        case 'moments':
+          showMomentsModal();
+          break;
+        case 'theater':
+          showTheaterModal();
+          break;
+      }
+    });
+  });
+
+  // Back to top
+  var backBtn = document.getElementById('backToTopBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', function() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    if (!_scrollBound) {
+      window.addEventListener('scroll', function() {
+        var btn = document.getElementById('backToTopBtn');
+        if (btn) btn.style.display = window.scrollY > 500 ? 'flex' : 'none';
+      });
+      _scrollBound = true;
+    }
+  }
 }
 
 

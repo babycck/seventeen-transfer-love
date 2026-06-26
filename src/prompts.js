@@ -1,6 +1,7 @@
 ﻿import {
   MEMBERS, PHASES, PHASE_LABELS, PHASE_BOUNDARIES, PHASE_TONE,
-  CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, shouldTriggerRandomEvent, GS
+  CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, shouldTriggerRandomEvent,
+  ONE_HEART_WORLDS, ONE_HEART_STYLES, ONE_HEART_TOKEN_CONFIG, GS
 } from './core.js';
 import { formatCorrections } from './validator.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask } from './formatters.js';
@@ -31,6 +32,9 @@ export function invalidateSystemPromptCache() {
 
 // ==================== System Prompt ====================
 export function buildSystemPrompt() {
+  if (GS.gameMode === 'oneHeart') {
+    return buildOneHeartSystemPrompt();
+  }
   var cacheKey = getSystemPromptCacheKey();
   if (_systemPromptCache && _systemPromptCacheKey === cacheKey) {
     return _systemPromptCache;
@@ -234,6 +238,9 @@ export function buildSystemPrompt() {
 
 // ==================== User Message ====================
 export function buildUserMessage(type, extra) {
+  if (GS.gameMode === 'oneHeart') {
+    return buildOneHeartUserMessage(type, extra);
+  }
   extra = extra || {};
   var hp = GS.heroineProfile;
   var members = GS.selectedMembers.map(function(id) {
@@ -718,6 +725,109 @@ export function buildUserMessage(type, extra) {
       msg += '- "' + GS.todayOptionTexts[oti] + '"\n';
     }
     msg += '请确保本次生成的每个选项文本与此列表中所有文本完全不同。\n\n';
+  }
+
+  return msg;
+}
+
+// ==================== 1v1「只为你心动」模式 Prompt ====================
+
+export function buildOneHeartSystemPrompt() {
+  var hp = GS.heroineProfile;
+  var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+  if (!member) return buildSystemPrompt();
+
+  var world = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
+  var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
+
+  var result = '你是「只为你心动」——一款1v1沉浸式恋爱文字游戏的剧情生成AI。你必须只输出 JSON 对象，禁止输出 markdown 代码块或任何解释文字。\n\n' +
+
+    '[SYSTEM] 输出结构（强制 JSON · 字段须严格匹配）\n' +
+    '{\n' +
+    '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
+    '  "options": [ { "text": "行动描述" } ]\n' +
+    '}\n' +
+    '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
+    '⚠️ directorOS 不进 blocks。\n\n' +
+
+    '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
+
+    '[SYSTEM] 世界观设定\n' + (world ? world.promptSuffix : '你们正在一段浪漫的关系中发展。') + '\n\n' +
+
+    '[SYSTEM] 女主人设\n' +
+    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +
+    (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
+    '- 外貌特征：' + hp.appearance.join('、') + '\n' +
+    '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
+    (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
+    '- 女主对' + member.name + '的情感：从初识到心动，逐渐靠近的过程。\n\n' +
+
+    '[SYSTEM] 参与角色\n' +
+    member.emoji + ' ' + member.name + '（' + member.stageName + '）- ' + member.team + '队\n' +
+    '  年龄：' + member.age + ' · 星座：' + member.zodiac + ' · 第二职业：' + member.secondCareer + '\n' +
+    '  性格：' + member.personality + ' · 情感模式：' + member.loveStyle + '\n' +
+    '  行为逻辑：' + member.behaviorLogic + ' · 互动风格：' + member.interactionStyle + '\n' +
+    (member.habits ? '  习惯：' + member.habits.join('、') + '\n' : '') +
+    (member.catchphrases ? '  口头禅：' + member.catchphrases.join('、') + '\n' : '') +
+    (member.foodPreferences ? '  饮食：' + member.foodPreferences + '\n' : '') +
+    (member.foodTaboos && member.foodTaboos.length > 0 ? '  饮食禁忌：' + member.foodTaboos.join('、') + '\n' : '') +
+    (member.sleepHabits ? '  睡眠：' + member.sleepHabits + '\n' : '') +
+    (member.comforts ? '  安慰方式：' + member.comforts.join('、') + '\n' : '') +
+    (member.fears ? '  恐惧：' + member.fears.join('、') + '\n' : '') + '\n' +
+
+    '[RULE] 全局写作规则\n' +
+    '1. 正文用第二人称"你"。\n' +
+    '2. 称呼规则：直呼名字。好感度高时可称"欧巴"。\n' +
+    '3. 沉浸式恋爱小说氛围。文艺但不拗口，口语但不随意。\n' +
+    '4. 描写比例：环境~20%、对话~32%、女主心理~20%、肢体细节~28%。\n' +
+    '5. 禁止AI味、言情小说式夸张比喻、替玩家做情感判断。\n' +
+    '6. 情感浓度随剧情自然递进：初期克制含蓄→中期暗流涌动→后期情感爆发。\n' +
+    '7. 自然融入他的第二职业和特长作为日常互动亮点。\n' +
+    '8. 遵守饮食禁忌。\n' +
+    '9. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
+
+    '请基于以上设定和当前场景上下文，生成沉浸式剧情，只输出 JSON。';
+
+  return result;
+}
+
+export function buildOneHeartUserMessage(type, extra) {
+  extra = extra || {};
+  var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+  var hp = GS.heroineProfile;
+  var msg = '';
+
+  msg += '[上下文] Day ' + GS.day + '\n';
+  if (GS.currentDate && GS.currentDate.month) {
+    msg += '时间线：' + GS.currentDate.month + '月' + GS.currentDate.day + '日\n';
+  }
+  msg += '\n';
+
+  if (type === 'phase') {
+    var todayText = GS.todayFullText.join('\n').slice(-1500);
+    if (todayText.trim()) {
+      msg += '今日已发生剧情（最后部分）：\n' + todayText + '\n\n';
+    }
+    msg += '请生成下一段剧情（~800字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
+  } else if (type === 'chat') {
+    var contextChats = GS.chatHistory.slice(-14);
+    msg += '你正在和' + member.name + '聊天。他正在回复你的消息。\n\n';
+    msg += '近期聊天记录：\n';
+    for (var i = 0; i < contextChats.length; i++) {
+      var c = contextChats[i];
+      var prefix = c.role === 'user' ? (hp.name + '：') : (member.name + '：');
+      msg += prefix + c.content + '\n';
+    }
+    msg += '\n' + hp.name + '说：「' + extra.userMessage + '」\n\n';
+    msg += '请生成' + member.name + '的回复（口语、自然、符合人设）。只输出纯文本回复，不加前缀或JSON。回复控制在200字以内。\n';
+  } else if (type === 'moment') {
+    msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
+    msg += '输出格式：{"post":"...","reply":"..."}\n';
+    msg += '内容基于当前剧情阶段自然生成。';
+  } else if (type === 'theater') {
+    msg += '请根据以下主题生成一段独立番外剧情（约1000字）：\n';
+    msg += extra.themePrompt || '一段你和' + member.name + '的日常温馨片段。';
+    msg += '\n只输出 JSON：{"blocks":[{"type":"narrative","content":"..."}]}';
   }
 
   return msg;

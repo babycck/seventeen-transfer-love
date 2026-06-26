@@ -16,6 +16,13 @@ export function setGS(newGS) {
 export function defaultGameState() {
   return {
     version: 'v22',
+    gameMode: 'transfer',
+    oneHeartMember: '',
+    worldSetting: '',
+    writingStyle: '',
+    chatHistory: [],
+    moments: [],
+    theaterHistory: [],
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -227,6 +234,13 @@ export function migrateSave() {
     if (!GS.version || GS.version === 'v21') {
       // v21 → v22 新增字段兜底
       if (GS.nextEpisodePreview === undefined) GS.nextEpisodePreview = '';
+      if (GS.gameMode === undefined) GS.gameMode = 'transfer';
+      if (GS.oneHeartMember === undefined) GS.oneHeartMember = '';
+      if (GS.worldSetting === undefined) GS.worldSetting = '';
+      if (GS.writingStyle === undefined) GS.writingStyle = '';
+      if (!Array.isArray(GS.chatHistory)) GS.chatHistory = [];
+      if (!Array.isArray(GS.moments)) GS.moments = [];
+      if (!Array.isArray(GS.theaterHistory)) GS.theaterHistory = [];
       if (GS.theme === undefined) GS.theme = 'auto';
       if (GS.typewriterSpeed === undefined) GS.typewriterSpeed = 30;
       if (!Array.isArray(GS.affectionHistory)) GS.affectionHistory = [];
@@ -364,6 +378,11 @@ export async function resetGame() {
   // 保留用户偏好
   var savedTheme = GS.theme || 'auto';
   var savedTypewriterSpeed = GS.typewriterSpeed || 30;
+  // 保留 1v1 模式设置
+  var savedGameMode = GS.gameMode || 'transfer';
+  var savedOneHeartMember = GS.oneHeartMember || '';
+  var savedWorldSetting = GS.worldSetting || '';
+  var savedWritingStyle = GS.writingStyle || '';
   // 保留激活码设置
   var savedAuthToken = localStorage.getItem('svt_auth_token');
   var savedRememberCode = localStorage.getItem('svt_auth_remember_code');
@@ -386,6 +405,10 @@ export async function resetGame() {
   GS.typewriterSpeed = savedTypewriterSpeed;
   GS.apiProvider = savedApiProvider;
   GS.apiModel = savedApiModel;
+  GS.gameMode = savedGameMode;
+  GS.oneHeartMember = savedOneHeartMember;
+  GS.worldSetting = savedWorldSetting;
+  GS.writingStyle = savedWritingStyle;
   saveGame();
 }
 
