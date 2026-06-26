@@ -62,7 +62,7 @@ export function buildSystemPrompt() {
     if (m.foodPreferences) tmi += '  饮食：' + m.foodPreferences + '\n';
     if (m.comforts) tmi += '  安慰方式：' + m.comforts.join('、') + '\n';
     return m.emoji + ' ' + m.name + '（' + m.stageName + '）' + isX + ' - ' + m.team + '队' +
-      '\n  年龄：' + m.age + ' · 星座：' + m.zodiac + ' · 第二职业：' + m.secondCareer +
+      '\n  年龄：' + m.age + ' · 星座：' + m.zodiac + ' · 第二职业：' + m.secondCareer + (SECOND_CAREER_MAP[m.secondCareer] ? '（' + SECOND_CAREER_MAP[m.secondCareer] + '）' : '') +
       '\n  性格：' + m.personality + ' · 情感模式：' + m.loveStyle +
       '\n  行为逻辑：' + m.behaviorLogic + ' · 互动风格：' + m.interactionStyle +
       '\n  X关系：' + m.xStory +
