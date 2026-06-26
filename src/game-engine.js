@@ -1697,18 +1697,15 @@ export async function sendChatMessage(userMessage) {
     }
 
     var clean = raw.replace(/^["'\s]+|["'\s]+$/g, '');
-    // 过滤 AI 思考过程：取最后一段对话（以「开头或纯中文短句）
-    var lines = clean.split('\n');
-    var filtered = [];
-    for (var cl = 0; cl < lines.length; cl++) {
-      var line = lines[cl].trim();
-      if (!line) continue;
-      // 跳过明显是推理/思考的段落
-      if (/^(我们被要求|根据上下文|可能|等等|需要|让我|作为|考虑到|这个|输出|回复控制在|所以|因此)/.test(line)) continue;
-      filtered.push(line);
+    // 取最后一段对话：优先找「」，否则取最后一个非空段落
+    var dialogueMatches = clean.match(/「([^」]+)」/g);
+    if (dialogueMatches && dialogueMatches.length > 0) {
+      clean = dialogueMatches[dialogueMatches.length - 1].replace(/[「」]/g, '');
+    } else {
+      var parts = clean.split('\n').filter(Boolean);
+      if (parts.length > 0) clean = parts[parts.length - 1];
+      if (clean.length > 80) clean = clean.slice(-50);
     }
-    if (filtered.length === 0) filtered = [clean]; // fallback
-    clean = filtered.join('\n');
     GS.chatHistory.push({ role: 'ai', content: clean });
     if (GS.chatHistory.length > 50) {
       GS.chatHistory = GS.chatHistory.slice(-50);

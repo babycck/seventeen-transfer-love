@@ -885,7 +885,7 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += prefix + c.content + '\n';
     }
     msg += '\n' + hp.name + '说：「' + extra.userMessage + '」\n\n';
-    msg += '请生成' + member.name + '的回复（口语、自然、符合人设）。只输出纯文本回复，不加前缀或JSON，禁止输出思考过程。回复控制在200字以内。\n';
+    msg += '你的输出将直接作为' + member.name + '的回复内容显示。只输出' + member.name + '说的话本身，不要包含任何分析、解释、思考过程或描述。禁止出现「我们被问到」「根据上下文」「可能」「也许」「需要」等推理性质的字眼。你的输出就是聊天记录里' + member.name + '发的那条消息。口语、自然、符合人设。控制在200字以内。\n';
   } else if (type === 'moment') {
     msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
     msg += '输出格式：{"post":"...","reply":"..."}\n';

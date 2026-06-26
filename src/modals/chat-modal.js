@@ -37,7 +37,7 @@ export function showChatModal() {
     '</div>' +
     '<div class="oneheart-chat-messages" id="chatMessages">' + messagesHtml + '</div>' +
     '<div class="oneheart-chat-input-area">' +
-    '<input class="oneheart-chat-input" id="chatInput" placeholder="输入消息..." autofocus>' +
+    '<input class="oneheart-chat-input" id="chatInput" placeholder="输入消息...">' +
     '<button class="oneheart-chat-send" id="chatSendBtn">发送</button>' +
     '</div></div></div>';
 
