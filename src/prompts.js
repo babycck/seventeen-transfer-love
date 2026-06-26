@@ -5,6 +5,7 @@
 } from './core.js';
 import { formatCorrections } from './validator.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask } from './formatters.js';
+import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
 
 // ===== System Prompt 缓存 =====
@@ -127,6 +128,7 @@ export function buildSystemPrompt() {
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
     (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') +
       '——⚠️ 在相关场景中自然触发。如"怕黑"→深夜场景中下意识开灯或靠近他人；"泪失禁"→情绪激动时控制不住流泪；"易醉体质"→喝酒后容易醉。⚠️ 私密体质是女主专属设定，绝对禁止映射到任何成员身上。\n' : '') +
+    '- 注意：「泪痣」是眼角的痣，「敏感带在耳后」是耳后敏感区域，两者位置不同，不可混用。\n' +
     '\n' + getHeroineBehaviorText() + '\n\n' +
 
     '[SYSTEM] ⚠️ 女主对X的情感状态（强制执行）\n' +
@@ -754,10 +756,13 @@ export function buildOneHeartSystemPrompt() {
     '[SYSTEM] 输出结构（强制 JSON · 字段须严格匹配）\n' +
     '{\n' +
     '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
-    '  "options": [ { "text": "行动描述" } ]\n' +
+    '  "options": [\n' +
+    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
+    '  ]\n' +
     '}\n' +
     '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
-    '⚠️ directorOS 不进 blocks。\n\n' +
+    '⚠️ directorOS 不进 blocks。\n' +
+    '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n\n' +
 
     '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
 
@@ -769,7 +774,8 @@ export function buildOneHeartSystemPrompt() {
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
     (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
-    '- 女主对' + member.name + '的情感：从初识到心动，逐渐靠近的过程。\n\n' +
+    '- 注意：「泪痣」是眼角的痣，「敏感带在耳后」是耳后敏感区域，两者位置不同，不可混用。\n' +
+    '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
     '[SYSTEM] 参与角色\n' +
     member.emoji + ' ' + member.name + '（' + member.stageName + '）- ' + member.team + '队\n' +

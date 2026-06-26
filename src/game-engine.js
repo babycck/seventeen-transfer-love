@@ -2,7 +2,7 @@
   MAX_STAY_COUNT, PHASE_ACTION_LIMIT, MEMBERS, TRUTH_CARDS,
   GIFT_TEMPLATES, MEMBER_GIFT_PREFERENCE, PHASES, PHASE_LABELS,
   QUESTION_BOX_QUESTIONS, TOKEN_CONFIG, HOLIDAYS, RETURN_GIFTS,
-  ONE_HEART_TOKEN_CONFIG,
+  ONE_HEART_TOKEN_CONFIG, ONE_HEART_RANDOM_EVENTS,
   GS, saveGame, showLoading, hideLoading, showToast, randInt, escHtml, dispatch
 } from './core.js';
 import { generateWithRetry, formatAIError } from './ai-generator.js';
@@ -1165,6 +1165,7 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
 }
 
 export async function advancePhase() {
+  if (GS.gameMode === 'oneHeart') return;
   if (GS.dayCompleted) return;
   if (GS._advancingPhase) { console.log('[advancePhase] skip reentrant call'); return; }
   GS._advancingPhase = true;
@@ -1557,15 +1558,28 @@ export function showMissionCardModal(card) {
 
 // ==================== 1v1「只为你心动」模式 ====================
 
-export async function generateOneHeartRound() {
+export async function generateOneHeartRound(extra) {
+  extra = extra || {};
   if (GS._isGenerating) { console.log('[1v1] skip reentrant'); return; }
   GS._isGenerating = true;
   showLoading('正在生成剧情...');
   try {
     var sysMsg = buildOneHeartSystemPrompt();
+    // 如果是走向结局，注入结局指令
+    if (extra.isEnding) {
+      sysMsg += '\n\n[指令] 这是故事的最后一幕。请根据已有的故事发展和主线方向，生成一个完整的结局场景，给这段关系一个收尾。情感要饱满，有始有终。结局可以是温暖的、遗憾的、开放式的——但必须是完整的。';
+    }
+    // 如果是随机事件，从 1v1 专属池中随机选取
+    if (extra.isRandom) {
+      var pool = ONE_HEART_RANDOM_EVENTS;
+      var picked = pool[Math.floor(Math.random() * pool.length)];
+      if (picked) {
+        sysMsg += '\n\n[随机事件] 请触发以下剧情——根据当前世界观自然改编场景和人物互动方式，但保留核心情感互动：\n"' + picked.desc + '"';
+      }
+    }
     var userMsg = buildOneHeartUserMessage('phase');
 
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
@@ -1583,8 +1597,20 @@ export async function generateOneHeartRound() {
       return;
     }
 
-    GS.parsedNarrative = parsed;
-    GS.phaseNarrative = parsed.narrative;
+    if (GS.pendingChoiceText) {
+      // 新内容推入 consequence（含 choice tag），phaseNarrative 清空
+      GS.consequenceNarratives.push({
+        rawText: parsed.narrative,
+        parsed: parsed,
+        choiceText: GS.pendingChoiceText
+      });
+      GS.parsedNarrative = { narrative: '', directorOS: '', options: [] };
+      GS.phaseNarrative = '';
+      GS.pendingChoiceText = '';
+    } else {
+      GS.parsedNarrative = parsed;
+      GS.phaseNarrative = parsed.narrative;
+    }
     GS.currentOptions = parsed.options || [];
 
     if (GS.todayFullText.length === 0) {
@@ -1596,9 +1622,16 @@ export async function generateOneHeartRound() {
     GS.phaseFreeCount = 0;
     GS.phaseOptionCount = 0;
     GS.isInConsequence = false;
-    GS.consequenceNarratives = [];
     GS.smsSentToday = false;
     saveGame();
+
+    // 如果是走向结局，生成后结束游戏
+    if (extra.isEnding) {
+      GS.gameOver = true;
+      GS.finalChoice = GS.oneHeartMainLine || '与大结局';
+      GS.finalResult = parsed.narrative;
+      saveGame();
+    }
   } catch (e) {
     console.error('[1v1] generation error:', e);
     showToast('剧情生成失败：' + e.message);
@@ -1633,13 +1666,15 @@ function parseOneHeartNarrative(raw) {
     }
 
     if (json.options && Array.isArray(json.options)) {
-      options = json.options.map(function(o) { return { text: o.text || '' }; });
+      options = json.options.map(function(o) {
+        return { text: o.text || '', affDelta: o.affDelta || 0, affReason: o.affReason || '' };
+      });
     }
 
     return { narrative: narrative, options: options };
   } catch (e) {
-    console.error('[1v1] parse error:', e);
-    return null;
+    console.warn('[1v1] parse error, returning empty:', e.message);
+    return { narrative: '', options: [] };
   }
 }
 

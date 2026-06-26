@@ -8,7 +8,7 @@
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
 import { setGS } from './state.js';
-import { getAffectionHint, getAffectionDesc } from './affection.js';
+import { getAffectionHint, getAffectionDesc, spawnAffFloat } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
 import { generateAllXArchives } from './x-archive.js';
@@ -1084,15 +1084,14 @@ function renderOneHeartGameScreen() {
   // Header (使用通用组件)
   html += renderHeader();
 
-  // 成员信息卡（头像 + 名称 + 好感度档位）
+  // 成员信息卡（头像 + 名称 + 好感度）
   html += '<div class="card" style="padding:12px 16px;margin-bottom:12px">' +
     '<div style="display:flex;align-items:center;gap:12px">' +
     '<span style="font-size:36px">' + (member ? member.emoji : '💗') + '</span>' +
     '<div><div style="font-size:15px;font-weight:700;color:var(--text-primary)">' +
     (member ? escHtml(member.name) : '只为你心动') + '</div>' +
-    '<div style="font-size:12px;color:var(--accent-primary);font-weight:600">' +
-    (member ? '❤️ ' + (GS.affection[member.id] || 0) + ' · ' + getAffectionDesc(GS.affection[member.id] || 0) : '') +
-    '</div></div></div></div>';
+    (member ? '<div style="font-size:12px;color:var(--accent-primary);font-weight:600">❤️ ' + (GS.affection[member.id] || 0) + ' · ' + getAffectionDesc(GS.affection[member.id] || 0) + '</div>' : '') +
+    '</div></div></div>';
 
   // Narrative
   html += renderNarrativeSection();
@@ -1129,6 +1128,7 @@ function renderOneHeartGameScreen() {
       '<button class="btn-skip" id="btnSkip">▶ 进入下一段</button>' +
       '</div>' +
       '<textarea id="freeInput" placeholder="写下你想发生的一段剧情…" style="width:100%;margin-top:8px;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;resize:vertical;min-height:50px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box"></textarea>' +
+      '<button id="btnSubmitFreeInput" style="width:100%;margin-top:6px;padding:8px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">▶ 提交剧情</button>' +
       '</div>';
   }
 
@@ -1490,8 +1490,37 @@ export function bindGameEvents() {
             console.warn('[midnightCall] 反馈生成失败:', e);
           }
           hideLoading();
-        }
-      }
+  }
+}
+
+// ==================== 1v1 设定主线大弹窗 ====================
+function showOneHeartMainlineModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-content" style="max-width:480px">' +
+    '<h3 style="margin:0 0 12px;font-size:16px;color:var(--text-primary)">📌 设定主线方向</h3>' +
+    '<p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">设定后 AI 会在每次生成剧情时记住这个方向。如果剧情偏离了，用「拉回主线」按钮拉回来。</p>' +
+    '<textarea id="mainlineTextarea" placeholder="例如：我想发展一段温馨的日常，他想要向我告白但犹豫不决……" style="width:100%;min-height:100px;padding:10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;font-family:inherit;background:var(--bg-card);color:var(--text-primary);resize:vertical;box-sizing:border-box">' + escHtml(GS.oneHeartMainLine || '') + '</textarea>' +
+    '<div style="display:flex;gap:8px;margin-top:12px">' +
+    '<button id="mainlineSaveBtn" class="btn-primary" style="flex:1">保存</button>' +
+    '<button id="mainlineCancelBtn" class="btn-secondary" style="flex:1">取消</button></div></div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#mainlineCancelBtn').onclick = function() { overlay.remove(); };
+  overlay.querySelector('#mainlineSaveBtn').onclick = function() {
+    var val = (document.getElementById('mainlineTextarea') || {}).value || '';
+    GS.oneHeartMainLine = val.trim();
+    saveGame();
+    showToast('📌 主线已设定');
+    overlay.remove();
+  };
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
 
       mc = GS.midnightCall;
       var target = MEMBERS.find(function(m) { return m.id === mc.targetId; });
@@ -1909,10 +1938,18 @@ function bindOneHeartEvents() {
       if (!opt) return;
       this.innerHTML = '<span class="opt-label">⋯</span>';
       document.querySelectorAll('#optionsArea .option-btn').forEach(function(b) { b.disabled = true; });
-      // 1v1 模式：记录选择文本，清空选项，推进
-      if (GS.todayFullText.length > 0) {
-        GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 你的选择：' + (opt.text || '');
+      // 1v1 模式：应用好感变化
+      if (opt && opt.affDelta) {
+        var mid = GS.oneHeartMember;
+        if (mid) {
+          if (!GS.affection) GS.affection = {};
+          if (!GS.affection[mid]) GS.affection[mid] = 0;
+          GS.affection[mid] += opt.affDelta;
+          spawnAffFloat(mid, opt.affDelta);
+        }
       }
+      // 设置选择文本，清空选项，推进
+      GS.pendingChoiceText = (opt && opt.text) || '';
       GS.currentOptions = [];
       saveGame();
       await generateOneHeartRound();
@@ -1995,12 +2032,7 @@ function bindOneHeartEvents() {
           document.getElementById('freeInput').focus();
           break;
         case 'set_mainline':
-          var mainline = prompt('请输入故事主线方向（例如：我想发展一段温馨的日常，他希望向我告白但犹豫不决）', GS.oneHeartMainLine || '');
-          if (mainline !== null) {
-            GS.oneHeartMainLine = mainline.trim();
-            saveGame();
-            showToast('📌 主线已设定');
-          }
+          showOneHeartMainlineModal();
           break;
         case 'mainline':
           if (!GS.oneHeartMainLine) {
@@ -2013,20 +2045,35 @@ function bindOneHeartEvents() {
           break;
         case 'random':
           showToast('🎲 触发随机事件...');
-          await advancePhase();
+          await generateOneHeartRound({ isRandom: true });
           break;
         case 'ending':
-          if (await showConfirmModal('确定要走向大结局吗？这将结束当前故事。')) {
-            GS.gameOver = true;
-            GS.finalChoice = '与大结局';
-            GS.finalResult = '故事结束';
-            saveGame();
+          if (await showConfirmModal('确定要走向大结局吗？AI将根据主线方向和当前剧情生成结局。')) {
+            await generateOneHeartRound({ isEnding: true });
             renderAll();
           }
           break;
       }
     });
   });
+
+  // 提交剧情按钮
+  var submitBtn = document.getElementById('btnSubmitFreeInput');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async function() {
+      var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
+      if (!freeText) { showToast('请先写下你想发生的剧情'); return; }
+      GS.freeInput = freeText;
+      if (GS.todayFullText.length > 0) {
+        GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
+      }
+      document.getElementById('freeInput').value = '';
+      GS.phaseNarrative = '';
+      GS.currentOptions = [];
+      saveGame();
+      await generateOneHeartRound();
+    });
+  }
 
   // Bottom Tab 切换
   document.querySelectorAll('.oneheart-tab').forEach(function(tab) {

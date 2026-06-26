@@ -41,13 +41,13 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
       }
       throw e;
     }
-    var parsed = parseNarrative(raw);
-
-    // skipValidate：选项生成等非 narrative 任务跳过 validator（validator 针对 blocks 设计，
-    // 对 {"options":[...]} 格式会误判 blocks 为空触发 error）
+    // skipValidate: 1v1 纯文本模式下跳过 JSON blocks 解析
+    //（callDeepSeek 返回的是纯叙事文本，非 JSON blocks 格式）
     if (skipValidate) {
-      return { raw: raw, parsed: parsed, corrections: [], attempts: attempt + 1 };
+      return { raw: raw, parsed: { narrative: raw, blocks: [] }, corrections: [], attempts: attempt + 1 };
     }
+
+    var parsed = parseNarrative(raw);
 
     var corr = validateNarrative(raw, parsed);
 

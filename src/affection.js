@@ -77,7 +77,7 @@ function unlockHeartNoteByAffection(memberId, threshold) {
 var _floatQueue = {};
 var _floatTimer = {};
 
-function spawnAffFloat(memberId, delta) {
+export function spawnAffFloat(memberId, delta) {
   var container = document.getElementById('affectionHint');
   if (!container) return;
   var m = MEMBERS.find(function(x) { return x.id === memberId; });

@@ -79,7 +79,12 @@ export function renderParsedNarrative(parsed) {
   if (parsed.narrative) {
     var paras2 = splitChineseSentences(parsed.narrative);
     for (var ii = 0; ii < paras2.length; ii++) {
-      html += '<p>' + escHtml(paras2[ii]) + '</p>';
+      var line = paras2[ii];
+      if (line.indexOf('❥ 你的选择：') === 0) {
+        html += '<div class="choice-tag">' + escHtml(line) + '</div>';
+      } else {
+        html += '<p>' + escHtml(line) + '</p>';
+      }
     }
   }
   if (parsed.interviews && parsed.interviews.length > 0) {
@@ -158,13 +163,13 @@ export function renderNarrativeSection() {
   html += '<button class="narrative-edit-btn" id="narrativeEditBtn" title="编辑剧情">✏️ 编辑</button>';
   html += '</div></div>';
 
-  // 如果没有后续剧情，首次打字机用 data-narrative-html
+  // 如果没有后续剧情，首次打字机用 data-narrative-html（不预填可见内容，避免闪烁）
   if (!hasConsequences && GS.phaseNarrative) {
     var allHtml = '';
     if (GS.phaseNarrative) {
       allHtml += renderParsedNarrative(GS.parsedNarrative);
     }
-    html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '">' + allHtml + '</div></div>';
+    html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '"></div></div>';
     html += '<button class="narrative-edit-btn" id="narrativeEditBtn" title="编辑剧情">✏️ 编辑</button>';
   }
 
@@ -282,7 +287,11 @@ var _editingConsequenceIdx = -1; // -1 = 编辑主剧情, >=0 = 编辑第几条�
 
 // 从 parsedNarrative 中提取全部剧情文本（含采访间/OS 前缀标记）
 function extractNarrativeText(parsed) {
-  if (!parsed || !parsed.blocks || parsed.blocks.length === 0) return '';
+  if (!parsed) return '';
+  if (!parsed.blocks || parsed.blocks.length === 0) {
+    // 1v1 模式：用 narrative 字段兜底
+    return parsed.narrative || '';
+  }
   var parts = [];
   for (var i = 0; i < parsed.blocks.length; i++) {
     var b = parsed.blocks[i];
@@ -313,7 +322,12 @@ export function showNarrativeEditor() {
     targetParsed = GS.parsedNarrative;
   }
 
-  if (!targetRaw || !targetParsed || !targetParsed.blocks) {
+  // 1v1 模式 parsed 无 blocks 字段，用 narrative 兜底
+  if (!targetRaw || !targetParsed) {
+    showToast('⚠️ 暂无剧情可编辑');
+    return;
+  }
+  if (!targetParsed.blocks && !targetParsed.narrative) {
     showToast('⚠️ 暂无剧情可编辑');
     return;
   }
