@@ -16,6 +16,19 @@ var ADMIN_CODES = [
   'SEVENTEEN-FOREVER'
 ];
 
+// 归一化用户输入的激活码：去首尾空白、统一连字符、全角转半角
+function normalizeCode(str) {
+  if (!str) return '';
+  var s = str.trim();
+  // 全角字母/数字/符号 → 半角
+  s = s.replace(/[\uFF01-\uFF5E]/g, function(ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+  });
+  // 各类连字符 → 半角横线（en-dash、em-dash、连字符、减号、全角横线）
+  s = s.replace(/[\u2013\u2014\u2010\u2212\uFF0D]/g, '-');
+  return s;
+}
+
 export function getDeviceFingerprint() {
   var id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) {
@@ -52,7 +65,7 @@ function generateLocalToken() {
 }
 
 function isLocalAdminToken(token) {
-  return token && token.indexOf('svt_local_') === 0;
+  return token && token.indexOf('svt_local_') === 0 && token.length >= 20;
 }
 
 export async function verifyToken() {
@@ -62,6 +75,12 @@ export async function verifyToken() {
 
   // 本地管理员 Token 永不过期
   if (isLocalAdminToken(token)) {
+    // 额外格式校验
+    if (token.length < 20) {
+      console.warn('[Auth] malformed local token, clearing:', token);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      return { valid: false, error: 'Token 已损坏，请重新激活' };
+    }
     return { valid: true };
   }
 
@@ -89,13 +108,36 @@ export async function verifyToken() {
 }
 
 export async function activateCode(code) {
-  var deviceId = getDeviceFingerprint();
+  var deviceId;
+  try {
+    deviceId = getDeviceFingerprint();
+  } catch (e) {
+    console.error('[Auth] deviceId generation failed:', e);
+    deviceId = 'fallback_' + Date.now();
+  }
 
-  // 本地管理员激活码：无需后端·永久有效
-  if (ADMIN_CODES.indexOf(code) >= 0) {
-    var token = generateLocalToken();
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-    return { success: true, token: token, local: true };
+  var normalized = normalizeCode(code);
+  console.log('[Auth] activateCode input:', JSON.stringify(code), 'normalized:', JSON.stringify(normalized));
+
+  // 本地管理员激活码：无需后端·永久有效（用归一化后比对）
+  var matched = false;
+  for (var i = 0; i < ADMIN_CODES.length; i++) {
+    if (normalized === normalizeCode(ADMIN_CODES[i])) {
+      matched = true;
+      break;
+    }
+  }
+
+  if (matched) {
+    try {
+      var token = generateLocalToken();
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+      return { success: true, token: token, local: true };
+    } catch (e) {
+      console.error('[Auth] localStorage write failed:', e);
+      var errMsg = typeof e === 'object' && e.message ? e.message : String(e);
+      return { success: false, error: '激活失败（浏览器存储异常）：' + errMsg };
+    }
   }
 
   // 后端未配置时，非管理员码无法激活
@@ -107,11 +149,16 @@ export async function activateCode(code) {
     var res = await fetch(BACKEND_URL + '/api/activate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, deviceFingerprint: deviceId })
+      body: JSON.stringify({ code: normalized, deviceFingerprint: deviceId })
     });
     var data = await res.json();
     if (data.success) {
-      localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      try {
+        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      } catch (e) {
+        console.error('[Auth] localStorage write failed:', e);
+        return { success: false, error: '激活失败：浏览器存储异常' };
+      }
     }
     return data;
   } catch (e) {
