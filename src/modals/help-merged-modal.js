@@ -60,6 +60,7 @@ function buildRulesContent() {
       '<p><strong>🌍 世界观：</strong>' + (world ? world.name : '未选择') + ' · <strong>✍️ 风格：</strong>' + (style ? style.name : '未选择') + '</p>' +
       '<p><strong>📋 核心机制</strong></p>' +
       '<p style="margin-left:12px">📖 <strong>剧情</strong>：AI 实时生成你跟他的专属恋爱故事。每次选择走向不同的分支。</p>' +
+      '<p style="margin-left:12px">📝 <strong>日记</strong>：每 3 段剧情后自动生成双视角日记（女主视角 + 他的视角），记录内心感受。</p>' +
       '<p style="margin-left:12px">📸 <strong>朋友圈</strong>：随机触发生成一条朋友圈动态，他会评论互动。</p>' +
       '<p style="margin-left:12px">🎭 <strong>剧场</strong>：生成独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）。</p>' +
       '<p><strong>⚡ 快捷指令</strong>（剧情区上方展开）</p>' +
@@ -131,6 +132,7 @@ function oneHeartManualHTML() {
       '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">Tab</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📖 剧情</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">主剧情区，所有故事在这里展开</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📝 日记</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">每 3 段剧情自动生成双视角日记（我的 + 他的），查看内心独白</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📸 朋友圈</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">随机朋友圈动态 + 他的评论互动</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🎭 剧场</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）</td></tr>' +
       '</table>'
