@@ -1,12 +1,14 @@
 ﻿import {
   MEMBERS, PHASES, PHASE_LABELS, PHASE_BOUNDARIES, PHASE_TONE,
   CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, shouldTriggerRandomEvent,
-  ONE_HEART_WORLDS, ONE_HEART_STYLES, ONE_HEART_TOKEN_CONFIG, GS
+  ONE_HEART_WORLDS, ONE_HEART_STYLES, ONE_HEART_TOKEN_CONFIG, GS,
+  SECOND_CAREER_MAP
 } from './core.js';
 import { formatCorrections } from './validator.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask } from './formatters.js';
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
+import { getWorldConfig } from './worlds/index.js';
 
 // ===== System Prompt 缓存 =====
 var _systemPromptCache = null;
@@ -768,6 +770,20 @@ export function buildOneHeartSystemPrompt() {
 
     '[SYSTEM] 世界观设定\n' + (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? GS.oneHeartCustomWorld : (world ? world.promptSuffix : '你们正在一段浪漫的关系中发展。')) + '\n\n' +
 
+    (function() {
+      var wc = getWorldConfig(GS.worldSetting);
+      if (!wc || !wc.memberRole) return '';
+      var worldLines = [];
+      worldLines.push('[WORLD] 世界观角色适配\n');
+      worldLines.push('在这个世界观下：');
+      worldLines.push('- 他的身份：' + wc.memberRole + '。' + wc.memberDesc);
+      if (wc.secondCareerNote) worldLines.push('- 他的第二职业定位：' + wc.secondCareerNote);
+      var userRoleDesc = (wc.userRoles && wc.userRoles[hp.job]) ? wc.userRoles[hp.job] : wc.userFallback;
+      if (userRoleDesc) worldLines.push('- 你的角色：' + userRoleDesc);
+      worldLines.push('');
+      return worldLines.join('\n');
+    })() +
+
     '[SYSTEM] 女主人设\n' +
     '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +
     (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
@@ -777,9 +793,11 @@ export function buildOneHeartSystemPrompt() {
     '- 注意：「泪痣」是眼角的痣，「敏感带在耳后」是耳后敏感区域，两者位置不同，不可混用。\n' +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
+    getHeroineBehaviorText() + '\n\n' +
+
     '[SYSTEM] 参与角色\n' +
     member.emoji + ' ' + member.name + '（' + member.stageName + '）- ' + member.team + '队\n' +
-    '  年龄：' + member.age + ' · 星座：' + member.zodiac + ' · 第二职业：' + member.secondCareer + '\n' +
+    '  年龄：' + member.age + ' · 星座：' + member.zodiac + ' · 第二职业：' + member.secondCareer + (SECOND_CAREER_MAP[member.secondCareer] ? '（' + SECOND_CAREER_MAP[member.secondCareer] + '）' : '') + '\n' +
     '  性格：' + member.personality + ' · 情感模式：' + member.loveStyle + '\n' +
     '  行为逻辑：' + member.behaviorLogic + ' · 互动风格：' + member.interactionStyle + '\n' +
     (member.habits ? '  习惯：' + member.habits.join('、') + '\n' : '') +
@@ -800,6 +818,12 @@ export function buildOneHeartSystemPrompt() {
     '7. 自然融入他的第二职业和特长作为日常互动亮点。\n' +
     '8. 遵守饮食禁忌。\n' +
     '9. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
+
+    (function() {
+      var wc = getWorldConfig(GS.worldSetting);
+      if (wc && wc.coreTension) return '[WORLD] 核心张力 ⚠️\n' + wc.coreTension + '\n\n';
+      return '';
+    })() +
 
     (GS.oneHeartMainLine ? '[主线方向] 玩家预设的故事发展方向：' + GS.oneHeartMainLine + '\n请优先沿着这个方向推进剧情。\n\n' : '') +
 

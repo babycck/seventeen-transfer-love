@@ -1,5 +1,6 @@
 ﻿import {
-  MEMBERS, PHASE_LABELS, BEHAVIOR_MAP, WEATHER_POOLS, DATING_LOCATIONS, GS, randInt
+  MEMBERS, PHASE_LABELS, BEHAVIOR_MAP, WEATHER_POOLS, DATING_LOCATIONS, GS, randInt,
+  PUBLIC_IDENTITY_MAP, APPEARANCE_MAP, MBTI_MAP, PRIVATE_TRAIT_MAP
 } from './core.js';
 
 // [改造] getFormatReminder 已删除——JSON 输出无需再追加重复格式提醒。
@@ -9,18 +10,55 @@
 export function getHeroineBehaviorText() {
   var hp = GS.heroineProfile;
   var lines = [];
-  lines.push('[SYSTEM] 女主性格行为映射（AI必须据此生成剧情）');
-  lines.push('- 职业：' + hp.job + '——自然地穿插在剧情中，对话中可能被问起，场景中可能涉及相关工作。');
-  lines.push('- MBTI：' + hp.mbti + '——' + (hp.mbti.charAt(0) === 'I' ? '内心活动丰富但表达含蓄' : '更主动表达但可能不够深入') + '；' + (hp.mbti.charAt(2) === 'F' ? '情感驱动决策' : '理性分析后再行动') + '。');
+  lines.push('[SYSTEM] 女主行为特征（AI必须据此生成剧情）');
+
+  // 公开身份
+  var identityDesc = PUBLIC_IDENTITY_MAP[hp.job];
+  if (identityDesc) {
+    lines.push('- 公开身份：' + hp.job + '——' + identityDesc);
+  } else {
+    lines.push('- 职业：' + hp.job + '——自然地穿插在剧情中，对话中可能被问起，场景中可能涉及相关工作。');
+  }
+
+  // 外貌特征
+  var appParts = [];
+  for (var ai = 0; ai < hp.appearance.length; ai++) {
+    var aDesc = APPEARANCE_MAP[hp.appearance[ai]];
+    if (aDesc) appParts.push(hp.appearance[ai] + '(' + aDesc + ')');
+    else appParts.push(hp.appearance[ai]);
+  }
+  lines.push('- 外貌特征：' + appParts.join('、'));
+
+  // MBTI
+  var mbtiDesc = MBTI_MAP[hp.mbti];
+  if (mbtiDesc) {
+    lines.push('- MBTI：' + hp.mbti + '——' + mbtiDesc);
+  } else {
+    lines.push('- MBTI：' + hp.mbti + '——' + (hp.mbti.charAt(0) === 'I' ? '内心活动丰富但表达含蓄' : '更主动表达但可能不够深入') + '；' + (hp.mbti.charAt(2) === 'F' ? '情感驱动决策' : '理性分析后再行动') + '。');
+  }
+
+  // 星座
   if (hp.zodiac) lines.push('- 星座：' + hp.zodiac + '——偶尔作为轻松话题提及，不深度分析。');
-  lines.push('- 外貌特征：' + hp.appearance.join('、') + '——在场景中自然地出现，不强制频率。');
-  if (hp.privateTraits.length > 0) lines.push('- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。⚠️ 私密体质是女主专属设定，绝对禁止映射到任何成员身上。');
+
+  // 私密体质
+  if (hp.privateTraits.length > 0) {
+    var ptParts = [];
+    for (var pj = 0; pj < hp.privateTraits.length; pj++) {
+      var pDesc = PRIVATE_TRAIT_MAP[hp.privateTraits[pj]];
+      if (pDesc) ptParts.push(hp.privateTraits[pj] + '(' + pDesc + ')');
+      else ptParts.push(hp.privateTraits[pj]);
+    }
+    lines.push('- 私密体质：' + ptParts.join('；') + '。⚠️ 私密体质是女主专属设定，绝对禁止映射到任何成员身上。');
+  }
+
+  // 性格
   lines.push('');
-  for (var i = 0; i < hp.personality.length; i++) {
-    var trait = hp.personality[i];
+  for (var ki = 0; ki < hp.personality.length; ki++) {
+    var trait = hp.personality[ki];
     var mapping = BEHAVIOR_MAP[trait];
     if (mapping) lines.push('【' + trait + '】' + mapping);
   }
+
   return lines.join('\n');
 }
 
