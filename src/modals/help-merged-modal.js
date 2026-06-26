@@ -146,7 +146,7 @@ function oneHeartManualHTML() {
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❤️ 好感度</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">点击打开好感度详细面板</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">⚙️</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">设置面板（API/主题/速度/存档/重置）</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">❓</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">帮助（规则速览 + 使用说明）</td></tr>' +
-      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📚</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">回顾（历史剧情 + 每日压缩记忆）</td></tr>' +
+      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📚</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">回顾（压缩记忆）</td></tr>' +
       '</table>'
     ) +
 

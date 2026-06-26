@@ -12,10 +12,10 @@ export function showReviewModal() {
   var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">';
   if (isOneHeart) {
     // 1v1 模式：只显示压缩记忆 tab
-    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 每日压缩记忆</button>';
+    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 压缩记忆</button>';
   } else {
     tabsHtml += '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
-      '<button class="tab-btn" id="reviewTabSummary">📅 每日压缩记忆</button>' +
+      '<button class="tab-btn" id="reviewTabSummary">📅 压缩记忆</button>' +
       '<button class="tab-btn" id="reviewTabSms">📜 短信历史</button>';
   }
   tabsHtml += '</div>';
@@ -156,11 +156,20 @@ function showDayContent(dayIdx, source) {
 }
 
 function buildSummaryContent() {
+  var isOneHeart = GS.gameMode === 'oneHeart';
   var summaries = GS.dailySummaries || [];
-  if (summaries.length === 0) {
-    return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无记忆摘要（进入下一天后自动生成）</p>';
-  }
   var html = '';
+  if (isOneHeart) {
+    // 1v1 压缩规则说明
+    html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;line-height:1.7;color:var(--text-secondary)">' +
+      '<p style="font-weight:700;margin:0 0 6px 0">📋 压缩规则</p>' +
+      '<p style="margin:0">累积到 15 次剧情生成后，自动将前 10 段剧情压缩为摘要。之后每累积 10 次再压缩前 10 段。<br>原文保留在缓存中，导出剧情时可导出全部原文。</p>' +
+      '</div>';
+  }
+  if (summaries.length === 0) {
+    html += '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无压缩记忆（推进剧情后自动生成）</p>';
+    return html;
+  }
   for (var si = 0; si < summaries.length; si++) {
     var dayNum = si + 1;
     html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
