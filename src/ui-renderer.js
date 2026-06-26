@@ -1084,15 +1084,6 @@ function renderOneHeartGameScreen() {
   // Header (使用通用组件)
   html += renderHeader();
 
-  // 成员信息卡（头像 + 名称 + 好感度）
-  html += '<div class="card" style="padding:12px 16px;margin-bottom:12px">' +
-    '<div style="display:flex;align-items:center;gap:12px">' +
-    '<span style="font-size:36px">' + (member ? member.emoji : '💗') + '</span>' +
-    '<div><div style="font-size:15px;font-weight:700;color:var(--text-primary)">' +
-    (member ? escHtml(member.name) : '只为你心动') + '</div>' +
-    (member ? '<div style="font-size:12px;color:var(--accent-primary);font-weight:600">❤️ ' + (GS.affection[member.id] || 0) + ' · ' + getAffectionDesc(GS.affection[member.id] || 0) + '</div>' : '') +
-    '</div></div></div>';
-
   // Narrative
   html += renderNarrativeSection();
 
