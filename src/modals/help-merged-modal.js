@@ -60,7 +60,6 @@ function buildRulesContent() {
       '<p><strong>🌍 世界观：</strong>' + (world ? world.name : '未选择') + ' · <strong>✍️ 风格：</strong>' + (style ? style.name : '未选择') + '</p>' +
       '<p><strong>📋 核心机制</strong></p>' +
       '<p style="margin-left:12px">📖 <strong>剧情</strong>：AI 实时生成你跟他的专属恋爱故事。每次选择走向不同的分支。</p>' +
-      '<p style="margin-left:12px">💬 <strong>聊天</strong>：与他实时对话，AI 会根据当前剧情进展和聊天记录自然回复。</p>' +
       '<p style="margin-left:12px">📸 <strong>朋友圈</strong>：随机触发生成一条朋友圈动态，他会评论互动。</p>' +
       '<p style="margin-left:12px">🎭 <strong>剧场</strong>：生成独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）。</p>' +
       '<p><strong>⚡ 快捷指令</strong>（剧情区上方展开）</p>' +
@@ -69,7 +68,6 @@ function buildRulesContent() {
       '<p style="margin-left:12px">• 点击 A/B/C 选项推进剧情</p>' +
       '<p style="margin-left:12px">• 在底部输入框写下自由行动，点击「▶ 进入下一段」提交</p>' +
       '<p style="margin-left:12px">• 🔄 重新生成当前剧情</p>' +
-      '<p style="margin-left:12px">• 💬 聊天 Tab 实时对话，无次数限制</p>' +
       (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
       '</div>';
   }
@@ -121,12 +119,11 @@ function oneHeartManualHTML() {
     section('二、核心玩法',
       '<p style="margin:4px 0"><strong>无限推进式剧情</strong></p>' +
       '<p style="margin:4px 0">没有固定天数限制，AI 实时生成你和他的专属故事。每个选择影响后续剧情走向。</p>' +
-      '<p style="margin:4px 0"><strong>四大互动方式</strong></p>' +
+      '<p style="margin:4px 0"><strong>三大互动方式</strong></p>' +
       '<ol style="margin:4px 0;padding-left:20px">' +
       '<li><strong>点击选项</strong>：剧情下方出现 A/B/C 选项，点击后推进</li>' +
       '<li><strong>自由输入</strong>：底部输入框写下你想发生的一段剧情，点击「▶ 进入下一段」提交</li>' +
       '<li><strong>⚡ 快捷指令</strong>：展开抽屉使用自由推演、设主线、拉回主线、随机事件、走向大结局</li>' +
-      '<li><strong>💬 聊天 Tab</strong>：与他实时对话，无次数限制</li>' +
       '</ol>'
     ) +
 
@@ -134,7 +131,6 @@ function oneHeartManualHTML() {
       '<table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">' +
       '<tr style="background:var(--bg-soft)"><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">Tab</th><th style="padding:2px 6px;border:1px solid var(--border-primary);text-align:left">功能</th></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📖 剧情</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">主剧情区，所有故事在这里展开</td></tr>' +
-      '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">💬 聊天</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">与他实时对话，AI 会根据剧情进展自然回复</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">📸 朋友圈</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">随机朋友圈动态 + 他的评论互动</td></tr>' +
       '<tr><td style="padding:2px 6px;border:1px solid var(--border-primary)">🎭 剧场</td><td style="padding:2px 6px;border:1px solid var(--border-primary)">独立番外剧情（婚后日常 / 校园IF / 他的视角 / 结局回忆录）</td></tr>' +
       '</table>'
@@ -164,7 +160,6 @@ function oneHeartManualHTML() {
     section('六、注意事项',
       '<ul style="margin:4px 0;padding-left:20px">' +
       '<li>AI 生成剧情需要网络连接，首次生成可能需要 10-30 秒</li>' +
-      '<li>聊天有50条上限，超过后自动清理最早记录</li>' +
       '<li>朋友圈 30% 概率每段剧情后生成</li>' +
       '<li>AI 生成失败时点击「🔄 重新生成」重试</li>' +
       '<li>建议 Chrome / Edge 浏览器</li>' +
