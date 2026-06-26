@@ -25,7 +25,7 @@ function repairJson(raw) {
   // 修复字符串中未转义的换行符 + 处理截断
   var inString = false;
   var escape = false;
-  var depth = 0;
+  var bracketStack = [];
   var result = '';
   for (var i = 0; i < s.length; i++) {
     var ch = s[i];
@@ -33,8 +33,13 @@ function repairJson(raw) {
     if (ch === '\\') { result += ch; escape = true; continue; }
     if (ch === '"' && !escape) { inString = !inString; result += ch; continue; }
     if (!inString) {
-      if (ch === '{' || ch === '[') depth++;
-      if (ch === '}' || ch === ']') depth--;
+      if (ch === '{') bracketStack.push('}');
+      if (ch === '[') bracketStack.push(']');
+      if (ch === '}' || ch === ']') {
+        if (bracketStack.length > 0 && bracketStack[bracketStack.length - 1] === ch) {
+          bracketStack.pop();
+        }
+      }
     }
     if (inString && (ch === '\n' || ch === '\r')) {
       result += '\\n';
@@ -43,21 +48,20 @@ function repairJson(raw) {
     result += ch;
   }
   if (inString) result += '"';
-  while (depth > 0) { result += '}'; depth--; }
+  while (bracketStack.length > 0) { result += bracketStack.pop(); }
   try { JSON.parse(result); return result; } catch (e) {}
   // 修复 blocks 数组中对象之间缺逗号：}{ → },
   result = result.replace(/}(\s*){/g, '},$1{');
   try { JSON.parse(result); return result; } catch (e) {}
   // 修复 content 字段中未转义的 ASCII "（在 CJK 字符之间）
+  // 先保存备份，若修复后 JSON.parse 失败则回退，避免破坏后续修复层
+  var beforeContentFix = result;
   result = result.replace(/"content":\s*"((?:[^"\\]|\\.)*)"/g, function(m, content) {
-    // 检测 content 内部是否还有未闭合的 "
-    var inContent = false;
     var escaped = '';
     for (var ci = 0; ci < content.length; ci++) {
       var cc = content[ci];
       if (cc === '\\') { escaped += cc + (content[ci+1] || ''); ci++; continue; }
       if (cc === '"') {
-        // 裸 " 转义
         escaped += '\\"';
       } else {
         escaped += cc;
@@ -65,7 +69,7 @@ function repairJson(raw) {
     }
     return '"content": "' + escaped + '"';
   });
-  try { JSON.parse(result); return result; } catch (e) {}
+  try { JSON.parse(result); return result; } catch (e) { result = beforeContentFix; }
   // 最后手段：用正则提取 blocks 数组，重建合法 JSON
   var blocksMatch = s.match(/"blocks"\s*:\s*\[([\s\S]*?)\]\s*[,\}]/);
   if (blocksMatch) {
@@ -90,7 +94,7 @@ function repairJson(raw) {
           if (dep === 0 && cc === ',') { /* skip */ }
         }
         buf += cc;
-        if (!inStr && dep === 0 && (cc === '}' || cc === ']')) break;
+        if (!inStr && cc === ']') break;
       }
       if (buf) {
         var fixedJson = '{"blocks":' + buf + ',"observers":[],"options":[],"smsDrafts":[],"drinks":[]}';
@@ -129,6 +133,73 @@ function fixMissingCommasInArrays(str) {
     result += ch;
   }
   return result;
+}
+
+// 兜底：从 rawText 中直接用括号匹配提取 blocks 数组
+// 用于 repairJson 全部修复失败后的最后手段
+function _extractBlocksFromRaw(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  var blocksKeyIdx = rawText.indexOf('"blocks"');
+  if (blocksKeyIdx < 0) return null;
+  var arrStart = rawText.indexOf('[', blocksKeyIdx + 8);
+  if (arrStart < 0) return null;
+
+  // 括号匹配找闭合 ]
+  var brackets = 1;
+  var inStr = false;
+  var esc = false;
+  var arrEnd = -1;
+  for (var i = arrStart + 1; i < rawText.length; i++) {
+    var c = rawText[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"' && !esc) { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') brackets++;
+    if (c === '}' || c === ']') {
+      brackets--;
+      if (brackets === 0) { arrEnd = i; break; }
+    }
+  }
+
+  var blocks = null;
+  if (arrEnd > arrStart) {
+    var arrStr = rawText.slice(arrStart, arrEnd + 1);
+    try { var parsed = JSON.parse(arrStr); if (Array.isArray(parsed)) blocks = parsed; } catch (e) {}
+  }
+
+  if (!blocks || blocks.length === 0) {
+    // 截断或 parse 失败：逐个提取顶层 {..} 对象
+    var src = arrEnd > arrStart ? rawText.slice(arrStart, arrEnd + 1) : rawText.slice(arrStart);
+    blocks = [];
+    var braceDepth = 0;
+    var objStart = -1;
+    var inStr2 = false;
+    var esc2 = false;
+    for (var j = 0; j < src.length; j++) {
+      var ch = src[j];
+      if (esc2) { esc2 = false; continue; }
+      if (ch === '\\') { esc2 = true; continue; }
+      if (ch === '"' && !esc2) { inStr2 = !inStr2; continue; }
+      if (inStr2) continue;
+      if (ch === '{') { if (braceDepth === 0) objStart = j; braceDepth++; }
+      if (ch === '}') {
+        braceDepth--;
+        if (braceDepth === 0 && objStart >= 0) {
+          var objStr = src.slice(objStart, j + 1);
+          try { var obj = JSON.parse(objStr); if (obj && obj.type && obj.content) blocks.push(obj); } catch (ex) {}
+          objStart = -1;
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    blocks = blocks.filter(function(b) {
+      return b && typeof b === 'object' && typeof b.type === 'string' && typeof b.content === 'string';
+    });
+  }
+  return blocks.length > 0 ? blocks : null;
 }
 
 export function parseNarrative(rawText) {
@@ -178,6 +249,15 @@ export function parseNarrative(rawText) {
         s.blocks = [{ type: 'narrative', content: val.trim(), member: '' }];
         console.warn('[parseNarrative] blocks 为空，从 obj.' + fallbackFields[fi] + ' 提取 fallback narrative');
         break;
+      }
+    }
+    // 兜底提取：obj 无文本字段但 rawText 含 blocks 数组时，用括号匹配直接提取
+    if (s.blocks.length === 0 && rawText && rawText.indexOf('"blocks"') >= 0) {
+      var extractedBlocks = _extractBlocksFromRaw(rawText);
+      if (extractedBlocks && extractedBlocks.length > 0) {
+        var sanitizedBlocks = sanitizeScene({ blocks: extractedBlocks });
+        s.blocks = sanitizedBlocks.blocks;
+        console.warn('[parseNarrative] _extractBlocksFromRaw 兜底提取到 ' + s.blocks.length + ' 个 block');
       }
     }
     // 如果 obj 中没有其他文本字段，但 rawText 本身不是 JSON 格式（AI 可能返回了纯文本）

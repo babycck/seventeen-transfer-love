@@ -4,7 +4,7 @@
   QUESTION_BOX_QUESTIONS, TOKEN_CONFIG, HOLIDAYS, RETURN_GIFTS,
   GS, saveGame, showLoading, hideLoading, showToast, randInt, escHtml, dispatch
 } from './core.js';
-import { generateWithRetry } from './ai-generator.js';
+import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
@@ -310,7 +310,7 @@ export async function generatePhaseNarrative() {
     }
   } catch (e) {
     console.error('[generatePhaseNarrative] AI 生成失败:', e);
-    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
     GS.phaseNarrative = '';
     GS.parsedNarrative = {
       narrative: '', directorOS: '', observerOS: '',
@@ -458,7 +458,7 @@ export async function generateDrunkNarrative() {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[generateDrunkNarrative] 醉酒剧情生成失败:', e);
-    showToast('⚠️ 醉酒剧情生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -482,7 +482,7 @@ export async function generateDrunkConsequence(choiceText, memberId) {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[generateDrunkConsequence] 醉酒后续生成失败:', e);
-    showToast('⚠️ 醉酒后续生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -605,7 +605,7 @@ export async function handleTruthRound(opt) {
     }
   } catch (e) {
     console.error('[handleTruthRound] AI 生成失败:', e);
-    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -771,7 +771,7 @@ export async function handleOptionChoice(opt) {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[handleOptionChoice] AI 生成失败:', e);
-    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -922,7 +922,7 @@ export async function handleFinalChoice(opt) {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[handleFinalChoice] 结局生成失败:', e);
-    showToast('⚠️ 结局生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -1003,7 +1003,7 @@ export async function handleFreeAction(actionText) {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[handleFreeAction] AI 生成失败:', e);
-    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -1148,7 +1148,7 @@ var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.con
       if (window.__renderAll) window.__renderAll();
     } catch (e) {
       console.error('[handleRegenerate] AI 生成失败:', e);
-      showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+      showToast('⚠️ ' + formatAIError(e));
     }
     hideLoading();
   } else {
@@ -1400,7 +1400,7 @@ export async function continueToday() {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[continueToday] 生成失败:', e);
-    showToast('⚠️ 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }
@@ -1455,7 +1455,7 @@ export async function handleQuestionBoxChoice(opt) {
     if (window.__renderAll) window.__renderAll();
   } catch (e) {
     console.error('[handleQuestionBoxChoice] AI 生成失败:', e);
-    showToast('⚠️ AI 生成失败：' + e.message + '，请点击刷新按钮重试。');
+    showToast('⚠️ ' + formatAIError(e));
   }
   hideLoading();
 }

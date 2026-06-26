@@ -4,6 +4,10 @@ import { validateNarrative, formatCorrections } from './validator.js';
 import { dispatch } from './store.js';
 import { GS } from './state.js';
 
+var _sleep = function(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+};
+
 // 带自动重试的 AI 生成包装
 // 如果 validator 返回 error 级问题，自动重试一次并带修正反馈
 export async function generateWithRetry(sysPrompt, userMsg, opts) {
@@ -23,8 +27,18 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
     try {
       raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType);
     } catch (e) {
+      if (e.retryable === false) {
+        // 不可重试错误（401/400/403）直接抛出，不浪费重试次数
+        console.warn('[ai-generator] attempt ' + (attempt + 1) + ' non-retryable error: ' + e.message);
+        throw e;
+      }
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' network error: ' + e.message);
-      if (attempt < maxAttempts - 1) continue;
+      if (attempt < maxAttempts - 1) {
+        var backoffMs = 1500 * Math.pow(2, attempt);
+        console.warn('[ai-generator] retrying in ' + backoffMs + 'ms...');
+        await _sleep(backoffMs);
+        continue;
+      }
       throw e;
     }
     var parsed = parseNarrative(raw);
@@ -72,4 +86,28 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
     return lastResult;
   }
   return { raw: '', parsed: parseNarrative('{}'), corrections: [], attempts: maxAttempts };
+}
+
+// 根据错误类型生成用户友好的提示文案
+export function formatAIError(e) {
+  if (!e) return 'AI 生成失败，请刷新重试';
+  if (e.isNetworkError) {
+    return '网络连接中断，请检查网络后重试';
+  }
+  if (e.httpStatus === 401) {
+    return 'API Key 无效或已过期，请在设置中检查 API Key';
+  }
+  if (e.httpStatus === 403) {
+    return 'API Key 权限不足，请在设置中检查 API Key';
+  }
+  if (e.httpStatus === 429) {
+    return 'API 调用频率超限，请稍后再试';
+  }
+  if (e.httpStatus >= 500) {
+    return 'AI 服务暂时不可用（' + e.httpStatus + '），请稍后刷新重试';
+  }
+  if (e.httpStatus) {
+    return 'AI 请求失败（' + e.httpStatus + '），请检查 API 设置后重试';
+  }
+  return 'AI 生成失败：' + e.message + '，请点击刷新按钮重试';
 }

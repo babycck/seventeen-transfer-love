@@ -416,19 +416,36 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { controller.abort(); }, 90000);
 
-  var resp = await fetch(cfg.endpoint + '/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + GS.apiKey
-    },
-    body: JSON.stringify(requestBody),
-    signal: controller.signal
-  });
+  var resp;
+  try {
+    resp = await fetch(cfg.endpoint + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GS.apiKey
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    e.isNetworkError = true;
+    e.retryable = true;
+    throw e;
+  }
   clearTimeout(timeoutId);
   if (!resp.ok) {
-    var err = await resp.text();
-    throw new Error('API ' + resp.status + ': ' + err);
+    var errText = await resp.text();
+    var err = new Error('API ' + resp.status + ': ' + errText);
+    err.httpStatus = resp.status;
+    err.isNetworkError = false;
+    // 429 限流 / 5xx 服务端错误 → 可重试；4xx 鉴权/格式错误 → 不可重试
+    if (resp.status === 429 || resp.status >= 500) {
+      err.retryable = true;
+    } else {
+      err.retryable = false;
+    }
+    throw err;
   }
   var data = await resp.json();
   var msg = data.choices && data.choices[0] && data.choices[0].message;
