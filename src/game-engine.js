@@ -1697,13 +1697,19 @@ export async function sendChatMessage(userMessage) {
     }
 
     var clean = raw.replace(/^["'\s]+|["'\s]+$/g, '');
-    // 取最后一段对话：优先找「」，否则取最后一个非空段落
-    var dialogueMatches = clean.match(/「([^」]+)」/g);
-    if (dialogueMatches && dialogueMatches.length > 0) {
-      clean = dialogueMatches[dialogueMatches.length - 1].replace(/[「」]/g, '');
+    // 取最后一段对话：优先匹配「」或“”，否则取最后一个非空段落
+    var diaMatch = clean.match(/「([^」]+)」/g);
+    if (!diaMatch) diaMatch = clean.match(/“([^”]+)”/g);
+    if (diaMatch && diaMatch.length > 0) {
+      clean = diaMatch[diaMatch.length - 1].replace(/[「」“”]/g, '');
     } else {
       var parts = clean.split('\n').filter(Boolean);
       if (parts.length > 0) clean = parts[parts.length - 1];
+      // 如果最后一句话包含思考痕迹，取末尾短句
+      if (/[？。！]/.test(clean)) {
+        var sentences = clean.split(/[？。！]+/).filter(Boolean);
+        clean = sentences[sentences.length - 1];
+      }
       if (clean.length > 80) clean = clean.slice(-50);
     }
     GS.chatHistory.push({ role: 'ai', content: clean });
