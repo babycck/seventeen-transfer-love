@@ -1490,10 +1490,12 @@ export function bindGameEvents() {
             console.warn('[midnightCall] 反馈生成失败:', e);
           }
           hideLoading();
+        }
+      }
+    });
   }
-}
 
-// ==================== 1v1 设定主线大弹窗 ====================
+  // ==================== 1v1 设定主线大弹窗 ====================
 function showOneHeartMainlineModal() {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -1522,30 +1524,6 @@ function showOneHeartMainlineModal() {
 }
 window.showOneHeartMainlineModal = showOneHeartMainlineModal;
 
-
-      mc = GS.midnightCall;
-      var target = MEMBERS.find(function(m) { return m.id === mc.targetId; });
-      var targetName = target ? target.name : '嘉宾';
-      var html = '<div class="modal-content">' +
-        '<h3>📞 午夜电话记录</h3>' +
-        '<p style="font-size:13px;color:#5d3a3a;margin-bottom:8px"><strong>目标：</strong>' + escHtml(targetName) + '</p>' +
-        '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>你说：</strong></p>' +
-        '<p style="font-size:12px;color:#5d3a3a;padding:8px;background:#fff5f5;border-radius:6px;margin-bottom:10px">' + escHtml(mc.content) + '</p>' +
-        (mc.feedback ? '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>' + targetName + '的内心独白（Day 7）：</strong></p><p style="font-size:12px;color:#5d3a3a;padding:8px;background:#f0faf0;border-radius:6px">' + escHtml(mc.feedback) + '</p>' : '') +
-        (mc.reaction ? '<p style="font-size:12px;color:#8b6b6b;margin-bottom:8px"><strong>接听反应：</strong></p><p style="font-size:12px;color:#5d3a3a;padding:8px;background:#f5f5f5;border-radius:6px">' + escHtml(mc.reaction) + '</p>' : '') +
-        '<button class="modal-close-x" id="mcRecordClose">✕</button></div>';
-      var overlay = document.createElement('div');
-      overlay.className = 'modal-overlay';
-      overlay.innerHTML = html;
-      document.body.appendChild(overlay);
-      overlay.querySelector('#mcRecordClose').addEventListener('click', function(e) {
-        e.preventDefault(); e.stopPropagation(); overlay.remove();
-      });
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
-      });
-    });
-  }
 
   var affHint = document.getElementById('affectionHint');
   if (affHint) affHint.addEventListener('click', showAffectionPanel);
