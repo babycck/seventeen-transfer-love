@@ -410,7 +410,34 @@ function saveNarrativeEdit(newText) {
     targetKey = 'phase';
   }
 
-  if (!targetParsed || !targetParsed.blocks) return;
+  if (!targetParsed) return;
+
+  // 1v1 模式：parsed 无 blocks，直接写回 narrative 字符串
+  if (!targetParsed.blocks && targetParsed.narrative !== undefined) {
+    targetParsed.narrative = newText;
+    if (_editingConsequenceIdx >= 0 && GS.consequenceNarratives && GS.consequenceNarratives[_editingConsequenceIdx]) {
+      GS.consequenceNarratives[_editingConsequenceIdx].rawText = newText;
+      if (GS.todayFullText && _editingConsequenceIdx < GS.todayFullText.length) {
+        GS.todayFullText[_editingConsequenceIdx] = newText;
+      }
+    } else {
+      GS.phaseNarrative = newText;
+      if (GS.todayFullText && GS.todayFullText.length > 0) {
+        GS.todayFullText[GS.todayFullText.length - 1] = newText;
+      }
+    }
+    var dayIdx = GS.day - 1;
+    if (GS.dailyFullTexts && GS.dailyFullTexts[dayIdx]) {
+      GS.dailyFullTexts[dayIdx] = GS.todayFullText.slice();
+    }
+    saveGame();
+    closeNarrativeEditor();
+    showToast('✅ 剧情已更新');
+    if (window.__renderAll) window.__renderAll();
+    return;
+  }
+
+  if (!targetParsed.blocks) return;
 
   var blocks = targetParsed.blocks;
   var oldRaw = (targetKey === 'phase') ? GS.phaseNarrative : GS.consequenceNarratives[_editingConsequenceIdx].rawText;

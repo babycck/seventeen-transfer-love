@@ -1598,6 +1598,7 @@ export async function generateOneHeartRound(extra) {
       GS.phaseNarrative = '';
       GS.currentOptions = [];
       GS.parsedNarrative = { narrative: '', directorOS: '', options: [] };
+      showToast('⚠️ AI 返回格式异常，请重试或换一条指令');
       return;
     }
 
@@ -1655,26 +1656,24 @@ export async function generateOneHeartRound(extra) {
     GS.isInConsequence = false;
     GS.smsSentToday = false;
 
-    // 1v1 剧情压缩计数 + 触发
+    // 1v1 剧情压缩计数 + 触发（基于 todayFullText，不删除原文）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
       GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
-      if (GS.oneHeartGenCount >= 15 && GS.consequenceNarratives && GS.consequenceNarratives.length >= 10) {
-        // 取前 10 条压缩
-        var toCompress = GS.consequenceNarratives.splice(0, 10);
-        // 原文缓存
+      if (GS.oneHeartLastCompressedIdx === undefined) GS.oneHeartLastCompressedIdx = 0;
+      var _needMore = GS.todayFullText.length - GS.oneHeartLastCompressedIdx;
+      if (GS.oneHeartGenCount >= 15 && _needMore >= 10) {
+        var _startIdx = GS.oneHeartLastCompressedIdx;
+        // 从 todayFullText 取未压缩的 10 条（只读，不 splice）
+        var _toCompress = GS.todayFullText.slice(_startIdx, _startIdx + 10);
+        // 原文缓存（用于导出）
         if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
-        GS.oneHeartArchivedNarratives = GS.oneHeartArchivedNarratives.concat(toCompress);
+        GS.oneHeartArchivedNarratives = GS.oneHeartArchivedNarratives.concat(_toCompress);
         // 异步 AI 压缩（不阻塞渲染）
-        (async function() {
+        (async function(entries, start) {
           try {
             var compressText = '';
-            for (var ci = 0; ci < toCompress.length; ci++) {
-              var item = toCompress[ci];
-              if (item.parsed && item.parsed.narrative) {
-                compressText += (ci + 1) + '. ' + item.parsed.narrative + '\n';
-              } else if (item.rawText) {
-                compressText += (ci + 1) + '. ' + item.rawText + '\n';
-              }
+            for (var ci = 0; ci < entries.length; ci++) {
+              compressText += (start + ci + 1) + '. ' + (entries[ci] || '(空)') + '\n';
             }
             if (compressText.length > 100) {
               var summary = await callDeepSeek(
@@ -1686,15 +1685,16 @@ export async function generateOneHeartRound(extra) {
               );
               if (summary && summary.trim()) {
                 if (!GS.dailySummaries) GS.dailySummaries = [];
-                GS.dailySummaries.push('第' + (GS.oneHeartArchivedNarratives.length - 10 + 1) + '-' + GS.oneHeartArchivedNarratives.length + '回合压缩记忆：\n' + summary.trim());
+                GS.dailySummaries.push('第' + (start + 1) + '-' + (start + entries.length) + '回合压缩记忆：\n' + summary.trim());
               }
             }
             GS.oneHeartGenCount -= 10;
+            GS.oneHeartLastCompressedIdx = start + entries.length;
             saveGame();
           } catch (e) {
             console.error('[1v1 compress] error:', e);
           }
-        })();
+        })(_toCompress, _startIdx);
       }
     }
 
@@ -1750,6 +1750,12 @@ function parseOneHeartNarrative(raw) {
 
     return { narrative: narrative, options: options };
   } catch (e) {
+    // 1v1 fallback：AI 返回非 JSON 时作纯文本 narrative 兜底
+    var trimmed = (raw || '').trim();
+    if (trimmed.length > 20) {
+      console.warn('[1v1] parse error, using plain text fallback');
+      return { narrative: trimmed, options: [] };
+    }
     console.warn('[1v1] parse error, returning empty:', e.message);
     return { narrative: '', options: [] };
   }

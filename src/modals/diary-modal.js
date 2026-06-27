@@ -8,14 +8,14 @@ export function showDiaryModal() {
   overlay.className = 'modal-overlay';
 
   overlay.innerHTML =
-    '<div class="modal-content" style="width:92%;max-width:420px">' +
+    '<div class="modal-content" style="width:92%;max-width:420px;display:flex;flex-direction:column;height:80vh">' +
     '<button class="modal-close-x" id="diaryModalClose">✕</button>' +
     '<h3 style="text-align:center;margin-bottom:12px">📝 日记</h3>' +
     '<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1.5px solid var(--border-primary)">' +
     '<button class="diary-tab active" id="diaryTabMine" style="flex:1;padding:8px;border:none;background:var(--accent-primary-light);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--accent-primary);font-weight:600">📖 我的</button>' +
     '<button class="diary-tab" id="diaryTabHis" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--text-muted)">📖 他的</button>' +
     '</div>' +
-    '<div id="diaryTabContent" style="max-height:400px;overflow-y:auto">' +
+    '<div id="diaryTabContent" style="flex:1;overflow-y:auto;min-height:0">' +
     renderDiaryEntries('heroine') +
     '</div>' +
     '</div>';

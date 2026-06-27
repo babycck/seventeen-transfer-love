@@ -845,17 +845,21 @@ export function buildOneHeartUserMessage(type, extra) {
   msg += '\n';
 
   if (type === 'phase') {
-    // 注入历史压缩记忆
+    // 注入压缩记忆（历史回顾）
     if (GS.dailySummaries && GS.dailySummaries.length > 0) {
-      msg += '[历史回顾]\n';
+      msg += '[历史回顾（压缩记忆）]\n';
       for (var _dsi = 0; _dsi < GS.dailySummaries.length; _dsi++) {
-        msg += 'Day ' + (_dsi + 1) + '：' + GS.dailySummaries[_dsi] + '\n';
+        msg += '第' + (_dsi + 1) + '段压缩记忆：' + GS.dailySummaries[_dsi] + '\n';
       }
       msg += '\n';
     }
-    var todayText = GS.todayFullText.join('\n').slice(-1500);
-    if (todayText.trim()) {
-      msg += '今日已发生剧情（最后部分）：\n' + todayText + '\n\n';
+    // 注入未压缩的近期剧情（从压缩指针到末尾）
+    var _compIdx = GS.oneHeartLastCompressedIdx || 0;
+    var recentTexts = GS.todayFullText.slice(_compIdx);
+    if (recentTexts.length > 0) {
+      var recentJoined = recentTexts.join('\n\n');
+      if (recentJoined.length > 3000) recentJoined = recentJoined.slice(-3000);
+      msg += '[近期未压缩剧情]\n' + recentJoined + '\n\n';
     }
     // 注入上一次选择
     if (GS.pendingChoiceText) {
@@ -875,12 +879,14 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += 'Day ' + (_ci + 1) + '：' + GS.dailySummaries[_ci].slice(0, 400) + '\n';
       }
       msg += '\n';
-      var curText = GS.todayFullText.join('\n').slice(-800);
+      var _ciIdx = GS.oneHeartLastCompressedIdx || 0;
+      var curText = GS.todayFullText.slice(_ciIdx).join('\n').slice(-800);
       if (curText.trim()) {
         msg += '[当前进展]\n' + curText + '\n\n';
       }
     } else if (GS.day === 1) {
-      var day1Text = GS.todayFullText.join('\n').slice(-2000);
+      var _c1Idx = GS.oneHeartLastCompressedIdx || 0;
+      var day1Text = GS.todayFullText.slice(_c1Idx).join('\n').slice(-2000);
       if (day1Text.trim()) {
         msg += '[今日剧情]\n' + day1Text + '\n\n';
       }
@@ -899,7 +905,8 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
     msg += '输出格式：{"post":"...","reply":"..."}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
-    var recentNarr = GS.todayFullText.join('\n').slice(-800);
+    var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
+    var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);
     if (recentNarr.trim()) {
       msg += '近期剧情：\n' + recentNarr + '\n\n';
     }
@@ -915,7 +922,8 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请根据当前剧情生成两篇日记（各~150字）。\n\n';
     msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录当天印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
     msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他当天对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
-    var diaryNarr = GS.todayFullText.join('\n').slice(-1200);
+    var _deIdx = GS.oneHeartLastCompressedIdx || 0;
+    var diaryNarr = GS.todayFullText.slice(_deIdx).join('\n').slice(-1200);
     if (diaryNarr.trim()) {
       msg += '今天发生的剧情：\n' + diaryNarr + '\n\n';
     }
