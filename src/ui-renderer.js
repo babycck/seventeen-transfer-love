@@ -1987,6 +1987,7 @@ function bindOneHeartEvents() {
       var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
       if (!freeText) { showToast('请先写下你想发生的剧情'); return; }
       GS.freeInput = freeText;
+      GS.pendingChoiceText = '✍️ 自由行动：' + freeText;
       if (GS.todayFullText.length > 0) {
         GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
       }
