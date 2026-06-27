@@ -1954,7 +1954,7 @@ function bindOneHeartEvents() {
           break;
         case 'rewind':
           showToast('🔄 自由推演中...');
-          GS.pendingChoiceText = '🔄 自由推演';
+          GS.pendingChoiceText = '顺其自然的发展';
           await generateOneHeartRound({ isFreeDeduction: true });
           break;
         case 'set_mainline':
@@ -1992,7 +1992,8 @@ function bindOneHeartEvents() {
       var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
       if (!freeText) { showToast('请先写下你想发生的剧情'); return; }
       GS.freeInput = freeText;
-      GS.pendingChoiceText = '✍️ 自由行动：' + freeText;
+      GS.pendingChoiceText = freeText;
+      GS._pendingSource = 'freeInput';
       if (GS.todayFullText.length > 0) {
         GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
       }
@@ -2045,6 +2046,23 @@ function bindOneHeartEvents() {
   // 好感度提示点击
   var affectionHint = document.getElementById('affectionHint');
   if (affectionHint) affectionHint.addEventListener('click', showAffectionPanel);
+
+  // 自由输入删除按钮
+  document.querySelectorAll('.consequence-delete').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var idx = parseInt(this.dataset.idx);
+      if (isNaN(idx) || idx < 0 || idx >= GS.consequenceNarratives.length) return;
+      var confirmed = await showConfirmModal('确定要删除这条自由输入的剧情吗？');
+      if (!confirmed) return;
+      GS.consequenceNarratives.splice(idx, 1);
+      if (GS.todayFullText && idx < GS.todayFullText.length) {
+        GS.todayFullText.splice(idx, 1);
+      }
+      saveGame();
+      window.__renderAll();
+    });
+  });
 }
 
 

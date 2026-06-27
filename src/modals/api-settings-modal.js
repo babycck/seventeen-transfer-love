@@ -41,11 +41,10 @@ function exportStoryTxt() {
         }
       }
     }
-    // 当前未压缩的剧情
+    // 当前未压缩的剧情（只输出正文，不输出选项和标题）
     if (GS.consequenceNarratives) {
       for (var ci = 0; ci < GS.consequenceNarratives.length; ci++) {
         var item = GS.consequenceNarratives[ci];
-        if (item.choiceText) allNarratives.push('【' + item.choiceText + '】');
         if (item.parsed && item.parsed.narrative) {
           allNarratives.push(item.parsed.narrative);
         } else if (item.rawText) {

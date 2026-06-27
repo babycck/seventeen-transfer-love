@@ -1604,11 +1604,16 @@ export async function generateOneHeartRound(extra) {
 
     if (GS.pendingChoiceText) {
       // 新内容推入 consequence（含 choice tag），phaseNarrative 清空
-      GS.consequenceNarratives.push({
+      var _entry = {
         rawText: parsed.narrative,
         parsed: parsed,
         choiceText: GS.pendingChoiceText
-      });
+      };
+      if (GS._pendingSource) {
+        _entry.source = GS._pendingSource;
+        GS._pendingSource = '';
+      }
+      GS.consequenceNarratives.push(_entry);
       GS.parsedNarrative = { narrative: '', directorOS: '', options: [] };
       GS.phaseNarrative = '';
       GS.pendingChoiceText = '';

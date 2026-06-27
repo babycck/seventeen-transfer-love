@@ -141,18 +141,29 @@ export function renderNarrativeSection() {
     // 除最后一条外，已有剧情直接显示
     for (var i = 0; i < GS.consequenceNarratives.length - 1; i++) {
       var cn = GS.consequenceNarratives[i];
+      html += '<div class="consequence-item">';
       if (cn.choiceText) {
         html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
       }
       html += renderParsedNarrative(cn.parsed);
+      if (cn.source === 'freeInput') {
+        html += '<button class="consequence-delete" data-idx="' + i + '" title="删除本条">✕</button>';
+      }
+      html += '</div>';
     }
     // 最后一条新剧情：放入打字机容器
     var lastCn = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
     var newHtml = '';
+    var lastIdx = GS.consequenceNarratives.length - 1;
+    newHtml += '<div class="consequence-item">';
     if (lastCn.choiceText) {
       newHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(lastCn.choiceText) + '</div>';
     }
     newHtml += renderParsedNarrative(lastCn.parsed);
+    if (lastCn.source === 'freeInput') {
+      newHtml += '<button class="consequence-delete" data-idx="' + lastIdx + '" title="删除本条">✕</button>';
+    }
+    newHtml += '</div>';
     html += '<div id="narrativeNewContent" data-narrative-html="' + escHtml(newHtml) + '">';
     html += newHtml;
     html += '</div>';
