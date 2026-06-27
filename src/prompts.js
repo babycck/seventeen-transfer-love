@@ -857,6 +857,15 @@ export function buildOneHeartUserMessage(type, extra) {
     if (todayText.trim()) {
       msg += '今日已发生剧情（最后部分）：\n' + todayText + '\n\n';
     }
+    // 注入上一次选择
+    if (GS.pendingChoiceText) {
+      msg += '[女主的决定] 她刚刚做出了选择：' + GS.pendingChoiceText + '\n请根据这个选择展开后续剧情。\n\n';
+    }
+    // 注入自由输入
+    if (GS.freeInput && GS.freeInput.trim()) {
+      msg += '[女主希望] ' + GS.freeInput.trim() + '\n请根据这个方向展开剧情。\n\n';
+      GS.freeInput = '';
+    }
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
     // 注入故事上下文

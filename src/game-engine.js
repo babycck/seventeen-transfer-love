@@ -1569,6 +1569,10 @@ export async function generateOneHeartRound(extra) {
     if (extra.isEnding) {
       sysMsg += '\n\n[指令] 这是故事的最后一幕。请根据已有的故事发展和主线方向，生成一个完整的结局场景，给这段关系一个收尾。情感要饱满，有始有终。结局可以是温暖的、遗憾的、开放式的——但必须是完整的。';
     }
+    // 如果是自由推演，注入自动推演指令
+    if (extra.isFreeDeduction) {
+      sysMsg += '\n\n[指令] 自由推演模式——请根据女主的性格、当前剧情发展，自然地推进故事。不需要特定方向，让故事跟随角色性格自然流动。';
+    }
     // 如果是随机事件，从 1v1 专属池中随机选取
     if (extra.isRandom) {
       var pool = ONE_HEART_RANDOM_EVENTS;
@@ -1635,14 +1639,14 @@ export async function generateOneHeartRound(extra) {
       GS.oneHeartDiaryCounter++;
       if (GS.oneHeartDiaryCounter >= 3) {
         GS.oneHeartDiaryCounter = 0;
-        generateDiary();
+        await generateDiary();
       }
       // 朋友圈计数器（随机 3-5 段触发）
       GS.oneHeartMomentCounter++;
       var momentThreshold = randInt(3, 5);
       if (GS.oneHeartMomentCounter >= momentThreshold) {
         GS.oneHeartMomentCounter = 0;
-        generateMoment();
+        await generateMoment();
       }
     }
 

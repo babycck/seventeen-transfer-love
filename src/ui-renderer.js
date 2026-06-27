@@ -1970,8 +1970,8 @@ function bindOneHeartEvents() {
           this.disabled = false;
           break;
         case 'rewind':
-          showToast('🔄 自由推演：输入你想发生的新剧情方向，然后点击进入下一段');
-          document.getElementById('freeInput').focus();
+          showToast('🔄 自由推演中...');
+          await generateOneHeartRound({ isFreeDeduction: true });
           break;
         case 'set_mainline':
           showOneHeartMainlineModal();

@@ -137,29 +137,22 @@ export function renderNarrativeSection() {
   if (GS.phaseNarrative) {
     html += renderParsedNarrative(GS.parsedNarrative);
   }
-  var isOneHeart = GS.gameMode === 'oneHeart';
   if (hasConsequences) {
     // 除最后一条外，已有剧情直接显示
     for (var i = 0; i < GS.consequenceNarratives.length - 1; i++) {
       var cn = GS.consequenceNarratives[i];
-      if (!isOneHeart) {
-        html += '<div class="separator"></div>';
-        if (cn.choiceText) {
-          html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
-        }
+      if (cn.choiceText) {
+        html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
       }
       html += renderParsedNarrative(cn.parsed);
     }
     // 最后一条新剧情：放入打字机容器
     var lastCn = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
     var newHtml = '';
-    if (!isOneHeart && lastCn.choiceText) {
+    if (lastCn.choiceText) {
       newHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(lastCn.choiceText) + '</div>';
     }
     newHtml += renderParsedNarrative(lastCn.parsed);
-    if (!isOneHeart) {
-      html += '<div class="separator"></div>';
-    }
     html += '<div id="narrativeNewContent" data-narrative-html="' + escHtml(newHtml) + '">';
     html += newHtml;
     html += '</div>';
