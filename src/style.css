@@ -1061,8 +1061,8 @@ body {
 
 /* ==================== Responsive ==================== */
 @media (max-width: 480px) {
-  #app { padding: 6px 8px 50px; padding-top: env(safe-area-inset-top, 6px); }
-  .header { padding: 10px; border-radius: 12px; }
+  #app { padding: 6px 8px 50px; }
+  .header { padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border-radius: 12px; }
   .header .day-badge { font-size: 11px; padding: 4px 10px; }
   .header .affection-hint { font-size: 10px; max-width: calc(100vw - 120px); }
   .card { padding: 10px 12px; border-radius: 12px; }
