@@ -1,5 +1,5 @@
 ﻿import {
-  setGS, GS, defaultGameState, loadGame, saveGame, migrateSave, resetGame
+  setGS, GS, defaultGameState, loadGame, saveGame, migrateSave, resetGame, escHtml
 } from './core.js';
 import { renderAll, renderAuthScreen, bindAuthEvents, initTheme } from './ui-renderer.js';
 import { generatePhaseNarrative } from './game-engine.js';
@@ -98,16 +98,27 @@ export async function init() {
 }
 
 function initGame() {
-  if (!loadGame()) {
-    setGS(defaultGameState());
-    saveGame();
-  }
-  initTheme();
-  renderAll();
+  try {
+    if (!loadGame()) {
+      setGS(defaultGameState());
+      saveGame();
+    }
+    initTheme();
+    renderAll();
 
-  // 如果已在游戏中且当前没有剧情，自动生成时段剧情
-  if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !GS.phaseNarrative) {
-    generatePhaseNarrative();
+    // 如果已在游戏中且当前没有剧情，自动生成时段剧情
+    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !GS.phaseNarrative) {
+      generatePhaseNarrative();
+    }
+  } catch (e) {
+    console.error('[Init] initGame error:', e);
+    var app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = '<div style="padding:40px;text-align:center;color:#c62828">' +
+        '<h3>⚠️ 加载失败</h3>' +
+        '<p style="margin-top:12px;font-size:13px">' + escHtml(e && e.message ? e.message : String(e)) + '</p>' +
+        '<p style="margin-top:8px;font-size:12px;color:#8b6b6b">请截图此错误信息并联系开发者</p></div>';
+    }
   }
 }
 init();
