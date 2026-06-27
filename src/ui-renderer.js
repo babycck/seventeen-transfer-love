@@ -1937,11 +1937,13 @@ function bindOneHeartEvents() {
           var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
           if (freeText) {
             GS.freeInput = freeText;
+            GS.pendingChoiceText = '✍️ 重新生成：' + freeText;
             if (GS.todayFullText.length > 0) {
               GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
             }
           } else {
             GS.freeInput = '';
+            GS.pendingChoiceText = '🔄 重新生成';
           }
           GS.phaseNarrative = '';
           GS.currentOptions = [];
@@ -1952,6 +1954,7 @@ function bindOneHeartEvents() {
           break;
         case 'rewind':
           showToast('🔄 自由推演中...');
+          GS.pendingChoiceText = '🔄 自由推演';
           await generateOneHeartRound({ isFreeDeduction: true });
           break;
         case 'set_mainline':
@@ -1962,12 +1965,14 @@ function bindOneHeartEvents() {
             showToast('请先在快捷指令中「设定主线」'); return;
           }
           showToast('📌 拉回主线中...');
+          GS.pendingChoiceText = '📌 拉回主线';
           GS.freeInput = '(按照主线推进剧情：' + GS.oneHeartMainLine + ')';
           saveGame();
           await generateOneHeartRound();
           break;
         case 'random':
           showToast('🎲 触发随机事件...');
+          GS.pendingChoiceText = '🎲 随机事件';
           await generateOneHeartRound({ isRandom: true });
           break;
         case 'ending':
