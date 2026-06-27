@@ -1906,13 +1906,24 @@ body {
 }
 .interact-toggle {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 14px 18px;
+  gap: 0px;
+  padding: 10px 18px;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+.toggle-bar {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+.toggle-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.2;
 }
 .toggle-bar {
   color: var(--text-muted);

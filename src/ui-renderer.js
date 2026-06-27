@@ -1103,8 +1103,8 @@ function renderOneHeartGameScreen() {
     html += '<div class="oneheart-operation-overlay" id="operationOverlay">' +
       '<div class="interact-area">' +
       '<div class="interact-toggle" id="operationToggle">' +
-      '<span class="toggle-bar">━━━</span>' +
-      (hasOptions ? '<span class="toggle-badge">' + GS.currentOptions.length + '</span>' : '') +
+      '<span class="toggle-bar">━</span>' +
+      '<span class="toggle-label">展开</span>' +
       '</div>' +
       '<div class="interact-body" id="operationBody" style="display:none">' +
       // 选项区
@@ -1901,7 +1901,8 @@ function bindOneHeartEvents() {
     operationToggle.addEventListener('click', function() {
       var isHidden = operationBody.style.display === 'none';
       operationBody.style.display = isHidden ? 'block' : 'none';
-      // 不再自动 focus，避免手机端弹键盘
+      var label = operationToggle.querySelector('.toggle-label');
+      if (label) label.textContent = isHidden ? '收起' : '展开';
     });
   }
 
