@@ -423,17 +423,46 @@ export function showRemakeGiftModal(giftIdx) {
   });
 
   overlay.querySelectorAll('[data-member-id]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+    btn.addEventListener('click', async function() {
       var memberId = this.dataset.memberId;
+      this.disabled = true;
+      this.textContent = '✨ 生成中...';
+      var member = MEMBERS.find(function(m) { return m.id === memberId; });
       var prefType = MEMBER_GIFT_PREFERENCE[memberId];
-      var prefTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === prefType; });
-      var newTmpl = prefTemplates[Math.floor(Math.random() * prefTemplates.length)];
+      var typeLabel = prefType === 'handcraft' ? '手作' : prefType === 'food' ? '食物' : '情感';
 
-      gift.type = newTmpl.type;
-      gift.name = newTmpl.name;
-      gift.desc = newTmpl.desc;
+      try {
+        var prompt = '你是一位浪漫的礼物改造师。把「' + gift.name + '」改造成专属' + (member ? member.name : '对方') + '的礼物。\n' +
+          '对方的礼物偏好类型是「' + typeLabel + '」。\n' +
+          '要求：名称不超过12字，描述不超过40字，体现出专属感和用心。\n' +
+          '输出格式：{"name":"改造后的名称","desc":"简短描述"}';
+        var res = await callDeepSeek(prompt, '改造礼物', 200, false, 0.8);
+        var parsed;
+        try {
+          parsed = JSON.parse(res);
+        } catch (e) {
+          var m = res.match(/\{[\s\S]*\}/);
+          if (m) parsed = JSON.parse(m[0]);
+        }
+        if (parsed && parsed.name) {
+          gift.name = parsed.name;
+          gift.desc = parsed.desc || '';
+        } else {
+          // AI 返回异常时从同类型池兜底
+          var prefTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === prefType; });
+          var fallback = prefTemplates[Math.floor(Math.random() * prefTemplates.length)];
+          gift.name = fallback.name;
+          gift.desc = fallback.desc;
+        }
+      } catch (e) {
+        var prefTemplates2 = GIFT_TEMPLATES.filter(function(g) { return g.type === prefType; });
+        var fallback2 = prefTemplates2[Math.floor(Math.random() * prefTemplates2.length)];
+        gift.name = fallback2.name;
+        gift.desc = fallback2.desc;
+      }
+
+      gift.type = prefType;
       gift.isRemade = true;
-
       saveGame();
       overlay.remove();
       showGiftPanel();
