@@ -430,7 +430,7 @@ export async function resetGame() {
   GS.writingStyle = savedWritingStyle;
   GS.oneHeartCustomWorld = savedOneHeartCustomWorld;
   GS.oneHeartMainLine = savedOneHeartMainLine;
-  GS.step = 0; // 回到 setup 第一步
+  GS.step = 1; // 回到 setup 第一步
   if (savedHeroineProfile) GS.heroineProfile = savedHeroineProfile;
   saveGame();
 }
