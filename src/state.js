@@ -207,6 +207,7 @@ export function loadGame() {
     if (raw) {
       GS = JSON.parse(raw);
       migrateSave();
+      if (GS.step === 0) GS.step = 1; // 修复：resetGame 曾写 step=0 导致 setup 白屏
       return true;
     }
   } catch (e) {
