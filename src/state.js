@@ -461,7 +461,8 @@ export async function resetCache() {
   // 同时清除存档 KEY
   localStorage.removeItem(STORAGE_KEY);
 
-  Object.assign(GS, defaultGameState());
+// 暴露到全局便于控制台调试
+window.GS = GS;
 
   // 重新加载页面以重置所有模块状态
   location.reload();

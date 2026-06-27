@@ -1077,8 +1077,6 @@ export function renderGameScreen() {
     html += renderEndingScreen(members);
   }
 
-  html += '<button id="backToTopBtn" title="回到顶部">⬆</button>';
-
   return html;
 }
 
@@ -1142,8 +1140,6 @@ function renderOneHeartGameScreen() {
   if (GS.gameOver) {
     html += '<div style="text-align:center;padding:20px;color:var(--accent-primary);font-size:18px;font-weight:700">💗 故事结束</div>';
   }
-
-  html += '<button id="backToTopBtn" title="回到顶部">⬆</button>';
 
   return html;
 }
@@ -1612,21 +1608,6 @@ window.showOneHeartMainlineModal = showOneHeartMainlineModal;
   if (exComfort) exComfort.addEventListener('click', function() { handleExMessageChoice('comfort'); });
   var exQuestion = document.getElementById('exQuestion');
   if (exQuestion) exQuestion.addEventListener('click', function() { handleExMessageChoice('question'); });
-
-  var backToTopBtn = document.getElementById('backToTopBtn');
-  if (backToTopBtn) {
-    backToTopBtn.addEventListener('click', function() {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    if (!_scrollBound) {
-      window.addEventListener('scroll', function() {
-        var btn = document.getElementById('backToTopBtn');
-        if (btn) btn.style.display = window.scrollY > 500 ? 'flex' : 'none';
-      });
-      _scrollBound = true;
-    }
-    backToTopBtn.style.display = window.scrollY > 500 ? 'flex' : 'none';
-  }
 }
 
 export function scrollToLatestContent() {
@@ -2058,21 +2039,6 @@ function bindOneHeartEvents() {
   // 好感度提示点击
   var affectionHint = document.getElementById('affectionHint');
   if (affectionHint) affectionHint.addEventListener('click', showAffectionPanel);
-
-  // Back to top
-  var backBtn = document.getElementById('backToTopBtn');
-  if (backBtn) {
-    backBtn.addEventListener('click', function() {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    if (!_scrollBound) {
-      window.addEventListener('scroll', function() {
-        var btn = document.getElementById('backToTopBtn');
-        if (btn) btn.style.display = window.scrollY > 500 ? 'flex' : 'none';
-      });
-      _scrollBound = true;
-    }
-  }
 }
 
 
