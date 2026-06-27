@@ -97,8 +97,9 @@ function initGame() {
     initTheme();
     renderAll();
 
-    // 如果已在游戏中且当前没有剧情，自动生成时段剧情
-    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !GS.phaseNarrative) {
+    // 如果已在游戏中且当前没有剧情，自动生成
+    var hasContent = !!(GS.phaseNarrative || (GS.consequenceNarratives && GS.consequenceNarratives.length > 0));
+    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent) {
       generatePhaseNarrative();
     }
   } catch (e) {

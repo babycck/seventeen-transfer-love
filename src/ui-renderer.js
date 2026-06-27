@@ -30,6 +30,7 @@ import { activateCode, saveCodePreference, getSavedCode, isRememberCode } from '
 import { compressTodayToSummary } from './memory.js';
 
 var _scrollBound = false;
+var _firstRender = true;
 
 // ==================== 主题切换 ====================
 export function applyTheme(theme) {
@@ -66,7 +67,10 @@ export function renderAll() {
     scrollToLatestContent();
     setTimeout(function() {
       var newContent = document.getElementById('narrativeNewContent');
-      if (newContent && newContent.getAttribute('data-narrative-html')) {
+      if (_firstRender) {
+        // 初次加载（刷新/打开）：已有内容直接显示，不打字机
+        _firstRender = false;
+      } else if (newContent && newContent.getAttribute('data-narrative-html')) {
         startTypewriter('narrativeNewContent', GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed);
       } else {
         startTypewriter('narrativeBox', GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed);
