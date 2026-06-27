@@ -132,8 +132,9 @@ function renderMyGifts(members) {
         if (fromMember) fromLabel = '<span style="font-size:10px;color:#999;margin-left:6px">来自 ' + escHtml(fromMember.name) + ' · Day ' + g.fromDay + '</span>';
       }
 
+      var giftName = (g.name && g.name.trim().length >= 2 && g.name !== '...' && g.name !== '…') ? g.name : '✨ 专属礼物';
       html += '<div style="background:#fff5f5;border-radius:10px;padding:10px;margin-bottom:8px">' +
-        '<p style="font-weight:700;font-size:13px;margin-bottom:4px">' + escHtml(g.name) + badge + ' <span style="font-size:11px;color:#8b6b6b">[' + typeLabel + ']</span>' + fromLabel + (g.isRemade ? '<span style="color:#4caf50;font-size:11px;margin-left:4px">✅ 已改造</span>' : '') + '</p>' +
+        '<p style="font-weight:700;font-size:13px;margin-bottom:4px">' + escHtml(giftName) + badge + ' <span style="font-size:11px;color:#8b6b6b">[' + typeLabel + ']</span>' + fromLabel + (g.isRemade ? '<span style="color:#4caf50;font-size:11px;margin-left:4px">✅ 已改造</span>' : '') + '</p>' +
         '<p style="font-size:11px;color:#8b6b6b;margin-bottom:6px">' + escHtml(g.desc) + '</p>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap">';
       for (var j = 0; j < members.length; j++) {
@@ -461,6 +462,10 @@ export function showRemakeGiftModal(giftIdx) {
         gift.desc = fallback2.desc;
       }
 
+      // 确保 name 有效（防止 Safari 等浏览器上 AI 返回异常导致显示 ...）
+      if (!gift.name || gift.name.trim().length < 2 || gift.name === '...' || gift.name === '…') {
+        gift.name = '专属「' + (member ? member.name : 'ta') + '」的礼物';
+      }
       gift.type = prefType;
       gift.isRemade = true;
       saveGame();
