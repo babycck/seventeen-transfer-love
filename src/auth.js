@@ -90,11 +90,15 @@ export async function verifyToken() {
   }
 
   try {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
     var res = await fetch(BACKEND_URL + '/api/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, deviceFingerprint: deviceId })
+      body: JSON.stringify({ token, deviceFingerprint: deviceId }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     var data = await res.json();
     if (!data.success) {
       // Token 已过期/无效/激活码已过期，清理旧 Token 让用户重新激活
@@ -146,11 +150,15 @@ export async function activateCode(code) {
   }
 
   try {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
     var res = await fetch(BACKEND_URL + '/api/activate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: normalized, deviceFingerprint: deviceId })
+      body: JSON.stringify({ code: normalized, deviceFingerprint: deviceId }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     var data = await res.json();
     if (data.success) {
       try {
