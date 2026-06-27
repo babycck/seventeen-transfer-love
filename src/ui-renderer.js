@@ -848,7 +848,7 @@ export function bindSetupEvents() {
         GS.affection = {};
         GS.affection[GS.oneHeartMember] = randInt(10, 25);
         GS.step = 5;
-        GS.day = 1;
+        GS.day = 0;
         GS.phaseIndex = 0;
         GS.stayCount = 0;
         GS.phaseOptionCount = 0; GS.phaseFreeCount = 0;

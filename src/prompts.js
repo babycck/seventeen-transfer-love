@@ -870,6 +870,17 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '[女主希望] ' + GS.freeInput.trim() + '\n请根据这个方向展开剧情。\n\n';
       GS.freeInput = '';
     }
+    // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
+    var _lastNarr = '';
+    if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
+      var _last = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
+      _lastNarr = _last.parsed && _last.parsed.narrative ? _last.parsed.narrative : (_last.rawText || '');
+    } else if (GS.phaseNarrative) {
+      _lastNarr = GS.phaseNarrative;
+    }
+    if (_lastNarr) {
+      msg += '[当前场景] ' + _lastNarr.slice(-500) + '\n\n';
+    }
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
     // 注入故事上下文
