@@ -12,7 +12,7 @@ var _sleep = function(ms) {
 // 如果 validator 返回 error 级问题，自动重试一次并带修正反馈
 export async function generateWithRetry(sysPrompt, userMsg, opts) {
   opts = opts || {};
-  var tokens = opts.tokens || 5000;
+  var tokens = opts.tokens || opts.maxTokens || 5000;
   var temp = opts.temperature || 0.8;
   var sceneType = opts.sceneType || 'phase';
   var maxAttempts = opts.maxAttempts || 3;

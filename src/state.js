@@ -223,9 +223,11 @@ export function saveGame() {
     if (GS.rememberApiKey === false) {
       stateToSave.apiKey = '';
     }
-    // 剥离运行时锁，防止被持久化到存档导致刷新后卡死
+    // 剥离运行时锁和临时标记，防止被持久化到存档导致刷新后卡死
     delete stateToSave._isGenerating;
     delete stateToSave._advancingPhase;
+    delete stateToSave.pendingChoiceText;
+    delete stateToSave._pendingSource;
     var json = JSON.stringify(stateToSave);
     if (json.length > SAVE_SIZE_WARN) {
       console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');

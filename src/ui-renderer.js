@@ -1934,17 +1934,19 @@ function bindOneHeartEvents() {
       switch (cmd) {
         case 'regenerate':
           this.disabled = true;
-          var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
-          if (freeText) {
-            GS.freeInput = freeText;
-            GS.pendingChoiceText = '✍️ 重新生成：' + freeText;
-            if (GS.todayFullText.length > 0) {
-              GS.todayFullText[GS.todayFullText.length - 1] += '\n\n❥ 自由行动：' + freeText;
-            }
-          } else {
-            GS.freeInput = '';
-            GS.pendingChoiceText = '🔄 重新生成';
+          // 删除当前回合内容（替换而非追加）
+          var prevChoiceText = '';
+          if (GS.consequenceNarratives.length > 0) {
+            var popped = GS.consequenceNarratives.pop();
+            prevChoiceText = popped.choiceText || '';
           }
+          if (GS.todayFullText.length > 0) {
+            GS.todayFullText.pop();
+          }
+          // 自由输入框文字作为 freeInput 传递
+          var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
+          GS.freeInput = freeText || '';
+          GS.pendingChoiceText = prevChoiceText;
           GS.phaseNarrative = '';
           GS.currentOptions = [];
           GS._isGenerating = false;
