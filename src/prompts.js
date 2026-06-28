@@ -130,7 +130,7 @@ export function buildSystemPrompt() {
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
     (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') +
       '——⚠️ 在相关场景中自然触发。如"怕黑"→深夜场景中下意识开灯或靠近他人；"泪失禁"→情绪激动时控制不住流泪；"易醉体质"→喝酒后容易醉。⚠️ 私密体质是女主专属设定，绝对禁止映射到任何成员身上。\n' : '') +
-    '- 注意：「泪痣」是眼角的痣，「敏感带在耳后」是耳后敏感区域，两者位置不同，不可混用。\n' +
+    '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
     '\n' + getHeroineBehaviorText() + '\n\n' +
 
     '[SYSTEM] ⚠️ 女主对X的情感状态（强制执行）\n' +
@@ -789,8 +789,8 @@ export function buildOneHeartSystemPrompt() {
     (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
-    (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
-    '- 注意：「泪痣」是眼角的痣，「敏感带在耳后」是耳后敏感区域，两者位置不同，不可混用。\n' +
+         (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
+    '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
     getHeroineBehaviorText() + '\n\n' +
@@ -814,10 +814,14 @@ export function buildOneHeartSystemPrompt() {
       var parts = '';
       if (rel && rel.name) {
         parts += '[关系网角色]\n';
-        parts += '你的生活中有一个重要的人：「' + rel.name + '」（' + rel.role + '）。\n';
+        parts += '你的生活中有一个重要的人：「' + rel.name + '」（你的' + (rel.role === '哥哥' ? '亲' : '') + '' + rel.role + '）。\n';
         if (rel.personality) parts += '性格：' + rel.personality + '\n';
         if (rel.behaviorLogic) parts += '行为逻辑：' + rel.behaviorLogic + '\n';
-        parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n\n';
+        parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n';
+        if (rel.role === '哥哥') {
+          parts += '⚠️ 他是你的亲哥哥，不是他的哥哥。只能从你的视角称「我哥」或直呼名字「' + rel.name + '」，不可从他的视角称「他哥」「你哥」。\n';
+        }
+        parts += '\n';
       }
       if (rival && rival.name) {
         parts += '[情敌设定]\n';
