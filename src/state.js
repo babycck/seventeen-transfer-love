@@ -31,6 +31,12 @@ export function defaultGameState() {
     oneHeartArchivedNarratives: [],
     oneHeartGenCount: 0,
     oneHeartLastCompressedIdx: 0,
+    oneHeartRelationCharacter: { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false },
+    oneHeartRival: { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' },
+    oneHeartStartYear: 2025,
+    oneHeartPendingEvent: null,
+    oneHeartEventPool: [],
+    oneHeartLastEventRound: 0,
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -368,6 +374,12 @@ export function migrateSave() {
     if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
     if (GS.oneHeartGenCount === undefined) GS.oneHeartGenCount = 0;
     if (GS.oneHeartLastCompressedIdx === undefined) GS.oneHeartLastCompressedIdx = 0;
+    if (!GS.oneHeartRelationCharacter) GS.oneHeartRelationCharacter = { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false };
+    if (!GS.oneHeartRival) GS.oneHeartRival = { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' };
+    if (GS.oneHeartStartYear === undefined) GS.oneHeartStartYear = 2025;
+    if (GS.oneHeartPendingEvent === undefined) GS.oneHeartPendingEvent = null;
+    if (!Array.isArray(GS.oneHeartEventPool)) GS.oneHeartEventPool = [];
+    if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

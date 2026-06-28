@@ -1581,10 +1581,6 @@ export async function generateOneHeartRound(extra) {
         sysMsg += '\n\n[随机事件] 请触发以下剧情——根据当前世界观自然改编场景和人物互动方式，但保留核心情感互动：\n"' + picked.desc + '"';
       }
     }
-    // 1v1 回合推进（生成前 ++，prompt 和 header 显示一致；重新生成不推进）
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
-      GS.day++;
-    }
     var userMsg = buildOneHeartUserMessage('phase');
 
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true });
@@ -1642,10 +1638,6 @@ export async function generateOneHeartRound(extra) {
 
     // 日记/朋友圈计数器
     if (GS.gameMode === 'oneHeart') {
-      // 同步更新 currentDate
-      if (GS.gameDates && GS.gameDates.length > 0 && GS.day <= GS.gameDates.length) {
-        GS.currentDate = GS.gameDates[GS.day - 1];
-      }
       // 回礼检测
       var returnGiftInfo = checkPendingReturnGifts();
       if (returnGiftInfo) {

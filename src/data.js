@@ -971,3 +971,20 @@ export var SECOND_CAREER_MAP = {
   '独立音乐人/DJ': '在自己的音乐世界里很自在。深夜打碟、写歌、混音。有自己的品味和坚持，不随波逐流。在人群中最耀眼的是他在台上的时候——但台下他只想安静地和你待着。',
   '舞者/编舞助理': '身体是表达的工具。练习时很拼命，身上经常有淤青。在练习室是最认真的那个，但平时可能懒懒的。反差感——台上台下两个人。'
 };
+
+// ==================== 身份关系网映射 ====================
+export var IDENTITY_RELATION_MAP = {
+  '队友的妹妹': { role: '哥哥', gender: 'male', fromSEVENTEEN: true, isRival: false, needExtraRival: true },
+  '同公司师妹': { role: '师兄', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '女团爱豆': { role: '队友', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },
+  '站姐/大粉': { role: '前同事', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },
+  '素人': { role: '闺蜜', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },
+  '财阀千金': { role: '未婚夫', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '品牌方助理': { role: '上司', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '女演员': { role: '戏内搭档', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '百万网红博主': { role: '经纪人', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },
+  '超模/平面模特': { role: '摄影师', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '带货女主播': { role: 'MCN老板', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '独立音乐人': { role: '音乐制作人', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
+  '体育生/运动员': { role: '教练', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false }
+};

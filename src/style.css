@@ -1967,6 +1967,18 @@ body {
   color: var(--text-primary);
   box-sizing: border-box;
 }
+.operation-submit-sm {
+  width: 42px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent-primary);
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  flex-shrink: 0;
+}
 .operation-submit {
   width: 100%;
   padding: 13px;

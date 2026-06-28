@@ -808,6 +808,30 @@ export function buildOneHeartSystemPrompt() {
     (member.comforts ? '  安慰方式：' + member.comforts.join('、') + '\n' : '') +
     (member.fears ? '  恐惧：' + member.fears.join('、') + '\n' : '') + '\n' +
 
+    (function() {
+      var rel = GS.oneHeartRelationCharacter;
+      var rival = GS.oneHeartRival;
+      var parts = '';
+      if (rel && rel.name) {
+        parts += '[关系网角色]\n';
+        parts += '你的生活中有一个重要的人：「' + rel.name + '」（' + rel.role + '）。\n';
+        if (rel.personality) parts += '性格：' + rel.personality + '\n';
+        if (rel.behaviorLogic) parts += '行为逻辑：' + rel.behaviorLogic + '\n';
+        parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n\n';
+      }
+      if (rival && rival.name) {
+        parts += '[情敌设定]\n';
+        parts += '你的故事中有一个情感阻碍者：「' + rival.name + '」。\n';
+        if (rival.personality) parts += '性格：' + rival.personality + '\n';
+        if (rival.behaviorLogic) parts += '行为逻辑：' + rival.behaviorLogic + '\n';
+        if (rival.interactionStyle) parts += '互动风格：' + rival.interactionStyle + '\n';
+        if (rival.loveStyle) parts += '情感模式：' + rival.loveStyle + '\n';
+        parts += '⚠️ 情敌是独立角色，不可与男主混淆。他的名字固定为「' + rival.name + '」。\n';
+        parts += '⚠️ 情敌的出现应制造张力，但也是让你们的感情更深的机会。\n\n';
+      }
+      return parts;
+    })() +
+
     '[RULE] 全局写作规则\n' +
     '1. 正文用第二人称"你"。\n' +
     '2. 称呼规则：直呼名字。好感度高时可称"欧巴"。\n' +
@@ -838,9 +862,13 @@ export function buildOneHeartUserMessage(type, extra) {
   var hp = GS.heroineProfile;
   var msg = '';
 
-  msg += '[上下文] Day ' + GS.day + '\n';
   if (GS.currentDate && GS.currentDate.month) {
-    msg += '时间线：' + GS.currentDate.month + '月' + GS.currentDate.day + '日\n';
+    msg += '[上下文] ' + (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日';
+    if (GS.season) msg += ' · ' + ({spring:'春季',summer:'夏季',autumn:'秋季',winter:'冬季'}[GS.season] || '');
+    if (GS.weather) msg += ' · ' + GS.weather;
+    msg += '\n';
+  } else {
+    msg += '[上下文] Day ' + GS.day + '\n';
   }
   msg += '\n';
 

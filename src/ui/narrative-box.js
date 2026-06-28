@@ -138,8 +138,15 @@ export function renderNarrativeSection() {
     html += renderParsedNarrative(GS.parsedNarrative);
   }
   if (hasConsequences) {
+    // 1v1 模式：跳过已压缩的条目，最多显示 15 条
+    var _startIdx = 0;
+    if (GS.gameMode === 'oneHeart') {
+      var _compIdx = GS.oneHeartLastCompressedIdx || 0;
+      var _total = GS.consequenceNarratives.length;
+      _startIdx = Math.max(_compIdx, _total - 15);
+    }
     // 除最后一条外，已有剧情直接显示
-    for (var i = 0; i < GS.consequenceNarratives.length - 1; i++) {
+    for (var i = _startIdx; i < GS.consequenceNarratives.length - 1; i++) {
       var cn = GS.consequenceNarratives[i];
       html += '<div class="consequence-item">';
       if (cn.choiceText) {

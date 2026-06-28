@@ -226,6 +226,39 @@ export function generateSeasonAndDates() {
   return { season: season, seasonLabel: seasonLabels[season], month: month, dates: dates };
 }
 
+// ==================== 1v1 模式 365 天日期生成 ====================
+export function generateOneHeartDates() {
+  var seasons = ['spring', 'summer', 'autumn', 'winter'];
+  var seasonMonthRanges = {
+    spring: [3, 5],
+    summer: [6, 8],
+    autumn: [9, 11],
+    winter: [12, 2]
+  };
+  var seasonLabels = { spring: '春季', summer: '夏季', autumn: '秋季', winter: '冬季' };
+  var season = seasons[Math.floor(Math.random() * seasons.length)];
+  var range = seasonMonthRanges[season];
+  var month;
+  if (range[0] <= range[1]) {
+    month = randInt(range[0], range[1]);
+  } else {
+    var pick = Math.random();
+    month = pick < 0.5 ? 12 : randInt(1, 2);
+  }
+  var maxDay = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
+  var startDay = randInt(1, 28);
+  var dates = [];
+  var d = startDay;
+  var m = month;
+  for (var i = 0; i < 365; i++) {
+    dates.push({ month: m, day: d });
+    d++;
+    var md = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m];
+    if (d > md) { d = 1; m++; if (m > 12) m = 1; }
+  }
+  return { season: season, seasonLabel: seasonLabels[season], month: month, dates: dates };
+}
+
 // ==================== 天气系统 ====================
 export function generateDailyWeather(prevWeather, season) {
   var pool = WEATHER_POOLS[season] || WEATHER_POOLS.spring;

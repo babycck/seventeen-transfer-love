@@ -402,15 +402,22 @@ export function showRemakeGiftModal(giftIdx) {
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 
-  var inner = '<div class="modal-content"><h3>🔧 改造礼物</h3>' +
-    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">将「' + escHtml(gift.name) + '」改造成谁的专属喜好类型？</p>' +
+  var inner = '<div class="modal-content"><h3>🔧 选择改造方向</h3>' +
+    '<p style="font-size:12px;color:#8b6b6b;margin-bottom:10px">将「' + escHtml(gift.name) + '」改造成什么类型的礼物？</p>' +
     '<div style="display:flex;flex-direction:column;gap:8px">';
   for (var i = 0; i < members.length; i++) {
     var m = members[i];
     var prefType = MEMBER_GIFT_PREFERENCE[m.id];
-    var prefLabel = prefType === 'handcraft' ? '手作' : prefType === 'food' ? '食物' : '情感';
-    inner += '<button class="sms-target-btn" data-member-id="' + m.id + '" style="font-size:14px;padding:12px">' +
-      m.emoji + ' ' + m.name + ' → ' + prefLabel + '类（+' + (m.id === GS.currentDatingPartner ? '5专属' : '5') + '）</button>';
+    var types = [
+      { key: 'handcraft', label: '🧶 手作类', bonus: prefType === 'handcraft' ? ' +5 ⭐' : ' +2~3' },
+      { key: 'food', label: '🍪 食物类', bonus: prefType === 'food' ? ' +5 ⭐' : ' +2~3' },
+      { key: 'emotion', label: '💌 情感类', bonus: prefType === 'emotion' ? ' +5 ⭐' : ' +2~3' }
+    ];
+    for (var t = 0; t < types.length; t++) {
+      var tp = types[t];
+      inner += '<button class="sms-target-btn" data-member-id="' + m.id + '" data-type="' + tp.key + '" style="font-size:14px;padding:12px">' +
+        m.emoji + ' ' + m.name + ' → ' + tp.label + '（' + tp.bonus + '）</button>';
+    }
   }
   inner += '</div><button class="modal-close-x" id="remakeCancel">✕</button></div>';
   overlay.innerHTML = inner;
@@ -426,15 +433,14 @@ export function showRemakeGiftModal(giftIdx) {
   overlay.querySelectorAll('[data-member-id]').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var memberId = this.dataset.memberId;
+      var chosenType = this.dataset.type;
       this.disabled = true;
       this.textContent = '✨ 生成中...';
       var member = MEMBERS.find(function(m) { return m.id === memberId; });
-      var prefType = MEMBER_GIFT_PREFERENCE[memberId];
-      var typeLabel = prefType === 'handcraft' ? '手作' : prefType === 'food' ? '食物' : '情感';
+      var typeLabel = chosenType === 'handcraft' ? '手作' : chosenType === 'food' ? '食物' : '情感';
 
       try {
-        var prompt = '你是一位浪漫的礼物改造师。把「' + gift.name + '」改造成专属' + (member ? member.name : '对方') + '的礼物。\n' +
-          '对方的礼物偏好类型是「' + typeLabel + '」。\n' +
+        var prompt = '你是一位浪漫的礼物改造师。把「' + gift.name + '」改造成「' + typeLabel + '」类的礼物，送给' + (member ? member.name : '对方') + '。\n' +
           '要求：名称不超过12字，描述不超过40字，体现出专属感和用心。\n' +
           '输出格式：{"name":"改造后的名称","desc":"简短描述"}';
         var res = await callDeepSeek(prompt, '改造礼物', 200, false, 0.8);
@@ -450,14 +456,14 @@ export function showRemakeGiftModal(giftIdx) {
           gift.desc = parsed.desc || '';
         } else {
           // AI 返回异常时从同类型池兜底
-          var prefTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === prefType; });
-          var fallback = prefTemplates[Math.floor(Math.random() * prefTemplates.length)];
+          var chosenTemplates = GIFT_TEMPLATES.filter(function(g) { return g.type === chosenType; });
+          var fallback = chosenTemplates[Math.floor(Math.random() * chosenTemplates.length)];
           gift.name = fallback.name;
           gift.desc = fallback.desc;
         }
       } catch (e) {
-        var prefTemplates2 = GIFT_TEMPLATES.filter(function(g) { return g.type === prefType; });
-        var fallback2 = prefTemplates2[Math.floor(Math.random() * prefTemplates2.length)];
+        var chosenTemplates2 = GIFT_TEMPLATES.filter(function(g) { return g.type === chosenType; });
+        var fallback2 = chosenTemplates2[Math.floor(Math.random() * chosenTemplates2.length)];
         gift.name = fallback2.name;
         gift.desc = fallback2.desc;
       }
@@ -466,7 +472,7 @@ export function showRemakeGiftModal(giftIdx) {
       if (!gift.name || gift.name.trim().length < 2 || gift.name === '...' || gift.name === '…') {
         gift.name = '专属「' + (member ? member.name : 'ta') + '」的礼物';
       }
-      gift.type = prefType;
+      gift.type = chosenType;
       gift.isRemade = true;
       saveGame();
       overlay.remove();

@@ -10,7 +10,8 @@
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
-import { getZodiacFromBirthday, generateSeasonAndDates, generateDailyWeather } from './formatters.js';
+import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather } from './formatters.js';
+import { IDENTITY_RELATION_MAP } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -857,18 +858,78 @@ export function bindSetupEvents() {
         GS.currentOptions = [];
         GS.phaseNarrative = '';
         GS._isGenerating = false;
-        var seasonResult = generateSeasonAndDates();
+
+        // 1v1 生成 365 天日期
+        var seasonResult = generateOneHeartDates();
         GS.season = seasonResult.season;
         GS.gameMonth = seasonResult.month;
         GS.gameDates = seasonResult.dates;
         GS.currentDate = seasonResult.dates[0];
+        GS.weather = generateDailyWeather('', GS.season);
         GS.weathers = [];
-        var prevW = '';
-        for (var wi = 0; wi < 12; wi++) {
-          prevW = generateDailyWeather(prevW, GS.season);
-          GS.weathers.push(prevW);
+
+        // 生成关系网角色 + 情敌
+        var hp = GS.heroineProfile;
+        var relConfig = IDENTITY_RELATION_MAP[hp.job];
+        if (relConfig) {
+          // 可选的 SEVENTEEN 成员（排除恋爱对象）
+          var pool = MEMBERS.filter(function(m) { return m.id !== GS.oneHeartMember; });
+
+          if (relConfig.fromSEVENTEEN) {
+            // 男性：从 SEVENTEEN 选
+            var pickIdx = Math.floor(Math.random() * pool.length);
+            var picked = pool[pickIdx];
+            GS.oneHeartRelationCharacter = {
+              name: picked.name,
+              role: relConfig.role,
+              gender: 'male',
+              memberId: picked.id,
+              personality: picked.personality || '',
+              behaviorLogic: picked.behaviorLogic || '',
+              isRival: relConfig.isRival
+            };
+            // 从池中移除已选的关系角色
+            pool = pool.filter(function(m) { return m.id !== picked.id; });
+          } else {
+            // 女性：AI 生成名字 + 性格
+            var genRes = '';
+            try {
+              genRes = await callDeepSeek(
+                '为「' + hp.job + '」生成一个关系更紧密的同性角色。她作为女主剧情的一部分出现，与女主的关系是「' + relConfig.role + '」。请生成一个中文名（2-3字）和30字以内的性格描述。\n输出格式：{"name":"名字","personality":"性格描述"}',
+                '生成关系角色', 200, false, 0.8
+              );
+            } catch (e) { genRes = ''; }
+            var parsedRel;
+            try { parsedRel = JSON.parse(genRes); } catch (e) {
+              var rm = genRes.match(/\{[\s\S]*\}/);
+              if (rm) try { parsedRel = JSON.parse(rm[0]); } catch (e2) { parsedRel = null; }
+            }
+            GS.oneHeartRelationCharacter = {
+              name: parsedRel && parsedRel.name ? parsedRel.name : (relConfig.role === '闺蜜' ? '林小溪' : '小泉'),
+              role: relConfig.role,
+              gender: 'female',
+              memberId: '',
+              personality: parsedRel && parsedRel.personality ? parsedRel.personality : '性格温和体贴',
+              behaviorLogic: relConfig.role + '，和女主关系密切',
+              isRival: false
+            };
+          }
+
+          // 需要额外情敌
+          if (relConfig.needExtraRival && pool.length > 0) {
+            var rivalIdx = Math.floor(Math.random() * pool.length);
+            var rivalPicked = pool[rivalIdx];
+            GS.oneHeartRival = {
+              name: rivalPicked.name,
+              memberId: rivalPicked.id,
+              personality: rivalPicked.personality || '',
+              behaviorLogic: rivalPicked.behaviorLogic || '',
+              interactionStyle: rivalPicked.interactionStyle || '',
+              loveStyle: rivalPicked.loveStyle || ''
+            };
+          }
         }
-        GS.weather = GS.weathers[0];
+
         GS.todayHoliday = null;
         saveGame();
         if (GS.aiEnabled) {
@@ -1117,9 +1178,12 @@ function renderOneHeartGameScreen() {
       }
     }
     html += '</div>' +
-      // 自由输入
-      '<textarea id="freeInput" class="operation-input" placeholder="写下你想发生的一段剧情…"></textarea>' +
-      '<button id="btnSubmitFreeInput" class="operation-submit">▶ 提交剧情</button>' +
+      // 自由输入（输入框 + 提交小方格）
+      '<div style="display:flex;gap:6px;align-items:stretch">' +
+      '<textarea id="freeInput" class="operation-input" placeholder="写下你想发生的一段剧情…" style="flex:1;min-height:38px;resize:none"></textarea>' +
+      '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
+      '</div>' +
+      '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
@@ -2070,6 +2134,24 @@ function bindOneHeartEvents() {
       window.__renderAll();
     });
   });
+
+  // 新的一天按钮
+  var newDayBtn = document.getElementById('btnNewDay');
+  if (newDayBtn) {
+    newDayBtn.addEventListener('click', function() {
+      var nextIdx = GS.day;
+      if (GS.gameDates && nextIdx < GS.gameDates.length) {
+        GS.currentDate = GS.gameDates[nextIdx];
+        GS.day = nextIdx + 1;
+        GS.weather = generateDailyWeather(GS.weather, GS.season);
+        saveGame();
+        window.__renderAll();
+        showToast('📅 新的一天 · ' + GS.currentDate.month + '月' + GS.currentDate.day + '日');
+      } else {
+        showToast('⚠️ 已到达故事时间线尽头');
+      }
+    });
+  }
 }
 
 
