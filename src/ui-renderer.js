@@ -2158,7 +2158,9 @@ function bindOneHeartEvents() {
       GS.weather = generateDailyWeather(GS.weather, GS.season);
       saveGame();
       window.__renderAll();
-      showToast('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + GS.oneHeartTimeOfDay);
+      hideLoading();
+      showLoading('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · 新的一天，新的故事...');
+      await generateOneHeartRound();
     });
   }
 }
