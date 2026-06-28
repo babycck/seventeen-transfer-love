@@ -133,6 +133,7 @@ export function showReviewModal() {
         await window.generateOneHeartRound();
         p.fulfilled = true;
         saveGame();
+        GS._reviewActiveTab = 'promises';
         overlay.remove();
         showReviewModal();
       } catch (e) {
@@ -152,6 +153,7 @@ export function showReviewModal() {
       if (!p || p.fulfilled) return;
       p.fulfilled = true;
       saveGame();
+      GS._reviewActiveTab = 'promises';
       overlay.remove();
       showReviewModal();
     });
@@ -171,6 +173,7 @@ export function showReviewModal() {
       GS.oneHeartPromises.push({ id: 'p_manual_' + Date.now(), text: text, fulfilled: false });
       saveGame();
       input.value = '';
+      GS._reviewActiveTab = 'promises';
       overlay.remove();
       showReviewModal();
     });
@@ -186,6 +189,7 @@ export function showReviewModal() {
       var _text = GS.todayFullText.slice(_compIdx).join('\n\n').slice(-3000);
       if (_text.length >= 50) {
         await window.detectOneHeartPromises(_text);
+        GS._reviewActiveTab = 'promises';
         overlay.remove();
         showReviewModal();
       } else {
@@ -193,6 +197,20 @@ export function showReviewModal() {
         this.textContent = '🔄 扫描全部未压缩剧情（检测遗漏约定）';
       }
     });
+  }
+
+  // 自动切换回约定 tab（从约定操作重绘后）
+  if (GS._reviewActiveTab === 'promises') {
+    var promTab = overlay.querySelector('#reviewTabPromises');
+    if (promTab) {
+      var sumEl = document.getElementById('reviewSummaryContent');
+      var promEl = document.getElementById('reviewPromisesContent');
+      if (sumEl) sumEl.style.display = 'none';
+      if (promEl) promEl.style.display = '';
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      promTab.classList.add('active');
+    }
+    GS._reviewActiveTab = '';
   }
 }
 
