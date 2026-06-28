@@ -790,6 +790,7 @@ export function buildOneHeartSystemPrompt() {
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
          (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
+    '- ⚠️ 女主的全部外貌特征、私密体质均为女主专属设定，绝对禁止映射到任何成员身上（包括男主）。\n' +
     '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
