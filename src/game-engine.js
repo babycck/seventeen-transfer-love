@@ -1764,6 +1764,11 @@ export async function generateOneHeartRound(extra) {
       checkOneHeartEvents();
     }
 
+    // 1v1 约定检测（每回合）
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && parsed && parsed.narrative) {
+      detectOneHeartPromises(parsed.narrative);
+    }
+
     // 如果是走向结局，生成后结束游戏
     if (extra.isEnding) {
       GS.gameOver = true;
@@ -1889,6 +1894,44 @@ async function checkOneHeartEvents() {
         });
       });
     }
+  }
+}
+
+// 1v1 约定检测
+async function detectOneHeartPromises(narrativeText) {
+  var input = (narrativeText || '').slice(-800);
+  if (input.length < 50) return;
+  try {
+    var res = await callDeepSeek(
+      '从以下剧情中提取角色之间约定了什么未来要一起做的事情。\n' +
+      '要求：只提取剧情中有明确说出口的约定。如果没有，返回{"promises":[]}。\n' +
+      '输出格式：{"promises":["约定内容1","约定内容2"]}\n\n剧情：\n' + input,
+      '检测约定', 300, false, 0.3
+    );
+    var parsed;
+    try { parsed = JSON.parse(res); } catch (e) {
+      var m = res.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+    }
+    if (parsed && Array.isArray(parsed.promises)) {
+      var changed = false;
+      for (var _pi = 0; _pi < parsed.promises.length; _pi++) {
+        var text = parsed.promises[_pi];
+        if (!text || text.length < 3) continue;
+        var exists = GS.oneHeartPromises.some(function(p) { return p.text === text; });
+        if (!exists) {
+          GS.oneHeartPromises.push({
+            id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            text: text,
+            fulfilled: false
+          });
+          changed = true;
+        }
+      }
+      if (changed) saveGame();
+    }
+  } catch (e) {
+    console.warn('[1v1 promise detect] error:', e);
   }
 }
 

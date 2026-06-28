@@ -958,6 +958,17 @@ export function buildOneHeartUserMessage(type, extra) {
     if (_lastNarr) {
       msg += '[当前场景] ' + _lastNarr.slice(-500) + '\n\n';
     }
+    // 注入待兑现约定
+    if (GS.oneHeartPromises && GS.oneHeartPromises.length > 0) {
+      var _unfulfilled = GS.oneHeartPromises.filter(function(p) { return !p.fulfilled; });
+      if (_unfulfilled.length > 0) {
+        msg += '⚠️ [待兑现约定] 以下必须在后续剧情中实现，不可遗忘：\n';
+        for (var _pi = 0; _pi < _unfulfilled.length; _pi++) {
+          msg += '- ' + _unfulfilled[_pi].text + '\n';
+        }
+        msg += '\n';
+      }
+    }
     // 注入上一回合触发的事件选择结果
     if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) {
       var _ev = GS.oneHeartPendingEvent;

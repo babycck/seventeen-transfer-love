@@ -11,8 +11,8 @@ export function showReviewModal() {
   // Tab 按钮
   var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">';
   if (isOneHeart) {
-    // 1v1 模式：只显示压缩记忆 tab
-    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 压缩记忆</button>';
+    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 压缩记忆</button>' +
+      '<button class="tab-btn" id="reviewTabPromises">📌 约定 (' + (GS.oneHeartPromises || []).filter(function(p){return !p.fulfilled;}).length + ')</button>';
   } else {
     tabsHtml += '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
       '<button class="tab-btn" id="reviewTabSummary">📅 压缩记忆</button>' +
@@ -24,17 +24,17 @@ export function showReviewModal() {
     tabsHtml;
   if (!isOneHeart) {
     inner +=
-    // Tab 1：历史剧情
     '<div id="reviewHistoryContent" style="flex:1;overflow-y:auto;padding-right:4px">' +
     buildHistoryContent() +
     '</div>';
   }
   inner +=
-    // 压缩记忆（1v1 默认显示，换乘模式第二个 tab）
     '<div id="reviewSummaryContent" style="' + (isOneHeart ? '' : 'display:none;') + 'flex:1;overflow-y:auto;padding-right:4px">' +
     buildSummaryContent() +
     '</div>' +
-    // 短信历史（仅换乘）
+    (isOneHeart ? '<div id="reviewPromisesContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    buildPromisesContent() +
+    '</div>' : '') +
     (!isOneHeart ? '<div id="reviewSmsContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
     buildSmsHistoryContent() +
     '</div>' : '') +
@@ -56,10 +56,19 @@ export function showReviewModal() {
   overlay.querySelector('#reviewTabSummary').addEventListener('click', function() {
     if (!isOneHeart) document.getElementById('reviewHistoryContent').style.display = 'none';
     if (!isOneHeart) document.getElementById('reviewSmsContent').style.display = 'none';
+    if (isOneHeart) document.getElementById('reviewPromisesContent').style.display = 'none';
     document.getElementById('reviewSummaryContent').style.display = '';
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     this.classList.add('active');
   });
+  if (isOneHeart) {
+    overlay.querySelector('#reviewTabPromises').addEventListener('click', function() {
+      document.getElementById('reviewSummaryContent').style.display = 'none';
+      document.getElementById('reviewPromisesContent').style.display = '';
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+    });
+  }
   var smsTab = overlay.querySelector('#reviewTabSms');
   if (smsTab) {
     smsTab.addEventListener('click', function() {
@@ -77,8 +86,7 @@ export function showReviewModal() {
     if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
   });
 
-  // 默认加载最后一天的剧情
-  loadDayContent();
+  if (!isOneHeart) loadDayContent();
 
   // 摘要保存
   overlay.querySelectorAll('.btn-summary-save').forEach(function(btn) {
@@ -92,6 +100,60 @@ export function showReviewModal() {
         var self = this;
         setTimeout(function() { self.textContent = '保存'; }, 2000);
       }
+    });
+  });
+
+  // 约定编辑保存
+  overlay.querySelectorAll('.promise-save').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.dataset.id;
+      var ta = overlay.querySelector('.promise-edit[data-id="' + id + '"]');
+      if (ta) {
+        var p = GS.oneHeartPromises.find(function(x) { return x.id === id; });
+        if (p) { p.text = ta.value.trim(); saveGame(); }
+        this.textContent = '✅ 已保存';
+        var self = this;
+        setTimeout(function() { self.textContent = '保存'; }, 2000);
+      }
+    });
+  });
+
+  // 履行约定
+  overlay.querySelectorAll('.promise-fulfill').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = this.dataset.id;
+      var p = GS.oneHeartPromises.find(function(x) { return x.id === id; });
+      if (!p || p.fulfilled || p._fulfilling) return;
+      p._fulfilling = true;
+      this.disabled = true;
+      this.textContent = '⏳ 生成中...';
+      GS.pendingChoiceText = '履行约定：' + p.text;
+      saveGame();
+      try {
+        await window.generateOneHeartRound();
+        p.fulfilled = true;
+        saveGame();
+        overlay.remove();
+        showReviewModal();
+      } catch (e) {
+        p._fulfilling = false;
+        this.disabled = false;
+        this.textContent = '⚠️ 重试';
+        saveGame();
+      }
+    });
+  });
+
+  // 标记已完成
+  overlay.querySelectorAll('.promise-done').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.dataset.id;
+      var p = GS.oneHeartPromises.find(function(x) { return x.id === id; });
+      if (!p || p.fulfilled) return;
+      p.fulfilled = true;
+      saveGame();
+      overlay.remove();
+      showReviewModal();
     });
   });
 }
@@ -153,6 +215,45 @@ function showDayContent(dayIdx, source) {
     if (i < texts.length - 1) html += '<hr style="border:none;border-top:1px solid var(--border-light);margin:8px 0">';
   }
   container.innerHTML = html || '<p style="color:var(--text-muted);text-align:center;padding:20px 0">该天暂无剧情记录</p>';
+}
+
+function buildPromisesContent() {
+  var promises = GS.oneHeartPromises || [];
+  var html = '';
+  var unfulfilled = promises.filter(function(p) { return !p.fulfilled; });
+  var fulfilled = promises.filter(function(p) { return p.fulfilled; });
+
+  if (promises.length === 0) {
+    return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无约定<br>推进剧情后自动检测</p>';
+  }
+
+  html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">💡 AI 自动从剧情中检测到的约定。可编辑、标记完成，或点击「履行」生成后续剧情。</p>';
+
+  if (unfulfilled.length > 0) {
+    html += '<p style="font-weight:700;font-size:13px;color:var(--accent-primary-dark);margin-bottom:8px">📌 待履行</p>';
+    for (var i = 0; i < unfulfilled.length; i++) {
+      var p = unfulfilled[i];
+      html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:12px;margin-bottom:10px">' +
+        '<textarea class="promise-edit" data-id="' + p.id + '" style="width:100%;min-height:60px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:10px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box">' +
+        escHtml(p.text) + '</textarea>' +
+        '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+        '<button class="promise-save" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border-primary);background:var(--bg-card);font-size:12px;cursor:pointer">保存</button>' +
+        '<button class="promise-fulfill" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:none;background:var(--accent-primary);color:#fff;font-size:12px;cursor:pointer">履行这次邀约</button>' +
+        '<button class="promise-done" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:none;background:#4caf50;color:#fff;font-size:12px;cursor:pointer">✅ 已完成</button>' +
+        '</div></div>';
+    }
+  }
+
+  if (fulfilled.length > 0) {
+    html += '<p style="font-weight:700;font-size:13px;color:#4caf50;margin:12px 0 8px">✅ 已履行</p>';
+    for (var fi = 0; fi < fulfilled.length; fi++) {
+      var fp = fulfilled[fi];
+      html += '<div style="background:#f0faf0;border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.8">' +
+        '<p style="font-size:13px;color:var(--text-secondary)">' + escHtml(fp.text) + '</p></div>';
+    }
+  }
+
+  return html;
 }
 
 function buildSummaryContent() {
