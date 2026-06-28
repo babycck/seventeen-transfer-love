@@ -1160,18 +1160,11 @@ function renderOneHeartGameScreen() {
 
   // Quick command toggle + drawer（在正文和选项之间）removed: 改为 2×3 网格按钮，选项折叠
 
-  // 操作区（自由输入框始终可见，选项和动作网格通过 toggle 展开）
+  // 操作区浮层（合并选项+输入框+2×3网格，默认收起）
   if (!GS.gameOver) {
     var hasOptions = GS.currentOptions && GS.currentOptions.length > 0;
     html += '<div class="oneheart-operation-overlay" id="operationOverlay">' +
       '<div class="interact-area">' +
-      // 自由输入（始终显示）
-      '<div style="display:flex;gap:6px;align-items:stretch;margin-bottom:6px">' +
-      '<textarea id="freeInput" class="operation-input" placeholder="写下你想发生的一段剧情…" style="flex:1;min-height:38px;resize:none"></textarea>' +
-      '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
-      '</div>' +
-      '<button id="btnNewDay" class="operation-submit" style="margin-bottom:6px">📅 新的一天</button>' +
-      // toggle
       '<div class="interact-toggle" id="operationToggle">' +
       '<span class="toggle-bar">━</span>' +
       '<span class="toggle-label">展开</span>' +
@@ -1187,6 +1180,12 @@ function renderOneHeartGameScreen() {
       }
     }
     html += '</div>' +
+      // 自由输入（输入框 + 提交小方格）
+      '<div style="display:flex;gap:6px;align-items:stretch">' +
+      '<textarea id="freeInput" class="operation-input" placeholder="写下你想发生的一段剧情…" style="flex:1;min-height:38px;resize:none"></textarea>' +
+      '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
+      '</div>' +
+      '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
