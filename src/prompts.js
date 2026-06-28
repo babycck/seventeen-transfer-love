@@ -869,7 +869,7 @@ export function buildOneHeartUserMessage(type, extra) {
 
   if (GS.currentDate && GS.currentDate.month) {
     msg += '[上下文] ' + (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日';
-    if (GS.gameMode === 'oneHeart') msg += ' · ' + (GS.oneHeartTimeOfDay || '上午');
+
     if (GS.season) msg += ' · ' + ({spring:'春季',summer:'夏季',autumn:'秋季',winter:'冬季'}[GS.season] || '');
     if (GS.weather) msg += ' · ' + GS.weather;
     msg += '\n';

@@ -9,7 +9,7 @@ export function renderHeader() {
   }).filter(function(m) { return m; });
 
   var dateText = GS.gameMode === 'oneHeart' && GS.currentDate && GS.currentDate.month
-    ? (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + (GS.oneHeartTimeOfDay || '上午')
+    ? (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日' + (GS.weather ? ' · ' + GS.weather : '')
     : 'Day ' + GS.day + (GS.currentDate && GS.currentDate.month ? ' · ' + GS.currentDate.month + '月' + GS.currentDate.day + '日' : '');
 
   var html = '<div class="header">' +
