@@ -2160,6 +2160,7 @@ function bindOneHeartEvents() {
       window.__renderAll();
       hideLoading();
       showLoading('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · 新的一天，新的故事...');
+      GS.pendingChoiceText = '📅 新的一天';
       await generateOneHeartRound();
     });
   }
