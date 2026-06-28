@@ -898,6 +898,27 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '[女主希望] ' + GS.freeInput.trim() + '\n请根据这个方向展开剧情。\n\n';
       GS.freeInput = '';
     }
+    // 注入关系氛围（冷战/热恋/普通）
+    var _mood = '';
+    if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) {
+      _mood = '⚠️ [当前关系氛围：冷战期] 你们之间有些紧张，互动冷淡克制。请保持这个氛围。\n\n';
+      if (GS.oneHeartColdWar.startRound && (GS.oneHeartGenCount || 0) - GS.oneHeartColdWar.startRound > 5) {
+        _mood += '💡 冷战已经持续一段时间了，关系有回暖的可能。\n\n';
+      }
+    } else {
+      var _aff = GS.affection[GS.oneHeartMember] || 0;
+      if (_aff >= 80) _mood = '💞 [当前关系氛围：热恋期] 你们正处于最甜蜜的阶段。互动自然亲密，充满了爱意。\n\n';
+      else if (_aff >= 60) _mood = '💗 [当前关系氛围：暧昧升温] 感情在稳步加深，互相信任。\n\n';
+      else if (_aff >= 40) _mood = '💛 [当前关系氛围：暧昧期] 你们之间似有若无的情愫在流动。\n\n';
+      else _mood = '💙 [当前关系氛围：初识期] 还在互相了解的阶段，说话客气但有心动的苗头。\n\n';
+    }
+    msg += _mood;
+
+    // 约会日提示
+    if (GS.oneHeartDiaryCounter > 0 && GS.oneHeartDiaryCounter % 5 === 0) {
+      msg += '💞 今天是一个特别的日子——适合约会！请在剧情中自然地融入约会氛围，可以是他主动邀约，也可以是你们一起做一件特别的事。\n\n';
+    }
+
     // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
     var _lastNarr = '';
     if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
@@ -908,6 +929,13 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     if (_lastNarr) {
       msg += '[当前场景] ' + _lastNarr.slice(-500) + '\n\n';
+    }
+    // 注入上一回合触发的事件选择结果
+    if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) {
+      var _ev = GS.oneHeartPendingEvent;
+      var _eventLabel = _ev.type === 'jealousy' ? '情感事件' : _ev.type === 'surprise' ? '惊喜事件' : '意外事件';
+      msg += '[' + _eventLabel + ']\n上一回合发生了以下事件：\n' + _ev.scenario + '\n你选择了：「' + _ev.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
+      GS.oneHeartPendingEvent = null;
     }
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {

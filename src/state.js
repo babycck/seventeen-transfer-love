@@ -36,6 +36,8 @@ export function defaultGameState() {
     oneHeartStartYear: 2025,
     oneHeartPendingEvent: null,
     oneHeartEventPool: [],
+    oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
+    oneHeartAffHistory: [],
     oneHeartLastEventRound: 0,
     profileLocked: false,
     step: 1,
@@ -380,6 +382,8 @@ export function migrateSave() {
     if (GS.oneHeartPendingEvent === undefined) GS.oneHeartPendingEvent = null;
     if (!Array.isArray(GS.oneHeartEventPool)) GS.oneHeartEventPool = [];
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
+    if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
+    if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

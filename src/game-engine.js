@@ -13,6 +13,8 @@ import { rollDatingDice, pickDatingLocation } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
 import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
+import { JEALOUSY_EVENTS, SURPRISE_EVENTS } from './data.js';
+import { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './modals/event-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { validateNarrative } from './validator.js';
@@ -1705,7 +1707,62 @@ export async function generateOneHeartRound(extra) {
       }
     }
 
+    // 1v1 冷战检测 + 好感度阶段解锁 + 约会日检测
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+      if (!GS._affMilestones) GS._affMilestones = {};
+      var _prevAff = GS.oneHeartAffHistory && GS.oneHeartAffHistory.length > 0 ? GS.oneHeartAffHistory[GS.oneHeartAffHistory.length - 1] : 0;
+      var memId = GS.oneHeartMember;
+      var curAff = GS.affection[memId] || 0;
+      if (!GS.oneHeartAffHistory) GS.oneHeartAffHistory = [];
+      GS.oneHeartAffHistory.push(curAff);
+      if (GS.oneHeartAffHistory.length > 5) GS.oneHeartAffHistory.shift();
+
+      // 冷战检测：连续 2 回合好感度下降 3 点以上
+      if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
+      if (GS.oneHeartAffHistory.length >= 2) {
+        var prev = GS.oneHeartAffHistory[GS.oneHeartAffHistory.length - 2];
+        var diff = curAff - prev;
+        if (diff < -3) {
+          GS.oneHeartColdWar.consecutiveDrops++;
+          if (GS.oneHeartColdWar.consecutiveDrops >= 2 && !GS.oneHeartColdWar.active) {
+            GS.oneHeartColdWar.active = true;
+            GS.oneHeartColdWar.startRound = GS.oneHeartGenCount || 0;
+          }
+        } else if (diff > 0) {
+          GS.oneHeartColdWar.consecutiveDrops = 0;
+          GS.oneHeartColdWar.active = false;
+        }
+      }
+
+      // 好感度阶段解锁（仅首次达到时提示）
+      var _milestones = [40, 60, 80];
+      for (var _mi = 0; _mi < _milestones.length; _mi++) {
+        var _mVal = _milestones[_mi];
+        if (curAff >= _mVal && (_prevAff < _mVal || !GS._affMilestones['m' + _mVal]) && curAff > _prevAff) {
+          GS._affMilestones['m' + _mVal] = true;
+          var _mLabel = _mVal >= 80 ? '💞 你们的心从未如此靠近' : _mVal >= 60 ? '💗 感情在悄然升温' : '💛 空气中弥漫着暧昧的气息';
+          showToast('🎉 好感度达到 ' + _mVal + '！' + _mLabel);
+        }
+      }
+
+      // 约会日检测：每 5 回合触发约会提示
+      GS.oneHeartDiaryCounter = (GS.oneHeartDiaryCounter || 0);
+      if (GS.oneHeartDiaryCounter > 0 && GS.oneHeartDiaryCounter % 5 === 0) {
+        if (!GS._dateDayNotified) {
+          GS._dateDayNotified = true;
+          showToast('💞 又到了约会的日子……');
+        }
+      } else {
+        GS._dateDayNotified = false;
+      }
+    }
+
     saveGame();
+
+    // 1v1 事件触发（回合后检查，非重新生成非结局时）
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && !extra.isEnding && !GS.gameOver) {
+      checkOneHeartEvents();
+    }
 
     // 如果是走向结局，生成后结束游戏
     if (extra.isEnding) {
@@ -1725,6 +1782,107 @@ export async function generateOneHeartRound(extra) {
 }
 
 window.generateOneHeartRound = generateOneHeartRound;
+
+// 1v1 事件触发检查（回合后）
+async function checkOneHeartEvents() {
+  if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return; // 已有未消费的事件
+  if (GS.oneHeartLastEventRound && GS.day - GS.oneHeartLastEventRound < 3) return; // 最少间隔 3 回合
+  var aff = GS.affection[GS.oneHeartMember] || 0;
+  if (aff < 50) return;
+  GS.oneHeartLastEventRound = GS.day;
+
+  // 优先级：吃醋 > 惊喜 > 意外池
+  var triggered = false;
+
+  // 吃醋事件
+  if (!triggered && aff >= 60 && Math.random() < 0.15) {
+    var pool = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
+    if (pool.length > 0) {
+      var event = pool[Math.floor(Math.random() * pool.length)];
+      triggered = true;
+      await new Promise(function(resolve) {
+        showJealousyEvent(event, function(chosenIdx) {
+          GS.oneHeartPendingEvent = {
+            type: 'jealousy',
+            scenario: event.scenario,
+            chosenOption: (event.options || [])[chosenIdx] || '',
+            chosenIdx: chosenIdx
+          };
+          saveGame();
+          resolve();
+        });
+      });
+    }
+  }
+
+  // 惊喜事件
+  if (!triggered && aff >= 50 && Math.random() < 0.10) {
+    var sPool = SURPRISE_EVENTS.filter(function(e) { return aff >= e.minAff; });
+    if (sPool.length > 0) {
+      var sEvent = sPool[Math.floor(Math.random() * sPool.length)];
+      triggered = true;
+      await new Promise(function(resolve) {
+        showSurpriseEvent(sEvent, function(chosenIdx) {
+          GS.oneHeartPendingEvent = {
+            type: 'surprise',
+            scenario: sEvent.scenario,
+            chosenOption: (sEvent.options || [])[chosenIdx] || '',
+            chosenIdx: chosenIdx
+          };
+          saveGame();
+          resolve();
+        });
+      });
+    }
+  }
+
+  // 意外事件池
+  if (!triggered && Math.random() < 0.15) {
+    var usePool = GS.oneHeartEventPool && GS.oneHeartEventPool.length > 0 && Math.random() < 0.3;
+    var scenario = '';
+    var opts = ['跟着直觉走', '冷静观察', '大胆行动'];
+    if (usePool) {
+      var poolItem = GS.oneHeartEventPool[Math.floor(Math.random() * GS.oneHeartEventPool.length)];
+      scenario = poolItem.scenario;
+      if (poolItem.options && poolItem.options.length >= 3) opts = poolItem.options;
+    } else {
+      try {
+        var poolRes = await callDeepSeek(
+          '生成一个简短的情感剧情场景（50字以内），发生在恋爱中的情侣之间。包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '生成意外事件', 300, false, 0.8
+        );
+        var poolParsed;
+        try { poolParsed = JSON.parse(poolRes); } catch (pe) {
+          var pm = poolRes.match(/\{[\s\S]*\}/);
+          if (pm) try { poolParsed = JSON.parse(pm[0]); } catch (pe2) { poolParsed = null; }
+        }
+        if (poolParsed && poolParsed.scenario) {
+          scenario = poolParsed.scenario;
+          if (poolParsed.options && poolParsed.options.length >= 3) opts = poolParsed.options;
+          if (!GS.oneHeartEventPool) GS.oneHeartEventPool = [];
+          if (GS.oneHeartEventPool.length < 50) {
+            GS.oneHeartEventPool.push({ scenario: poolParsed.scenario, options: poolParsed.options.slice(0, 3) });
+          }
+        }
+      } catch (e) { scenario = '发生了一个小小的意外'; }
+    }
+    if (scenario) {
+      triggered = true;
+      await new Promise(function(resolve) {
+        showPoolEvent({ scenario: scenario, options: opts }, function(chosenIdx) {
+          GS.oneHeartPendingEvent = {
+            type: 'pool',
+            scenario: scenario,
+            chosenOption: opts[chosenIdx] || '',
+            chosenIdx: chosenIdx
+          };
+          saveGame();
+          resolve();
+        });
+      });
+    }
+  }
+}
 
 function parseOneHeartNarrative(raw) {
   try {

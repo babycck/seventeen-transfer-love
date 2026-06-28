@@ -20,3 +20,4 @@ export { showDiaryModal } from './diary-modal.js';
 export { showChatModal } from './chat-modal.js';
 export { showMomentsModal } from './moments-modal.js';
 export { showTheaterModal } from './theater-modal.js';
+export { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './event-modal.js';

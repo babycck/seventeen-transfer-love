@@ -32,3 +32,4 @@ export { showDiaryModal } from './modals/diary-modal.js';
 export { showChatModal } from './modals/chat-modal.js';
 export { showMomentsModal } from './modals/moments-modal.js';
 export { showTheaterModal } from './modals/theater-modal.js';
+export { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './modals/event-modal.js';
