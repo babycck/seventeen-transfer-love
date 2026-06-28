@@ -38,6 +38,8 @@ export function defaultGameState() {
     oneHeartEventPool: [],
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
+    oneHeartDateIdx: 0,
+    oneHeartTimeOfDay: '上午',
     oneHeartLastEventRound: 0,
     profileLocked: false,
     step: 1,
@@ -384,6 +386,8 @@ export function migrateSave() {
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];
+    if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
+    if (GS.oneHeartTimeOfDay === undefined) GS.oneHeartTimeOfDay = '上午';
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

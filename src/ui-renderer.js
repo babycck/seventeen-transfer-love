@@ -867,6 +867,8 @@ export function bindSetupEvents() {
         GS.currentDate = seasonResult.dates[0];
         GS.weather = generateDailyWeather('', GS.season);
         GS.weathers = [];
+        GS.oneHeartDateIdx = 0;
+        GS.oneHeartTimeOfDay = '上午';
 
         // 生成关系网角色 + 情敌
         var hp = GS.heroineProfile;
@@ -2139,14 +2141,15 @@ function bindOneHeartEvents() {
   var newDayBtn = document.getElementById('btnNewDay');
   if (newDayBtn) {
     newDayBtn.addEventListener('click', function() {
-      var nextIdx = GS.day;
-      if (GS.gameDates && nextIdx < GS.gameDates.length) {
-        GS.currentDate = GS.gameDates[nextIdx];
-        GS.day = nextIdx + 1;
+      if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
+      GS.oneHeartDateIdx++;
+      if (GS.gameDates && GS.oneHeartDateIdx < GS.gameDates.length) {
+        GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
+        GS.oneHeartTimeOfDay = '上午';
         GS.weather = generateDailyWeather(GS.weather, GS.season);
         saveGame();
         window.__renderAll();
-        showToast('📅 新的一天 · ' + GS.currentDate.month + '月' + GS.currentDate.day + '日');
+        showToast('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + GS.oneHeartTimeOfDay);
       } else {
         showToast('⚠️ 已到达故事时间线尽头');
       }

@@ -8,8 +8,8 @@ export function renderHeader() {
     return MEMBERS.find(function(m) { return m.id === id; });
   }).filter(function(m) { return m; });
 
-  var dateText = GS.gameMode === 'oneHeart'
-    ? '回合 ' + GS.day
+  var dateText = GS.gameMode === 'oneHeart' && GS.currentDate && GS.currentDate.month
+    ? (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + (GS.oneHeartTimeOfDay || '上午')
     : 'Day ' + GS.day + (GS.currentDate && GS.currentDate.month ? ' · ' + GS.currentDate.month + '月' + GS.currentDate.day + '日' : '');
 
   var html = '<div class="header">' +

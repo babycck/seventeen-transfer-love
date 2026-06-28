@@ -844,8 +844,9 @@ export function buildOneHeartSystemPrompt() {
     '5. 禁止AI味、言情小说式夸张比喻、替玩家做情感判断。\n' +
     '6. 情感浓度随剧情自然递进：初期克制含蓄→中期暗流涌动→后期情感爆发。\n' +
     '7. 自然融入他的第二职业和特长作为日常互动亮点。\n' +
-    '8. 遵守饮食禁忌。\n' +
-    '9. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
+    '8. 所有角色严格禁止抽烟（含电子烟），且禁止出现任何抽烟相关描写。\n' +
+    '9. 遵守饮食禁忌。\n' +
+    '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
 
     (function() {
       var wc = getWorldConfig(GS.worldSetting);
@@ -868,6 +869,7 @@ export function buildOneHeartUserMessage(type, extra) {
 
   if (GS.currentDate && GS.currentDate.month) {
     msg += '[上下文] ' + (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日';
+    if (GS.gameMode === 'oneHeart') msg += ' · ' + (GS.oneHeartTimeOfDay || '上午');
     if (GS.season) msg += ' · ' + ({spring:'春季',summer:'夏季',autumn:'秋季',winter:'冬季'}[GS.season] || '');
     if (GS.weather) msg += ' · ' + GS.weather;
     msg += '\n';
