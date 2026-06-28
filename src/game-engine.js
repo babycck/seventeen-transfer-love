@@ -1764,11 +1764,9 @@ export async function generateOneHeartRound(extra) {
       checkOneHeartEvents();
     }
 
-    // 1v1 约定检测（每回合，扫所有未压缩文本）
+    // 1v1 约定检测（每回合，只扫最新一回合）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && parsed && parsed.narrative) {
-      var _compIdx = GS.oneHeartLastCompressedIdx || 0;
-      var _recentText = GS.todayFullText.slice(_compIdx).join('\n\n').slice(-3000);
-      if (_recentText.length >= 50) detectOneHeartPromises(_recentText);
+      if (parsed.narrative.length >= 50) detectOneHeartPromises(parsed.narrative);
     }
 
     // 如果是走向结局，生成后结束游戏
@@ -1975,6 +1973,7 @@ async function detectOneHeartPromises(text) {
     console.warn('[1v1 promise detect] error:', e);
   }
 }
+window.detectOneHeartPromises = detectOneHeartPromises;
 
 function parseOneHeartNarrative(raw) {
   try {
