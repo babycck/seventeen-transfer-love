@@ -157,6 +157,25 @@ export function showReviewModal() {
     });
   });
 
+  // 手动添加约定
+  var addBtn = overlay.querySelector('#promiseManualAddBtn');
+  if (addBtn) {
+    addBtn.addEventListener('click', function() {
+      var input = overlay.querySelector('#promiseManualInput');
+      if (!input) return;
+      var text = input.value.trim();
+      if (!text || text.length < 2) { showToast('请输入约定内容'); return; }
+      if (!GS.oneHeartPromises) GS.oneHeartPromises = [];
+      var exists = GS.oneHeartPromises.some(function(p) { return p.text === text; });
+      if (exists) { showToast('该约定已存在'); return; }
+      GS.oneHeartPromises.push({ id: 'p_manual_' + Date.now(), text: text, fulfilled: false });
+      saveGame();
+      input.value = '';
+      overlay.remove();
+      showReviewModal();
+    });
+  }
+
   // 手动扫描全部未压缩剧情
   var rescanBtn = overlay.querySelector('#promiseRescanBtn');
   if (rescanBtn) {
@@ -243,10 +262,18 @@ function buildPromisesContent() {
   var fulfilled = promises.filter(function(p) { return p.fulfilled; });
 
   if (promises.length === 0) {
-    return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无约定<br>推进剧情后自动检测</p><button id="promiseRescanBtn" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border-primary);background:var(--bg-card);font-size:12px;cursor:pointer">🔄 扫描未压缩的剧情</button>';
+    return '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无约定<br>推进剧情后自动检测</p>' +
+    '<div style="display:flex;gap:6px;margin-top:8px">' +
+    '<input id="promiseManualInput" type="text" placeholder="手动添加约定…" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;font-size:13px;font-family:inherit" />' +
+    '<button id="promiseManualAddBtn" style="padding:8px 14px;border:none;border-radius:8px;background:var(--accent-primary);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap">添加</button>' +
+    '</div>';
   }
 
-  html += '<button id="promiseRescanBtn" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border-primary);background:var(--bg-card);font-size:12px;cursor:pointer">🔄 扫描全部未压缩剧情（检测遗漏约定）</button>';
+  html += '<div style="display:flex;gap:6px;margin-bottom:10px">' +
+    '<input id="promiseManualInput" type="text" placeholder="手动添加约定…" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;font-size:13px;font-family:inherit" />' +
+    '<button id="promiseManualAddBtn" style="padding:8px 14px;border:none;border-radius:8px;background:var(--accent-primary);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap">添加</button>' +
+    '<button id="promiseRescanBtn" style="padding:8px 12px;border:1px solid var(--border-primary);border-radius:8px;background:var(--bg-card);font-size:12px;cursor:pointer">🔄 扫描</button>' +
+    '</div>';
   html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">💡 AI 自动从剧情中检测到的约定。可编辑、标记完成，或点击「履行」生成后续剧情。</p>';
 
   if (unfulfilled.length > 0) {
