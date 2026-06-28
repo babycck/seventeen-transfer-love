@@ -1470,14 +1470,16 @@ export async function handleQuestionBoxChoice(opt) {
 // ==================== 成员回礼系统 ====================
 export function scheduleReturnGift(memberId) {
   if (!GS.pendingReturnGifts) GS.pendingReturnGifts = [];
-  GS.pendingReturnGifts.push({ memberId: memberId, day: GS.day + 1 });
+  var returnDay = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) + 3 : GS.day + 1;
+  GS.pendingReturnGifts.push({ memberId: memberId, day: returnDay });
   saveGame();
 }
 window.scheduleReturnGift = scheduleReturnGift;
 
 export function checkPendingReturnGifts() {
   if (!GS.pendingReturnGifts || GS.pendingReturnGifts.length === 0) return null;
-  var pending = GS.pendingReturnGifts.filter(function(p) { return p.day <= GS.day; });
+  var _curDay = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
+  var pending = GS.pendingReturnGifts.filter(function(p) { return p.day <= _curDay; });
   if (pending.length === 0) return null;
   var first = pending[0];
   var member = MEMBERS.find(function(m) { return m.id === first.memberId; });
@@ -1500,7 +1502,7 @@ export function checkPendingReturnGifts() {
   var gift = available[Math.floor(Math.random() * available.length)];
   GS.pendingReturnGifts = GS.pendingReturnGifts.filter(function(p) { return p.memberId !== first.memberId || p.day !== first.day; });
   if (!GS.returnGiftHistory) GS.returnGiftHistory = [];
-  GS.returnGiftHistory.push({ memberId: first.memberId, gift: gift, day: GS.day, giftDesc: '' });
+  GS.returnGiftHistory.push({ memberId: first.memberId, gift: gift, day: _curDay, giftDesc: '' });
   updateAffection(first.memberId, 2);
   addAffectionLog(first.memberId, 2, '收到了' + member.name + '的回礼「' + gift + '」');
   saveGame();
