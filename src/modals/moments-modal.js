@@ -5,6 +5,9 @@ export function showMomentsModal() {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
   GS._newMoments = false;
+  // 从 DOM 中移除通知圆点
+  var _oldDot = document.querySelector('.oneheart-tab[data-tab="moments"] .tab-notification-dot');
+  if (_oldDot) _oldDot.remove();
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';

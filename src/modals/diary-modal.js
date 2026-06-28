@@ -4,6 +4,8 @@ export function showDiaryModal() {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
   GS._newDiary = false;
+  var _oldDot = document.querySelector('.oneheart-tab[data-tab="diary"] .tab-notification-dot');
+  if (_oldDot) _oldDot.remove();
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
