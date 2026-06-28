@@ -1764,9 +1764,11 @@ export async function generateOneHeartRound(extra) {
       checkOneHeartEvents();
     }
 
-    // 1v1 约定检测（每回合）
+    // 1v1 约定检测（每回合，扫所有未压缩文本）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && parsed && parsed.narrative) {
-      detectOneHeartPromises(parsed.narrative);
+      var _compIdx = GS.oneHeartLastCompressedIdx || 0;
+      var _recentText = GS.todayFullText.slice(_compIdx).join('\n\n').slice(-3000);
+      if (_recentText.length >= 50) detectOneHeartPromises(_recentText);
     }
 
     // 如果是走向结局，生成后结束游戏
@@ -1897,39 +1899,78 @@ async function checkOneHeartEvents() {
   }
 }
 
-// 1v1 约定检测
-async function detectOneHeartPromises(narrativeText) {
-  var input = (narrativeText || '').slice(-800);
-  if (input.length < 50) return;
+// 1v1 约定检测（扫描文本提取新约定 + 自动判断已履行的约定）
+async function detectOneHeartPromises(text) {
+  if (!text || text.length < 50) return;
+  var unfulfilledIds = [];
+  var unfulfilledTexts = [];
+  if (GS.oneHeartPromises) {
+    for (var _pi = 0; _pi < GS.oneHeartPromises.length; _pi++) {
+      if (!GS.oneHeartPromises[_pi].fulfilled) {
+        unfulfilledIds.push(GS.oneHeartPromises[_pi].id);
+        unfulfilledTexts.push(GS.oneHeartPromises[_pi].text);
+      }
+    }
+  }
   try {
-    var res = await callDeepSeek(
-      '从以下剧情中提取角色之间约定了什么未来要一起做的事情。\n' +
-      '要求：只提取剧情中有明确说出口的约定。如果没有，返回{"promises":[]}。\n' +
-      '输出格式：{"promises":["约定内容1","约定内容2"]}\n\n剧情：\n' + input,
-      '检测约定', 300, false, 0.3
-    );
+    var promptText = '从以下剧情中：\n';
+    promptText += '1. 提取角色之间约定了什么未来要一起做的事情（新约定）。如果没有，返回空数组。\n';
+    if (unfulfilledTexts.length > 0) {
+      promptText += '2. 检查以下待履行约定哪些已经在剧情中被履行了（角色已经做了这件事）：\n';
+      for (var _ui = 0; _ui < unfulfilledTexts.length; _ui++) {
+        promptText += '   - "' + unfulfilledTexts[_ui] + '" (id: ' + unfulfilledIds[_ui] + ')\n';
+      }
+      promptText += '如果某个约定已在剧情中被履行，将其 id 列入 fulfilledIds。\n';
+    }
+    promptText += '输出JSON：{"promises":["新约定1","新约定2"],"fulfilledIds":["id1","id2"]}\n\n剧情：\n' + text;
+
+    var res = await callDeepSeek(promptText, '检测约定', 500, false, 0.3);
     var parsed;
     try { parsed = JSON.parse(res); } catch (e) {
       var m = res.match(/\{[\s\S]*\}/);
       if (m) parsed = JSON.parse(m[0]);
     }
-    if (parsed && Array.isArray(parsed.promises)) {
-      var changed = false;
-      for (var _pi = 0; _pi < parsed.promises.length; _pi++) {
-        var text = parsed.promises[_pi];
-        if (!text || text.length < 3) continue;
-        var exists = GS.oneHeartPromises.some(function(p) { return p.text === text; });
+    if (!parsed) return;
+
+    var changed = false;
+
+    // 自动标记已履行的约定
+    if (Array.isArray(parsed.fulfilledIds) && GS.oneHeartPromises) {
+      for (var _fi = 0; _fi < parsed.fulfilledIds.length; _fi++) {
+        var fid = parsed.fulfilledIds[_fi];
+        var found = null;
+        for (var _pj = 0; _pj < GS.oneHeartPromises.length; _pj++) {
+          if (GS.oneHeartPromises[_pj].id === fid && !GS.oneHeartPromises[_pj].fulfilled) {
+            found = GS.oneHeartPromises[_pj];
+            break;
+          }
+        }
+        if (found) {
+          found.fulfilled = true;
+          changed = true;
+        }
+      }
+    }
+
+    // 提取新约定
+    if (Array.isArray(parsed.promises)) {
+      for (var _pi2 = 0; _pi2 < parsed.promises.length; _pi2++) {
+        var pt = parsed.promises[_pi2];
+        if (!pt || pt.length < 3) continue;
+        var exists = GS.oneHeartPromises.some(function(p) { return p.text === pt; });
         if (!exists) {
+          if (!GS.oneHeartPromises) GS.oneHeartPromises = [];
           GS.oneHeartPromises.push({
             id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            text: text,
+            text: pt,
             fulfilled: false
           });
           changed = true;
         }
       }
-      if (changed) saveGame();
     }
+
+    if (changed) saveGame();
   } catch (e) {
     console.warn('[1v1 promise detect] error:', e);
   }
