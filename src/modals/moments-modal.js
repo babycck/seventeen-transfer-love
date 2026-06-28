@@ -23,7 +23,11 @@ export function showMomentsModal() {
   } else {
     for (var i = moments.length - 1; i >= 0; i--) {
       var m = moments[i];
-      var posterName = m.name || memberName;
+      var posterName = m.name;
+      if (!posterName) {
+        // 旧格式动态（无 name 字段）→ 女主发 post，成员回复
+        posterName = hpName;
+      }
       var replyName = posterName === memberName ? hpName : memberName;
       momentsHtml += '<div class="oneheart-moment-card">' +
         '<div class="oneheart-moment-time">' + escHtml(m.timestamp || '') + '</div>' +
