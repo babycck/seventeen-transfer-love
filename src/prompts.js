@@ -873,6 +873,7 @@ export function buildOneHeartUserMessage(type, extra) {
 
     if (GS.season) msg += ' · ' + ({spring:'春季',summer:'夏季',autumn:'秋季',winter:'冬季'}[GS.season] || '');
     if (GS.weather) msg += ' · ' + GS.weather;
+    if (GS.gameMode === 'oneHeart') msg += ' · ' + (GS.oneHeartTimeOfDay || '上午');
     msg += '\n';
   } else {
     msg += '[上下文] Day ' + GS.day + '\n';
