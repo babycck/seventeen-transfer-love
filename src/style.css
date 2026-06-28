@@ -764,6 +764,21 @@ body {
 
 .sms-target-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Tab 通知圆点 */
+.tab-notification-dot {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6b9d, #ff8fab);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 4px rgba(255, 107, 157, 0.6);
+  animation: pulse-sms 1.5s infinite;
+  pointer-events: none;
+}
+
 /* ==================== Dice Modal ==================== */
 .dice-area {
   text-align: center;

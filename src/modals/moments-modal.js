@@ -4,12 +4,16 @@ import { generateMoment } from '../game-engine.js';
 export function showMomentsModal() {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
+  GS._newMoments = false;
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.style.display = 'flex';
   overlay.style.alignItems = 'center';
   overlay.style.justifyContent = 'center';
+
+  var hpName = GS.heroineProfile ? GS.heroineProfile.name : '';
+  var memberName = member.name;
 
   var moments = GS.moments || [];
   var momentsHtml = '';
@@ -19,10 +23,12 @@ export function showMomentsModal() {
   } else {
     for (var i = moments.length - 1; i >= 0; i--) {
       var m = moments[i];
+      var posterName = m.name || memberName;
+      var replyName = posterName === memberName ? hpName : memberName;
       momentsHtml += '<div class="oneheart-moment-card">' +
         '<div class="oneheart-moment-time">' + escHtml(m.timestamp || '') + '</div>' +
-        '<div class="oneheart-moment-content">' + escHtml(m.post || '') + '</div>' +
-        (m.reply ? '<div class="oneheart-moment-reply"><span class="oneheart-moment-reply-label">' + escHtml(member.name) + '：</span>' + escHtml(m.reply) + '</div>' : '') +
+        '<div class="oneheart-moment-content"><strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.post || '') + '</div>' +
+        (m.reply ? '<div class="oneheart-moment-reply">└ <strong>[' + escHtml(replyName) + ']</strong> ' + escHtml(m.reply) + '</div>' : '') +
         '</div>';
     }
   }
@@ -53,13 +59,8 @@ export function showMomentsModal() {
       var result = await generateMoment();
       if (result) {
         showToast('📸 新动态已生成');
-        var container = this.parentElement.querySelector('div:first-child');
-        var newCard = document.createElement('div');
-        newCard.className = 'oneheart-moment-card';
-        newCard.innerHTML = '<div class="oneheart-moment-time">' + escHtml(result.timestamp || '') + '</div>' +
-          '<div class="oneheart-moment-content">' + escHtml(result.post || '') + '</div>' +
-          (result.reply ? '<div class="oneheart-moment-reply"><span class="oneheart-moment-reply-label">' + escHtml(member.name) + '：</span>' + escHtml(result.reply) + '</div>' : '');
-        if (container) container.insertBefore(newCard, container.firstChild);
+        overlay.remove();
+        showMomentsModal();
       } else {
         showToast('⚠️ 生成失败，请稍后重试');
       }

@@ -1799,6 +1799,14 @@ async function checkOneHeartEvents() {
     var pool = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
     if (pool.length > 0) {
       var event = pool[Math.floor(Math.random() * pool.length)];
+      // 替换情景中的泛称为情敌名字
+      if (GS.oneHeartRival && GS.oneHeartRival.name) {
+        var _jp = {
+          scenario: event.scenario.replace(/同事|异性朋友|别人|另一个男生|另一个/g, GS.oneHeartRival.name),
+          options: event.options
+        };
+        event = _jp;
+      }
       triggered = true;
       await new Promise(function(resolve) {
         showJealousyEvent(event, function(chosenIdx) {
@@ -2017,6 +2025,7 @@ export async function generateDiary() {
 
     if (!GS.diaryEntries) GS.diaryEntries = [];
     GS.diaryEntries.push(entry);
+    GS._newDiary = true;
     saveGame();
     return entry;
   } catch (e) {
@@ -2044,17 +2053,36 @@ export async function generateMoment() {
       else throw e;
     }
 
-    var moment = {
-      id: 'moment_' + Date.now(),
-      post: json.post || '',
-      reply: json.reply || '',
-      timestamp: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day
-    };
-
     if (!GS.moments) GS.moments = [];
-    GS.moments.push(moment);
+    var ts = GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day;
+    var memberName = '';
+    var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    if (member) memberName = member.name;
+
+    // 女主的动态
+    if (json.mine && json.mine.post) {
+      GS.moments.push({
+        id: 'moment_' + Date.now() + '_mine',
+        name: GS.heroineProfile.name || '',
+        post: json.mine.post,
+        reply: json.mine.reply || '',
+        timestamp: ts
+      });
+    }
+    // 他的动态
+    if (json.his && json.his.post) {
+      GS.moments.push({
+        id: 'moment_' + Date.now() + '_his',
+        name: memberName,
+        post: json.his.post,
+        reply: json.his.reply || '',
+        timestamp: ts
+      });
+    }
+
+    GS._newMoments = true;
     saveGame();
-    return moment;
+    return true;
   } catch (e) {
     console.error('[1v1] moment error:', e);
     return null;

@@ -3,6 +3,7 @@ import { MEMBERS, GS, escHtml } from '../core.js';
 export function showDiaryModal() {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
+  GS._newDiary = false;
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -57,9 +58,11 @@ function renderDiaryEntries(view) {
     var e = entries[i];
     var content = view === 'heroine' ? e.heroineEntry : e.memberEntry;
     if (!content) continue;
+    // 去掉 content 开头的日期行（由 e.date 统一显示），避免重复
+    var cleanContent = content.replace(/^\d{4}年\d{1,2}月\d{1,2}日\n\n/, '');
     html += '<div class="diary-card">' +
       '<div class="diary-card-date">' + escHtml(e.date || '') + '</div>' +
-      '<div class="diary-card-body">' + escHtml(content).replace(/\n/g, '<br>') + '</div>' +
+      '<div class="diary-card-body">' + escHtml(cleanContent).replace(/\n/g, '<br>') + '</div>' +
       '</div>';
   }
 

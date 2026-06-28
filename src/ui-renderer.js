@@ -1200,10 +1200,12 @@ function renderOneHeartGameScreen() {
   }
 
   // Bottom tab bar
+  var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
+  var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
-    '<button class="oneheart-tab" data-tab="diary"><span class="tab-emoji">📝</span>日记</button>' +
-    '<button class="oneheart-tab" data-tab="moments"><span class="tab-emoji">📸</span>朋友圈</button>' +
+    '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
+    '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
 
   // Game over
@@ -2140,19 +2142,23 @@ function bindOneHeartEvents() {
   // 新的一天按钮
   var newDayBtn = document.getElementById('btnNewDay');
   if (newDayBtn) {
-    newDayBtn.addEventListener('click', function() {
+    newDayBtn.addEventListener('click', async function() {
       if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
-      GS.oneHeartDateIdx++;
-      if (GS.gameDates && GS.oneHeartDateIdx < GS.gameDates.length) {
-        GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
-        GS.oneHeartTimeOfDay = '上午';
-        GS.weather = generateDailyWeather(GS.weather, GS.season);
-        saveGame();
-        window.__renderAll();
-        showToast('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + GS.oneHeartTimeOfDay);
-      } else {
+      var nextIdx = GS.oneHeartDateIdx + 1;
+      if (!GS.gameDates || nextIdx >= GS.gameDates.length) {
         showToast('⚠️ 已到达故事时间线尽头');
+        return;
       }
+      var nextDate = GS.gameDates[nextIdx];
+      var confirmed = await showConfirmModal('确定进入新的一天吗？\n' + nextDate.month + '月' + nextDate.day + '日 → 新的一天开始');
+      if (!confirmed) return;
+      GS.oneHeartDateIdx = nextIdx;
+      GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
+      GS.oneHeartTimeOfDay = '上午';
+      GS.weather = generateDailyWeather(GS.weather, GS.season);
+      saveGame();
+      window.__renderAll();
+      showToast('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · ' + GS.oneHeartTimeOfDay);
     });
   }
 }

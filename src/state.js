@@ -39,6 +39,10 @@ export function defaultGameState() {
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
     oneHeartDateIdx: 0,
+    _relCharIntroduced: false,
+    _rivalIntroduced: false,
+    _newMoments: false,
+    _newDiary: false,
     oneHeartTimeOfDay: '上午',
     oneHeartLastEventRound: 0,
     profileLocked: false,
@@ -388,6 +392,10 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];
     if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
     if (GS.oneHeartTimeOfDay === undefined) GS.oneHeartTimeOfDay = '上午';
+    if (GS._relCharIntroduced === undefined) GS._relCharIntroduced = false;
+    if (GS._rivalIntroduced === undefined) GS._rivalIntroduced = false;
+    if (GS._newMoments === undefined) GS._newMoments = false;
+    if (GS._newDiary === undefined) GS._newDiary = false;
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

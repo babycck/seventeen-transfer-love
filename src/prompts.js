@@ -846,7 +846,8 @@ export function buildOneHeartSystemPrompt() {
     '7. 自然融入他的第二职业和特长作为日常互动亮点。\n' +
     '8. 所有角色严格禁止抽烟（含电子烟），且禁止出现任何抽烟相关描写。\n' +
     '9. 遵守饮食禁忌。\n' +
-    '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n\n' +
+    '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n' +
+    '11. 禁止在正文中提及字数、回复长度（如「回了N个字」「只说了两个字」），直接写对话内容本身。\n\n' +
 
     (function() {
       var wc = getWorldConfig(GS.worldSetting);
@@ -925,6 +926,26 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '💞 今天是一个特别的日子——适合约会！请在剧情中自然地融入约会氛围，可以是他主动邀约，也可以是你们一起做一件特别的事。\n\n';
     }
 
+    // 关系角色出场触发
+    var _genCount = GS.oneHeartGenCount || 0;
+    if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) {
+      if (!GS._relCharIntroduced && _genCount >= 2) {
+        msg += '[角色出场] 请在本段剧情中自然地引入「' + GS.oneHeartRelationCharacter.name + '」（' + GS.oneHeartRelationCharacter.role + '）。他/她第一次出现在故事中。\n\n';
+        GS._relCharIntroduced = true;
+      } else if (_genCount > 0 && _genCount % 8 === 0) {
+        msg += '[角色出场] 「' + GS.oneHeartRelationCharacter.name + '」（' + GS.oneHeartRelationCharacter.role + '）在近期剧情中自然出现。\n\n';
+      }
+    }
+    // 情敌出场触发
+    if (GS.oneHeartRival && GS.oneHeartRival.name) {
+      if (!GS._rivalIntroduced && _genCount >= 3) {
+        msg += '[情敌出场] 请在本段剧情中自然地引入「' + GS.oneHeartRival.name + '」。他是你的情感阻碍者——第一次出现在故事中，可以是偶遇、来电、或者你没想到的场合。\n\n';
+        GS._rivalIntroduced = true;
+      } else if (_genCount > 0 && _genCount % 10 === 0) {
+        msg += '[情敌出场] 「' + GS.oneHeartRival.name + '」在近期剧情中再次出现，制造一些情感张力。\n\n';
+      }
+    }
+
     // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
     var _lastNarr = '';
     if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
@@ -975,8 +996,10 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '\n' + hp.name + '说：「' + extra.userMessage + '」\n\n';
     msg += '你的输出将直接作为' + member.name + '的回复内容显示。只输出' + member.name + '说的话本身，不要包含任何分析、解释、思考过程或描述。禁止出现「我们被问到」「根据上下文」「可能」「也许」「需要」等推理性质的字眼。⚠️ 禁止复述女主说过的话——你的回复不能和女主输入的内容相同或相似。必须是' + member.name + '独特的、符合他性格的回复。你的输出就是聊天记录里' + member.name + '发的那条消息。口语、自然、符合人设。控制在200字以内。\n';
   } else if (type === 'moment') {
-    msg += '请生成一条' + hp.name + '在朋友圈发的动态（约50字）+ ' + member.name + '的评论回复（约30字）。\n';
-    msg += '输出格式：{"post":"...","reply":"..."}\n';
+    msg += '请生成两条朋友圈动态：\n';
+    msg += '1. ' + hp.name + '发的一条动态（约50字）+ ' + member.name + '的评论回复（约20字）\n';
+    msg += '2. ' + member.name + '发的一条动态（约50字）+ ' + hp.name + '的评论回复（约20字）\n';
+    msg += '输出格式：{"mine":{"post":"...","reply":"..."},"his":{"post":"...","reply":"..."}}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
     var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
     var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);
@@ -1008,7 +1031,8 @@ export function buildOneHeartUserMessage(type, extra) {
       }
       msg += '\n';
     }
-    msg += '输出格式：{"heroineEntry":"日期\\n\\n正文...","memberEntry":"日期\\n\\n正文..."}';
+    msg += '输出格式：{"heroineEntry":"2025年6月17日\\n\\n正文...","memberEntry":"2025年6月17日\\n\\n正文..."}';
+    msg += '日期格式统一为「YYYY年M月D日」，不用其他格式。\n';
   } else if (type === 'theater') {
     msg += '请根据以下主题生成一段独立番外剧情（约1000字）：\n';
     msg += extra.themePrompt || '一段你和' + member.name + '的日常温馨片段。';
