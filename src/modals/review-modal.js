@@ -151,6 +151,7 @@ export function showReviewModal() {
       var id = this.dataset.id;
       GS.oneHeartPromises = GS.oneHeartPromises.filter(function(p) { return p.id !== id; });
       saveGame();
+      GS._reviewActiveTab = 'promises';
       overlay.remove();
       showReviewModal();
     });
