@@ -966,9 +966,14 @@ export function buildOneHeartUserMessage(type, extra) {
       if (recentJoined.length > 3000) recentJoined = recentJoined.slice(-3000);
       msg += '[近期未压缩剧情]\n' + recentJoined + '\n\n';
     }
-    // 注入上一次选择（新的一天专用指令）
+    // 注入上一次选择
     if (GS.pendingChoiceText === '📅 新的一天') {
       msg += '[INSTRUCTION] 现在是新的一天的清晨。以早晨的氛围开启新一天的剧情，自然衔接昨日的余韵，不要重复昨日已发生的事。\n\n';
+    } else if (GS.pendingChoiceText && GS.pendingChoiceText.indexOf('履行约定：') === 0) {
+      var _promiseTxt = GS.pendingChoiceText.replace('履行约定：', '');
+      msg += '[履行约定] 她正在履行之前的约定——「' + _promiseTxt + '」。\n';
+      msg += '请直接描写约定被实现的过程和场景，围绕这个约定展开这段剧情，不要当作普通的后续延续。\n';
+      msg += '但剧情环境、人物状态、时间地点必须和当前正文保持一致，不可脱离主线。\n\n';
     } else if (GS.pendingChoiceText) {
       msg += '[女主的决定] 她刚刚做出了选择：' + GS.pendingChoiceText + '\n请根据这个选择展开后续剧情。\n\n';
     }
