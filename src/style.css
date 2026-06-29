@@ -769,6 +769,25 @@ body {
   background: var(--bg-soft-hover) !important;
 }
 
+.pending-banner {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-primary), #ff6b9d);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  box-sizing: border-box;
+  animation: pendingFlash 1s ease-in-out 5;
+}
+
+@keyframes pendingFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 /* Tab 通知圆点 */
 .tab-notification-dot {
   position: absolute;
