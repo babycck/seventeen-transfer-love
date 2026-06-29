@@ -145,6 +145,17 @@ export function showReviewModal() {
     });
   });
 
+  // 删除约定
+  overlay.querySelectorAll('.promise-delete').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.dataset.id;
+      GS.oneHeartPromises = GS.oneHeartPromises.filter(function(p) { return p.id !== id; });
+      saveGame();
+      overlay.remove();
+      showReviewModal();
+    });
+  });
+
   // 标记已完成
   overlay.querySelectorAll('.promise-done').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -305,6 +316,7 @@ function buildPromisesContent() {
         '<button class="promise-save" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:1px solid var(--border-primary);background:var(--bg-card);font-size:12px;cursor:pointer">保存</button>' +
         '<button class="promise-fulfill" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:none;background:var(--accent-primary);color:#fff;font-size:12px;cursor:pointer">履行这次邀约</button>' +
         '<button class="promise-done" data-id="' + p.id + '" style="padding:4px 12px;border-radius:8px;border:none;background:#4caf50;color:#fff;font-size:12px;cursor:pointer">✅ 已完成</button>' +
+        '<button class="promise-delete" data-id="' + p.id + '" style="padding:4px 8px;border-radius:8px;border:none;background:#ef5350;color:#fff;font-size:12px;cursor:pointer;margin-left:4px">✕</button>' +
         '</div></div>';
     }
   }

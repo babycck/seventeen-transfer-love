@@ -2159,6 +2159,7 @@ async function detectOneHeartPromises(text) {
   try {
     var promptText = '从以下剧情中：\n';
     promptText += '1. 提取角色之间约定了什么未来要一起做的事情（新约定）。如果没有，返回空数组。\n';
+    promptText += '提取时去掉时间标记（如"明天""后天""下周"），只记录约定本身。例："明天一起做早餐"→"一起做早餐"。\n';
     if (unfulfilledTexts.length > 0) {
       promptText += '2. 检查以下待履行约定哪些已经在剧情中被履行了（角色已经做了这件事）：\n';
       for (var _ui = 0; _ui < unfulfilledTexts.length; _ui++) {
@@ -2201,6 +2202,9 @@ async function detectOneHeartPromises(text) {
     if (Array.isArray(parsed.promises)) {
       for (var _pi2 = 0; _pi2 < parsed.promises.length; _pi2++) {
         var pt = parsed.promises[_pi2];
+        if (!pt || pt.length < 3) continue;
+        // 去掉时间标记（明天/后天/下周等）
+        pt = pt.replace(/^(明天|后天|下周|下个月|今晚|今天晚上|明天早上|明天下午|明天晚上|周一|周二|周三|周四|周五|周六|周日|这个周末|下周末|这个星期|下个星期)\s*/g, '').trim();
         if (!pt || pt.length < 3) continue;
         var exists = GS.oneHeartPromises.some(function(p) { return p.text === pt; });
         if (!exists) {

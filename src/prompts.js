@@ -1050,7 +1050,7 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS.oneHeartPromises && GS.oneHeartPromises.length > 0) {
       var _unfulfilled = GS.oneHeartPromises.filter(function(p) { return !p.fulfilled; });
       if (_unfulfilled.length > 0) {
-        msg += '⚠️ [待兑现约定] 以下必须在后续剧情中实现，不可遗忘：\n';
+        msg += '💡 [待兑现约定] 以下约定等待自然实现，在合适的剧情时机融入即可：\n';
         for (var _pi = 0; _pi < _unfulfilled.length; _pi++) {
           msg += '- ' + _unfulfilled[_pi].text + '\n';
         }
