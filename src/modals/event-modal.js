@@ -46,6 +46,9 @@ function showEventModal(title, event, callback) {
     });
   });
 }
+window.showJealousyEvent = showJealousyEvent;
+window.showSurpriseEvent = showSurpriseEvent;
+window.showPoolEvent = showPoolEvent;
 
 export function showRivalEvent(event, callback) {
   showEventModal('💗 情敌事件', event, callback);
@@ -86,3 +89,6 @@ export function showConfessionEvent(rivalName, callback) {
     });
   });
 }
+window.showRivalEvent = showRivalEvent;
+window.showConfrontationEvent = showConfrontationEvent;
+window.showConfessionEvent = showConfessionEvent;

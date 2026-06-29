@@ -1810,30 +1810,7 @@ async function checkOneHeartEvents() {
     var _confessionRound = GS._confessionCooldown || 0;
     if (_confessionRound <= 0) {
       triggered = true;
-      await new Promise(function(resolve) {
-        showConfessionEvent(GS.oneHeartRival.name, function(chosenIdx) {
-          if (chosenIdx === 0) {
-            // 接受 → 情敌路线激活
-            GS.oneHeartRivalAff = 60;
-            GS._confessionAccepted = true;
-          } else if (chosenIdx === 1) {
-            // 拒绝 → 清零
-            GS.oneHeartRivalAff = 0;
-            GS._confessionCooldown = 99;
-          } else {
-            // 需要时间 → 5 回合冷却
-            GS._confessionCooldown = 5;
-          }
-          GS.oneHeartPendingEvent = {
-            type: 'confession',
-            scenario: GS.oneHeartRival.name + '表白了',
-            chosenOption: chosenIdx === 0 ? '接受' : chosenIdx === 1 ? '拒绝' : '需要时间',
-            chosenIdx: chosenIdx
-          };
-          saveGame();
-          resolve();
-        });
-      });
+      GS._pendingEvents.push({ type: 'confession', rivalName: GS.oneHeartRival.name });
     }
   }
   if (GS._confessionCooldown > 0 && GS._confessionCooldown < 99) GS._confessionCooldown--;
@@ -1868,27 +1845,8 @@ async function checkOneHeartEvents() {
       } catch (e) {}
       if (_argueScenario) {
         triggered = true;
-        GS.oneHeartArgueCooldown = 2;
-        await new Promise(function(resolve) {
-          showConfrontationEvent({ scenario: _argueScenario, options: _argueOpts }, function(chosenIdx) {
-            var _mainDelta = chosenIdx === 0 ? 2 : chosenIdx === 1 ? -2 : -3;
-            var _rivalDelta = chosenIdx === 0 ? -1 : chosenIdx === 1 ? 2 : 3;
-            var mid = GS.oneHeartMember;
-            if (mid && _mainDelta) {
-              if (!GS.affection[mid]) GS.affection[mid] = 0;
-              GS.affection[mid] += _mainDelta;
-            }
-            GS.oneHeartRivalAff = Math.max(0, (GS.oneHeartRivalAff || 0) + _rivalDelta);
-            GS.oneHeartPendingEvent = {
-              type: 'confrontation',
-              scenario: _argueScenario,
-              chosenOption: _argueOpts[chosenIdx] || '',
-              chosenIdx: chosenIdx
-            };
-            saveGame();
-            resolve();
-          });
-        });
+        if (!GS._pendingEvents) GS._pendingEvents = [];
+        GS._pendingEvents.push({ type: 'confrontation', scenario: _argueScenario, options: _argueOpts, targetId: GS.oneHeartMember });
       }
     }
   }
@@ -1942,30 +1900,8 @@ async function checkOneHeartEvents() {
     }
     if (_jeaScenario) {
       triggered = true;
-      await new Promise(function(resolve) {
-        showJealousyEvent({ scenario: _jeaScenario, options: _jeaOpts }, function(chosenIdx) {
-          // 约定：A=靠近他+2, B=中立项情敌+1, C=倾向情敌+3他-1
-          if (hasRival) {
-            var _jeMid = GS.oneHeartMember;
-            if (_jeMid) {
-              if (chosenIdx === 0 && GS.affection[_jeMid] !== undefined) GS.affection[_jeMid] += 2;
-              else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 1;
-              else if (chosenIdx === 2) {
-                GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 3;
-                GS.affection[_jeMid] = Math.max(0, (GS.affection[_jeMid] || 0) - 1);
-              }
-            }
-          }
-          GS.oneHeartPendingEvent = {
-            type: 'jealousy',
-            scenario: _jeaScenario,
-            chosenOption: _jeaOpts[chosenIdx] || '',
-            chosenIdx: chosenIdx
-          };
-          saveGame();
-          resolve();
-        });
-      });
+      if (!GS._pendingEvents) GS._pendingEvents = [];
+      GS._pendingEvents.push({ type: 'jealousy', scenario: _jeaScenario, options: _jeaOpts, targetId: GS.oneHeartMember, hasRival: hasRival });
     }
   }
 
@@ -2016,18 +1952,8 @@ async function checkOneHeartEvents() {
     }
     if (_surScenario) {
       triggered = true;
-      await new Promise(function(resolve) {
-        showSurpriseEvent({ scenario: _surScenario, options: _surOpts }, function(chosenIdx) {
-          GS.oneHeartPendingEvent = {
-            type: 'surprise',
-            scenario: _surScenario,
-            chosenOption: _surOpts[chosenIdx] || '',
-            chosenIdx: chosenIdx
-          };
-          saveGame();
-          resolve();
-        });
-      });
+      if (!GS._pendingEvents) GS._pendingEvents = [];
+      GS._pendingEvents.push({ type: 'surprise', scenario: _surScenario, options: _surOpts });
     }
   }
 
@@ -2076,21 +2002,7 @@ async function checkOneHeartEvents() {
     }
     if (_rivScenario) {
       triggered = true;
-      await new Promise(function(resolve) {
-        showRivalEvent({ scenario: _rivScenario, options: _rivOpts }, function(chosenIdx) {
-          // A=靠近情敌+5, B=中立+2, C=疏远+0
-          if (chosenIdx === 0) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 5;
-          else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 2;
-          GS.oneHeartPendingEvent = {
-            type: 'rival',
-            scenario: _rivScenario,
-            chosenOption: _rivOpts[chosenIdx] || '',
-            chosenIdx: chosenIdx
-          };
-          saveGame();
-          resolve();
-        });
-      });
+      GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
     }
   }
 
@@ -2126,18 +2038,8 @@ async function checkOneHeartEvents() {
     }
     if (scenario) {
       triggered = true;
-      await new Promise(function(resolve) {
-        showPoolEvent({ scenario: scenario, options: opts }, function(chosenIdx) {
-          GS.oneHeartPendingEvent = {
-            type: 'pool',
-            scenario: scenario,
-            chosenOption: opts[chosenIdx] || '',
-            chosenIdx: chosenIdx
-          };
-          saveGame();
-          resolve();
-        });
-      });
+      if (!GS._pendingEvents) GS._pendingEvents = [];
+      GS._pendingEvents.push({ type: 'pool', scenario: scenario, options: opts });
     }
   }
 }

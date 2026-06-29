@@ -1187,6 +1187,7 @@ function renderOneHeartGameScreen() {
       '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
       '</div>' +
       '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
+      '<button id="pendingEventBtn" style="width:100%;padding:10px;margin-top:6px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;cursor:default;background:#e0e0e0;color:#999">📋 待处理 0</button>' +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
@@ -2171,6 +2172,50 @@ function bindOneHeartEvents() {
       GS.pendingChoiceText = '📅 新的一天';
       var _ob7 = document.getElementById('operationBody'); if (_ob7) _ob7.style.display = 'none';
       await generateOneHeartRound();
+    });
+  }
+
+  // 待处理事件按钮
+  var pendingBtn = document.getElementById('pendingEventBtn');
+  if (pendingBtn) {
+    pendingBtn.addEventListener('click', async function() {
+      if (!GS._pendingEvents || GS._pendingEvents.length === 0) return;
+      var ev = GS._pendingEvents.shift();
+      var chosenIdx = await new Promise(function(resolve) {
+        var showFn = null;
+        if (ev.type === 'jealousy') showFn = window.showJealousyEvent;
+        else if (ev.type === 'surprise') showFn = window.showSurpriseEvent;
+        else if (ev.type === 'pool') showFn = window.showPoolEvent;
+        else if (ev.type === 'rival') showFn = window.showRivalEvent;
+        else if (ev.type === 'confrontation') showFn = window.showConfrontationEvent;
+        else if (ev.type === 'confession') {
+          window.showConfessionEvent(ev.rivalName, function(idx) { resolve(idx); });
+          return;
+        }
+        if (showFn) showFn({ scenario: ev.scenario, options: ev.options }, function(idx) { resolve(idx); });
+      });
+      if (chosenIdx === undefined) { renderAll(); return; }
+      // 处理好感度变化
+      if (ev.type === 'jealousy') {
+        if (chosenIdx === 0) { var _m = GS.oneHeartMember; if (_m && GS.affection[_m] !== undefined) GS.affection[_m] += 2; }
+        else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 1;
+        else if (chosenIdx === 2) { GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 3; var _m2 = GS.oneHeartMember; if (_m2) GS.affection[_m2] = Math.max(0, (GS.affection[_m2] || 0) - 1); }
+      } else if (ev.type === 'confrontation') {
+        var _deltas = [[2,-1],[-2,2],[-3,3]];
+        var _d = _deltas[chosenIdx] || [0,0];
+        var _m3 = GS.oneHeartMember; if (_m3) GS.affection[_m3] = Math.max(0, (GS.affection[_m3] || 0) + _d[0]);
+        GS.oneHeartRivalAff = Math.max(0, (GS.oneHeartRivalAff || 0) + _d[1]);
+      } else if (ev.type === 'rival') {
+        if (chosenIdx === 0) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 5;
+        else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 2;
+      } else if (ev.type === 'confession') {
+        if (chosenIdx === 0) { GS.oneHeartRivalAff = 60; GS._confessionAccepted = true; }
+        else if (chosenIdx === 1) { GS.oneHeartRivalAff = 0; GS._confessionCooldown = 99; }
+        else GS._confessionCooldown = 5;
+      }
+      GS.oneHeartPendingEvent = { type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', chosenIdx: chosenIdx };
+      saveGame();
+      renderAll();
     });
   }
 }
