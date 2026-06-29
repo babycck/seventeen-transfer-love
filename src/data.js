@@ -1098,7 +1098,7 @@ export var RIVAL_EVENTS = [
 
 // ==================== 身份关系网映射 ====================
 export var IDENTITY_RELATION_MAP = {
-  '队友的妹妹': { role: '哥哥', gender: 'male', fromSEVENTEEN: true, isRival: false, needExtraRival: true },
+  '队友的妹妹': { role: '哥哥', gender: 'male', fromSEVENTEEN: true, isRival: false, needExtraRival: true, livesTogether: true },
   '同公司师妹': { role: '师兄', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
   '女团爱豆': { role: '队友', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },
   '站姐/大粉': { role: '前同事', gender: 'female', fromSEVENTEEN: false, isRival: false, needExtraRival: true },

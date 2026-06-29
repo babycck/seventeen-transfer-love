@@ -9,6 +9,7 @@ import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandator
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
 import { getWorldConfig } from './worlds/index.js';
+import { IDENTITY_RELATION_MAP } from './data.js';
 
 // ===== System Prompt 缓存 =====
 var _systemPromptCache = null;
@@ -821,6 +822,10 @@ export function buildOneHeartSystemPrompt() {
         parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n';
         if (rel.role === '哥哥') {
           parts += '⚠️ 他是你的亲哥哥，不是他的哥哥。只能从你的视角称「我哥」或直呼名字「' + rel.name + '」，不可从他的视角称「他哥」「你哥」。\n';
+        }
+        var _relCfg = IDENTITY_RELATION_MAP[GS.heroineProfile.job];
+        if (_relCfg && _relCfg.livesTogether) {
+          parts += '💡 你和「' + rel.name + '」住在一起。日常同住的细节可以自然融入剧情。\n';
         }
         parts += '\n';
       }
