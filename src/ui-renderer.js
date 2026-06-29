@@ -1997,9 +1997,10 @@ function bindOneHeartEvents() {
       GS.pendingChoiceText = (opt && opt.text) || '';
       GS.currentOptions = [];
       saveGame();
+      var _ob = document.getElementById('operationBody'); if (_ob) _ob.style.display = 'none';
       await generateOneHeartRound();
     });
-  });
+  }
 
   // 动作网格按钮（统一事件委托）
   document.querySelectorAll('.oneheart-action-btn').forEach(function(btn) {
@@ -2025,12 +2026,14 @@ function bindOneHeartEvents() {
           GS.currentOptions = [];
           GS._isGenerating = false;
           saveGame();
+          var _ob1 = document.getElementById('operationBody'); if (_ob1) _ob1.style.display = 'none';
           await generateOneHeartRound({ isRegenerate: true });
           this.disabled = false;
           break;
         case 'rewind':
           showToast('🔄 自由推演中...');
           GS.pendingChoiceText = '顺其自然的发展';
+          var _ob2 = document.getElementById('operationBody'); if (_ob2) _ob2.style.display = 'none';
           await generateOneHeartRound({ isFreeDeduction: true });
           break;
         case 'set_mainline':
@@ -2044,15 +2047,18 @@ function bindOneHeartEvents() {
           GS.pendingChoiceText = '📌 拉回主线';
           GS.freeInput = '(按照主线推进剧情：' + GS.oneHeartMainLine + ')';
           saveGame();
+          var _ob3 = document.getElementById('operationBody'); if (_ob3) _ob3.style.display = 'none';
           await generateOneHeartRound();
           break;
         case 'random':
           showToast('🎲 触发随机事件...');
           GS.pendingChoiceText = '🎲 随机事件';
+          var _ob4 = document.getElementById('operationBody'); if (_ob4) _ob4.style.display = 'none';
           await generateOneHeartRound({ isRandom: true });
           break;
         case 'ending':
           if (await showConfirmModal('确定要走向大结局吗？AI将根据主线方向和当前剧情生成结局。')) {
+            var _ob5 = document.getElementById('operationBody'); if (_ob5) _ob5.style.display = 'none';
             await generateOneHeartRound({ isEnding: true });
             renderAll();
           }
@@ -2077,6 +2083,7 @@ function bindOneHeartEvents() {
       GS.phaseNarrative = '';
       GS.currentOptions = [];
       saveGame();
+      var _ob6 = document.getElementById('operationBody'); if (_ob6) _ob6.style.display = 'none';
       await generateOneHeartRound();
     });
   }
@@ -2162,6 +2169,7 @@ function bindOneHeartEvents() {
       hideLoading();
       showLoading('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · 新的一天，新的故事...');
       GS.pendingChoiceText = '📅 新的一天';
+      var _ob7 = document.getElementById('operationBody'); if (_ob7) _ob7.style.display = 'none';
       await generateOneHeartRound();
     });
   }
