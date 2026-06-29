@@ -2000,7 +2000,7 @@ function bindOneHeartEvents() {
       var _ob = document.getElementById('operationBody'); if (_ob) _ob.style.display = 'none';
       await generateOneHeartRound();
     });
-  }
+  });
 
   // 动作网格按钮（统一事件委托）
   document.querySelectorAll('.oneheart-action-btn').forEach(function(btn) {
