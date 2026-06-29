@@ -38,6 +38,9 @@ export function defaultGameState() {
     oneHeartEventPool: [],
     oneHeartJealousyPool: [],
     oneHeartSurprisePool: [],
+    oneHeartRivalPool: [],
+    oneHeartRivalAff: 0,
+    oneHeartArgueCooldown: 0,
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
     oneHeartDateIdx: 0,
@@ -392,6 +395,9 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartEventPool)) GS.oneHeartEventPool = [];
     if (!Array.isArray(GS.oneHeartJealousyPool)) GS.oneHeartJealousyPool = [];
     if (!Array.isArray(GS.oneHeartSurprisePool)) GS.oneHeartSurprisePool = [];
+    if (!Array.isArray(GS.oneHeartRivalPool)) GS.oneHeartRivalPool = [];
+    if (GS.oneHeartRivalAff === undefined) GS.oneHeartRivalAff = 0;
+    if (GS.oneHeartArgueCooldown === undefined) GS.oneHeartArgueCooldown = 0;
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];

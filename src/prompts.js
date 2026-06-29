@@ -950,6 +950,23 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
 
+    // 注入情敌情愫暗示（每 5 回合）
+    var _rivalAff = GS.oneHeartRivalAff || 0;
+    if (GS.oneHeartRival && GS.oneHeartRival.name && _rivalAff > 0 && (GS.oneHeartGenCount || 0) % 5 === 0) {
+      if (_rivalAff >= 35) {
+        msg += '💡 你对情敌「' + GS.oneHeartRival.name + '」的感情已经无法忽视。剧情中可以反映你的纠结、他的察觉、以及三人之间的微妙氛围变化。不要直白，保持真实。\n\n';
+      } else if (_rivalAff >= 20) {
+        msg += '💡 情敌「' + GS.oneHeartRival.name + '」在你心里有了位置。你在和他在一起时有时会想起另外那个人。请反映这种微妙的拉扯感——轻度的犹豫、不自觉的对比。\n\n';
+      } else if (_rivalAff >= 5) {
+        msg += '💡 你对「' + GS.oneHeartRival.name + '」有一些微妙的感觉——不多，但有。可以自然地融入一些不经意的瞬间。\n\n';
+      }
+    }
+
+    // 争吵氛围注入
+    if (GS.oneHeartArgueCooldown && GS.oneHeartArgueCooldown > 0) {
+      msg += '⚠️ [争吵氛围] 你们正在冷战中。互动冷淡克制，保持这个氛围' + GS.oneHeartArgueCooldown + '回合。\n\n';
+    }
+
     // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
     var _lastNarr = '';
     if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {

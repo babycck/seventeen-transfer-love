@@ -921,6 +921,7 @@ export function bindSetupEvents() {
           if (relConfig.needExtraRival && pool.length > 0) {
             var rivalIdx = Math.floor(Math.random() * pool.length);
             var rivalPicked = pool[rivalIdx];
+            GS.oneHeartRivalAff = randInt(5, 10);
             GS.oneHeartRival = {
               name: rivalPicked.name,
               memberId: rivalPicked.id,

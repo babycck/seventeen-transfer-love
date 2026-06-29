@@ -15,7 +15,7 @@ import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
-import { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './modals/event-modal.js';
+import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { validateNarrative } from './validator.js';
@@ -1793,17 +1793,107 @@ window.generateOneHeartRound = generateOneHeartRound;
 
 // 1v1 事件触发检查（回合后）
 async function checkOneHeartEvents() {
-  if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return; // 已有未消费的事件
-  if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return; // 最少间隔 3 回合
+  if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return;
+  if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return;
   var aff = GS.affection[GS.oneHeartMember] || 0;
   if (aff < 50) return;
   GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
 
-  // 优先级：吃醋 > 惊喜 > 意外池
-  var triggered = false;
+  // 争吵冷却递减
+  if (GS.oneHeartArgueCooldown > 0) GS.oneHeartArgueCooldown--;
 
-  // 吃醋事件（70% AI 生成 + 30% 池子 + 硬编码兜底）
-  if (!triggered && aff >= 60 && Math.random() < 0.15) {
+  var triggered = false;
+  var rivalAff = GS.oneHeartRivalAff || 0;
+  var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
+
+  // === 告白事件（优先级最高）===
+  if (!triggered && hasRival && rivalAff >= 40 && Math.random() < 0.5 && !GS._confessionCooldown) {
+    var _confessionRound = GS._confessionCooldown || 0;
+    if (_confessionRound <= 0) {
+      triggered = true;
+      await new Promise(function(resolve) {
+        showConfessionEvent(GS.oneHeartRival.name, function(chosenIdx) {
+          if (chosenIdx === 0) {
+            // 接受 → 情敌路线激活
+            GS.oneHeartRivalAff = 60;
+            GS._confessionAccepted = true;
+          } else if (chosenIdx === 1) {
+            // 拒绝 → 清零
+            GS.oneHeartRivalAff = 0;
+            GS._confessionCooldown = 99;
+          } else {
+            // 需要时间 → 5 回合冷却
+            GS._confessionCooldown = 5;
+          }
+          GS.oneHeartPendingEvent = {
+            type: 'confession',
+            scenario: GS.oneHeartRival.name + '表白了',
+            chosenOption: chosenIdx === 0 ? '接受' : chosenIdx === 1 ? '拒绝' : '需要时间',
+            chosenIdx: chosenIdx
+          };
+          saveGame();
+          resolve();
+        });
+      });
+    }
+  }
+  if (GS._confessionCooldown > 0 && GS._confessionCooldown < 99) GS._confessionCooldown--;
+
+  // === 嫉妒事件（频率随情敌好感度提升）===
+  var _jealousyChance = 0.15;
+  if (hasRival && rivalAff >= 30) _jealousyChance = 0.30;
+  else if (hasRival && rivalAff >= 20) _jealousyChance = 0.25;
+  else if (hasRival && rivalAff >= 10) _jealousyChance = 0.20;
+  if (!triggered && aff >= 60 && Math.random() < _jealousyChance) {
+    // 情敌好感度高时，部分触发转为激烈争吵
+    if (hasRival && rivalAff >= 20 && Math.random() < 0.30) {
+      // 争吵分支
+      var _argueScenario = '';
+      var _argueOpts = ['冷静解释', '沉默不语', '反问他"你什么意思"'];
+      try {
+        var _arRes = await callDeepSeek(
+          '生成一个情侣间因第三方介入而激烈争吵的场景（50字以内）+ 3个选项（每个20字以内）。\n' +
+          '第三方是「' + GS.oneHeartRival.name + '」，他对你们的关系构成了威胁。他发现了你们之间的暧昧。\n' +
+          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '生成争吵事件', 300, false, 0.8
+        );
+        var _arParsed;
+        try { _arParsed = JSON.parse(_arRes); } catch (pe) {
+          var _am = _arRes.match(/\{[\s\S]*\}/);
+          if (_am) try { _arParsed = JSON.parse(_am[0]); } catch (pe2) { _arParsed = null; }
+        }
+        if (_arParsed && _arParsed.scenario) {
+          _argueScenario = _arParsed.scenario;
+          if (_arParsed.options && _arParsed.options.length >= 3) _argueOpts = _arParsed.options;
+        }
+      } catch (e) {}
+      if (_argueScenario) {
+        triggered = true;
+        GS.oneHeartArgueCooldown = 2;
+        await new Promise(function(resolve) {
+          showConfrontationEvent({ scenario: _argueScenario, options: _argueOpts }, function(chosenIdx) {
+            var _mainDelta = chosenIdx === 0 ? 2 : chosenIdx === 1 ? -2 : -3;
+            var _rivalDelta = chosenIdx === 0 ? -1 : chosenIdx === 1 ? 2 : 3;
+            var mid = GS.oneHeartMember;
+            if (mid && _mainDelta) {
+              if (!GS.affection[mid]) GS.affection[mid] = 0;
+              GS.affection[mid] += _mainDelta;
+            }
+            GS.oneHeartRivalAff = Math.max(0, (GS.oneHeartRivalAff || 0) + _rivalDelta);
+            GS.oneHeartPendingEvent = {
+              type: 'confrontation',
+              scenario: _argueScenario,
+              chosenOption: _argueOpts[chosenIdx] || '',
+              chosenIdx: chosenIdx
+            };
+            saveGame();
+            resolve();
+          });
+        });
+      }
+    }
+  }
+  if (!triggered && aff >= 60 && Math.random() < _jealousyChance) {
     var _jeaScenario = '';
     var _jeaOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
     var _useJeaPool = GS.oneHeartJealousyPool && GS.oneHeartJealousyPool.length > 0 && Math.random() < 0.3;
@@ -1855,6 +1945,18 @@ async function checkOneHeartEvents() {
       triggered = true;
       await new Promise(function(resolve) {
         showJealousyEvent({ scenario: _jeaScenario, options: _jeaOpts }, function(chosenIdx) {
+          // 约定：A=靠近他+2, B=中立项情敌+1, C=倾向情敌+3他-1
+          if (hasRival) {
+            var _jeMid = GS.oneHeartMember;
+            if (_jeMid) {
+              if (chosenIdx === 0 && GS.affection[_jeMid] !== undefined) GS.affection[_jeMid] += 2;
+              else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 1;
+              else if (chosenIdx === 2) {
+                GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 3;
+                GS.affection[_jeMid] = Math.max(0, (GS.affection[_jeMid] || 0) - 1);
+              }
+            }
+          }
           GS.oneHeartPendingEvent = {
             type: 'jealousy',
             scenario: _jeaScenario,
@@ -1921,6 +2023,69 @@ async function checkOneHeartEvents() {
             type: 'surprise',
             scenario: _surScenario,
             chosenOption: _surOpts[chosenIdx] || '',
+            chosenIdx: chosenIdx
+          };
+          saveGame();
+          resolve();
+        });
+      });
+    }
+  }
+
+  // === 情敌专属事件 ===
+  if (!triggered && hasRival && !GS._confessionAccepted && rivalAff >= 15 && Math.random() < 0.10) {
+    var _rivScenario = '';
+    var _rivOpts = ['靠近他', '保持距离', '装作没发现'];
+    var _useRivPool = GS.oneHeartRivalPool && GS.oneHeartRivalPool.length > 0 && Math.random() < 0.3;
+    if (_useRivPool) {
+      var _rpItem = GS.oneHeartRivalPool[Math.floor(Math.random() * GS.oneHeartRivalPool.length)];
+      _rivScenario = _rpItem.scenario;
+      if (_rpItem.options && _rpItem.options.length >= 3) _rivOpts = _rpItem.options;
+    } else {
+      try {
+        var _wcRi = getWorldConfig(GS.worldSetting);
+        var _wcRiInfo = _wcRi ? (_wcRi.coreTension || '') : '';
+        var _rivRes = await callDeepSeek(
+          '生成一个暧昧的心动场景（50字以内）+ 3个选项（每个20字以内）。场景发生在女主和「' + GS.oneHeartRival.name + '」之间。\n' +
+          '他是你的情敌——但你最近发现他好像没那么讨厌。\n' +
+          '世界观背景：' + GS.worldSetting + (_wcRiInfo ? ' ' + _wcRiInfo : '') + '\n' +
+          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '生成情敌事件', 300, false, 0.8
+        );
+        var _rivParsed;
+        try { _rivParsed = JSON.parse(_rivRes); } catch (pe) {
+          var _rm = _rivRes.match(/\{[\s\S]*\}/);
+          if (_rm) try { _rivParsed = JSON.parse(_rm[0]); } catch (pe2) { _rivParsed = null; }
+        }
+        if (_rivParsed && _rivParsed.scenario) {
+          _rivScenario = _rivParsed.scenario;
+          if (_rivParsed.options && _rivParsed.options.length >= 3) _rivOpts = _rivParsed.options;
+          if (!GS.oneHeartRivalPool) GS.oneHeartRivalPool = [];
+          if (GS.oneHeartRivalPool.length < 50) {
+            GS.oneHeartRivalPool.push({ scenario: _rivParsed.scenario, options: _rivParsed.options.slice(0, 3) });
+          }
+        }
+      } catch (e) {}
+    }
+    if (!_rivScenario) {
+      var _rivFb = RIVAL_EVENTS;
+      if (_rivFb.length > 0) {
+        var _rivFbItem = _rivFb[Math.floor(Math.random() * _rivFb.length)];
+        _rivScenario = _rivFbItem.scenario;
+        _rivOpts = _rivFbItem.options;
+      }
+    }
+    if (_rivScenario) {
+      triggered = true;
+      await new Promise(function(resolve) {
+        showRivalEvent({ scenario: _rivScenario, options: _rivOpts }, function(chosenIdx) {
+          // A=靠近情敌+5, B=中立+2, C=疏远+0
+          if (chosenIdx === 0) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 5;
+          else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 2;
+          GS.oneHeartPendingEvent = {
+            type: 'rival',
+            scenario: _rivScenario,
+            chosenOption: _rivOpts[chosenIdx] || '',
             chosenIdx: chosenIdx
           };
           saveGame();
