@@ -898,8 +898,10 @@ export function buildOneHeartUserMessage(type, extra) {
       if (recentJoined.length > 3000) recentJoined = recentJoined.slice(-3000);
       msg += '[近期未压缩剧情]\n' + recentJoined + '\n\n';
     }
-    // 注入上一次选择
-    if (GS.pendingChoiceText) {
+    // 注入上一次选择（新的一天专用指令）
+    if (GS.pendingChoiceText === '📅 新的一天') {
+      msg += '[INSTRUCTION] 现在是新的一天的清晨。以早晨的氛围开启新一天的剧情，自然衔接昨日的余韵，不要重复昨日已发生的事。\n\n';
+    } else if (GS.pendingChoiceText) {
       msg += '[女主的决定] 她刚刚做出了选择：' + GS.pendingChoiceText + '\n请根据这个选择展开后续剧情。\n\n';
     }
     // 注入自由输入
@@ -980,7 +982,8 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
     // 注入故事上下文
-    if (GS.day >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
+    var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
+    if (_chatRound >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
       msg += '[历史回顾]\n';
       for (var _ci = 0; _ci < GS.dailySummaries.length; _ci++) {
         msg += 'Day ' + (_ci + 1) + '：' + GS.dailySummaries[_ci].slice(0, 400) + '\n';
@@ -991,7 +994,7 @@ export function buildOneHeartUserMessage(type, extra) {
       if (curText.trim()) {
         msg += '[当前进展]\n' + curText + '\n\n';
       }
-    } else if (GS.day === 1) {
+    } else if (_chatRound === 1) {
       var _c1Idx = GS.oneHeartLastCompressedIdx || 0;
       var day1Text = GS.todayFullText.slice(_c1Idx).join('\n').slice(-2000);
       if (day1Text.trim()) {

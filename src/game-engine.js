@@ -1793,10 +1793,10 @@ window.generateOneHeartRound = generateOneHeartRound;
 // 1v1 事件触发检查（回合后）
 async function checkOneHeartEvents() {
   if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return; // 已有未消费的事件
-  if (GS.oneHeartLastEventRound && GS.day - GS.oneHeartLastEventRound < 3) return; // 最少间隔 3 回合
+  if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return; // 最少间隔 3 回合
   var aff = GS.affection[GS.oneHeartMember] || 0;
   if (aff < 50) return;
-  GS.oneHeartLastEventRound = GS.day;
+  GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
 
   // 优先级：吃醋 > 惊喜 > 意外池
   var triggered = false;
@@ -1918,11 +1918,11 @@ async function detectOneHeartPromises(text) {
     if (unfulfilledTexts.length > 0) {
       promptText += '2. 检查以下待履行约定哪些已经在剧情中被履行了（角色已经做了这件事）：\n';
       for (var _ui = 0; _ui < unfulfilledTexts.length; _ui++) {
-        promptText += '   - "' + unfulfilledTexts[_ui] + '" (id: ' + unfulfilledIds[_ui] + ')\n';
+        promptText += '   ' + (_ui + 1) + '. "' + unfulfilledTexts[_ui] + '"\n';
       }
-      promptText += '如果某个约定已在剧情中被履行，将其 id 列入 fulfilledIds。\n';
+      promptText += '如果某个约定已在剧情中被履行，将其序号（1/2/3）列入 fulfilledIndices。\n';
     }
-    promptText += '输出JSON：{"promises":["新约定1","新约定2"],"fulfilledIds":["id1","id2"]}\n\n剧情：\n' + text;
+    promptText += '输出JSON：{"promises":["新约定1","新约定2"],"fulfilledIndices":[1,2]}\n\n剧情：\n' + text;
 
     var res = await callDeepSeek(promptText, '检测约定', 500, false, 0.3);
     var parsed;
@@ -1934,20 +1934,21 @@ async function detectOneHeartPromises(text) {
 
     var changed = false;
 
-    // 自动标记已履行的约定
-    if (Array.isArray(parsed.fulfilledIds) && GS.oneHeartPromises) {
-      for (var _fi = 0; _fi < parsed.fulfilledIds.length; _fi++) {
-        var fid = parsed.fulfilledIds[_fi];
-        var found = null;
+    // 自动标记已履行的约定（用序号索引）
+    if (Array.isArray(parsed.fulfilledIndices)) {
+      for (var _fi = 0; _fi < parsed.fulfilledIndices.length; _fi++) {
+        var _idx = parsed.fulfilledIndices[_fi] - 1; // 1-based → 0-based
+        var _found = false;
+        var _fj = 0;
         for (var _pj = 0; _pj < GS.oneHeartPromises.length; _pj++) {
-          if (GS.oneHeartPromises[_pj].id === fid && !GS.oneHeartPromises[_pj].fulfilled) {
-            found = GS.oneHeartPromises[_pj];
+          if (GS.oneHeartPromises[_pj].fulfilled) continue;
+          if (_fj === _idx) {
+            GS.oneHeartPromises[_pj].fulfilled = true;
+            _found = true;
+            changed = true;
             break;
           }
-        }
-        if (found) {
-          found.fulfilled = true;
-          changed = true;
+          _fj++;
         }
       }
     }
