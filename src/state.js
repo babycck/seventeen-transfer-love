@@ -36,6 +36,8 @@ export function defaultGameState() {
     oneHeartStartYear: 2025,
     oneHeartPendingEvent: null,
     oneHeartEventPool: [],
+    oneHeartJealousyPool: [],
+    oneHeartSurprisePool: [],
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
     oneHeartDateIdx: 0,
@@ -388,6 +390,8 @@ export function migrateSave() {
     if (GS.oneHeartStartYear === undefined) GS.oneHeartStartYear = 2025;
     if (GS.oneHeartPendingEvent === undefined) GS.oneHeartPendingEvent = null;
     if (!Array.isArray(GS.oneHeartEventPool)) GS.oneHeartEventPool = [];
+    if (!Array.isArray(GS.oneHeartJealousyPool)) GS.oneHeartJealousyPool = [];
+    if (!Array.isArray(GS.oneHeartSurprisePool)) GS.oneHeartSurprisePool = [];
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];

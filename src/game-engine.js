@@ -14,6 +14,7 @@ import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOn
 import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS } from './data.js';
+import { getWorldConfig } from './worlds/index.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './modals/event-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
@@ -1801,26 +1802,63 @@ async function checkOneHeartEvents() {
   // 优先级：吃醋 > 惊喜 > 意外池
   var triggered = false;
 
-  // 吃醋事件
+  // 吃醋事件（70% AI 生成 + 30% 池子 + 硬编码兜底）
   if (!triggered && aff >= 60 && Math.random() < 0.15) {
-    var pool = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
-    if (pool.length > 0) {
-      var event = pool[Math.floor(Math.random() * pool.length)];
-      // 替换情景中的泛称为情敌名字
-      if (GS.oneHeartRival && GS.oneHeartRival.name) {
-        var _jp = {
-          scenario: event.scenario.replace(/同事|异性朋友|别人|另一个男生|另一个/g, GS.oneHeartRival.name),
-          options: event.options
-        };
-        event = _jp;
+    var _jeaScenario = '';
+    var _jeaOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
+    var _useJeaPool = GS.oneHeartJealousyPool && GS.oneHeartJealousyPool.length > 0 && Math.random() < 0.3;
+    if (_useJeaPool) {
+      var _jpItem = GS.oneHeartJealousyPool[Math.floor(Math.random() * GS.oneHeartJealousyPool.length)];
+      _jeaScenario = _jpItem.scenario;
+      if (_jpItem.options && _jpItem.options.length >= 3) _jeaOpts = _jpItem.options;
+    } else {
+      try {
+        var _wcJe = getWorldConfig(GS.worldSetting);
+        var _wcJeInfo = _wcJe ? (_wcJe.coreTension || '') : '';
+        _wcJeInfo += ' 他的角色：' + (_wcJe ? (_wcJe.memberRole || '') : '');
+        var _jeaRes = await callDeepSeek(
+          '生成一个恋爱中的吃醋场景（50字以内）+ 3个选项（每个20字以内）。\n' +
+          '世界观背景：' + GS.worldSetting + (_wcJeInfo ? ' ' + _wcJeInfo : '') + '\n' +
+          '双方关系：好感度' + aff + '（' + getAffectionDesc(aff) + '）\n' +
+          (GS.oneHeartRival && GS.oneHeartRival.name ? '情敌：' + GS.oneHeartRival.name + '\n' : '') +
+          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '生成吃醋事件', 300, false, 0.8
+        );
+        var _jeaParsed;
+        try { _jeaParsed = JSON.parse(_jeaRes); } catch (pe) {
+          var _jm = _jeaRes.match(/\{[\s\S]*\}/);
+          if (_jm) try { _jeaParsed = JSON.parse(_jm[0]); } catch (pe2) { _jeaParsed = null; }
+        }
+        if (_jeaParsed && _jeaParsed.scenario) {
+          _jeaScenario = _jeaParsed.scenario;
+          if (_jeaParsed.options && _jeaParsed.options.length >= 3) _jeaOpts = _jeaParsed.options;
+          if (!GS.oneHeartJealousyPool) GS.oneHeartJealousyPool = [];
+          if (GS.oneHeartJealousyPool.length < 50) {
+            GS.oneHeartJealousyPool.push({ scenario: _jeaParsed.scenario, options: _jeaParsed.options.slice(0, 3) });
+          }
+        }
+      } catch (e) {}
+    }
+    // 如 AI 生成失败，硬编码兜底
+    if (!_jeaScenario) {
+      var _jeaFallback = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
+      if (_jeaFallback.length > 0) {
+        var _jeaFb = _jeaFallback[Math.floor(Math.random() * _jeaFallback.length)];
+        _jeaScenario = _jeaFb.scenario;
+        if (GS.oneHeartRival && GS.oneHeartRival.name) {
+          _jeaScenario = _jeaScenario.replace(/同事|异性朋友|别人|另一个男生|另一个/g, GS.oneHeartRival.name);
+        }
+        _jeaOpts = _jeaFb.options;
       }
+    }
+    if (_jeaScenario) {
       triggered = true;
       await new Promise(function(resolve) {
-        showJealousyEvent(event, function(chosenIdx) {
+        showJealousyEvent({ scenario: _jeaScenario, options: _jeaOpts }, function(chosenIdx) {
           GS.oneHeartPendingEvent = {
             type: 'jealousy',
-            scenario: event.scenario,
-            chosenOption: (event.options || [])[chosenIdx] || '',
+            scenario: _jeaScenario,
+            chosenOption: _jeaOpts[chosenIdx] || '',
             chosenIdx: chosenIdx
           };
           saveGame();
@@ -1830,18 +1868,59 @@ async function checkOneHeartEvents() {
     }
   }
 
-  // 惊喜事件
+  // 惊喜事件（70% AI 生成 + 30% 池子 + 硬编码兜底）
   if (!triggered && aff >= 50 && Math.random() < 0.10) {
-    var sPool = SURPRISE_EVENTS.filter(function(e) { return aff >= e.minAff; });
-    if (sPool.length > 0) {
-      var sEvent = sPool[Math.floor(Math.random() * sPool.length)];
+    var _surScenario = '';
+    var _surOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
+    var _useSurPool = GS.oneHeartSurprisePool && GS.oneHeartSurprisePool.length > 0 && Math.random() < 0.3;
+    if (_useSurPool) {
+      var _spItem = GS.oneHeartSurprisePool[Math.floor(Math.random() * GS.oneHeartSurprisePool.length)];
+      _surScenario = _spItem.scenario;
+      if (_spItem.options && _spItem.options.length >= 3) _surOpts = _spItem.options;
+    } else {
+      try {
+        var _wcSu = getWorldConfig(GS.worldSetting);
+        var _wcSuInfo = _wcSu ? (_wcSu.coreTension || '') : '';
+        _wcSuInfo += ' 他的角色：' + (_wcSu ? (_wcSu.memberRole || '') : '');
+        var _surRes = await callDeepSeek(
+          '生成一个甜蜜的恋爱惊喜场景（50字以内）+ 3个选项（每个20字以内）。\n' +
+          '世界观背景：' + GS.worldSetting + (_wcSuInfo ? ' ' + _wcSuInfo : '') + '\n' +
+          '双方关系：好感度' + aff + '（' + getAffectionDesc(aff) + '）\n' +
+          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '生成惊喜事件', 300, false, 0.8
+        );
+        var _surParsed;
+        try { _surParsed = JSON.parse(_surRes); } catch (pe) {
+          var _sm = _surRes.match(/\{[\s\S]*\}/);
+          if (_sm) try { _surParsed = JSON.parse(_sm[0]); } catch (pe2) { _surParsed = null; }
+        }
+        if (_surParsed && _surParsed.scenario) {
+          _surScenario = _surParsed.scenario;
+          if (_surParsed.options && _surParsed.options.length >= 3) _surOpts = _surParsed.options;
+          if (!GS.oneHeartSurprisePool) GS.oneHeartSurprisePool = [];
+          if (GS.oneHeartSurprisePool.length < 50) {
+            GS.oneHeartSurprisePool.push({ scenario: _surParsed.scenario, options: _surParsed.options.slice(0, 3) });
+          }
+        }
+      } catch (e) {}
+    }
+    // 如 AI 生成失败，硬编码兜底
+    if (!_surScenario) {
+      var _surFallback = SURPRISE_EVENTS.filter(function(e) { return aff >= e.minAff; });
+      if (_surFallback.length > 0) {
+        var _surFb = _surFallback[Math.floor(Math.random() * _surFallback.length)];
+        _surScenario = _surFb.scenario;
+        _surOpts = _surFb.options;
+      }
+    }
+    if (_surScenario) {
       triggered = true;
       await new Promise(function(resolve) {
-        showSurpriseEvent(sEvent, function(chosenIdx) {
+        showSurpriseEvent({ scenario: _surScenario, options: _surOpts }, function(chosenIdx) {
           GS.oneHeartPendingEvent = {
             type: 'surprise',
-            scenario: sEvent.scenario,
-            chosenOption: (sEvent.options || [])[chosenIdx] || '',
+            scenario: _surScenario,
+            chosenOption: _surOpts[chosenIdx] || '',
             chosenIdx: chosenIdx
           };
           saveGame();
