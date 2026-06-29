@@ -20,10 +20,12 @@ function showEventModal(title, event, callback) {
 
   var optsHtml = '';
   var labels = ['A', 'B', 'C'];
+  var colors = ['var(--accent-primary)', 'var(--accent-primary)', 'var(--accent-primary)'];
   for (var i = 0; i < (event.options || []).length; i++) {
-    optsHtml += '<button class="btn-confirm event-opt-btn" data-idx="' + i + '" style="margin-top:6px;width:100%">' +
-      '<span style="font-weight:700;margin-right:6px;color:var(--accent-primary)">' + labels[i] + '</span> ' +
-      escHtml(event.options[i]) + '</button>';
+    optsHtml += '<button class="event-opt-btn" data-idx="' + i + '" style="width:100%;padding:12px 14px;margin-top:8px;border-radius:12px;border:2px solid var(--border-primary,#e0c0c0);background:var(--bg-card);cursor:pointer;font-size:14px;font-family:inherit;text-align:left;transition:all .15s;display:flex;align-items:center;gap:10px">' +
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:' + colors[i] + ';color:#fff;font-size:13px;font-weight:700;flex-shrink:0">' + labels[i] + '</span>' +
+      '<span style="flex:1;color:var(--text-secondary);line-height:1.4">' + escHtml(event.options[i]) + '</span>' +
+      '</button>';
   }
 
   overlay.innerHTML =
@@ -63,9 +65,15 @@ export function showConfessionEvent(rivalName, callback) {
     '<p style="color:var(--text-secondary);font-size:14px;line-height:1.8;margin:12px 0">' + escHtml(rivalName) + '站在你面前，认真地看着你：<br><br>「我知道我没有立场说这些话——但你在我这里，从来不是路过。」<br><br>他表白了。</p>' +
     '<p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">你的选择将影响接下来的故事走向</p>' +
     '<div style="display:flex;flex-direction:column">' +
-    '<button class="btn-confirm event-opt-btn" data-idx="0" style="margin-top:6px;width:100%"><span style="font-weight:700;margin-right:6px;color:var(--accent-primary)">A</span> 接受他的心意</button>' +
-    '<button class="btn-confirm event-opt-btn" data-idx="1" style="margin-top:6px;width:100%"><span style="font-weight:700;margin-right:6px;color:var(--text-muted)">B</span> 对不起，我只把你当朋友</button>' +
-    '<button class="btn-confirm event-opt-btn" data-idx="2" style="margin-top:6px;width:100%"><span style="font-weight:700;margin-right:6px;color:var(--text-muted)">C</span> 我需要时间</button>' +
+    '<button class="event-opt-btn" data-idx="0" style="width:100%;padding:12px 14px;margin-top:8px;border-radius:12px;border:2px solid var(--border-primary,#e0c0c0);background:var(--bg-card);cursor:pointer;font-size:14px;font-family:inherit;text-align:left;transition:all .15s;display:flex;align-items:center;gap:10px">' +
+    '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent-primary);color:#fff;font-size:13px;font-weight:700;flex-shrink:0">A</span>' +
+    '<span style="flex:1;color:var(--text-secondary);line-height:1.4">接受他的心意</span></button>' +
+    '<button class="event-opt-btn" data-idx="1" style="width:100%;padding:12px 14px;margin-top:8px;border-radius:12px;border:2px solid var(--border-primary,#e0c0c0);background:var(--bg-card);cursor:pointer;font-size:14px;font-family:inherit;text-align:left;transition:all .15s;display:flex;align-items:center;gap:10px">' +
+    '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent-primary);color:#fff;font-size:13px;font-weight:700;flex-shrink:0">B</span>' +
+    '<span style="flex:1;color:var(--text-secondary);line-height:1.4">对不起，我只把你当朋友</span></button>' +
+    '<button class="event-opt-btn" data-idx="2" style="width:100%;padding:12px 14px;margin-top:8px;border-radius:12px;border:2px solid var(--border-primary,#e0c0c0);background:var(--bg-card);cursor:pointer;font-size:14px;font-family:inherit;text-align:left;transition:all .15s;display:flex;align-items:center;gap:10px">' +
+    '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent-primary);color:#fff;font-size:13px;font-weight:700;flex-shrink:0">C</span>' +
+    '<span style="flex:1;color:var(--text-secondary);line-height:1.4">我需要时间</span></button>' +
     '</div></div>';
 
   document.body.appendChild(overlay);

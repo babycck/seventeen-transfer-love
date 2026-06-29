@@ -764,6 +764,11 @@ body {
 
 .sms-target-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.event-opt-btn:hover {
+  border-color: var(--accent-primary) !important;
+  background: var(--bg-soft-hover) !important;
+}
+
 /* Tab 通知圆点 */
 .tab-notification-dot {
   position: absolute;
