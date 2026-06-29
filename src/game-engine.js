@@ -1796,7 +1796,6 @@ async function checkOneHeartEvents() {
   if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return;
   if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return;
   var aff = GS.affection[GS.oneHeartMember] || 0;
-  if (aff < 50) return;
   GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
 
   // 争吵冷却递减
