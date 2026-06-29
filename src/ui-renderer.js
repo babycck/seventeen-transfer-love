@@ -2136,7 +2136,7 @@ function bindOneHeartEvents() {
       e.stopPropagation();
       var idx = parseInt(this.dataset.idx);
       if (isNaN(idx) || idx < 0 || idx >= GS.consequenceNarratives.length) return;
-      var confirmed = await showConfirmModal('确定要删除这条自由输入的剧情吗？');
+      var confirmed = await showConfirmModal('确定要删除这段剧情吗？');
       if (!confirmed) return;
       GS.consequenceNarratives.splice(idx, 1);
       if (GS.todayFullText && idx < GS.todayFullText.length) {

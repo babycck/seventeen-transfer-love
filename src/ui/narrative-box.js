@@ -153,9 +153,7 @@ export function renderNarrativeSection() {
         html += '<div class="choice-tag">❥ 你的选择：' + escHtml(cn.choiceText) + '</div>';
       }
       html += renderParsedNarrative(cn.parsed);
-      if (cn.source === 'freeInput') {
-        html += '<button class="consequence-delete" data-idx="' + i + '" title="删除本条">✕</button>';
-      }
+      html += '<button class="consequence-delete" data-idx="' + i + '" title="删除本条">✕</button>';
       html += '</div>';
     }
     // 最后一条新剧情：放入打字机容器
@@ -167,9 +165,7 @@ export function renderNarrativeSection() {
       newHtml += '<div class="choice-tag">❥ 你的选择：' + escHtml(lastCn.choiceText) + '</div>';
     }
     newHtml += renderParsedNarrative(lastCn.parsed);
-    if (lastCn.source === 'freeInput') {
-      newHtml += '<button class="consequence-delete" data-idx="' + lastIdx + '" title="删除本条">✕</button>';
-    }
+    newHtml += '<button class="consequence-delete" data-idx="' + lastIdx + '" title="删除本条">✕</button>';
     newHtml += '</div>';
     html += '<div id="narrativeNewContent" data-narrative-html="' + escHtml(newHtml) + '">';
     html += newHtml;
