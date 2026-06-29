@@ -21,7 +21,7 @@ import { showMidnightCallModal } from './modals/midnight-call.js';
 import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal } from './modals.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
-import { renderParsedNarrative, renderNarrativeSection, startTypewriter } from './ui/narrative-box.js';
+import { renderParsedNarrative, renderNarrativeSection, startTypewriter, showEditButton } from './ui/narrative-box.js';
 import { renderOptionPanel, renderTruthPanel, renderQuestionBoxPanel } from './ui/option-panel.js';
 import { renderActionBar } from './ui/action-bar.js';
 import { renderFreeInput } from './ui/free-input.js';
@@ -71,6 +71,7 @@ export function renderAll() {
       if (_firstRender) {
         // 初次加载（刷新/打开）：已有内容直接显示，不打字机
         _firstRender = false;
+        showEditButton();
       } else if (newContent && newContent.getAttribute('data-narrative-html')) {
         startTypewriter('narrativeNewContent', GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed);
       } else {

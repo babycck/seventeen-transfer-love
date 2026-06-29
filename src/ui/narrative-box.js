@@ -538,7 +538,7 @@ function saveNarrativeEdit(newText) {
 }
 
 // 打字机完成后显示编辑按钮
-function showEditButton() {
+export function showEditButton() {
   var btn = document.getElementById('narrativeEditBtn');
   if (btn) btn.classList.add('visible');
 }
