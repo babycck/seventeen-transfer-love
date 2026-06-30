@@ -1796,7 +1796,6 @@ async function checkOneHeartEvents() {
   if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return;
   if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return;
   var aff = GS.affection[GS.oneHeartMember] || 0;
-  GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
 
   // 争吵冷却递减
   if (GS.oneHeartArgueCooldown > 0) GS.oneHeartArgueCooldown--;
@@ -1810,6 +1809,7 @@ async function checkOneHeartEvents() {
     var _confessionRound = GS._confessionCooldown || 0;
     if (_confessionRound <= 0) {
       triggered = true;
+      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       GS._pendingEvents.push({ type: 'confession', rivalName: GS.oneHeartRival.name });
     }
   }
@@ -1900,6 +1900,7 @@ async function checkOneHeartEvents() {
     }
     if (_jeaScenario) {
       triggered = true;
+      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       if (!GS._pendingEvents) GS._pendingEvents = [];
       GS._pendingEvents.push({ type: 'jealousy', scenario: _jeaScenario, options: _jeaOpts, targetId: GS.oneHeartMember, hasRival: hasRival });
     }
@@ -1952,6 +1953,7 @@ async function checkOneHeartEvents() {
     }
     if (_surScenario) {
       triggered = true;
+      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       if (!GS._pendingEvents) GS._pendingEvents = [];
       GS._pendingEvents.push({ type: 'surprise', scenario: _surScenario, options: _surOpts });
     }
@@ -2002,6 +2004,7 @@ async function checkOneHeartEvents() {
     }
     if (_rivScenario) {
       triggered = true;
+      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
     }
   }
@@ -2038,6 +2041,7 @@ async function checkOneHeartEvents() {
     }
     if (scenario) {
       triggered = true;
+      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       if (!GS._pendingEvents) GS._pendingEvents = [];
       GS._pendingEvents.push({ type: 'pool', scenario: scenario, options: opts });
     }

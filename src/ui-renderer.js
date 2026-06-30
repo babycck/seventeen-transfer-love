@@ -1160,6 +1160,11 @@ function renderOneHeartGameScreen() {
   // Narrative
   html += renderNarrativeSection();
 
+  // 事件提醒横幅
+  if (GS._pendingEvents && GS._pendingEvents.length > 0) {
+    html += '<div id="pendingBanner" class="pending-banner">📌 有 ' + GS._pendingEvents.length + ' 个待处理事件</div>';
+  }
+
   // Quick command toggle + drawer（在正文和选项之间）removed: 改为 2×3 网格按钮，选项折叠
 
   // 操作区浮层（合并选项+输入框+2×3网格，默认收起）
@@ -1188,7 +1193,6 @@ function renderOneHeartGameScreen() {
       '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
       '</div>' +
       '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
-      (GS._pendingEvents && GS._pendingEvents.length > 0 ? '<div id="pendingBanner" class="pending-banner">📌 有 ' + GS._pendingEvents.length + ' 个待处理事件</div>' : '') +
       '<button id="pendingEventBtn" style="width:100%;padding:10px;margin-top:6px;margin-bottom:8px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;cursor:default;background:#e0e0e0;color:#999">📋 待处理 0</button>' +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
