@@ -40,11 +40,11 @@ export function showMomentsModal() {
     }
   }
 
-  overlay.innerHTML = '<div class="modal-content" style="width:92%;max-width:420px">' +
+  overlay.innerHTML = '<div class="modal-content" style="width:92%;max-width:420px;display:flex;flex-direction:column;height:80vh">' +
     '<button class="modal-close-x" id="momentsModalClose">✕</button>' +
     '<h3 style="text-align:center;margin-bottom:12px">📸 朋友圈</h3>' +
-    '<div style="max-height:400px;overflow-y:auto">' + momentsHtml + '</div>' +
-    '<button id="momentsRefreshBtn" style="width:100%;margin-top:10px;padding:8px;border:1px solid var(--border-primary);border-radius:8px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:inherit">🔄 刷新动态</button></div>';
+    '<div style="flex:1;overflow-y:auto;min-height:0;padding:0 2px">' + momentsHtml + '</div>' +
+    '<button id="momentsRefreshBtn" style="width:100%;margin-top:10px;padding:8px;border:1px solid var(--border-primary);border-radius:8px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-size:12px;font-family:inherit;flex-shrink:0">🔄 刷新动态</button></div>';
 
   document.body.appendChild(overlay);
 
