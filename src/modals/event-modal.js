@@ -13,6 +13,11 @@ export function showSurpriseEvent(event, callback) {
 export function showPoolEvent(event, callback) {
   showEventModal('🎲 意外事件', event, callback);
 }
+export function showCelebrityEvent(event, callback) { showEventModal('📸 路人围观', event, callback); }
+export function showScandalEvent(event, callback) { showEventModal('📱 媒体风波', event, callback); }
+export function showSickEvent(event, callback) { showEventModal('🤒 他生病了', event, callback); }
+export function showExJealousEvent(event, callback) { showEventModal('📦 他吃醋了', event, callback); }
+export function showLateNightEvent(event, callback) { showEventModal('🌙 深夜心事', event, callback); }
 
 function showEventModal(title, event, callback) {
   var overlay = document.createElement('div');
@@ -92,3 +97,8 @@ export function showConfessionEvent(rivalName, callback) {
 window.showRivalEvent = showRivalEvent;
 window.showConfrontationEvent = showConfrontationEvent;
 window.showConfessionEvent = showConfessionEvent;
+window.showCelebrityEvent = showCelebrityEvent;
+window.showScandalEvent = showScandalEvent;
+window.showSickEvent = showSickEvent;
+window.showExJealousEvent = showExJealousEvent;
+window.showLateNightEvent = showLateNightEvent;

@@ -992,6 +992,11 @@ export function buildOneHeartUserMessage(type, extra) {
     // 注入上一次选择
     if (GS.pendingChoiceText === '📅 新的一天') {
       msg += '[INSTRUCTION] 现在是新的一天的清晨。以早晨的氛围开启新一天的剧情，自然衔接昨日的余韵，不要重复昨日已发生的事。\n\n';
+    } else if (GS.pendingChoiceText && GS.pendingChoiceText.indexOf('🎂') === 0) {
+      msg += '[INSTRUCTION] 今天是他的生日。以庆祝、惊喜、温馨的氛围展开剧情——可以是他为你准备的惊喜，或你们一起过的特别一天。\n\n';
+    } else if (GS.pendingChoiceText && (GS.pendingChoiceText.indexOf('💝')>=0 || GS.pendingChoiceText.indexOf('🎄')>=0 || GS.pendingChoiceText.indexOf('🎆')>=0 || GS.pendingChoiceText.indexOf('🎉')>=0)) {
+      var _holidayName = GS.pendingChoiceText.replace(/^[^\s]+\s/, '').replace('今天是', '');
+      msg += '[INSTRUCTION] 今天' + _holidayName + '。以节日氛围展开剧情——可以是他陪你过节，或者你们一起庆祝。自然融入节日元素。\n\n';
     } else if (GS.pendingChoiceText && GS.pendingChoiceText.indexOf('履行约定：') === 0) {
       var _promiseTxt = GS.pendingChoiceText.replace('履行约定：', '');
       msg += '[履行约定] 她正在履行之前的约定——「' + _promiseTxt + '」。\n';
@@ -1063,6 +1068,16 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '⚠️ [争吵氛围] 你们正在冷战中。互动冷淡克制，保持这个氛围' + GS.oneHeartArgueCooldown + '回合。\n\n';
     }
 
+    // 天气氛围提示
+    var _weatherH = '';
+    if (GS.weather) {
+      if (GS.weather.indexOf('雨') >= 0) _weatherH = '🌧 下雨天——适合室内共处、共撑伞、在窗前听雨的场景。';
+      else if (GS.weather.indexOf('雪') >= 0) _weatherH = '❄️ 下雪天——适合温暖系场景：窝在被窝、热饮、哈着白气的对话。';
+      else if (GS.weather.indexOf('晴') >= 0) _weatherH = '☀️ 晴天——适合户外活动：散步、约会、阳光下的互动。';
+      else if (GS.weather.indexOf('阴') >= 0) _weatherH = '☁️ 阴天——适合略带忧郁或安静内省的氛围。';
+    }
+    if (_weatherH) msg += '🌤 [天气氛围] ' + _weatherH + '\n\n';
+
     // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
     var _lastNarr = '';
     if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
@@ -1129,7 +1144,10 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请生成两条朋友圈动态：\n';
     msg += '1. ' + hp.name + '发的一条动态（约50字）+ ' + member.name + '的评论回复（约20字）\n';
     msg += '2. ' + member.name + '发的一条动态（约50字）+ ' + hp.name + '的评论回复（约20字）\n';
-    msg += '输出格式：{"mine":{"post":"...","reply":"..."},"his":{"post":"...","reply":"..."}}\n';
+    msg += '每条动态包含：文字正文 + 配图描述（30字以内的场景描写，如"练习室镜子前的自拍""窗外的日落"）\n';
+    msg += '动态类型（type）：日常/暗示/深夜/队友/风景\n';
+    msg += '根据当前关系状态决定动态类型和语气：关系好时多甜蜜暗示，关系紧张时不发或发emo内容\n';
+    msg += '输出格式：{"mine":{"post":"...","reply":"...","photo":"...","type":"..."},"his":{"post":"...","reply":"...","photo":"...","type":"..."}}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
     var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
     var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);

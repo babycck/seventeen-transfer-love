@@ -41,6 +41,8 @@ export function defaultGameState() {
     oneHeartRivalPool: [],
     oneHeartRivalAff: 0,
     _pendingEvents: [],
+    letters: [],
+    messageHistory: [],
     oneHeartArgueCooldown: 0,
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
@@ -400,6 +402,7 @@ export function migrateSave() {
     if (GS.oneHeartRivalAff === undefined) GS.oneHeartRivalAff = 0;
     if (GS.oneHeartArgueCooldown === undefined) GS.oneHeartArgueCooldown = 0;
     if (!Array.isArray(GS._pendingEvents)) GS._pendingEvents = [];
+    if (!Array.isArray(GS.letters)) GS.letters = [];
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];

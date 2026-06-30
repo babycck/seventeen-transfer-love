@@ -11,7 +11,7 @@ import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather } from './formatters.js';
-import { IDENTITY_RELATION_MAP } from './data.js';
+import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1 } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -2175,7 +2175,20 @@ function bindOneHeartEvents() {
       window.__renderAll();
       hideLoading();
       showLoading('📅 ' + GS.currentDate.month + '月' + GS.currentDate.day + '日 · 新的一天，新的故事...');
-      GS.pendingChoiceText = '📅 新的一天';
+      // 检查生日/节日
+      if (GS.currentDate) {
+        var _bday = MEMBER_BIRTHDAYS[GS.oneHeartMember];
+        var _holiday = HOLIDAYS_1V1.find(function(h){return h.month===GS.currentDate.month&&h.day===GS.currentDate.day;});
+        if (_bday && _bday.month===GS.currentDate.month && _bday.day===GS.currentDate.day) {
+          GS.pendingChoiceText = '🎂 今天是他的生日';
+        } else if (_holiday) {
+          GS.pendingChoiceText = _holiday.emoji + ' 今天是' + _holiday.name;
+        } else {
+          GS.pendingChoiceText = '📅 新的一天';
+        }
+      } else {
+        GS.pendingChoiceText = '📅 新的一天';
+      }
       var _ob7 = document.getElementById('operationBody'); if (_ob7) _ob7.style.display = 'none';
       await generateOneHeartRound();
     });
@@ -2194,6 +2207,11 @@ function bindOneHeartEvents() {
         else if (ev.type === 'pool') showFn = window.showPoolEvent;
         else if (ev.type === 'rival') showFn = window.showRivalEvent;
         else if (ev.type === 'confrontation') showFn = window.showConfrontationEvent;
+        else if (ev.type === 'celebrity') showFn = window.showCelebrityEvent;
+        else if (ev.type === 'scandal') showFn = window.showScandalEvent;
+        else if (ev.type === 'sick') showFn = window.showSickEvent;
+        else if (ev.type === 'exjealous') showFn = window.showExJealousEvent;
+        else if (ev.type === 'latenight') showFn = window.showLateNightEvent;
         else if (ev.type === 'confession') {
           window.showConfessionEvent(ev.rivalName, function(idx) { resolve(idx); });
           return;

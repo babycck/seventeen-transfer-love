@@ -13,9 +13,10 @@ import { rollDatingDice, pickDatingLocation } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
 import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
-import { JEALOUSY_EVENTS, SURPRISE_EVENTS } from './data.js';
+import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
+import { showMessageModal, generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { validateNarrative } from './validator.js';
@@ -1772,6 +1773,31 @@ export async function generateOneHeartRound(extra) {
       if (parsed.narrative.length >= 50) detectOneHeartPromises(parsed.narrative);
     }
 
+    // 1v1 秘密信件触发（第5回合后每7-10回合）
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) >= 5 && (GS.oneHeartGenCount || 0) % randInt(7, 10) === 0) {
+      generateLetter();
+    }
+
+    // 1v1 主动消息触发（每5-8回合）
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % randInt(5, 8) === 0 && Math.random() < 0.6) {
+      var _aff = GS.affection[GS.oneHeartMember] || 0;
+      var _msg = await generateMessage(_aff);
+      if (_msg) {
+        await new Promise(function(resolve) {
+          showMessageModal(_msg, async function(reply) {
+            if (reply) {
+              if (!GS.messageHistory) GS.messageHistory = [];
+              GS.messageHistory[GS.messageHistory.length - 1].reply = reply;
+              var _mid = GS.oneHeartMember;
+              if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 2; }
+            }
+            saveGame();
+            resolve();
+          });
+        });
+      }
+    }
+
     // 如果是走向结局，生成后结束游戏
     if (extra.isEnding) {
       GS.gameOver = true;
@@ -2009,6 +2035,36 @@ async function checkOneHeartEvents() {
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
     }
+  }
+
+  // === 路人围观事件 ===
+  if (Math.random() < 0.08 && GS._pendingEvents.length < 2) {
+    var _celeb = CELEBRITY_EVENTS[Math.floor(Math.random() * CELEBRITY_EVENTS.length)];
+    GS._pendingEvents.push({ type: 'celebrity', scenario: _celeb.scenario, options: _celeb.options });
+  }
+
+  // === 媒体风波事件 ===
+  if ((aff >= 50 || rivalAff >= 10) && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
+    var _scan = SCANDAL_EVENTS[Math.floor(Math.random() * SCANDAL_EVENTS.length)];
+    GS._pendingEvents.push({ type: 'scandal', scenario: _scan.scenario, options: _scan.options });
+  }
+
+  // === 生病事件 ===
+  if (Math.random() < 0.05 && GS._pendingEvents.length < 2) {
+    var _sick = SICK_EVENTS[Math.floor(Math.random() * SICK_EVENTS.length)];
+    GS._pendingEvents.push({ type: 'sick', scenario: _sick.scenario, options: _sick.options });
+  }
+
+  // === 吃前任醋事件 ===
+  if (aff >= 40 && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
+    var _ex = EX_JEALOUSY_EVENTS[Math.floor(Math.random() * EX_JEALOUSY_EVENTS.length)];
+    GS._pendingEvents.push({ type: 'exjealous', scenario: _ex.scenario, options: _ex.options });
+  }
+
+  // === 深夜脆弱事件 ===
+  if (aff >= 30 && Math.random() < 0.10 && GS._pendingEvents.length < 2) {
+    var _late = LATE_NIGHT_EVENTS[Math.floor(Math.random() * LATE_NIGHT_EVENTS.length)];
+    GS._pendingEvents.push({ type: 'latenight', scenario: _late.scenario, options: _late.options });
   }
 
 }
@@ -2307,7 +2363,10 @@ export async function generateMoment() {
         name: GS.heroineProfile.name || '',
         post: json.mine.post,
         reply: json.mine.reply || '',
-        timestamp: ts
+        photo: json.mine.photo || '',
+        type: json.mine.type || '日常',
+        timestamp: ts,
+        liked: false
       });
     }
     // 他的动态
@@ -2317,7 +2376,10 @@ export async function generateMoment() {
         name: memberName,
         post: json.his.post,
         reply: json.his.reply || '',
-        timestamp: ts
+        photo: json.his.photo || '',
+        type: json.his.type || '日常',
+        timestamp: ts,
+        liked: false
       });
     }
 
@@ -2384,5 +2446,39 @@ export async function generateTheater(themePrompt) {
     hideLoading();
     GS._isGenerating = false;
     return null;
+  }
+}
+
+// 1v1 秘密信箱
+async function generateLetter() {
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    var userMsg = '请以' + (member ? member.name : '他') + '的第一人称视角写一封给女主的信（200-300字）。\n' +
+      '这是他不会当面说出口的话——比日记更私密、更坦诚。\n' +
+      '基于近期剧情和当前关系状态。\n' +
+      '当前关系：' + getAffectionDesc(GS.affection[GS.oneHeartMember] || 0) + '\n' +
+      '不需要日期，直接写正文。结尾署名他的名字。\n\n' +
+      '近期剧情：\n' + (GS.todayFullText.slice(-1)[0] || '') + '\n\n' +
+      '输出格式：{"content":"信的正文..."}';
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: 800, temperature: 0.8, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
+    if (!raw) return;
+    var json;
+    try { json = JSON.parse(raw); } catch (e) {
+      var m = raw.match(/\{[\s\S]*\}/);
+      if (m) json = JSON.parse(m[0]);
+    }
+    if (!json || !json.content) return;
+    if (!GS.letters) GS.letters = [];
+    GS.letters.push({
+      round: GS.oneHeartGenCount || 0,
+      content: json.content,
+      timestamp: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : ''
+    });
+    saveGame();
+  } catch (e) {
+    console.warn('[1v1 letter] error:', e);
   }
 }
