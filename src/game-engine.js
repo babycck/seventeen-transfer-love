@@ -1689,7 +1689,7 @@ export async function generateOneHeartRound(extra) {
             }
             if (compressText.length > 100) {
               var summary = await callDeepSeek(
-                '你是记忆压缩助手。将以下多段剧情压缩为约1000字的详细摘要。保留关键事件、对话和情感转折。去掉冗余描写。只输出压缩后的文本。',
+                '你是记忆压缩助手。将以下多段剧情压缩为约1000字的详细摘要。保留关键事件、对话和情感转折。去掉冗余描写。\n\n⚠️ 必须保留以下信息（如果在这段剧情中出现了）：\n1. 关系状态的变化（告白、吵架、和好、分手、冷战）\n2. 所有出场角色的名字\n3. 关键承诺和约定\n4. 情敌相关的重要互动\n5. 重要场景和地点\n6. 情感线上的转折点\n\n只输出压缩后的文本。',
                 '请将以下剧情压缩为约1000字摘要：\n\n' + compressText,
                 TOKEN_CONFIG.dailySummary || 2000,
                 false,
@@ -1793,14 +1793,16 @@ window.generateOneHeartRound = generateOneHeartRound;
 
 // 1v1 事件触发检查（回合后）
 async function checkOneHeartEvents() {
+  // 意外池：每回合独立触发，不受冷却限制
+  await tryPoolEvent();
+
   if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return;
-  if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 3) return;
+  if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 2) return;
   var aff = GS.affection[GS.oneHeartMember] || 0;
 
   // 争吵冷却递减
   if (GS.oneHeartArgueCooldown > 0) GS.oneHeartArgueCooldown--;
 
-  var triggered = false;
   var rivalAff = GS.oneHeartRivalAff || 0;
   var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
 
@@ -1816,11 +1818,11 @@ async function checkOneHeartEvents() {
   if (GS._confessionCooldown > 0 && GS._confessionCooldown < 99) GS._confessionCooldown--;
 
   // === 嫉妒事件（频率随情敌好感度提升）===
-  var _jealousyChance = 0.15;
+  var _jealousyChance = 0.20;
   if (hasRival && rivalAff >= 30) _jealousyChance = 0.30;
   else if (hasRival && rivalAff >= 20) _jealousyChance = 0.25;
   else if (hasRival && rivalAff >= 10) _jealousyChance = 0.20;
-  if (!triggered && aff >= 60 && Math.random() < _jealousyChance) {
+  if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
     // 情敌好感度高时，部分触发转为激烈争吵
     if (hasRival && rivalAff >= 20 && Math.random() < 0.30) {
       // 争吵分支
@@ -1850,7 +1852,7 @@ async function checkOneHeartEvents() {
       }
     }
   }
-  if (!triggered && aff >= 60 && Math.random() < _jealousyChance) {
+  if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
     var _jeaScenario = '';
     var _jeaOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
     var _useJeaPool = GS.oneHeartJealousyPool && GS.oneHeartJealousyPool.length > 0 && Math.random() < 0.3;
@@ -1907,7 +1909,7 @@ async function checkOneHeartEvents() {
   }
 
   // 惊喜事件（70% AI 生成 + 30% 池子 + 硬编码兜底）
-  if (!triggered && aff >= 50 && Math.random() < 0.10) {
+  if (aff >= 50 && Math.random() < 0.15 && GS._pendingEvents.length < 2) {
     var _surScenario = '';
     var _surOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
     var _useSurPool = GS.oneHeartSurprisePool && GS.oneHeartSurprisePool.length > 0 && Math.random() < 0.3;
@@ -1960,7 +1962,7 @@ async function checkOneHeartEvents() {
   }
 
   // === 情敌专属事件 ===
-  if (!triggered && hasRival && !GS._confessionAccepted && rivalAff >= 15 && Math.random() < 0.10) {
+  if (hasRival && !GS._confessionAccepted && rivalAff >= 15 && Math.random() < 0.15 && GS._pendingEvents.length < 2) {
     var _rivScenario = '';
     var _rivOpts = ['靠近他', '保持距离', '装作没发现'];
     var _useRivPool = GS.oneHeartRivalPool && GS.oneHeartRivalPool.length > 0 && Math.random() < 0.3;
@@ -2009,42 +2011,42 @@ async function checkOneHeartEvents() {
     }
   }
 
-  // 意外事件池
-  if (!triggered && Math.random() < 0.15) {
-    var usePool = GS.oneHeartEventPool && GS.oneHeartEventPool.length > 0 && Math.random() < 0.3;
-    var scenario = '';
-    var opts = ['跟着直觉走', '冷静观察', '大胆行动'];
-    if (usePool) {
-      var poolItem = GS.oneHeartEventPool[Math.floor(Math.random() * GS.oneHeartEventPool.length)];
-      scenario = poolItem.scenario;
-      if (poolItem.options && poolItem.options.length >= 3) opts = poolItem.options;
-    } else {
-      try {
-        var poolRes = await callDeepSeek(
-          '生成一个简短的情感剧情场景（50字以内），发生在恋爱中的情侣之间。包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
-          '生成意外事件', 300, false, 0.8
-        );
-        var poolParsed;
-        try { poolParsed = JSON.parse(poolRes); } catch (pe) {
-          var pm = poolRes.match(/\{[\s\S]*\}/);
-          if (pm) try { poolParsed = JSON.parse(pm[0]); } catch (pe2) { poolParsed = null; }
+}
+
+// 意外事件池：独立于冷却系统，每回合单独触发
+async function tryPoolEvent() {
+  if (Math.random() >= 0.25) return;
+  var usePool = GS.oneHeartEventPool && GS.oneHeartEventPool.length > 0 && Math.random() < 0.3;
+  var scenario = '';
+  var opts = ['跟着直觉走', '冷静观察', '大胆行动'];
+  if (usePool) {
+    var poolItem = GS.oneHeartEventPool[Math.floor(Math.random() * GS.oneHeartEventPool.length)];
+    scenario = poolItem.scenario;
+    if (poolItem.options && poolItem.options.length >= 3) opts = poolItem.options;
+  } else {
+    try {
+      var poolRes = await callDeepSeek(
+        '生成一个简短的情感剧情场景（50字以内），发生在恋爱中的情侣之间。包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+        '生成意外事件', 300, false, 0.8
+      );
+      var poolParsed;
+      try { poolParsed = JSON.parse(poolRes); } catch (pe) {
+        var pm = poolRes.match(/\{[\s\S]*\}/);
+        if (pm) try { poolParsed = JSON.parse(pm[0]); } catch (pe2) { poolParsed = null; }
+      }
+      if (poolParsed && poolParsed.scenario) {
+        scenario = poolParsed.scenario;
+        if (poolParsed.options && poolParsed.options.length >= 3) opts = poolParsed.options;
+        if (!GS.oneHeartEventPool) GS.oneHeartEventPool = [];
+        if (GS.oneHeartEventPool.length < 50) {
+          GS.oneHeartEventPool.push({ scenario: poolParsed.scenario, options: poolParsed.options.slice(0, 3) });
         }
-        if (poolParsed && poolParsed.scenario) {
-          scenario = poolParsed.scenario;
-          if (poolParsed.options && poolParsed.options.length >= 3) opts = poolParsed.options;
-          if (!GS.oneHeartEventPool) GS.oneHeartEventPool = [];
-          if (GS.oneHeartEventPool.length < 50) {
-            GS.oneHeartEventPool.push({ scenario: poolParsed.scenario, options: poolParsed.options.slice(0, 3) });
-          }
-        }
-      } catch (e) { scenario = '发生了一个小小的意外'; }
-    }
-    if (scenario) {
-      triggered = true;
-      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
-      if (!GS._pendingEvents) GS._pendingEvents = [];
-      GS._pendingEvents.push({ type: 'pool', scenario: scenario, options: opts });
-    }
+      }
+    } catch (e) { scenario = '发生了一个小小的意外'; }
+  }
+  if (scenario) {
+    if (!GS._pendingEvents) GS._pendingEvents = [];
+    GS._pendingEvents.push({ type: 'pool', scenario: scenario, options: opts });
   }
 }
 

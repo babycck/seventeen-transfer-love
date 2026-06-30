@@ -931,6 +931,23 @@ export function buildOneHeartSystemPrompt() {
 
     (GS.oneHeartMainLine ? '[主线方向] 玩家预设的故事发展方向：' + GS.oneHeartMainLine + '\n请优先沿着这个方向推进剧情。\n\n' : '') +
 
+    '[已有事实]\n' +
+    '- 你们的关系：' + (function() {
+      var _aff = GS.affection[GS.oneHeartMember] || 0;
+      if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) return '冷战中';
+      if (_aff >= 80) return '深爱期';
+      if (_aff >= 60) return '热恋期';
+      if (_aff >= 40) return '暧昧升温';
+      if (_aff >= 20) return '暧昧初期';
+      return '初识期';
+    })() + '（好感度 ' + (GS.affection[GS.oneHeartMember] || 0) + '）\n' +
+    (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '- ' + GS.oneHeartRelationCharacter.role + '：' + GS.oneHeartRelationCharacter.name + '\n' : '') +
+    (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + '\n' : '') +
+    (GS.oneHeartPromises && GS.oneHeartPromises.length > 0 ? '- 约定：' + GS.oneHeartPromises.filter(function(p){return !p.fulfilled;}).map(function(p){return p.text;}).join('、') + '\n' : '') +
+    (GS._confessionAccepted ? '- 情敌路线已激活\n' : '') +
+    (GS.oneHeartColdWar && GS.oneHeartColdWar.active ? '- 状态：正在冷战中\n' : '') +
+    '\n' +
+
     '请基于以上设定和当前场景上下文，生成沉浸式剧情，只输出 JSON。';
 
   return result;
@@ -957,9 +974,10 @@ export function buildOneHeartUserMessage(type, extra) {
   if (type === 'phase') {
     // 注入压缩记忆（历史回顾）
     if (GS.dailySummaries && GS.dailySummaries.length > 0) {
+      var _recentSums = GS.dailySummaries.slice(-3);
       msg += '[历史回顾（压缩记忆）]\n';
-      for (var _dsi = 0; _dsi < GS.dailySummaries.length; _dsi++) {
-        msg += '第' + (_dsi + 1) + '段压缩记忆：' + GS.dailySummaries[_dsi] + '\n';
+      for (var _dsi = 0; _dsi < _recentSums.length; _dsi++) {
+        msg += '第' + (_dsi + 1) + '段压缩记忆：' + _recentSums[_dsi] + '\n';
       }
       msg += '\n';
     }
@@ -1079,9 +1097,10 @@ export function buildOneHeartUserMessage(type, extra) {
     // 注入故事上下文
     var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
     if (_chatRound >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
+      var _chatSums = GS.dailySummaries.slice(-3);
       msg += '[历史回顾]\n';
-      for (var _ci = 0; _ci < GS.dailySummaries.length; _ci++) {
-        msg += 'Day ' + (_ci + 1) + '：' + GS.dailySummaries[_ci].slice(0, 400) + '\n';
+      for (var _ci = 0; _ci < _chatSums.length; _ci++) {
+        msg += 'Day ' + (_ci + 1) + '：' + _chatSums[_ci].slice(0, 400) + '\n';
       }
       msg += '\n';
       var _ciIdx = GS.oneHeartLastCompressedIdx || 0;
