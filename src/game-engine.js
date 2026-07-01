@@ -1675,7 +1675,8 @@ export async function generateOneHeartRound(extra) {
       GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
       if (GS.oneHeartLastCompressedIdx === undefined) GS.oneHeartLastCompressedIdx = 0;
       var _needMore = GS.todayFullText.length - GS.oneHeartLastCompressedIdx;
-      if (GS.oneHeartGenCount >= 15 && _needMore >= 10) {
+      if (GS.oneHeartGenCount >= 15 && _needMore >= 10 && !GS._compressing) {
+        GS._compressing = true;
         var _startIdx = GS.oneHeartLastCompressedIdx;
         // 从 todayFullText 取未压缩的 10 条（只读，不 splice）
         var _toCompress = GS.todayFullText.slice(_startIdx, _startIdx + 10);
@@ -1707,6 +1708,8 @@ export async function generateOneHeartRound(extra) {
             saveGame();
           } catch (e) {
             console.error('[1v1 compress] error:', e);
+          } finally {
+            GS._compressing = false;
           }
         })(_toCompress, _startIdx);
       }
@@ -1734,8 +1737,10 @@ export async function generateOneHeartRound(extra) {
             GS.oneHeartColdWar.startRound = GS.oneHeartGenCount || 0;
           }
         } else if (diff > 0) {
+          var _wasActive = GS.oneHeartColdWar.active;
           GS.oneHeartColdWar.consecutiveDrops = 0;
           GS.oneHeartColdWar.active = false;
+          if (_wasActive && showToast) showToast('❄️ 冷战终于结束了 💗');
         }
       }
 
@@ -1818,12 +1823,103 @@ export async function generateOneHeartRound(extra) {
 
 window.generateOneHeartRound = generateOneHeartRound;
 
+// 事件去重工具函数
+function isEventUsed(scenario) {
+  if (!scenario || !GS._usedEventScenarios) return false;
+  return GS._usedEventScenarios.indexOf(scenario.slice(0, 30)) >= 0;
+}
+function markEventUsed(scenario) {
+  if (!scenario || !GS._usedEventScenarios) return;
+  var key = scenario.slice(0, 30);
+  if (GS._usedEventScenarios.indexOf(key) < 0) GS._usedEventScenarios.push(key);
+}
+window.markEventUsed = markEventUsed;
+
+// 从硬编码池选取未使用事件（如全部已用则清空标记并重新轮转）
+function pickUnusedEvent(arr) {
+  if (!arr || arr.length === 0) return null;
+  var unused = arr.filter(function(e) { return !isEventUsed(e.scenario); });
+  if (unused.length === 0) {
+    GS._usedEventScenarios = []; // 全部用完了，清空轮转
+    unused = arr;
+  }
+  var pick = unused[Math.floor(Math.random() * unused.length)];
+  markEventUsed(pick.scenario);
+  return pick;
+}
+
+// 小事件通用选取：50% 缓存池 / 50% AI 生成 / fallback 硬编码
+var SMALL_EVENT_MAP = {
+  celebrity: { pool: 'oneHeartCelebrityPool', hardcode: 'CELEBRITY_EVENTS', type: 'celebrity' },
+  scandal: { pool: 'oneHeartScandalPool', hardcode: 'SCANDAL_EVENTS', type: 'scandal' },
+  sick: { pool: 'oneHeartSickPool', hardcode: 'SICK_EVENTS', type: 'sick' },
+  exjealous: { pool: 'oneHeartExJealousPool', hardcode: 'EX_JEALOUSY_EVENTS', type: 'exjealous' },
+  latenight: { pool: 'oneHeartLateNightPool', hardcode: 'LATE_NIGHT_EVENTS', type: 'latenight' }
+};
+async function pickSmallEvent(key, hardcodeArr) {
+  var cfg = SMALL_EVENT_MAP[key];
+  if (!cfg) return;
+  var pool = GS[cfg.pool] || [];
+  var scenario = '';
+  var opts = ['跟着直觉走', '冷静观察', '大胆行动'];
+  // 50% 从缓存池抽（去重）
+  if (pool.length > 0 && Math.random() < 0.5) {
+    var unused = pool.filter(function(e) { return !isEventUsed(e.scenario); });
+    if (unused.length > 0) {
+      var pItem = unused[Math.floor(Math.random() * unused.length)];
+      scenario = pItem.scenario;
+      if (pItem.options && pItem.options.length >= 3) opts = pItem.options;
+      markEventUsed(scenario);
+    }
+  }
+  // 50% AI 生成或池未命中
+  if (!scenario) {
+    var _wc = getWorldConfig(GS.worldSetting);
+    var _wcInfo = _wc ? (_wc.coreTension || '') : '';
+    try {
+      var promptText = '生成一个恋爱情境中的' + key + '场景（50字以内）+ 3个选项（每个20字以内）。\n';
+      if (cfg.type === 'celebrity') promptText += '这是一个「路人认出来了」的情景。\n';
+      else if (cfg.type === 'scandal') promptText += '这是一个「社交媒体/八卦传出流言」的情景。\n';
+      else if (cfg.type === 'sick') promptText += '这是一个「他生病/受伤了需要照顾」的情景。\n';
+      else if (cfg.type === 'exjealous') promptText += '这是一个「因为前任而产生的吃醋」的情景。\n';
+      else if (cfg.type === 'latenight') promptText += '这是一个「深夜脆弱时刻」的情景。\n';
+      promptText += '世界观背景：' + GS.worldSetting + (_wcInfo ? ' ' + _wcInfo : '') + '\n';
+      promptText += '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}';
+      var _res = await callDeepSeek(promptText, '生成' + key + '事件', 300, false, 0.8);
+      var _parsed;
+      try { _parsed = JSON.parse(_res); } catch (pe) {
+        var _m = _res.match(/\{[\s\S]*\}/);
+        if (_m) try { _parsed = JSON.parse(_m[0]); } catch (pe2) { _parsed = null; }
+      }
+      if (_parsed && _parsed.scenario) {
+        scenario = _parsed.scenario;
+        if (_parsed.options && _parsed.options.length >= 3) opts = _parsed.options;
+        if (pool.length < 50) {
+          pool.push({ scenario: scenario, options: opts.slice(0, 3) });
+          GS[cfg.pool] = pool;
+        }
+        markEventUsed(scenario);
+      }
+    } catch (e) {}
+  }
+  // AI 失败则硬编码兜底（去重）
+  if (!scenario) {
+    var picked = pickUnusedEvent(hardcodeArr);
+    if (picked) {
+      scenario = picked.scenario;
+      opts = picked.options;
+    }
+  }
+  if (scenario) {
+    GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
+    GS._pendingEvents.push({ type: cfg.type, scenario: scenario, options: opts });
+  }
+}
+
 // 1v1 事件触发检查（回合后）
 async function checkOneHeartEvents() {
   // 意外池：每回合独立触发，不受冷却限制
   await tryPoolEvent();
-
-  if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) return;
   if (GS.oneHeartLastEventRound && (GS.oneHeartGenCount || 0) - GS.oneHeartLastEventRound < 2) return;
   var aff = GS.affection[GS.oneHeartMember] || 0;
 
@@ -1832,16 +1928,11 @@ async function checkOneHeartEvents() {
 
   var rivalAff = GS.oneHeartRivalAff || 0;
   var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
-  var triggered = false;
 
   // === 告白事件（优先级最高）===
-  if (!triggered && hasRival && rivalAff >= 40 && Math.random() < 0.5 && !GS._confessionCooldown) {
-    var _confessionRound = GS._confessionCooldown || 0;
-    if (_confessionRound <= 0) {
-      triggered = true;
-      GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
-      GS._pendingEvents.push({ type: 'confession', rivalName: GS.oneHeartRival.name });
-    }
+  if (hasRival && rivalAff >= 40 && Math.random() < 0.5 && !GS._confessionCooldown && !GS._confessionAccepted) {
+    GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
+    GS._pendingEvents.push({ type: 'confession', rivalName: GS.oneHeartRival.name });
   }
   if (GS._confessionCooldown > 0 && GS._confessionCooldown < 99) GS._confessionCooldown--;
 
@@ -1874,21 +1965,27 @@ async function checkOneHeartEvents() {
         }
       } catch (e) {}
       if (_argueScenario) {
-        triggered = true;
+        markEventUsed(_argueScenario);
         if (!GS._pendingEvents) GS._pendingEvents = [];
         GS._pendingEvents.push({ type: 'confrontation', scenario: _argueScenario, options: _argueOpts, targetId: GS.oneHeartMember });
+        GS.oneHeartArgueCooldown = 3;
       }
     }
-  }
-  if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
+  } else if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
     var _jeaScenario = '';
     var _jeaOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
-    var _useJeaPool = GS.oneHeartJealousyPool && GS.oneHeartJealousyPool.length > 0 && Math.random() < 0.3;
+    var _jeaPool = GS.oneHeartJealousyPool || [];
+    var _useJeaPool = _jeaPool.length > 0 && Math.random() < 0.3;
     if (_useJeaPool) {
-      var _jpItem = GS.oneHeartJealousyPool[Math.floor(Math.random() * GS.oneHeartJealousyPool.length)];
-      _jeaScenario = _jpItem.scenario;
-      if (_jpItem.options && _jpItem.options.length >= 3) _jeaOpts = _jpItem.options;
-    } else {
+      var _jpUnused = _jeaPool.filter(function(e) { return !isEventUsed(e.scenario); });
+      if (_jpUnused.length > 0) {
+        var _jpItem = _jpUnused[Math.floor(Math.random() * _jpUnused.length)];
+        _jeaScenario = _jpItem.scenario;
+        if (_jpItem.options && _jpItem.options.length >= 3) _jeaOpts = _jpItem.options;
+        markEventUsed(_jeaScenario);
+      }
+    }
+    if (!_jeaScenario) {
       try {
         var _wcJe = getWorldConfig(GS.worldSetting);
         var _wcJeInfo = _wcJe ? (_wcJe.coreTension || '') : '';
@@ -1913,12 +2010,17 @@ async function checkOneHeartEvents() {
           if (GS.oneHeartJealousyPool.length < 50) {
             GS.oneHeartJealousyPool.push({ scenario: _jeaParsed.scenario, options: _jeaParsed.options.slice(0, 3) });
           }
+          markEventUsed(_jeaScenario);
         }
       } catch (e) {}
     }
-    // 如 AI 生成失败，硬编码兜底
+    // 如 AI 生成失败，硬编码兜底（去重）
     if (!_jeaScenario) {
-      var _jeaFallback = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
+      var _jeaFallback = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff && !isEventUsed(e.scenario); });
+      if (_jeaFallback.length === 0) {
+        GS._usedEventScenarios = [];
+        _jeaFallback = JEALOUSY_EVENTS.filter(function(e) { return aff >= e.minAff; });
+      }
       if (_jeaFallback.length > 0) {
         var _jeaFb = _jeaFallback[Math.floor(Math.random() * _jeaFallback.length)];
         _jeaScenario = _jeaFb.scenario;
@@ -1926,10 +2028,10 @@ async function checkOneHeartEvents() {
           _jeaScenario = _jeaScenario.replace(/同事|异性朋友|别人|另一个男生|另一个/g, GS.oneHeartRival.name);
         }
         _jeaOpts = _jeaFb.options;
+        markEventUsed(_jeaScenario);
       }
     }
     if (_jeaScenario) {
-      triggered = true;
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       if (!GS._pendingEvents) GS._pendingEvents = [];
       GS._pendingEvents.push({ type: 'jealousy', scenario: _jeaScenario, options: _jeaOpts, targetId: GS.oneHeartMember, hasRival: hasRival });
@@ -1982,7 +2084,6 @@ async function checkOneHeartEvents() {
       }
     }
     if (_surScenario) {
-      triggered = true;
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       if (!GS._pendingEvents) GS._pendingEvents = [];
       GS._pendingEvents.push({ type: 'surprise', scenario: _surScenario, options: _surOpts });
@@ -2033,7 +2134,6 @@ async function checkOneHeartEvents() {
       }
     }
     if (_rivScenario) {
-      triggered = true;
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
       GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
     }
@@ -2041,38 +2141,34 @@ async function checkOneHeartEvents() {
 
   // === 路人围观事件 ===
   if (Math.random() < 0.08 && GS._pendingEvents.length < 2) {
-    var _celeb = CELEBRITY_EVENTS[Math.floor(Math.random() * CELEBRITY_EVENTS.length)];
-    GS._pendingEvents.push({ type: 'celebrity', scenario: _celeb.scenario, options: _celeb.options });
+    pickSmallEvent('celebrity', CELEBRITY_EVENTS);
   }
 
   // === 媒体风波事件 ===
   if ((aff >= 50 || rivalAff >= 10) && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
-    var _scan = SCANDAL_EVENTS[Math.floor(Math.random() * SCANDAL_EVENTS.length)];
-    GS._pendingEvents.push({ type: 'scandal', scenario: _scan.scenario, options: _scan.options });
+    pickSmallEvent('scandal', SCANDAL_EVENTS);
   }
 
   // === 生病事件 ===
   if (Math.random() < 0.05 && GS._pendingEvents.length < 2) {
-    var _sick = SICK_EVENTS[Math.floor(Math.random() * SICK_EVENTS.length)];
-    GS._pendingEvents.push({ type: 'sick', scenario: _sick.scenario, options: _sick.options });
+    pickSmallEvent('sick', SICK_EVENTS);
   }
 
   // === 吃前任醋事件 ===
   if (aff >= 40 && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
-    var _ex = EX_JEALOUSY_EVENTS[Math.floor(Math.random() * EX_JEALOUSY_EVENTS.length)];
-    GS._pendingEvents.push({ type: 'exjealous', scenario: _ex.scenario, options: _ex.options });
+    pickSmallEvent('exjealous', EX_JEALOUSY_EVENTS);
   }
 
   // === 深夜脆弱事件 ===
   if (aff >= 30 && Math.random() < 0.10 && GS._pendingEvents.length < 2) {
-    var _late = LATE_NIGHT_EVENTS[Math.floor(Math.random() * LATE_NIGHT_EVENTS.length)];
-    GS._pendingEvents.push({ type: 'latenight', scenario: _late.scenario, options: _late.options });
+    pickSmallEvent('latenight', LATE_NIGHT_EVENTS);
   }
 
 }
 
 // 意外事件池：独立于冷却系统，每回合单独触发
 async function tryPoolEvent() {
+  if (GS._pendingEvents.length >= 2) return; // 队列已满
   var _affPool = GS.affection[GS.oneHeartMember] || 0;
   if (_affPool < 20) return; // 好感度 < 20 不触发
   if (Math.random() >= 0.25) return;

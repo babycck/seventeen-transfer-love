@@ -34,7 +34,8 @@ function showEventModal(title, event, callback) {
   }
 
   overlay.innerHTML =
-    '<div class="modal-content" style="text-align:center;max-width:360px">' +
+    '<div class="modal-content" style="text-align:center;max-width:360px;position:relative">' +
+    '<button class="modal-event-skip" style="position:absolute;top:8px;right:12px;width:28px;height:28px;padding:0;border:none;background:transparent;color:#999;font-size:18px;cursor:pointer;line-height:28px;text-align:center;border-radius:50%;z-index:2">✕</button>' +
     '<h3>' + title + '</h3>' +
     '<p style="color:var(--text-secondary);font-size:14px;line-height:1.8;margin:12px 0">' + escHtml(event.scenario) + '</p>' +
     '<p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">你的选择将影响接下来的故事走向</p>' +
@@ -42,6 +43,15 @@ function showEventModal(title, event, callback) {
     '</div>';
 
   document.body.appendChild(overlay);
+
+  // 忽略按钮
+  var skipBtn = overlay.querySelector('.modal-event-skip');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', function() {
+      overlay.remove();
+      if (typeof callback === 'function') callback(-1);
+    });
+  }
 
   overlay.querySelectorAll('.event-opt-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -68,7 +78,8 @@ export function showConfessionEvent(rivalName, callback) {
   overlay.className = 'modal-overlay';
 
   overlay.innerHTML =
-    '<div class="modal-content" style="text-align:center;max-width:360px">' +
+    '<div class="modal-content" style="text-align:center;max-width:360px;position:relative">' +
+    '<button class="modal-event-skip" style="position:absolute;top:8px;right:12px;width:28px;height:28px;padding:0;border:none;background:transparent;color:#999;font-size:18px;cursor:pointer;line-height:28px;text-align:center;border-radius:50%;z-index:2">✕</button>' +
     '<h3>💗 他表白了</h3>' +
     '<p style="color:var(--text-secondary);font-size:14px;line-height:1.8;margin:12px 0">' + escHtml(rivalName) + '站在你面前，认真地看着你：<br><br>「我知道我没有立场说这些话——但你在我这里，从来不是路过。」<br><br>他表白了。</p>' +
     '<p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">你的选择将影响接下来的故事走向</p>' +
@@ -85,6 +96,14 @@ export function showConfessionEvent(rivalName, callback) {
     '</div></div>';
 
   document.body.appendChild(overlay);
+
+  var _skipBtn = overlay.querySelector('.modal-event-skip');
+  if (_skipBtn) {
+    _skipBtn.addEventListener('click', function() {
+      overlay.remove();
+      if (typeof callback === 'function') callback(-1);
+    });
+  }
 
   overlay.querySelectorAll('.event-opt-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {

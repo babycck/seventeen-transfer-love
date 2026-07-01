@@ -2,6 +2,13 @@ import { GS } from '../state.js';
 import { MEMBERS, PHASES, PHASE_LABELS } from '../data.js';
 import { getAffectionHint, getAffectionDesc } from '../affection.js';
 
+function getRivalAffLabel() {
+  if (!GS.oneHeartRival || !GS.oneHeartRival.name) return '';
+  var aff = GS.oneHeartRivalAff || 0;
+  var label = aff >= 40 ? '心动' : aff >= 20 ? '在意' : '淡淡';
+  return '<span class="rival-tag" style="font-size:10px;padding:2px 8px;background:rgba(255,152,0,0.12);border-radius:8px;margin-left:4px;color:#e65100;white-space:nowrap">🪝 情敌:' + label + '</span>';
+}
+
 // 渲染顶部 Header（日期/时段/天气/好感度提示/6个功能按钮）
 export function renderHeader() {
   var members = GS.selectedMembers.map(function(id) {
@@ -20,6 +27,7 @@ export function renderHeader() {
     '<span class="affection-hint" id="affectionHint" title="点击查看好感度详情">' +
     members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
     '</span>' +
+    (GS.gameMode === 'oneHeart' ? getRivalAffLabel() : '') +
     '<div class="header-btns">' +
     '<button id="settingsBtn" title="设置">⚙️</button>' +
     '<button id="helpBtn" title="帮助（规则速览·使用说明）">❓</button>' +

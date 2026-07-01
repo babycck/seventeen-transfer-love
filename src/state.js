@@ -39,9 +39,16 @@ export function defaultGameState() {
     oneHeartJealousyPool: [],
     oneHeartSurprisePool: [],
     oneHeartRivalPool: [],
+    oneHeartCelebrityPool: [],
+    oneHeartScandalPool: [],
+    oneHeartSickPool: [],
+    oneHeartExJealousPool: [],
+    oneHeartLateNightPool: [],
     oneHeartRivalAff: 0,
     _pendingEvents: [],
     _pendingEventResults: [],
+    _usedEventScenarios: [],
+    _compressing: false,
     letters: [],
     messageHistory: [],
     oneHeartArgueCooldown: 0,
@@ -404,7 +411,14 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartJealousyPool)) GS.oneHeartJealousyPool = [];
     if (!Array.isArray(GS.oneHeartSurprisePool)) GS.oneHeartSurprisePool = [];
     if (!Array.isArray(GS.oneHeartRivalPool)) GS.oneHeartRivalPool = [];
+    if (!Array.isArray(GS.oneHeartCelebrityPool)) GS.oneHeartCelebrityPool = [];
+    if (!Array.isArray(GS.oneHeartScandalPool)) GS.oneHeartScandalPool = [];
+    if (!Array.isArray(GS.oneHeartSickPool)) GS.oneHeartSickPool = [];
+    if (!Array.isArray(GS.oneHeartExJealousPool)) GS.oneHeartExJealousPool = [];
+    if (!Array.isArray(GS.oneHeartLateNightPool)) GS.oneHeartLateNightPool = [];
     if (GS.oneHeartRivalAff === undefined) GS.oneHeartRivalAff = 0;
+    if (!Array.isArray(GS._usedEventScenarios)) GS._usedEventScenarios = [];
+    if (GS._compressing === undefined) GS._compressing = false;
     if (GS.oneHeartArgueCooldown === undefined) GS.oneHeartArgueCooldown = 0;
     if (!Array.isArray(GS._pendingEvents)) GS._pendingEvents = [];
     if (!Array.isArray(GS._pendingEventResults)) GS._pendingEventResults = [];

@@ -5,7 +5,7 @@
   SECOND_CAREER_MAP
 } from './core.js';
 import { formatCorrections } from './validator.js';
-import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask } from './formatters.js';
+import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask, getSeasonByMonth } from './formatters.js';
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
 import { getWorldConfig } from './worlds/index.js';
@@ -945,7 +945,7 @@ export function buildOneHeartSystemPrompt() {
       return '初识期';
     })() + '（好感度 ' + (GS.affection[GS.oneHeartMember] || 0) + '）\n' +
     (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '- ' + GS.oneHeartRelationCharacter.role + '：' + GS.oneHeartRelationCharacter.name + '\n' : '') +
-    (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + '\n' : '') +
+    (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + (GS.oneHeartRival.interactionStyle ? '（互动风格：' + GS.oneHeartRival.interactionStyle + (GS.oneHeartRival.loveStyle ? ' · 情感模式：' + GS.oneHeartRival.loveStyle : '') + '）' : '') + '\n' : '') +
     (GS.oneHeartPromises && GS.oneHeartPromises.length > 0 ? '- 约定：' + GS.oneHeartPromises.filter(function(p){return !p.fulfilled;}).map(function(p){return p.text;}).join('、') + '\n' : '') +
     (GS._confessionAccepted ? '- 情敌路线已激活\n' : '') +
     (GS.oneHeartColdWar && GS.oneHeartColdWar.active ? '- 状态：正在冷战中\n' : '') +
@@ -965,10 +965,12 @@ export function buildOneHeartUserMessage(type, extra) {
   if (GS.currentDate && GS.currentDate.month) {
     msg += '[上下文] ' + (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日';
 
-    if (GS.season) msg += ' · ' + ({spring:'春季',summer:'夏季',autumn:'秋季',winter:'冬季'}[GS.season] || '');
+    var _seasonInfo = getSeasonByMonth(GS.currentDate.month);
+    if (_seasonInfo) msg += ' · ' + _seasonInfo.label;
     if (GS.weather) msg += ' · ' + GS.weather;
     if (GS.gameMode === 'oneHeart') msg += ' · ' + (GS.oneHeartTimeOfDay || '上午');
     msg += '\n';
+    GS.season = _seasonInfo ? _seasonInfo.season : GS.season;
   } else {
     msg += '[上下文] Day ' + GS.day + '\n';
   }
@@ -1107,7 +1109,17 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS._pendingEventResults && GS._pendingEventResults.length > 0) {
       for (var _eri = 0; _eri < GS._pendingEventResults.length; _eri++) {
         var _er = GS._pendingEventResults[_eri];
-        var _erLabel = _er.type === 'jealousy' ? '情感事件' : _er.type === 'surprise' ? '惊喜事件' : '意外事件';
+        var _erLabel = '意外事件';
+        if (_er.type === 'jealousy') _erLabel = '情感事件';
+        else if (_er.type === 'surprise') _erLabel = '惊喜事件';
+        else if (_er.type === 'celebrity') _erLabel = '路人围观';
+        else if (_er.type === 'scandal') _erLabel = '风波';
+        else if (_er.type === 'sick') _erLabel = '他生病了';
+        else if (_er.type === 'exjealous') _erLabel = '前任吃醋';
+        else if (_er.type === 'latenight') _erLabel = '深夜心事';
+        else if (_er.type === 'confrontation') _erLabel = '激烈争吵';
+        else if (_er.type === 'rival') _erLabel = '情敌暧昧';
+        else if (_er.type === 'confession') _erLabel = '告白';
         msg += '[' + _erLabel + ']\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
       }
       GS._pendingEventResults = [];

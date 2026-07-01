@@ -10,7 +10,7 @@
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
-import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather } from './formatters.js';
+import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
@@ -882,6 +882,9 @@ export function bindSetupEvents() {
         GS.gameMonth = seasonResult.month;
         GS.gameDates = seasonResult.dates;
         GS.currentDate = seasonResult.dates[0];
+        // 初始季节根据当前月份动态确定
+        var _initSeason = getSeasonByMonth(GS.currentDate.month);
+        if (_initSeason) GS.season = _initSeason.season;
         GS.weather = generateDailyWeather('', GS.season);
         GS.weathers = [];
         GS._pendingEventResults = [];
@@ -2190,6 +2193,9 @@ function bindOneHeartEvents() {
       GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
       GS.oneHeartTimeOfDay = '上午';
       GS.weather = generateDailyWeather(GS.weather, GS.season);
+      // 根据月份动态更新季节
+      var _newSeason = getSeasonByMonth(GS.currentDate.month);
+      if (_newSeason) GS.season = _newSeason.season;
       saveGame();
       window.__renderAll();
       hideLoading();
@@ -2237,6 +2243,13 @@ function bindOneHeartEvents() {
         }
         if (showFn) showFn({ scenario: ev.scenario, options: ev.options }, function(idx) { resolve(idx); });
       });
+      if (chosenIdx === -1) {
+        // 忽略事件：标记已用、不存结果、不做好感变动
+        if (ev.scenario && window.markEventUsed) window.markEventUsed(ev.scenario);
+        saveGame();
+        renderAll();
+        return;
+      }
       if (chosenIdx === undefined) { renderAll(); return; }
       // 处理好感度变化
       if (ev.type === 'jealousy') {
@@ -2251,11 +2264,14 @@ function bindOneHeartEvents() {
       } else if (ev.type === 'rival') {
         if (chosenIdx === 0) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 5;
         else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 2;
+        else if (chosenIdx === 2) showToast('🤫 你装作没发现，但心里有些在意');
       } else if (ev.type === 'confession') {
         if (chosenIdx === 0) { GS.oneHeartRivalAff = 60; GS._confessionAccepted = true; }
         else if (chosenIdx === 1) { GS.oneHeartRivalAff = 0; GS._confessionCooldown = 99; }
         else GS._confessionCooldown = 5;
       }
+      // 标记事件为已用
+      if (ev.scenario && window.markEventUsed) window.markEventUsed(ev.scenario);
       if (!GS._pendingEventResults) GS._pendingEventResults = [];
       GS._pendingEventResults.push({ type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', chosenIdx: chosenIdx });
       saveGame();

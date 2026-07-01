@@ -259,6 +259,20 @@ export function generateOneHeartDates() {
   return { season: season, seasonLabel: seasonLabels[season], month: month, dates: dates };
 }
 
+// 根据月份动态判断季节（替代游戏开始时固定的季节）
+var SEASON_BY_MONTH = {
+  3: 'spring', 4: 'spring', 5: 'spring',
+  6: 'summer', 7: 'summer', 8: 'summer',
+  9: 'autumn', 10: 'autumn', 11: 'autumn',
+  12: 'winter', 1: 'winter', 2: 'winter'
+};
+var SEASON_LABELS = { spring: '春季', summer: '夏季', autumn: '秋季', winter: '冬季' };
+
+export function getSeasonByMonth(month) {
+  var s = SEASON_BY_MONTH[month] || 'spring';
+  return { season: s, label: SEASON_LABELS[s] };
+}
+
 // ==================== 天气系统 ====================
 export function generateDailyWeather(prevWeather, season) {
   var pool = WEATHER_POOLS[season] || WEATHER_POOLS.spring;
