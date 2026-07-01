@@ -1884,7 +1884,7 @@ async function pickSmallEvent(key, hardcodeArr) {
       else if (cfg.type === 'exjealous') promptText += '这是一个「因为前任而产生的吃醋」的情景。\n';
       else if (cfg.type === 'latenight') promptText += '这是一个「深夜脆弱时刻」的情景。\n';
       promptText += '世界观背景：' + GS.worldSetting + (_wcInfo ? ' ' + _wcInfo : '') + '\n';
-      promptText += '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}';
+      promptText += '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}';
       var _res = await callDeepSeek(promptText, '生成' + key + '事件', 300, false, 0.8);
       var _parsed;
       try { _parsed = JSON.parse(_res); } catch (pe) {
@@ -1951,7 +1951,7 @@ async function checkOneHeartEvents() {
         var _arRes = await callDeepSeek(
           '生成一个情侣间因第三方介入而激烈争吵的场景（50字以内）+ 3个选项（每个20字以内）。\n' +
           '第三方是「' + GS.oneHeartRival.name + '」，他对你们的关系构成了威胁。他发现了你们之间的暧昧。\n' +
-          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
           '生成争吵事件', 300, false, 0.8
         );
         var _arParsed;
@@ -1995,7 +1995,7 @@ async function checkOneHeartEvents() {
           '世界观背景：' + GS.worldSetting + (_wcJeInfo ? ' ' + _wcJeInfo : '') + '\n' +
           '双方关系：好感度' + aff + '（' + getAffectionDesc(aff) + '）\n' +
           (GS.oneHeartRival && GS.oneHeartRival.name ? '情敌：' + GS.oneHeartRival.name + '\n' : '') +
-          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
           '生成吃醋事件', 300, false, 0.8
         );
         var _jeaParsed;
@@ -2056,7 +2056,7 @@ async function checkOneHeartEvents() {
           '生成一个甜蜜的恋爱惊喜场景（50字以内）+ 3个选项（每个20字以内）。\n' +
           '世界观背景：' + GS.worldSetting + (_wcSuInfo ? ' ' + _wcSuInfo : '') + '\n' +
           '双方关系：好感度' + aff + '（' + getAffectionDesc(aff) + '）\n' +
-          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
           '生成惊喜事件', 300, false, 0.8
         );
         var _surParsed;
@@ -2107,7 +2107,7 @@ async function checkOneHeartEvents() {
           '生成一个暧昧的心动场景（50字以内）+ 3个选项（每个20字以内）。场景发生在女主和「' + GS.oneHeartRival.name + '」之间。\n' +
           '他是你的情敌——但你最近发现他好像没那么讨厌。\n' +
           '世界观背景：' + GS.worldSetting + (_wcRiInfo ? ' ' + _wcRiInfo : '') + '\n' +
-          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+          '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
           '生成情敌事件', 300, false, 0.8
         );
         var _rivParsed;
@@ -2189,7 +2189,7 @@ async function tryPoolEvent() {
         '生成一个简短的情感剧情场景（50字以内）。\n' +
         '世界观背景：' + GS.worldSetting + (_wcPoolInfo ? ' ' + _wcPoolInfo : '') + '\n' +
         '双方关系：好感度' + _affPool + '（' + _poolAffDesc + '），关系处于' + _poolAffDesc + '，还没有确认恋爱关系\n' +
-        '包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+        '包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
         '生成意外事件', 300, false, 0.8
       );
       var poolParsed;
