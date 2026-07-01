@@ -2368,12 +2368,14 @@ export async function generateMoment() {
     if (member) memberName = member.name;
 
     // 女主的动态
-    if (json.mine && json.mine.post) {
+    if (json.mine && (json.mine.post || json.mine.reply)) {
+      var minePost = json.mine.post || json.mine.reply || '';
+      var mineReply = json.mine.post ? (json.mine.reply || '') : '';
       GS.moments.push({
         id: 'moment_' + Date.now() + '_mine',
         name: GS.heroineProfile.name || '',
-        post: json.mine.post,
-        reply: json.mine.reply || '',
+        post: minePost,
+        reply: mineReply,
         photo: json.mine.photo || '',
         type: json.mine.type || '日常',
         timestamp: ts,
@@ -2381,12 +2383,14 @@ export async function generateMoment() {
       });
     }
     // 他的动态
-    if (json.his && json.his.post) {
+    if (json.his && (json.his.post || json.his.reply)) {
+      var hisPost = json.his.post || json.his.reply || '';
+      var hisReply = json.his.post ? (json.his.reply || '') : '';
       GS.moments.push({
         id: 'moment_' + Date.now() + '_his',
         name: memberName,
-        post: json.his.post,
-        reply: json.his.reply || '',
+        post: hisPost,
+        reply: hisReply,
         photo: json.his.photo || '',
         type: json.his.type || '日常',
         timestamp: ts,

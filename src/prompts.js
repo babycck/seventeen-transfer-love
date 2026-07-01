@@ -1153,6 +1153,8 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '动态类型（type）：日常/暗示/深夜/队友/风景\n';
     msg += '根据当前关系状态决定动态类型和语气：关系好时多甜蜜暗示，关系紧张时不发或发emo内容\n';
     msg += '输出格式：{"mine":{"post":"...","reply":"...","photo":"...","type":"..."},"his":{"post":"...","reply":"...","photo":"...","type":"..."}}\n';
+    msg += '⚠️ mine.post 和 his.post 必须非空。如果某个post为空，请将其reply内容填入post字段，确保每条动态都有正文。\n';
+    msg += '示例：{"mine":{"post":"今天练舞累坏了，腿都不是自己的了","reply":"辛苦了，给你带了饮料","photo":"练习室镜子前的自拍","type":"日常"},"his":{"post":"这首歌终于录完了","reply":"太好听了！循环中","photo":"录音室控制台","type":"日常"}}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
     var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
     var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);
