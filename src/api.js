@@ -97,7 +97,7 @@ function _convertPhaseToJson(text) {
     if (!trimmed) continue;
 
     // 🎙【采访间】或 🎙️【采访间】（带 emoji 变体选择符）
-    if (/^🎙️?💔?【X?采访间】/.test(trimmed) && trimmed.indexOf('采访间') >= 0 && trimmed.indexOf('X') >= 0) {
+    if (/^🎙️?💔?【X采访间】/.test(trimmed)) {
       flushBlock();
       currentType = 'xInterview';
       continue;

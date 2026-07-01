@@ -2,7 +2,7 @@ import { GS } from '../state.js';
 import { MAX_STAY_COUNT } from '../data.js';
 
 // 渲染底部操作栏
-export function renderActionBar(hasConsequences, phaseChoicesExhausted, isDay11) {
+export function renderActionBar(hasConsequences, phaseChoicesExhausted, isTruthRoundActive) {
   var isNight = GS.phaseIndex === 3;
   var smsSent = GS.smsSentToday;
   var stayExhausted = GS.stayCount >= MAX_STAY_COUNT;
@@ -18,7 +18,7 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isDay11)
 
   if (!hasConsequences) {
     html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
-    if (!phaseChoicesExhausted || isDay11) {
+    if (!phaseChoicesExhausted || isTruthRoundActive) {
       html += '<button class="btn-skip" id="btnSkip">▶ ' + (isNight ? '进入下一天' : '跳过进入下一时段') + '</button>';
     } else {
       html += '<button class="btn-skip" id="btnSkip" style="font-weight:900">▶ ' + (isNight ? '进入下一天' : '进入下一时段') + '</button>';
@@ -32,7 +32,7 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isDay11)
   } else {
     // 有后续剧情：显示下一时段+重生成
     if (!isNight) {
-      if (!phaseChoicesExhausted || isDay11) {
+      if (!phaseChoicesExhausted || isTruthRoundActive) {
         html += '<button class="btn-skip" id="btnNextPhase">▶ 进入下一时段</button>';
       } else {
         html += '<button class="btn-skip" id="btnNextPhase" style="font-weight:900">▶ 进入下一时段</button>';

@@ -705,8 +705,8 @@ export async function handleOptionChoice(opt) {
   }
 
   // Day 11 不限制选项次数（非真心话的普通剧情）
-  var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
-  if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
+  var isTruthRoundActive = GS.day === 11 && GS.truthState && GS.truthState.active;
+  if (!isTruthRoundActive && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
     showToast('⚠️ 本时段行动次数已用完，请进入下一时段。');
     return;
   }
@@ -724,12 +724,13 @@ export async function handleOptionChoice(opt) {
     var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
+    if (!parsed) parsed = { options: [] };
     applyDrinksFromParsed(parsed);
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: opt.text });
     GS.phaseOptionCount++;
-    if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) parsed.options = [];
+    if (!isTruthRoundActive && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) parsed.options = [];
     GS.currentOptions = parsed.options;
     GS.isInConsequence = true;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
@@ -943,8 +944,8 @@ export async function handleFreeAction(actionText) {
     }
     GS.stayCount++;
   }
-  var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
-  if (!isDay11 && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
+  var isTruthRoundActive = GS.day === 11 && GS.truthState && GS.truthState.active;
+  if (!isTruthRoundActive && GS.phaseOptionCount + GS.phaseFreeCount >= PHASE_ACTION_LIMIT) {
     showToast('⚠️ 本时段行动次数已用完（' + PHASE_ACTION_LIMIT + '/' + PHASE_ACTION_LIMIT + '），请进入下一时段。');
     return;
   }
@@ -1126,8 +1127,8 @@ export async function handleRegenerate() {
       await compressTodayForInjection();
       var sysPrompt = buildSystemPrompt();
       var userMsg = buildUserMessage('consequence', { choiceText: choiceText });
-var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 });
-    var rawText = _gr.raw;
+      var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 });
+      var rawText = _gr.raw;
     var savedDrinkCounts = JSON.parse(JSON.stringify(GS.drinkCounts));
       var parsed = parseNarrative(rawText);
       applyParsedSideEffects(parsed);

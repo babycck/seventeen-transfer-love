@@ -237,6 +237,7 @@ export function loadGame() {
     }
   } catch (e) {
     console.error('Load failed:', e);
+    GS = null; // 解析失败时重置，防止脏状态
   }
   return false;
 }
@@ -260,6 +261,9 @@ export function saveGame() {
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
       window.showToast('⚠️ 存档空间不足！请清理浏览器缓存后重试。');
+    } else {
+      console.error('[saveGame] 存档失败:', e);
+      window.showToast('⚠️ 存档失败，请检查浏览器设置或联系开发者');
     }
   }
 }
@@ -516,8 +520,12 @@ export async function resetCache() {
   location.reload();
 }
 
-// 暴露到全局便于控制台调试
-window.GS = GS;
+// 暴露到全局便于控制台调试（用 getter 保证始终指向当前模块变量）
+Object.defineProperty(window, 'GS', {
+  get: function() { return GS; },
+  enumerable: true,
+  configurable: true
+});
 
 
 

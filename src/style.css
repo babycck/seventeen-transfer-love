@@ -38,6 +38,17 @@
   --header-bg: linear-gradient(135deg, #e91e63, #c2185b);
   --header-day-tag: rgba(255,255,255,0.9);
   --drunk-highlight: rgba(255,193,7,0.12);
+  --dating-banner-gradient: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  --dating-banner-text: #880e4f;
+  --director-text: #8b3a8b;
+  --director-border: #c090c0;
+  --observer-text: #b8860b;
+  --observer-border: #d4a017;
+  --observer-name: #8b6914;
+  --interview-text: #5a4a8b;
+  --interview-border: #8b7ab8;
+  --member-interview-text: #4a6b8b;
+  --member-interview-border: #6b8ab8;
 }
 
 /* 深色主题覆盖 */
@@ -80,6 +91,17 @@
   --header-bg: linear-gradient(135deg, #4527a0, #7b1fa2);
   --header-day-tag: rgba(255,255,255,0.85);
   --drunk-highlight: rgba(255,193,7,0.08);
+  --dating-banner-gradient: linear-gradient(135deg, #3a1a2e, #2a1a24);
+  --dating-banner-text: #f8bbd0;
+  --director-text: #b39ddb;
+  --director-border: #7b1fa2;
+  --observer-text: #ffc107;
+  --observer-border: #ffc107;
+  --observer-name: #ffd54f;
+  --interview-text: #b39ddb;
+  --interview-border: #b39ddb;
+  --member-interview-text: #90caf9;
+  --member-interview-border: #90caf9;
 }
 
 *,
@@ -299,17 +321,17 @@ body {
   font-weight: 700;
   padding: 10px 16px;
   margin-bottom: 14px;
-  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  background: var(--dating-banner-gradient);
   border-radius: 10px;
-  color: #880e4f;
+  color: var(--dating-banner-text);
   letter-spacing: 1px;
 }
 
 /* ==================== Special Elements ==================== */
 .narrative-box .director-os {
-  color: #8b3a8b;
+  color: var(--director-text);
   background: var(--bg-director);
-  border-left: 3px solid #c090c0;
+  border-left: 3px solid var(--director-border);
   padding: 7px 10px;
   margin: 7px 0;
   border-radius: 0 7px 7px 0;
@@ -318,9 +340,9 @@ body {
 }
 
 .narrative-box .observer-os {
-  color: #b8860b;
+  color: var(--observer-text);
   background: var(--bg-observer);
-  border-left: 3px solid #d4a017;
+  border-left: 3px solid var(--observer-border);
   padding: 7px 10px;
   margin: 7px 0;
   border-radius: 0 7px 7px 0;
@@ -330,13 +352,13 @@ body {
 
 .narrative-box .observer-os .obs-name {
   font-weight: 700;
-  color: #8b6914;
+  color: var(--observer-name);
 }
 
 .narrative-box .interview {
-  color: #5a4a8b;
+  color: var(--interview-text);
   background: var(--bg-interview);
-  border-left: 3px solid #8b7ab8;
+  border-left: 3px solid var(--interview-border);
   padding: 7px 10px;
   margin: 7px 0;
   border-radius: 0 7px 7px 0;
@@ -358,9 +380,9 @@ body {
 }
 
 .narrative-box .member-interview {
-  color: #4a6b8b;
+  color: var(--member-interview-text);
   background: var(--bg-mc-interview);
-  border-left: 3px solid #6b8ab8;
+  border-left: 3px solid var(--member-interview-border);
   padding: 7px 10px;
   margin: 7px 0;
   border-radius: 0 7px 7px 0;
@@ -552,7 +574,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-overlay);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -568,7 +590,7 @@ body {
   padding: 20px;
   max-width: 95vw;
   width: 500px;
-  height: 88vh;
+  max-height: 88vh;
   overflow-y: auto;
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.2);
   overscroll-behavior: contain;

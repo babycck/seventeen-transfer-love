@@ -1,3 +1,5 @@
+import { escHtml } from '../utils.js';
+
 // 自定义确认弹窗（返回 Promise<boolean>，替代原生 confirm）
 // 不复用 createModal（其遮罩点击会关闭弹窗，不适合破坏性操作）
 // 遮罩点击不做任何事，必须点取消/确认按钮
@@ -13,8 +15,8 @@ export function showConfirmModal(message, opts) {
     overlay.className = 'modal-overlay';
 
     var inner = '<div class="modal-content confirm-modal-content" style="text-align:center">' +
-      '<h3 style="margin-bottom:12px;color:var(--text-primary,#3d2c2c)">' + title + '</h3>' +
-      '<p style="font-size:14px;color:var(--text-muted,#8b6b6b);margin-bottom:20px;line-height:1.6">' + message + '</p>' +
+      '<h3 style="margin-bottom:12px;color:var(--text-primary,#3d2c2c)">' + escHtml(title) + '</h3>' +
+      '<p style="font-size:14px;color:var(--text-muted,#8b6b6b);margin-bottom:20px;line-height:1.6">' + escHtml(message) + '</p>' +
       '<div style="display:flex;gap:10px;justify-content:center">' +
       '<button class="confirm-cancel-btn" style="flex:1;max-width:120px;padding:10px 20px;border:1.5px solid var(--border-soft,#e0c0c0);border-radius:10px;background:var(--bg-soft,#fff5f5);color:var(--text-muted,#8b6b6b);font-size:14px;cursor:pointer;font-family:inherit">' + cancelText + '</button>' +
       '<button class="confirm-ok-btn" style="flex:1;max-width:120px;padding:10px 20px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent-primary,#e91e63),#c2185b);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">' + confirmText + '</button>' +

@@ -18,6 +18,8 @@ function notify(action) {
 }
 
 // ==================== Dispatch ====================
+var _saveTimer = null;
+
 export function dispatch(action) {
   if (!action || !action.type) {
     console.warn('[store] invalid action:', action);
@@ -25,7 +27,12 @@ export function dispatch(action) {
   }
   console.log('[store] dispatch:', action.type, action.payload || {});
   reducer(GS, action);
-  saveGame();
+  // debounce saveGame：300ms 内多次 dispatch 合并为一次存档，减少主线程阻塞
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(function() {
+    _saveTimer = null;
+    saveGame();
+  }, 300);
   notify(action);
 }
 

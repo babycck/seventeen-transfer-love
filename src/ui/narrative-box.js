@@ -253,6 +253,9 @@ export function startTypewriter(containerId, speed) {
     showEditButton();
   }
 
+  // 批量更新：每 tick 处理 BATCH_SIZE 个单元，减少 DOM 重排次数
+  var BATCH_SIZE = speed <= 10 ? 5 : speed <= 20 ? 4 : 3;
+
   var timer = setInterval(function() {
     if (unitIdx >= units.length) {
       container.innerHTML = html;
@@ -262,22 +265,30 @@ export function startTypewriter(containerId, speed) {
       return;
     }
 
-    var u = units[unitIdx];
-    if (u.t === 'tag') {
-      html += u.v;
-      unitIdx++;
-      charIdx = 0;
-    } else {
-      if (charIdx < u.v.length) {
-        html += u.v[charIdx];
-        charIdx++;
-      } else {
+    // 每 tick 批量推进 BATCH_SIZE 个单元
+    for (var batch = 0; batch < BATCH_SIZE && unitIdx < units.length; batch++) {
+      var u = units[unitIdx];
+      if (u.t === 'tag') {
+        html += u.v;
         unitIdx++;
         charIdx = 0;
+      } else {
+        if (charIdx < u.v.length) {
+          html += u.v[charIdx];
+          charIdx++;
+          // 单个 text unit 未消费完时不算完成一个 batch 单元，继续在同一 unit 内推进
+          if (charIdx >= u.v.length) {
+            unitIdx++;
+            charIdx = 0;
+          }
+        } else {
+          unitIdx++;
+          charIdx = 0;
+        }
       }
     }
 
-    // 更新 innerHTML
+    // 更新 innerHTML（每 tick 只更新一次）
     var displayHtml = html;
     var cursorNeeded = unitIdx < units.length;
     if (cursorNeeded) {
@@ -295,7 +306,7 @@ export function startTypewriter(containerId, speed) {
 
     // 只在用户位于底部时自动滚动
     if (atBottom) container.scrollTop = container.scrollHeight;
-  }, speed);
+  }, speed * BATCH_SIZE);
   container._typewriterTimer = timer;
 }
 

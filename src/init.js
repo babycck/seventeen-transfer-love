@@ -88,7 +88,7 @@ export async function init() {
   initGame();
 }
 
-function initGame() {
+async function initGame() {
   try {
     if (!loadGame()) {
       setGS(defaultGameState());
@@ -100,7 +100,7 @@ function initGame() {
     // 如果已在游戏中且当前没有剧情，自动生成
     var hasContent = !!(GS.phaseNarrative || (GS.consequenceNarratives && GS.consequenceNarratives.length > 0));
     if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent) {
-      generatePhaseNarrative();
+      await generatePhaseNarrative();
     }
   } catch (e) {
     console.error('[Init] initGame error:', e);
@@ -113,6 +113,8 @@ function initGame() {
     }
   }
 }
-init();
+initGame().catch(function(e) {
+  console.error('[Init] unhandled initGame error:', e);
+});
 
 

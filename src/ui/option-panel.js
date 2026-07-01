@@ -3,11 +3,11 @@ import { GS } from '../state.js';
 import { MEMBERS, PHASE_ACTION_LIMIT } from '../data.js';
 
 // 渲染普通选项面板
-export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
+export function renderOptionPanel(phaseChoicesExhausted, isTruthRoundActive) {
   var isNight = GS.phaseIndex === 3;
   var opts = GS.currentOptions;
   var isDatingDayPhase0 = [4, 6, 8, 9].indexOf(GS.day) >= 0 && GS.phaseIndex === 0;
-  if (opts.length > 0 && (!phaseChoicesExhausted || isDay11 || isDatingDayPhase0) && !isNight) {
+  if (opts.length > 0 && (!phaseChoicesExhausted || isTruthRoundActive || isDatingDayPhase0) && !isNight) {
     var html = '<div class="card"><div class="options-area" id="optionsArea">';
     var labels = ['A', 'B', 'C'];
     for (var j = 0; j < opts.length; j++) {
@@ -32,7 +32,7 @@ export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
         '<span class="opt-label">' + (labels[j] || (j + 1)) + '</span>' +
         escHtml(optText) + optAffHtml + '</button>';
     }
-    if (!isDay11) {
+    if (!isTruthRoundActive) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余行动次数：' +
         Math.max(0, PHASE_ACTION_LIMIT - (GS.phaseOptionCount + GS.phaseFreeCount)) + '/' + PHASE_ACTION_LIMIT + '</p>';
     } else if (!GS.truthState) {
@@ -40,7 +40,7 @@ export function renderOptionPanel(phaseChoicesExhausted, isDay11) {
     }
     html += '</div></div>';
     return html;
-  } else if (phaseChoicesExhausted && !isDay11 && !GS.smsSentToday) {
+  } else if (phaseChoicesExhausted && !isTruthRoundActive && !GS.smsSentToday) {
     return '<div class="card"><p style="text-align:center;color:#8b6b6b;font-size:13px">本时段选项次数已用完，请进入下一时段。</p></div>';
   }
   return '';

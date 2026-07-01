@@ -290,7 +290,7 @@ export var MEMBERS = [
     comforts: ['唱歌', '和成员们在一起', '吃东西', '看搞笑视频', '逗别人笑'],
     height: '179cm',
     mbti: 'ISFJ',
-    bloodType: 'O-',
+    bloodType: 'O',
     birthPlace: '京畿道龙仁市水枝区',
     nicknameOrigin: 'DK是"Dokyeom（도겸）"缩写，"道兼"意为"兼顾多条道路"',
     signatureBehaviors: ['哭时仰头不让眼泪掉下来但还是会掉', '唱歌前偷偷清嗓子以为没人发现', '生气时笑得越大声越生气', '听到感人的话嘴角先撇后翘']

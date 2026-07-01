@@ -762,6 +762,11 @@ export function bindSetupEvents() {
             if (this.value !== 'custom') {
               GS.oneHeartCustomWorld = '';
             }
+            // 身份兼容性检查
+            var _compat = WORLD_IDENTITY_COMPATIBILITY[GS.worldSetting];
+            if (_compat && _compat !== 'all' && GS.heroineProfile && GS.heroineProfile.job && _compat.indexOf(GS.heroineProfile.job) < 0) {
+              showToast('⚠️ 当前身份「' + GS.heroineProfile.job + '」和这个世界观不太匹配，建议在 Step 2 更换身份');
+            }
             saveGame();
             renderAll();
           });
@@ -1077,7 +1082,7 @@ export function renderGameScreen() {
   var actionsRemaining = PHASE_ACTION_LIMIT - (GS.phaseOptionCount + GS.phaseFreeCount);
   var phaseChoicesExhausted = actionsRemaining <= 0;
   var freeInputExhausted = actionsRemaining <= 0;
-  var isTruthRound = GS.day === 11 && GS.truthState && GS.truthState.active; var isDay11 = isTruthRound;
+  var isTruthRoundActive = GS.day === 11 && GS.truthState && GS.truthState.active;
   var html = '';
 
   // Header（使用 UI 组件）
@@ -1140,11 +1145,11 @@ export function renderGameScreen() {
   } else if (GS.questionBox && GS.questionBox.active) {
     html += renderQuestionBoxPanel();
   } else {
-    html += renderOptionPanel(phaseChoicesExhausted, isDay11);
+    html += renderOptionPanel(phaseChoicesExhausted, isTruthRoundActive);
   }
 
   // Action Bar（使用 UI 组件）
-  html += renderActionBar(GS.consequenceNarratives.length > 0, phaseChoicesExhausted, isDay11);
+    html += renderActionBar(GS.consequenceNarratives.length > 0, phaseChoicesExhausted, isTruthRoundActive);
 
   // 自由输入（使用 UI 组件）
   html += renderFreeInput(freeInputExhausted);
