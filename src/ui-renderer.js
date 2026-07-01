@@ -851,6 +851,12 @@ export function bindSetupEvents() {
     if (GS.gameMode === 'oneHeart') {
       document.getElementById('step4Start').addEventListener('click', async function() {
         if (!GS.oneHeartMember) return;
+        // 身份与世界观兼容性检查
+        var _compat = WORLD_IDENTITY_COMPATIBILITY[GS.worldSetting];
+        if (_compat && _compat !== 'all' && GS.heroineProfile && GS.heroineProfile.job && _compat.indexOf(GS.heroineProfile.job) < 0) {
+          showToast('⚠️ 身份「' + GS.heroineProfile.job + '」与世界观不匹配，请返回 Step 2 更换身份');
+          return;
+        }
         GS.selectedMembers = [GS.oneHeartMember];
         GS.affection = {};
         GS.affection[GS.oneHeartMember] = randInt(10, 25);
@@ -873,6 +879,7 @@ export function bindSetupEvents() {
         GS.currentDate = seasonResult.dates[0];
         GS.weather = generateDailyWeather('', GS.season);
         GS.weathers = [];
+        GS._pendingEventResults = [];
         GS.oneHeartDateIdx = 0;
         GS.oneHeartTimeOfDay = '上午';
 
