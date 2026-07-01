@@ -792,6 +792,8 @@ export function buildOneHeartSystemPrompt() {
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
          (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
     '- ⚠️ 女主的全部外貌特征、私密体质均为女主专属设定，绝对禁止映射到任何成员身上（包括男主）。\n' +
+    '- ⚠️ 女主是女性角色，绝对禁止被称为「哥/哥哥/형」。只有她的亲哥哥可以用「哥」称呼。\n' +
+    '- ⚠️ 禁止编造恋爱纪念日（如"一个月纪念""100天纪念""周年纪念"），除非剧情中明确提到。\n' +
     '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
@@ -837,6 +839,7 @@ export function buildOneHeartSystemPrompt() {
         if (rival.interactionStyle) parts += '互动风格：' + rival.interactionStyle + '\n';
         if (rival.loveStyle) parts += '情感模式：' + rival.loveStyle + '\n';
         parts += '⚠️ 情敌是独立角色，不可与男主混淆。他的名字固定为「' + rival.name + '」。\n';
+        parts += '⚠️ 情敌的角色身份（如未婚夫/上司/教练等）决定了他和你的关系，不可因队内年龄差异称其为「弟弟」。\n';
         parts += '⚠️ 情敌的出现应制造张力，但也是让你们的感情更深的机会。\n\n';
       }
       return parts;
@@ -1100,12 +1103,14 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += '\n';
       }
     }
-    // 注入上一回合触发的事件选择结果
-    if (GS.oneHeartPendingEvent && GS.oneHeartPendingEvent.chosenIdx !== undefined) {
-      var _ev = GS.oneHeartPendingEvent;
-      var _eventLabel = _ev.type === 'jealousy' ? '情感事件' : _ev.type === 'surprise' ? '惊喜事件' : '意外事件';
-      msg += '[' + _eventLabel + ']\n上一回合发生了以下事件：\n' + _ev.scenario + '\n你选择了：「' + _ev.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
-      GS.oneHeartPendingEvent = null;
+    // 注入上一回合触发的事件选择结果（支持多条）
+    if (GS._pendingEventResults && GS._pendingEventResults.length > 0) {
+      for (var _eri = 0; _eri < GS._pendingEventResults.length; _eri++) {
+        var _er = GS._pendingEventResults[_eri];
+        var _erLabel = _er.type === 'jealousy' ? '情感事件' : _er.type === 'surprise' ? '惊喜事件' : '意外事件';
+        msg += '[' + _erLabel + ']\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
+      }
+      GS._pendingEventResults = [];
     }
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
@@ -1165,6 +1170,10 @@ export function buildOneHeartUserMessage(type, extra) {
   } else if (type === 'diary') {
     msg += '请根据当前剧情生成两篇日记（各~150字）。\n\n';
     msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录当天印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    msg += '注意：' + hp.name + '是女主（女性），' + member.name + '是男主（男性）。'
+      + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '「' + GS.oneHeartRelationCharacter.name + '」是' + GS.oneHeartRelationCharacter.role + '。' : '')
+      + (GS.oneHeartRival && GS.oneHeartRival.name ? '「' + GS.oneHeartRival.name + '」是情感阻碍者（情敌），不是恋爱对象。' : '')
+      + '不可混淆角色。\n\n';
     msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他当天对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
     var _deIdx = GS.oneHeartLastCompressedIdx || 0;
     var diaryNarr = GS.todayFullText.slice(_deIdx).join('\n').slice(-1200);

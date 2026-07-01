@@ -34,6 +34,7 @@ export function showMomentsModal() {
         '<div class="oneheart-moment-content"><strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.post || '') + '</div>' +
         photoHtml +
         (m.reply ? '<div class="oneheart-moment-reply">└ <strong>[' + escHtml(replyName) + ']</strong> ' + escHtml(m.reply) + '</div>' : '') +
+        (m.commentReply ? '<div class="oneheart-moment-reply">└↪ <strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.commentReply) + '</div>' : '') +
         '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-light)" class="moment-actions">' +
         '<button class="moment-like-btn" data-idx="' + i + '" style="border:none;background:none;font-size:12px;cursor:pointer;color:' + likeColor + ';padding:2px 4px">❤️ ' + (m.liked ? '已赞' : '点赞') + '</button>' +
         '<button class="moment-comment-btn" data-idx="' + i + '" style="border:none;background:none;font-size:12px;cursor:pointer;color:var(--text-muted);padding:2px 4px">💬 评论</button>' +

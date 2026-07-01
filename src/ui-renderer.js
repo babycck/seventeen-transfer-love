@@ -11,7 +11,7 @@ import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather } from './formatters.js';
-import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1 } from './data.js';
+import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -789,6 +789,11 @@ export function bindSetupEvents() {
         document.querySelectorAll('#worldGrid .world-card').forEach(function(card) {
           card.addEventListener('click', function() {
             GS.worldSetting = this.dataset.id;
+            // 身份兼容性检查
+            var _compat = WORLD_IDENTITY_COMPATIBILITY[GS.worldSetting];
+            if (_compat && _compat !== 'all' && GS.heroineProfile && GS.heroineProfile.job && _compat.indexOf(GS.heroineProfile.job) < 0) {
+              showToast('⚠️ 当前身份「' + GS.heroineProfile.job + '」和这个世界观不太匹配，建议在 Step 2 更换身份');
+            }
             saveGame();
             renderAll();
           });
@@ -1193,7 +1198,10 @@ function renderOneHeartGameScreen() {
       '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
       '</div>' +
       '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
-      '<button id="pendingEventBtn" style="width:100%;padding:10px;margin-top:6px;margin-bottom:8px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;cursor:default;background:#e0e0e0;color:#999">📋 待处理 0</button>' +
+      (function() {
+        var _penN = (GS._pendingEvents && GS._pendingEvents.length) || 0;
+        return '<button id="pendingEventBtn" style="width:100%;padding:10px;margin-top:6px;margin-bottom:8px;border-radius:10px;border:none;font-size:13px;font-weight:600;font-family:inherit;' + (_penN > 0 ? 'background:var(--accent-primary);color:#fff;cursor:pointer' : 'background:#e0e0e0;color:#999;cursor:default') + '">📋 待处理 ' + _penN + '</button>';
+      })() +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
@@ -2138,20 +2146,19 @@ function bindOneHeartEvents() {
   if (affectionHint) affectionHint.addEventListener('click', showAffectionPanel);
 
   // 自由输入删除按钮
-  document.querySelectorAll('.consequence-delete').forEach(function(btn) {
-    btn.addEventListener('click', async function(e) {
-      e.stopPropagation();
-      var idx = parseInt(this.dataset.idx);
-      if (isNaN(idx) || idx < 0 || idx >= GS.consequenceNarratives.length) return;
-      var confirmed = await showConfirmModal('确定要删除这段剧情吗？');
-      if (!confirmed) return;
-      GS.consequenceNarratives.splice(idx, 1);
-      if (GS.todayFullText && idx < GS.todayFullText.length) {
-        GS.todayFullText.splice(idx, 1);
-      }
-      saveGame();
-      window.__renderAll();
-    });
+  document.getElementById('narrativeBox').addEventListener('click', async function(e) {
+    var delBtn = e.target.closest('.consequence-delete');
+    if (!delBtn) return;
+    var idx = parseInt(delBtn.dataset.idx);
+    if (isNaN(idx) || idx < 0 || idx >= GS.consequenceNarratives.length) return;
+    var confirmed = await showConfirmModal('确定要删除这段剧情吗？');
+    if (!confirmed) return;
+    GS.consequenceNarratives.splice(idx, 1);
+    if (GS.todayFullText && idx < GS.todayFullText.length) {
+      GS.todayFullText.splice(idx, 1);
+    }
+    saveGame();
+    window.__renderAll();
   });
 
   // 新的一天按钮
@@ -2237,7 +2244,8 @@ function bindOneHeartEvents() {
         else if (chosenIdx === 1) { GS.oneHeartRivalAff = 0; GS._confessionCooldown = 99; }
         else GS._confessionCooldown = 5;
       }
-      GS.oneHeartPendingEvent = { type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', chosenIdx: chosenIdx };
+      if (!GS._pendingEventResults) GS._pendingEventResults = [];
+      GS._pendingEventResults.push({ type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', chosenIdx: chosenIdx });
       saveGame();
       renderAll();
     });

@@ -1831,6 +1831,7 @@ async function checkOneHeartEvents() {
 
   var rivalAff = GS.oneHeartRivalAff || 0;
   var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
+  var triggered = false;
 
   // === 告白事件（优先级最高）===
   if (!triggered && hasRival && rivalAff >= 40 && Math.random() < 0.5 && !GS._confessionCooldown) {
@@ -2071,6 +2072,8 @@ async function checkOneHeartEvents() {
 
 // 意外事件池：独立于冷却系统，每回合单独触发
 async function tryPoolEvent() {
+  var _affPool = GS.affection[GS.oneHeartMember] || 0;
+  if (_affPool < 20) return; // 好感度 < 20 不触发
   if (Math.random() >= 0.25) return;
   var usePool = GS.oneHeartEventPool && GS.oneHeartEventPool.length > 0 && Math.random() < 0.3;
   var scenario = '';
@@ -2081,8 +2084,15 @@ async function tryPoolEvent() {
     if (poolItem.options && poolItem.options.length >= 3) opts = poolItem.options;
   } else {
     try {
+      var _wcPool = getWorldConfig(GS.worldSetting);
+      var _wcPoolInfo = _wcPool ? (_wcPool.coreTension || '') : '';
+      _wcPoolInfo += ' 他的角色：' + (_wcPool ? (_wcPool.memberRole || '') : '');
+      var _poolAffDesc = _affPool >= 60 ? '暧昧恋爱中' : _affPool >= 40 ? '有好感但未确认' : '初识了解的阶段';
       var poolRes = await callDeepSeek(
-        '生成一个简短的情感剧情场景（50字以内），发生在恋爱中的情侣之间。包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
+        '生成一个简短的情感剧情场景（50字以内）。\n' +
+        '世界观背景：' + GS.worldSetting + (_wcPoolInfo ? ' ' + _wcPoolInfo : '') + '\n' +
+        '双方关系：好感度' + _affPool + '（' + _poolAffDesc + '），关系处于' + _poolAffDesc + '，还没有确认恋爱关系\n' +
+        '包含3个选项（每个20字以内）。\n输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}',
         '生成意外事件', 300, false, 0.8
       );
       var poolParsed;

@@ -1175,3 +1175,18 @@ export var IDENTITY_RELATION_MAP = {
   '独立音乐人': { role: '音乐制作人', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false },
   '体育生/运动员': { role: '教练', gender: 'male', fromSEVENTEEN: true, isRival: true, needExtraRival: false }
 };
+
+// ==================== 世界观与公开身份兼容性映射 ====================
+export var WORLD_IDENTITY_COMPATIBILITY = {
+  ancient: ['素人', '体育生/运动员', '独立音乐人'],
+  apocalypse: ['素人', '体育生/运动员', '独立音乐人'],
+  esports: ['素人', '体育生/运动员', '独立音乐人'],
+  college: ['站姐/大粉', '素人', '女团爱豆', '财阀千金', '品牌方助理', '女演员', '百万网红博主', '超模/平面模特', '带货女主播', '独立音乐人', '体育生/运动员'],
+  neighbor: ['站姐/大粉', '素人', '女团爱豆', '财阀千金', '品牌方助理', '女演员', '百万网红博主', '超模/平面模特', '带货女主播', '独立音乐人', '体育生/运动员'],
+  travel: ['站姐/大粉', '素人', '女团爱豆', '财阀千金', '品牌方助理', '女演员', '百万网红博主', '超模/平面模特', '带货女主播', '独立音乐人', '体育生/运动员'],
+  office: ['站姐/大粉', '素人', '女团爱豆', '财阀千金', '品牌方助理', '女演员', '百万网红博主', '超模/平面模特', '带货女主播', '独立音乐人', '体育生/运动员'],
+  transfer_house: 'all',
+  variety_show: 'all',
+  entertainment: 'all',
+  custom: 'all'
+};
