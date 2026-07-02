@@ -945,18 +945,18 @@ export function bindSetupEvents() {
             };
           }
 
-          // 需要额外情敌（支持玩家在 Step4 手动选择）
-          if (relConfig.needExtraRival && pool.length > 0) {
-            var _rivalSelect = document.getElementById('rivalSelect');
-            var _chosenRivalId = _rivalSelect ? _rivalSelect.value : '';
-            var rivalPicked = null;
-            if (_chosenRivalId) {
-              rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
-            }
-            if (!rivalPicked) {
-              var rivalIdx = Math.floor(Math.random() * pool.length);
-              rivalPicked = pool[rivalIdx];
-            }
+          // Step4 情敌选择（无条件生效）
+          var _rivalSelect = document.getElementById('rivalSelect');
+          var _chosenRivalId = _rivalSelect ? _rivalSelect.value : '';
+          var rivalPicked = null;
+          if (_chosenRivalId) {
+            rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
+          }
+          if (_chosenRivalId && !rivalPicked && pool.length > 0) {
+            var rivalIdx = Math.floor(Math.random() * pool.length);
+            rivalPicked = pool[rivalIdx];
+          }
+          if (rivalPicked) {
             GS.oneHeartRivalAff = randInt(5, 10);
             GS.oneHeartRival = {
               name: rivalPicked.name,
