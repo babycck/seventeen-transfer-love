@@ -422,6 +422,11 @@ export function renderSetupWizard() {
       var confirmWorld = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
       var confirmStyle = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
       var hp = GS.heroineProfile;
+      var _rivalOpts = MEMBERS.filter(function(m) { return m.id !== GS.oneHeartMember; });
+      var _rivalHtml = '<option value="">🎲 随机情敌（默认）</option>';
+      for (var _ri = 0; _ri < _rivalOpts.length; _ri++) {
+        _rivalHtml += '<option value="' + _rivalOpts[_ri].id + '">' + _rivalOpts[_ri].emoji + ' ' + _rivalOpts[_ri].name + '</option>';
+      }
       html = '<div class="setup-step"><h2>💗 准备开始</h2>' +
         '<p class="step-desc">确认你的设定，然后开始你的专属恋爱故事</p>' +
         '<div class="confirm-card">' +
@@ -432,7 +437,9 @@ export function renderSetupWizard() {
         '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + hp.name + ' · ' + hp.age + '岁 · ' + hp.job + '</span></div>' +
         '</div>' +
-        '<button class="btn-primary" id="step4Start">🎮 开始故事！</button>' +
+        '<div style="margin-top:12px"><label>情敌选择（影响剧情发展方向）</label>' +
+        '<select id="rivalSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px">' + _rivalHtml + '</select></div>' +
+        '<button class="btn-primary" id="step4Start" style="margin-top:12px">🎮 开始故事！</button>' +
         '<button class="btn-secondary" id="step4Back">← 返回修改</button></div>';
     } else {
       var selMembers = GS.selectedMembers.map(function(id) {
@@ -938,10 +945,18 @@ export function bindSetupEvents() {
             };
           }
 
-          // 需要额外情敌
+          // 需要额外情敌（支持玩家在 Step4 手动选择）
           if (relConfig.needExtraRival && pool.length > 0) {
-            var rivalIdx = Math.floor(Math.random() * pool.length);
-            var rivalPicked = pool[rivalIdx];
+            var _rivalSelect = document.getElementById('rivalSelect');
+            var _chosenRivalId = _rivalSelect ? _rivalSelect.value : '';
+            var rivalPicked = null;
+            if (_chosenRivalId) {
+              rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
+            }
+            if (!rivalPicked) {
+              var rivalIdx = Math.floor(Math.random() * pool.length);
+              rivalPicked = pool[rivalIdx];
+            }
             GS.oneHeartRivalAff = randInt(5, 10);
             GS.oneHeartRival = {
               name: rivalPicked.name,
@@ -1233,8 +1248,10 @@ function renderOneHeartGameScreen() {
   // Bottom tab bar
   var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
   var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
+  var _chatDot = GS._newChat ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
+    '<button class="oneheart-tab" data-tab="chat" style="position:relative"><span class="tab-emoji">💬</span>聊天' + _chatDot + '</button>' +
     '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
     '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
@@ -2129,6 +2146,10 @@ function bindOneHeartEvents() {
           // Already showing story, scroll to top
           window.scrollTo({ top: 0, behavior: 'smooth' });
           break;
+        case 'chat':
+          GS._newChat = false;
+          showChatModal();
+          break;
         case 'diary':
           showDiaryModal();
           break;
@@ -2266,7 +2287,27 @@ function bindOneHeartEvents() {
         else if (chosenIdx === 1) GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + 2;
         else if (chosenIdx === 2) showToast('🤫 你装作没发现，但心里有些在意');
       } else if (ev.type === 'confession') {
-        if (chosenIdx === 0) { GS.oneHeartRivalAff = 60; GS._confessionAccepted = true; }
+        if (chosenIdx === 0) {
+          GS.oneHeartRivalAff = 60;
+          GS._confessionAccepted = true;
+          // Rival→main swap: 情敌转正为主角
+          if (GS.oneHeartRival && GS.oneHeartRival.memberId) {
+            var _oldMember = GS.oneHeartMember;
+            var _newMember = GS.oneHeartRival.memberId;
+            GS.oneHeartMember = _newMember;
+            GS.oneHeartRival.memberId = _oldMember;
+            var _oldName = GS.oneHeartRival.name;
+            GS.oneHeartRival.name = GS.heroineProfile.name || '';
+            GS._rivalSwitched = true;
+            if (!GS.affection[_newMember]) GS.affection[_newMember] = GS.oneHeartRivalAff || 40;
+            // 清理旧情敌档案免干扰
+            GS.oneHeartRival.personality = '';
+            GS.oneHeartRival.behaviorLogic = '';
+            GS.oneHeartRival.interactionStyle = '';
+            GS.oneHeartRival.loveStyle = '';
+          }
+          showToast('💗 情敌转正！你选择了接受 ' + escHtml(ev.rivalName) + ' 的心意');
+        }
         else if (chosenIdx === 1) { GS.oneHeartRivalAff = 0; GS._confessionCooldown = 99; }
         else GS._confessionCooldown = 5;
       }

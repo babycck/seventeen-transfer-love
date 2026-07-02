@@ -34,6 +34,7 @@ export function showMomentsModal() {
         '<div class="oneheart-moment-content"><strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.post || '') + '</div>' +
         photoHtml +
         (m.reply ? '<div class="oneheart-moment-reply">└ <strong>[' + escHtml(replyName) + ']</strong> ' + escHtml(m.reply) + '</div>' : '') +
+        (m.replyBack ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↩ <strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.replyBack) + '</div>' : '') +
         (m.userComment ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↪ <strong>[我]</strong> ' + escHtml(m.userComment) + '</div>' : '') +
         (m.commentReply ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↪ <strong>[' + escHtml(memberName) + ']</strong> ' + escHtml(m.commentReply) + '</div>' : '') +
         '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-light)" class="moment-actions">' +

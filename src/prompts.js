@@ -1126,6 +1126,13 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     msg += '请生成下一段剧情（~2000字 JSON）。包含 1段 narrative + options（3个选项）。\n\n';
   } else if (type === 'chat') {
+    // 注入关系状态
+    var _chatAff = GS.affection[GS.oneHeartMember] || 0;
+    var _chatTier = _chatAff >= 80 ? '热恋期' : (_chatAff >= 60 ? '暧昧升温' : (_chatAff >= 40 ? '暧昧期' : '初识期'));
+    msg += '[关系状态] 好感度等级：' + _chatTier + '（数值' + _chatAff + '）';
+    if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) msg += ' · ⚠️ 冷战期';
+    if (GS.oneHeartRival && GS.oneHeartRival.name) msg += ' · 情敌「' + GS.oneHeartRival.name + '」存在';
+    msg += ' · 时段：' + (GS.oneHeartTimeOfDay || '上午') + '\n\n';
     // 注入故事上下文
     var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
     if (_chatRound >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
@@ -1164,9 +1171,10 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '每条动态包含：文字正文 + 配图描述（30字以内的场景描写，如"练习室镜子前的自拍""窗外的日落"）\n';
     msg += '动态类型（type）：日常/暗示/深夜/队友/风景\n';
     msg += '根据当前关系状态决定动态类型和语气：关系好时多甜蜜暗示，关系紧张时不发或发emo内容\n';
-    msg += '输出格式：{"mine":{"post":"...","reply":"...","photo":"...","type":"..."},"his":{"post":"...","reply":"...","photo":"...","type":"..."}}\n';
+    msg += '输出格式：{"mine":{"post":"...","reply":"...","replyBack":"...","photo":"...","type":"..."},"his":{"post":"...","reply":"...","replyBack":"...","photo":"...","type":"..."}}\n';
+    msg += 'replyBack 是发帖人对评论的回复：mine.replyBack = 女主回复成员对她的评论；his.replyBack = 成员回复女主对他的评论。replyBack 可选，可为空。\n';
     msg += '⚠️ mine.post 和 his.post 必须非空。如果某个post为空，请将其reply内容填入post字段，确保每条动态都有正文。\n';
-    msg += '示例：{"mine":{"post":"今天练舞累坏了，腿都不是自己的了","reply":"辛苦了，给你带了饮料","photo":"练习室镜子前的自拍","type":"日常"},"his":{"post":"这首歌终于录完了","reply":"太好听了！循环中","photo":"录音室控制台","type":"日常"}}\n';
+    msg += '示例：{"mine":{"post":"今天练舞累坏了，腿都不是自己的了","reply":"辛苦了，给你带了饮料","replyBack":"还是你最懂我","photo":"练习室镜子前的自拍","type":"日常"},"his":{"post":"这首歌终于录完了","reply":"太好听了！循环中","replyBack":"谢谢～你喜欢就好","photo":"录音室控制台","type":"日常"}}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
     var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
     var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);
@@ -1182,23 +1190,31 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '\n';
     }
   } else if (type === 'diary') {
-    msg += '请根据当前剧情生成两篇日记（各~150字）。\n\n';
-    msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录当天印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    var _diaryRound = Math.floor((GS.oneHeartGenCount || 0) / 3) + 1;
+    msg += '请根据近期剧情生成两篇日记（各~150字）。日记编号 #' + _diaryRound + '。\n\n';
+    msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录近期印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
     msg += '注意：' + hp.name + '是女主（女性），' + member.name + '是男主（男性）。'
       + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '「' + GS.oneHeartRelationCharacter.name + '」是' + GS.oneHeartRelationCharacter.role + '。' : '')
       + (GS.oneHeartRival && GS.oneHeartRival.name ? '「' + GS.oneHeartRival.name + '」是情感阻碍者（情敌），不是恋爱对象。' : '')
       + '不可混淆角色。\n\n';
-    msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他当天对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他近期对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
+    if (GS.dailySummaries && GS.dailySummaries.length > 0) {
+      msg += '[历史回顾]\n';
+      for (var _dri = 0; _dri < GS.dailySummaries.length; _dri++) {
+        msg += '第' + (_dri + 1) + '段：' + GS.dailySummaries[_dri].slice(0, 300) + '\n';
+      }
+      msg += '\n';
+    }
     var _deIdx = GS.oneHeartLastCompressedIdx || 0;
     var diaryNarr = GS.todayFullText.slice(_deIdx).join('\n').slice(-1200);
     if (diaryNarr.trim()) {
-      msg += '今天发生的剧情：\n' + diaryNarr + '\n\n';
+      msg += '近期重要剧情：\n' + diaryNarr + '\n\n';
     }
     if (Array.isArray(GS.diaryEntries) && GS.diaryEntries.length > 0) {
       msg += '已有日记（请避免重复类似内容）：\n';
       var lastEntries = GS.diaryEntries.slice(-2);
       for (var _dei = 0; _dei < lastEntries.length; _dei++) {
-        msg += '- Day ' + lastEntries[_dei].day + ': ' + (lastEntries[_dei].heroineEntry || '').slice(0, 60) + '\n';
+        msg += '- 第' + (_dei + 1) + '篇: ' + (lastEntries[_dei].heroineEntry || '').slice(0, 60) + '\n';
       }
       msg += '\n';
     }

@@ -62,6 +62,14 @@ export function defaultGameState() {
     _newDiary: false,
     oneHeartTimeOfDay: '上午',
     oneHeartLastEventRound: 0,
+    _newChat: false,
+    _chatAffCount: 0,
+    _chatAffDay: 0,
+    _rivalSwitched: false,
+    _confessionAccepted: false,
+    _confessionCooldown: 0,
+    _affMilestones: {},
+    _dateDayNotified: 0,
     profileLocked: false,
     step: 1,
     apiKey: '',
@@ -432,6 +440,14 @@ export function migrateSave() {
     if (GS._rivalIntroduced === undefined) GS._rivalIntroduced = false;
     if (GS._newMoments === undefined) GS._newMoments = false;
     if (GS._newDiary === undefined) GS._newDiary = false;
+    if (GS._newChat === undefined) GS._newChat = false;
+    if (GS._chatAffCount === undefined) GS._chatAffCount = 0;
+    if (GS._chatAffDay === undefined) GS._chatAffDay = 0;
+    if (GS._rivalSwitched === undefined) GS._rivalSwitched = false;
+    if (GS._confessionAccepted === undefined) GS._confessionAccepted = false;
+    if (GS._confessionCooldown === undefined) GS._confessionCooldown = 0;
+    if (!GS._affMilestones) GS._affMilestones = {};
+    if (GS._dateDayNotified === undefined) GS._dateDayNotified = 0;
     if (!Array.isArray(GS.oneHeartPromises)) GS.oneHeartPromises = [];
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];

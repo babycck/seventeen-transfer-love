@@ -2,6 +2,10 @@ import { MEMBERS, GS, saveGame, showLoading, hideLoading, showToast, escHtml } f
 import { sendChatMessage } from '../game-engine.js';
 
 export function showChatModal() {
+  GS._newChat = false;
+  saveGame();
+  var _oldDot = document.querySelector('.oneheart-tab[data-tab="chat"] .tab-notification-dot');
+  if (_oldDot) _oldDot.remove();
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
 
@@ -38,6 +42,7 @@ export function showChatModal() {
     '<div class="oneheart-chat-messages" id="chatMessages">' + messagesHtml + '</div>' +
     '<div class="oneheart-chat-input-area">' +
     '<input class="oneheart-chat-input" id="chatInput" placeholder="输入消息...">' +
+    '<button class="oneheart-chat-topic" id="chatTopicBtn" style="width:32px;height:32px;padding:0;border:none;border-radius:50%;background:var(--accent-primary);color:#fff;cursor:pointer;font-size:14px;line-height:32px;text-align:center;flex-shrink:0" title="话题引导">💡</button>' +
     '<button class="oneheart-chat-send" id="chatSendBtn">发送</button>' +
     '</div></div></div>';
 
@@ -111,4 +116,42 @@ export function showChatModal() {
       doSend();
     }
   });
+
+  // 💡 话题引导按钮
+  var topicBtn = document.getElementById('chatTopicBtn');
+  if (topicBtn) {
+    topicBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      // 移除已有的话题面板
+      var existing = document.getElementById('chatTopicPanel');
+      if (existing) { existing.remove(); return; }
+      var _aff = GS.affection[GS.oneHeartMember] || 0;
+      var topics = ['今天过得怎么样', '最近在忙什么', '我喜欢你', '你在干嘛'];
+      if (_aff >= 40) topics = topics.concat(['周末有空吗', '我们见面吧']);
+      if (_aff >= 60) topics = topics.concat(['我想你了', '你觉得我们是什么关系']);
+      if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) topics = ['我们谈谈吧', '对不起', '你在生气吗'];
+      if (GS.oneHeartRival && GS.oneHeartRival.name) topics.push('关于' + GS.oneHeartRival.name);
+      var panel = document.createElement('div');
+      panel.id = 'chatTopicPanel';
+      panel.style.cssText = 'position:absolute;bottom:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-primary);border-radius:12px;padding:8px;z-index:10;display:flex;flex-wrap:wrap;gap:6px';
+      for (var _ti = 0; _ti < topics.length; _ti++) {
+        var chip = document.createElement('span');
+        chip.textContent = topics[_ti];
+        chip.style.cssText = 'padding:6px 10px;border-radius:16px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;white-space:nowrap';
+        chip.addEventListener('click', function(t) {
+          var input = document.getElementById('chatInput');
+          if (input) { input.value = t; input.focus(); }
+          var p = document.getElementById('chatTopicPanel');
+          if (p) p.remove();
+        }.bind(null, topics[_ti]));
+        panel.appendChild(chip);
+      }
+      var inputArea = document.querySelector('.oneheart-chat-input-area');
+      if (inputArea) {
+        inputArea.style.position = 'relative';
+        inputArea.appendChild(panel);
+      }
+    });
+  }
 }

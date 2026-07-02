@@ -85,8 +85,9 @@ function renderDiaryEntries(view) {
     if (!content) continue;
     // 去掉 content 开头的日期行（由 e.date 统一显示），避免重复
     var cleanContent = content.replace(/^\d{4}年\d{1,2}月\d{1,2}日\n\n/, '');
+    var _roundLabel = e.round ? ' · 第' + e.round + '篇' : '';
     html += '<div class="diary-card">' +
-      '<div class="diary-card-date">' + escHtml(e.date || '') + '</div>' +
+      '<div class="diary-card-date">' + escHtml(e.date || '') + _roundLabel + '</div>' +
       '<div class="diary-card-body">' + escHtml(cleanContent).replace(/\n/g, '<br>') + '</div>' +
       '</div>';
   }

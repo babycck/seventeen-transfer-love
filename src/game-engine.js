@@ -16,7 +16,6 @@ import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
-import { showMessageModal, generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { validateNarrative } from './validator.js';
@@ -1784,23 +1783,16 @@ export async function generateOneHeartRound(extra) {
       generateLetter();
     }
 
-    // 1v1 主动消息触发（每5-8回合）
+    // 1v1 主动消息触发（每5-8回合）→ 推入 chatHistory 并标记红点
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % randInt(5, 8) === 0 && Math.random() < 0.6) {
       var _aff = GS.affection[GS.oneHeartMember] || 0;
       var _msg = await generateMessage(_aff);
       if (_msg) {
-        await new Promise(function(resolve) {
-          showMessageModal(_msg, async function(reply) {
-            if (reply) {
-              if (!GS.messageHistory) GS.messageHistory = [];
-              GS.messageHistory[GS.messageHistory.length - 1].reply = reply;
-              var _mid = GS.oneHeartMember;
-              if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 2; }
-            }
-            saveGame();
-            resolve();
-          });
-        });
+        if (!GS.chatHistory) GS.chatHistory = [];
+        GS.chatHistory.push({ role: 'ai', content: _msg });
+        if (GS.chatHistory.length > 50) GS.chatHistory = GS.chatHistory.slice(-50);
+        GS._newChat = true;
+        saveGame();
       }
     }
 
@@ -2344,11 +2336,23 @@ export async function sendChatMessage(userMessage) {
 
   GS.chatHistory.push({ role: 'user', content: userMessage.trim() });
 
+  // 聊天好感度：每5条+1，每天最多3次
+  var _today = GS.day;
+  if (GS._chatAffDay !== _today) { GS._chatAffCount = 0; GS._chatAffDay = _today; }
+  GS._chatAffCount++;
+  if (GS._chatAffCount > 0 && GS._chatAffCount % 5 === 0) {
+    var _affChatCount = Math.floor(GS._chatAffCount / 5);
+    if (_affChatCount <= 3) {
+      var _mid = GS.oneHeartMember;
+      if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 1; }
+    }
+  }
+
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
 
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.9, skipValidate: true });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.75, skipValidate: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
@@ -2423,6 +2427,7 @@ export async function generateDiary() {
     var entry = {
       date: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day,
       day: GS.day,
+      round: Math.floor((GS.oneHeartGenCount || 0) / 3) + 1,
       heroineEntry: json.heroineEntry || '',
       memberEntry: json.memberEntry || ''
     };
@@ -2472,6 +2477,7 @@ export async function generateMoment() {
         name: GS.heroineProfile.name || '',
         post: minePost,
         reply: mineReply,
+        replyBack: json.mine.replyBack || '',
         photo: json.mine.photo || '',
         type: json.mine.type || '日常',
         timestamp: ts,
@@ -2487,6 +2493,7 @@ export async function generateMoment() {
         name: memberName,
         post: hisPost,
         reply: hisReply,
+        replyBack: json.his.replyBack || '',
         photo: json.his.photo || '',
         type: json.his.type || '日常',
         timestamp: ts,
