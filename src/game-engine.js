@@ -2374,15 +2374,18 @@ export async function sendChatMessage(userMessage) {
     if (!diaMatch) diaMatch = clean.match(/“([^”]+)”/g);
     if (diaMatch && diaMatch.length > 0) {
       clean = diaMatch[diaMatch.length - 1].replace(/[「」“”]/g, '');
-      // 检测复述：如果最后一段与用户输入相同或仅差语气词，取倒数第二段
+      // 检测复述：仅当用户输入非空且 AI 回复长度与用户输入相近时才判定
       var strippedUser = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
       var strippedClean = clean.replace(/[〜～~!！?？。、\s]/g, '');
-      if (strippedClean === strippedUser || strippedClean.indexOf(strippedUser) >= 0) {
+      var _isEcho = strippedUser.length > 0 &&
+        strippedClean.length > 0 &&
+        strippedClean.length <= strippedUser.length * 2 &&
+        (strippedClean === strippedUser || strippedClean.indexOf(strippedUser) >= 0);
+      if (_isEcho) {
         if (diaMatch.length >= 2) {
           clean = diaMatch[diaMatch.length - 2].replace(/[「」“”]/g, '');
-        } else {
-          clean = '……';
         }
+        // 倒数第二段也不存在时，保留原始 clean（比省略号友好）
       }
     } else {
       var parts = clean.split('\n').filter(Boolean);
@@ -2393,12 +2396,14 @@ export async function sendChatMessage(userMessage) {
         clean = sentences[sentences.length - 1];
       }
       if (clean.length > 80) clean = clean.slice(-50);
-      // 检测复述（无引号路径）
+      // 检测复述（无引号路径）：同上严格约束
       var strippedUser2 = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
       var strippedClean2 = clean.replace(/[〜～~!！?？。、\s]/g, '');
-      if (strippedClean2 === strippedUser2 || strippedClean2.indexOf(strippedUser2) >= 0) {
-        clean = '……';
-      }
+      var _isEcho2 = strippedUser2.length > 0 &&
+        strippedClean2.length > 0 &&
+        strippedClean2.length <= strippedUser2.length * 2 &&
+        (strippedClean2 === strippedUser2 || strippedClean2.indexOf(strippedUser2) >= 0);
+      // 即使判定复述，也保留 clean（不再返回省略号）
     }
     GS.chatHistory.push({ role: 'ai', content: clean });
     if (GS.chatHistory.length > 50) {

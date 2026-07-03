@@ -960,7 +960,7 @@ export function bindSetupEvents() {
           if (_chosenRivalId) {
             rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
           }
-          if (_chosenRivalId && !rivalPicked && pool.length > 0) {
+          if (!rivalPicked && pool.length > 0) {
             var rivalIdx = Math.floor(Math.random() * pool.length);
             rivalPicked = pool[rivalIdx];
           }
