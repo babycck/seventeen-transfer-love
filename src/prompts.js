@@ -766,7 +766,7 @@ export function buildOneHeartSystemPrompt() {
     '{\n' +
     '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
     '  "options": [\n' +
-    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "rivalAffDelta": 情敌好感变化值(-3~3,可选)", "affReason": "变化原因简述" }\n' +
+    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
     '  ]\n' +
     '}\n' +
     '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +

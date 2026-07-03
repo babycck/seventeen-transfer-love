@@ -587,14 +587,7 @@ export function validateOneHeartNarrative(parsed, GS) {
     if (parsed.options.length > 0 && (parsed.options.length < 2 || parsed.options.length > 4)) {
       corrections.push('选项数量异常：应提供 2-4 个选项，当前有 ' + parsed.options.length + ' 个');
     }
-    // rivalAffDelta 范围校验（-3 ~ 3，超范围修正到边界）
-    for (var oi = 0; oi < parsed.options.length; oi++) {
-      var _opt = parsed.options[oi];
-      if (_opt && typeof _opt.rivalAffDelta === 'number') {
-        if (_opt.rivalAffDelta < -3) _opt.rivalAffDelta = -3;
-        if (_opt.rivalAffDelta > 3) _opt.rivalAffDelta = 3;
-      }
-      // affDelta 范围校验（-5 ~ 5，超范围修正到边界）
+    // affDelta 范围校验（-5 ~ 5，超范围修正到边界）
       if (_opt && typeof _opt.affDelta === 'number') {
         if (_opt.affDelta < -5) _opt.affDelta = -5;
         if (_opt.affDelta > 5) _opt.affDelta = 5;

@@ -2128,7 +2128,6 @@ async function checkOneHeartEvents() {
   // 争吵冷却递减
   if (GS.oneHeartArgueCooldown > 0) GS.oneHeartArgueCooldown--;
 
-  var rivalAff = GS.oneHeartRivalAff || 0;
   var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
 
   // === 告白事件（已改为阶段3触发，见下方情敌专属事件）===

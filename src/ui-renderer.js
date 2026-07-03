@@ -970,7 +970,6 @@ export function bindSetupEvents() {
             rivalPicked = pool[rivalIdx];
           }
           if (rivalPicked) {
-            GS.oneHeartRivalAff = randInt(5, 10);
             GS.oneHeartRival = {
               name: rivalPicked.name,
               memberId: rivalPicked.id,
