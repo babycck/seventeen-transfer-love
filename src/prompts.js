@@ -1261,7 +1261,7 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '\n';
     }
   } else if (type === 'diary') {
-    var _diaryRound = Math.floor((GS.oneHeartGenCount || 0) / 3) + 1;
+    var _diaryRound = (GS.diaryEntries.length || 0) + 1;
     msg += '请根据近期剧情生成两篇日记（各~150字）。日记编号 #' + _diaryRound + '。\n\n';
     msg += '一篇是' + hp.name + '的日记，以' + hp.name + '的第一人称视角写今天的日记。记录近期印象最深的一两件小事，私密的感受，真实的内心。不要加心情标签，不要加标题，就是日期+正文。\n\n';
     msg += '注意：' + hp.name + '是女主（女性），' + member.name + '是男主（男性）。'

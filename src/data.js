@@ -956,7 +956,7 @@ export var HOLIDAYS_1V1 = [
 
 // 1v1 模式 Token 配置
 export var ONE_HEART_TOKEN_CONFIG = {
-  phaseNarrative: 8000,
+  phaseNarrative: 4000,
   chatReply: 1000,
   momentGen: 800,
   diaryGen: 1200,

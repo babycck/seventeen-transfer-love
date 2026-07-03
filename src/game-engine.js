@@ -2638,7 +2638,7 @@ export async function generateDiary() {
     var entry = {
       date: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day,
       day: GS.day,
-      round: Math.floor((GS.oneHeartGenCount || 0) / 3) + 1,
+      round: (GS.diaryEntries.length || 0) + 1,
       heroineEntry: json.heroineEntry || '',
       memberEntry: json.memberEntry || ''
     };
