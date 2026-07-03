@@ -64,6 +64,14 @@ export function saveMainStoryToCache(selectedMembers, secretX, heroineProfile, d
   var cache = getCache();
   var comboKey = getMemberComboKey(selectedMembers, secretX);
   if (!cache.mainStories[comboKey]) cache.mainStories[comboKey] = [];
+  var totalEntries = 0;
+  for (var _sk in cache.mainStories) totalEntries += cache.mainStories[_sk].length;
+  if (totalEntries >= 50 && cache.mainStories[comboKey].length === 0) {
+    // 缓存池超过50条，移除最早的组合
+    var firstKey = Object.keys(cache.mainStories)[0];
+    cache.mainStories[firstKey].shift();
+    if (cache.mainStories[firstKey].length === 0) delete cache.mainStories[firstKey];
+  }
   cache.mainStories[comboKey].push({
     job: heroineProfile.job,
     personality: heroineProfile.personality.slice().sort(),

@@ -80,7 +80,29 @@ export function showMomentsModal() {
       var idx = parseInt(this.dataset.idx);
       var m = GS.moments && GS.moments[idx];
       if (!m) return;
-      var comment = prompt('写下你的评论：');
+      var comment = await new Promise(function(resolve) {
+        var _io = document.createElement('div');
+        _io.className = 'modal-overlay';
+        _io.innerHTML = '<div class="modal-content" style="max-width:340px;text-align:center">' +
+          '<h3>✍️ 写下你的评论</h3>' +
+          '<textarea id="commentInput" style="width:100%;min-height:80px;padding:10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:13px;resize:vertical;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin:12px 0;box-sizing:border-box" placeholder="写下你对这条动态的评论..." maxlength="200"></textarea>' +
+          '<div style="display:flex;gap:8px">' +
+          '<button id="commentSubmit" class="btn-primary" style="flex:1">发送</button>' +
+          '<button id="commentCancel" class="btn-secondary" style="flex:1">取消</button></div></div>';
+        document.body.appendChild(_io);
+        _io.querySelector('#commentSubmit').addEventListener('click', function() {
+          var val = _io.querySelector('#commentInput').value;
+          _io.remove();
+          resolve(val);
+        });
+        _io.querySelector('#commentCancel').addEventListener('click', function() {
+          _io.remove();
+          resolve('');
+        });
+        _io.addEventListener('click', function(e) {
+          if (e.target === _io) { _io.remove(); resolve(''); }
+        });
+      });
       if (!comment || !comment.trim()) return;
       var posterName2 = m.name || hpName;
       var replyName2 = posterName2 === memberName ? hpName : memberName;

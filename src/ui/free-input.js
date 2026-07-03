@@ -14,7 +14,7 @@ export function renderFreeInput(freeInputExhausted) {
   if (freeInputExhausted) {
     html += '<p style="font-size:10px;color:#e65100;text-align:right;margin-bottom:4px">本时段行动次数已用完（' + PHASE_ACTION_LIMIT + '/' + PHASE_ACTION_LIMIT + '）</p>';
   } else {
-    html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-bottom:4px">本时段剩余行动次数：' + remaining + '/' + PHASE_ACTION_LIMIT + '</p>';
+    html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-bottom:4px">本时段行动次数：' + (GS.phaseOptionCount + GS.phaseFreeCount) + '/' + PHASE_ACTION_LIMIT + '</p>';
   }
   html += '<div class="free-input-area">' +
     '<input type="text" id="freeInput" placeholder="✍️ 写下你想发生的一段剧情..." value="' +

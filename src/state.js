@@ -264,7 +264,9 @@ export function saveGame() {
       stateToSave.apiKey = '';
     }
     // 剥离运行时锁和临时标记，防止被持久化到存档导致刷新后卡死
+    var savedLock = stateToSave._isGenerating;
     delete stateToSave._isGenerating;
+    var savedAdvancing = stateToSave._advancingPhase;
     delete stateToSave._advancingPhase;
     delete stateToSave.pendingChoiceText;
     delete stateToSave._pendingSource;
@@ -272,6 +274,8 @@ export function saveGame() {
     if (json.length > SAVE_SIZE_WARN) {
       console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');
     }
+    stateToSave._isGenerating = savedLock;
+    stateToSave._advancingPhase = savedAdvancing;
     localStorage.setItem(STORAGE_KEY, json);
   } catch (e) {
     if (e.name === 'QuotaExceededError') {

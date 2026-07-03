@@ -7,7 +7,7 @@
 } from './core.js';
 import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
-import { parseNarrative, completeSecretMission } from './parser.js';
+import { parseNarrative, completeSecretMission, parseOneHeartNarrative } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
@@ -570,6 +570,7 @@ export async function handleTruthRound(opt) {
   saveGame();
 
   // 生成真心话剧情（复用 consequence 机制）
+  GS._isGenerating = true;
   showLoading('正在生成真心话剧情...');
   try {
     await compressTodayForInjection();
@@ -613,6 +614,8 @@ export async function handleTruthRound(opt) {
   } catch (e) {
     console.error('[handleTruthRound] AI 生成失败:', e);
     showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
   }
   hideLoading();
 }
@@ -715,6 +718,7 @@ export async function handleOptionChoice(opt) {
     return;
   }
 
+  GS._isGenerating = true;
   showLoading('正在生成后续剧情...');
   try {
     await compressTodayForInjection();
@@ -777,9 +781,12 @@ export async function handleOptionChoice(opt) {
 
     saveGame();
     if (window.__renderAll) window.__renderAll();
+    window.scrollTo(0, 0);
   } catch (e) {
     console.error('[handleOptionChoice] AI 生成失败:', e);
     showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
   }
   hideLoading();
 }
@@ -954,6 +961,7 @@ export async function handleFreeAction(actionText) {
     return;
   }
 
+  GS._isGenerating = true;
   showLoading('正在扩写你的剧情...');
   try {
     await compressTodayForInjection();
@@ -1009,9 +1017,12 @@ export async function handleFreeAction(actionText) {
     GS.freeInput = '';
     saveGame();
     if (window.__renderAll) window.__renderAll();
+    window.scrollTo(0, 0);
   } catch (e) {
     console.error('[handleFreeAction] AI 生成失败:', e);
     showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
   }
   hideLoading();
 }
@@ -1041,6 +1052,8 @@ export function triggerAffectionFromChoice(choiceText, opt) {
     targetMember = members.find(function(m) { return m.name === opt.affName; });
     if (targetMember) {
       var delta = opt.affDelta || randInt(2, 4);
+      // 负面扣分增强：扣分时额外追加 -2 风险扣分
+      if (delta < 0) delta += -2;
       updateAffection(targetMember.id, delta);
       addAffectionLog(targetMember.id, delta, opt.affReason || '你选择了与' + targetMember.name + '相关的行动');
       var otherMembers = members.filter(function(m) { return m.id !== targetMember.id; });
@@ -1070,6 +1083,8 @@ export function triggerAffectionFromChoice(choiceText, opt) {
       if (fallbackMember) {
         targetMember = fallbackMember;
         var delta2 = firstChange.delta || randInt(2, 4);
+        // 负面扣分增强：扣分时额外追加 -2 风险扣分
+        if (delta2 < 0) delta2 += -2;
         updateAffection(targetMember.id, delta2);
         addAffectionLog(targetMember.id, delta2, firstChange.reason || '你选择了与' + targetMember.name + '相关的行动');
         var otherMembers2 = members.filter(function(m) { return m.id !== targetMember.id; });
@@ -1114,6 +1129,8 @@ export async function handleRegenerate() {
     return;
   }
 
+  GS._isGenerating = true;
+  try {
   if (GS.consequenceNarratives.length > 0) {
     var last = GS.consequenceNarratives.pop();
     popTodayFullText();
@@ -1165,6 +1182,9 @@ export async function handleRegenerate() {
     GS.prevRawText = oldRaw || '';
     popTodayFullText();
     await generatePhaseNarrative();
+  }
+  } finally {
+    GS._isGenerating = false;
   }
 }
 
@@ -1391,6 +1411,7 @@ export async function continueToday() {
     return;
   }
 
+  GS._isGenerating = true;
   showLoading('正在生成延伸剧情...');
   try {
     await compressTodayForInjection();
@@ -1407,9 +1428,12 @@ export async function continueToday() {
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
     saveGame();
     if (window.__renderAll) window.__renderAll();
+    window.scrollTo(0, 0);
   } catch (e) {
     console.error('[continueToday] 生成失败:', e);
     showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
   }
   hideLoading();
 }
@@ -1443,6 +1467,7 @@ export async function handleQuestionBoxChoice(opt) {
   GS.currentOptions = [];  // 清空残留选项，防止 renderOptionPanel 渲染提问箱按钮
   saveGame();
 
+  GS._isGenerating = true;
   showLoading('正在生成提问箱后续...');
   try {
     await compressTodayForInjection();
@@ -1465,6 +1490,8 @@ export async function handleQuestionBoxChoice(opt) {
   } catch (e) {
     console.error('[handleQuestionBoxChoice] AI 生成失败:', e);
     showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
   }
   hideLoading();
 }
@@ -1770,7 +1797,7 @@ export async function generateOneHeartRound(extra) {
 
     // 1v1 事件触发（回合后检查，非重新生成非结局时）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && !extra.isEnding && !GS.gameOver) {
-      checkOneHeartEvents();
+      await checkOneHeartEvents();
     }
 
     // 1v1 约定检测（每回合，只扫最新一回合）
@@ -1780,7 +1807,7 @@ export async function generateOneHeartRound(extra) {
 
     // 1v1 秘密信件触发（第5回合后每7-10回合）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) >= 5 && (GS.oneHeartGenCount || 0) % randInt(7, 10) === 0) {
-      generateLetter();
+      await generateLetter();
     }
 
     // 1v1 主动消息触发（每5-8回合）→ 推入 chatHistory 并标记红点
@@ -2288,48 +2315,6 @@ async function detectOneHeartPromises(text) {
 }
 window.detectOneHeartPromises = detectOneHeartPromises;
 
-function parseOneHeartNarrative(raw) {
-  try {
-    var json;
-    try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      var match = raw.match(/\{[\s\S]*\}/);
-      if (match) json = JSON.parse(match[0]);
-      else throw e;
-    }
-
-    var narrative = '';
-    var options = [];
-
-    if (json.blocks && Array.isArray(json.blocks)) {
-      for (var i = 0; i < json.blocks.length; i++) {
-        var b = json.blocks[i];
-        if ((b.type === 'narrative' || b.type === 'directorOS') && b.content) {
-          narrative += (narrative ? '\n\n' : '') + b.content;
-        }
-      }
-    }
-
-    if (json.options && Array.isArray(json.options)) {
-      options = json.options.map(function(o) {
-        return { text: o.text || '', affDelta: o.affDelta || 0, affReason: o.affReason || '' };
-      });
-    }
-
-    return { narrative: narrative, options: options };
-  } catch (e) {
-    // 1v1 fallback：AI 返回非 JSON 时作纯文本 narrative 兜底
-    var trimmed = (raw || '').trim();
-    if (trimmed.length > 20) {
-      console.warn('[1v1] parse error, using plain text fallback');
-      return { narrative: trimmed, options: [] };
-    }
-    console.warn('[1v1] parse error, returning empty:', e.message);
-    return { narrative: '', options: [] };
-  }
-}
-
 export async function sendChatMessage(userMessage) {
   if (!userMessage || !userMessage.trim()) return '';
   if (!GS.chatHistory) GS.chatHistory = [];
@@ -2340,6 +2325,7 @@ export async function sendChatMessage(userMessage) {
   var _today = GS.day;
   if (GS._chatAffDay !== _today) { GS._chatAffCount = 0; GS._chatAffDay = _today; }
   GS._chatAffCount++;
+  // 每天最多3次好感度加成（对应15条）
   if (GS._chatAffCount > 0 && GS._chatAffCount % 5 === 0) {
     var _affChatCount = Math.floor(GS._chatAffCount / 5);
     if (_affChatCount <= 3) {
@@ -2347,7 +2333,13 @@ export async function sendChatMessage(userMessage) {
       if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 1; }
     }
   }
+  // 每天聊天次数限制：最多20条
+  if (GS._chatAffCount > 20) {
+    showToast('今日聊天次数已用完，明天再来吧 💬');
+    return '';
+  }
 
+  GS._isGenerating = true;
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
@@ -2361,6 +2353,22 @@ export async function sendChatMessage(userMessage) {
     }
 
     var clean = raw.replace(/^["'\s]+|["'\s]+$/g, '');
+    // 1v1 聊天防 JSON 污染：如果 AI 仍输出 JSON，先尝试提取其中文字内容
+    if (clean.charAt(0) === '{' || clean.charAt(0) === '[') {
+      try {
+        var parsedJson = JSON.parse(clean);
+        if (parsedJson && typeof parsedJson.content === 'string' && parsedJson.content.trim()) {
+          clean = parsedJson.content.trim();
+        } else if (parsedJson && typeof parsedJson.narrative === 'string' && parsedJson.narrative.trim()) {
+          clean = parsedJson.narrative.trim();
+        } else if (parsedJson && parsedJson.blocks && Array.isArray(parsedJson.blocks) && parsedJson.blocks.length > 0) {
+          var blockTexts = parsedJson.blocks.map(function(b) { return b && typeof b.content === 'string' ? b.content.trim() : ''; }).filter(Boolean);
+          if (blockTexts.length > 0) clean = blockTexts.join('\n');
+        }
+      } catch (e) {
+        // 非完整 JSON，继续走下面的兜底逻辑
+      }
+    }
     // 取最后一段对话：优先匹配「」或“”，否则取最后一个非空段落
     var diaMatch = clean.match(/「([^」]+)」/g);
     if (!diaMatch) diaMatch = clean.match(/“([^”]+)”/g);
@@ -2402,10 +2410,14 @@ export async function sendChatMessage(userMessage) {
     console.error('[1v1] chat error:', e);
     showToast('聊天回复生成失败');
     return '';
+  } finally {
+    GS._isGenerating = false;
   }
 }
 
 export async function generateDiary() {
+  if (GS._isGenerating) return null;
+  GS._isGenerating = true;
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('diary');
@@ -2440,10 +2452,14 @@ export async function generateDiary() {
   } catch (e) {
     console.error('[1v1] diary error:', e);
     return null;
+  } finally {
+    GS._isGenerating = false;
   }
 }
 
 export async function generateMoment() {
+  if (GS._isGenerating) return null;
+  GS._isGenerating = true;
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('moment');
@@ -2507,23 +2523,22 @@ export async function generateMoment() {
   } catch (e) {
     console.error('[1v1] moment error:', e);
     return null;
+  } finally {
+    GS._isGenerating = false;
   }
 }
 
 export async function generateTheater(themePrompt) {
+  GS._isGenerating = true;
+  showLoading('正在生成番外剧情...');
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('theater', { themePrompt: themePrompt });
-
-    GS._isGenerating = true;
-    showLoading('正在生成番外剧情...');
 
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.theaterGen, temperature: 0.9, skipValidate: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
-      hideLoading();
-      GS._isGenerating = false;
       return null;
     }
 
@@ -2556,19 +2571,20 @@ export async function generateTheater(themePrompt) {
     if (!GS.theaterHistory) GS.theaterHistory = [];
     GS.theaterHistory.push(theater);
     saveGame();
-    hideLoading();
-    GS._isGenerating = false;
     return theater;
   } catch (e) {
     console.error('[1v1] theater error:', e);
+    return null;
+  } finally {
     hideLoading();
     GS._isGenerating = false;
-    return null;
   }
 }
 
 // 1v1 秘密信箱
 async function generateLetter() {
+  if (GS._isGenerating) return;
+  GS._isGenerating = true;
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
@@ -2598,5 +2614,7 @@ async function generateLetter() {
     saveGame();
   } catch (e) {
     console.warn('[1v1 letter] error:', e);
+  } finally {
+    GS._isGenerating = false;
   }
 }

@@ -355,6 +355,13 @@ export function parseNarrative(rawText) {
           delta: opt.affDelta,
           reason: opt.affReason || ''
         });
+      } else {
+        // 严格丢弃：affName 指向未出场成员或无效成员时清空
+        if (affMember) {
+          console.warn('[parseNarrative] 丢弃好感度变化：' + opt.affName + ' 不在 selectedMembers 中');
+        }
+        opt.affName = '';
+        opt.affDelta = 0;
       }
     }
     if (opt.riskMember && opt.riskDelta) {
@@ -365,6 +372,13 @@ export function parseNarrative(rawText) {
           delta: opt.riskDelta,
           reason: '选项明确扣好感度：' + (opt.affReason || '风险选项')
         });
+      } else {
+        // 严格丢弃：riskMember 指向未出场成员或无效成员时清空
+        if (riskMember) {
+          console.warn('[parseNarrative] 丢弃风险好感度变化：' + opt.riskMember + ' 不在 selectedMembers 中');
+        }
+        opt.riskMember = '';
+        opt.riskDelta = 0;
       }
     }
   }
@@ -457,4 +471,27 @@ export function completeSecretMission() {
 
   GS.secretMission = null;
   saveGame();
+}
+
+// ==================== 1v1 叙事解析 ====================
+export function parseOneHeartNarrative(rawText) {
+  try {
+    // 尝试 JSON 解析（1v1 AI 应输出 JSON）
+    var parsed = JSON.parse(rawText);
+    var options = parsed.options || [];
+    var blocks = parsed.blocks || [{ type: 'narrative', content: (parsed.narrative || rawText).trim() }];
+    // 优先使用顶层 narrative；否则拼接 blocks 中 narrative 类型的 content
+    var narrative = '';
+    if (parsed.narrative && typeof parsed.narrative === 'string') {
+      narrative = parsed.narrative.trim();
+    } else if (blocks && blocks.length > 0) {
+      var narrBlocks = blocks.filter(function(b) { return b && b.type === 'narrative' && typeof b.content === 'string'; });
+      narrative = narrBlocks.map(function(b) { return b.content.trim(); }).join('\n\n');
+    }
+    if (!narrative) narrative = rawText.trim();
+    return { narrative: narrative, options: options, blocks: blocks };
+  } catch (e) {
+    // 纯文本 fallback
+    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }] };
+  }
 }

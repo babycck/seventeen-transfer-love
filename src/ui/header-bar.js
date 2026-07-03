@@ -1,12 +1,13 @@
 import { GS } from '../state.js';
 import { MEMBERS, PHASES, PHASE_LABELS } from '../data.js';
 import { getAffectionHint, getAffectionDesc } from '../affection.js';
+import { escHtml } from '../utils.js';
 
 function getRivalAffLabel() {
   if (!GS.oneHeartRival || !GS.oneHeartRival.name) return '';
   var aff = GS.oneHeartRivalAff || 0;
-  var label = aff >= 40 ? '心动' : aff >= 20 ? '在意' : '淡淡';
-  return '<span class="rival-tag" style="font-size:10px;padding:2px 8px;background:rgba(255,152,0,0.12);border-radius:8px;margin-left:4px;color:#e65100;white-space:nowrap">🪝 情敌:' + label + '</span>';
+  var label = aff >= 60 ? '心动' : aff >= 30 ? '在意' : '淡淡';
+  return '<span class="rival-tag" style="font-size:10px;padding:2px 8px;background:rgba(255,152,0,0.12);border-radius:8px;margin-left:4px;color:#e65100;white-space:nowrap">🪝 情敌 ' + escHtml(GS.oneHeartRival.name) + ':' + aff + '(' + label + ')</span>';
 }
 
 // 渲染顶部 Header（日期/时段/天气/好感度提示/6个功能按钮）
@@ -19,13 +20,21 @@ export function renderHeader() {
     ? (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日' + (GS.weather ? ' · ' + GS.weather : '')
     : 'Day ' + GS.day + (GS.currentDate && GS.currentDate.month ? ' · ' + GS.currentDate.month + '月' + GS.currentDate.day + '日' : '');
 
+  // 1v1 模式好感度
+  var affHtml = '';
+  if (GS.gameMode === 'oneHeart' && GS.oneHeartMember) {
+    affHtml = getAffectionHint(GS.oneHeartMember);
+  } else {
+    affHtml = members.map(function(m) { return getAffectionHint(m.id); }).join(' · ');
+  }
+
   var html = '<div class="header">' +
     '<span class="day-badge">' + dateText + '</span>' +
     (GS.gameMode !== 'oneHeart' ? '<span class="phase-tag">' + PHASE_LABELS[PHASES[GS.phaseIndex]] + '</span>' : '') +
     (GS.gameMode !== 'oneHeart' && GS.weather ? '<span class="weather-tag" style="font-size:11px;padding:2px 8px;background:rgba(255,255,255,0.7);border-radius:8px;margin-left:4px">' + GS.weather + '</span>' : '') +
     (GS.gameMode === 'transfer' && GS.day >= 10 && !GS.gameOver ? '<span class="countdown-tag" style="font-size:12px;font-weight:700;color:#c62828;padding:3px 10px;background:rgba(255,205,210,0.85);border-radius:12px;margin-left:6px;animation:pulse-sms 1.5s infinite">⏳ 距离最终选择还有 ' + (12 - GS.day) + ' 天</span>' : '') +
     '<span class="affection-hint" id="affectionHint" title="点击查看好感度详情">' +
-    members.map(function(m) { return getAffectionHint(m.id); }).join(' · ') +
+    affHtml +
     '</span>' +
     (GS.gameMode === 'oneHeart' ? getRivalAffLabel() : '') +
     '<div class="header-btns">' +

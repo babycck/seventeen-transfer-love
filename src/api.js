@@ -333,6 +333,13 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   useJson = (useJson !== false);
   // 测试模式：从剧情记录文件选取场景
   if (GS.testMode) {
+    // [1v1] 单机测试模式
+    if (GS.gameMode === 'oneHeart') {
+      return JSON.stringify({
+        blocks: [{ type: 'narrative', content: '（1v1测试模式：AI生成已跳过）' }],
+        options: [{ text: '继续剧情' }, { text: '打开聊天' }]
+      });
+    }
     if (useJson) {
       // 先确保存档已加载
       var archive = await _loadStoryArchive();
@@ -479,6 +486,13 @@ function stripJsonFence(text) {
 
 // 测试模式入口：按类型加载对应剧情记录场景
 export async function loadTestScene(type) {
+  // [1v1] 测试模式
+  if (GS.gameMode === 'oneHeart') {
+    return JSON.stringify({
+      blocks: [{ type: 'narrative', content: '（1v1测试模式：无对应存档场景）' }],
+      options: [{ text: '继续' }]
+    });
+  }
   var archive = await _loadStoryArchive();
   if (!archive) return null;
   return _pickTestScene(type);

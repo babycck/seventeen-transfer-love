@@ -55,7 +55,7 @@ function buildRulesContent() {
     var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
     return '<div style="font-size:12px;line-height:1.8;color:var(--text-secondary)">' +
       '<p><strong>💗 只为你心动（1v1 模式）</strong></p>' +
-      '<p><strong>📅 当前：Day ' + GS.day + '</strong></p>' +
+      '<p><strong>📅 当前：' + (GS.gameMode === 'oneHeart' ? 'Round ' + (Math.floor((GS.oneHeartGenCount || 0) / 3) + 1) : 'Day ' + GS.day) + '</strong></p>' +
       '<p><strong>❤️ 心动对象：</strong>' + (ohMember ? ohMember.emoji + ' ' + escHtml(ohMember.name) : '未选择') + '</p>' +
       '<p><strong>🌍 世界观：</strong>' + (world ? world.name : '未选择') + ' · <strong>✍️ 风格：</strong>' + (style ? style.name : '未选择') + '</p>' +
       '<p><strong>📋 核心机制</strong></p>' +
@@ -69,7 +69,7 @@ function buildRulesContent() {
       '<p style="margin-left:12px">• 点击 A/B/C 选项推进剧情</p>' +
       '<p style="margin-left:12px">• 在底部输入框写下自由行动，点击「▶ 进入下一段」提交</p>' +
       '<p style="margin-left:12px">• 🔄 重新生成当前剧情</p>' +
-      (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
+      (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.map(function(t) { return escHtml(t); }).join('、') + '</p>' : '') +
       '</div>';
   }
 
@@ -94,7 +94,7 @@ function buildRulesContent() {
     '<p style="margin-left:12px">Day 12：最终选择（复合 or 换乘）</p>' +
     '<p><strong>✍️ 行动规则：</strong>每时段共有' + PHASE_ACTION_LIMIT + '次行动机会（选选项或自由输入均可），行动次数用完后自动进入下一时段。Day 11 不限制。</p>' +
     '<p><strong>🌙 继续今天：</strong>深夜短信后可继续' + MAX_STAY_COUNT + '次（含自由输入）</p>' +
-    (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.join('、') + '</p>' : '') +
+    (GS.heroineProfile && GS.heroineProfile.privateTraits && GS.heroineProfile.privateTraits.length > 0 ? '<p><strong>⚠️ 私密体质：</strong>' + GS.heroineProfile.privateTraits.map(function(t) { return escHtml(t); }).join('、') + '</p>' : '') +
     '</div>';
 }
 

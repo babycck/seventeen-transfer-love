@@ -65,6 +65,7 @@ export function getHeroineBehaviorText() {
 // ==================== 约会骰子 ====================
 export function rollDatingDice() {
   var members = GS.selectedMembers;
+  if (!members || members.length < 2) return { roll: 0, partner: null };
   var roll = randInt(1, 6);
   var partner;
   if (roll <= 2) partner = members[0];
@@ -135,7 +136,8 @@ export function getAddressRules() {
   }
   lines.push('- 绝对禁止：年长者对年幼者称"哥"（如"崔胜澈对李灿称\'灿哥\'"是严重错误）');
   // 女主规则
-  lines.push('- 女主沈也：');
+  var heroineName = GS.heroineProfile.name || '沈也';
+  lines.push('- 女主' + heroineName + '：');
   lines.push('  · 好感度≤60：对所有成员直呼名字');
   lines.push('  · 好感度>60：可对年长者称"欧巴"（亲密称呼）');
   lines.push('  · 绝对禁止：女主对任何成员称"哥"（"胜澈哥""净汉哥"等一律禁止）');

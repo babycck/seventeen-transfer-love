@@ -33,8 +33,8 @@ export function renderOptionPanel(phaseChoicesExhausted, isTruthRoundActive) {
         escHtml(optText) + optAffHtml + '</button>';
     }
     if (!isTruthRoundActive) {
-      html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段剩余行动次数：' +
-        Math.max(0, PHASE_ACTION_LIMIT - (GS.phaseOptionCount + GS.phaseFreeCount)) + '/' + PHASE_ACTION_LIMIT + '</p>';
+      html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段行动次数：' +
+        (GS.phaseOptionCount + GS.phaseFreeCount) + '/' + PHASE_ACTION_LIMIT + '</p>';
     } else if (!GS.truthState) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">Day 11 真心话环节 · 不限制选项次数</p>';
     }

@@ -281,10 +281,14 @@ export function renderSetupWizard() {
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
         (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') +
-        '<label>生日（月 / 日）</label>' +
+        '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
-        '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '" style="flex:1">' +
-        '<input type="number" id="hpBirthDay" min="1" max="31" placeholder="日" value="' + (hp.birthday && hp.birthday.day ? hp.birthday.day : '') + '" style="flex:1">' +
+        '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit">' +
+        (function(){ var opts = ''; for (var mi = 1; mi <= 12; mi++) { opts += '<option value="' + mi + '"' + (hp.birthday && hp.birthday.month === mi ? ' selected' : '') + '>' + mi + '月</option>'; } return opts; })() +
+        '</select>' +
+        '<select id="hpBirthDay" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit">' +
+        (function(){ var opts = ''; for (var di = 1; di <= 31; di++) { opts += '<option value="' + di + '"' + (hp.birthday && hp.birthday.day === di ? ' selected' : '') + '>' + di + '日</option>'; } return opts; })() +
+        '</select>' +
         '</div>' +
         '<p id="zodiacDisplay" style="font-size:12px;color:var(--text-muted);margin-top:4px">' + (hp.zodiac ? '星座：' + hp.zodiac : '输入生日后自动计算星座') + '</p>' +
         '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
@@ -330,10 +334,14 @@ export function renderSetupWizard() {
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
         (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') +
-        '<label>生日（月 / 日）</label>' +
+        '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
-        '<input type="number" id="hpBirthMonth" min="1" max="12" placeholder="月" value="' + (hp.birthday && hp.birthday.month ? hp.birthday.month : '') + '"' + ro + ' style="flex:1">' +
-        '<input type="number" id="hpBirthDay" min="1" max="31" placeholder="日" value="' + (hp.birthday && hp.birthday.day ? hp.birthday.day : '') + '"' + ro + ' style="flex:1">' +
+        '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit"' + ro + '>' +
+        (function(){ var opts = ''; for (var mi = 1; mi <= 12; mi++) { opts += '<option value="' + mi + '"' + (hp.birthday && hp.birthday.month === mi ? ' selected' : '') + '>' + mi + '月</option>'; } return opts; })() +
+        '</select>' +
+        '<select id="hpBirthDay" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit"' + ro + '>' +
+        (function(){ var opts = ''; for (var di = 1; di <= 31; di++) { opts += '<option value="' + di + '"' + (hp.birthday && hp.birthday.day === di ? ' selected' : '') + '>' + di + '日</option>'; } return opts; })() +
+        '</select>' +
         '</div>' +
         '<p id="zodiacDisplay" style="font-size:12px;color:#8b6b6b;margin-top:4px">' + (hp.zodiac ? '星座：' + hp.zodiac : '输入生日后自动计算星座') + '</p>' +
         '<label>外貌特征（多选）</label><div class="chip-row" id="appearanceChips">' +
@@ -435,7 +443,7 @@ export function renderSetupWizard() {
         '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : '未选择') + '</span></div>' +
         (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? '<div class="confirm-row"><span class="confirm-label">世界设定</span><span style="font-size:11px;max-height:60px;overflow-y:auto">' + escHtml(GS.oneHeartCustomWorld.substring(0, 200)) + (GS.oneHeartCustomWorld.length > 200 ? '...' : '') + '</span></div>' : '') +
         '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
-        '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + hp.name + ' · ' + hp.age + '岁 · ' + hp.job + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + escHtml(hp.name) + ' · ' + hp.age + '岁 · ' + escHtml(hp.job) + '</span></div>' +
         '</div>' +
         '<div style="margin-top:12px"><label>情敌选择（影响剧情发展方向）</label>' +
         '<select id="rivalSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px">' + _rivalHtml + '</select></div>' +
@@ -694,9 +702,9 @@ export function bindSetupEvents() {
       saveGame();
     };
     var hpBirthMonth = document.getElementById('hpBirthMonth');
-    if (hpBirthMonth) hpBirthMonth.addEventListener('input', updateZodiac);
+    if (hpBirthMonth) hpBirthMonth.addEventListener('change', updateZodiac);
     var hpBirthDay = document.getElementById('hpBirthDay');
-    if (hpBirthDay) hpBirthDay.addEventListener('input', updateZodiac);
+    if (hpBirthDay) hpBirthDay.addEventListener('change', updateZodiac);
     bindChipGroup('appearanceChips', function(val) {
       toggleArrayItem(GS.heroineProfile.appearance, val);
       saveGame();
@@ -1217,8 +1225,9 @@ function renderOneHeartGameScreen() {
     if (hasOptions) {
       for (var oi = 0; oi < GS.currentOptions.length; oi++) {
         var opt = GS.currentOptions[oi];
+        var affTag = opt && opt.affDelta ? ' <span style="font-size:11px;color:' + (opt.affDelta > 0 ? '#2e7d32' : '#c62828') + ';font-weight:600">(' + (opt.affDelta > 0 ? '+' : '') + opt.affDelta + ')</span>' : '';
         html += '<button class="option-btn" data-idx="' + oi + '"><span class="opt-label">' + ['A','B','C'][oi] + '</span>' +
-          escHtml(opt.text) + '</button>';
+          escHtml(opt.text) + affTag + '</button>';
       }
     }
     html += '</div>' +
@@ -1258,7 +1267,21 @@ function renderOneHeartGameScreen() {
 
   // Game over
   if (GS.gameOver) {
-    html += '<div style="text-align:center;padding:20px;color:var(--accent-primary);font-size:18px;font-weight:700">💗 故事结束</div>';
+    var _member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    var _memberName = _member ? _member.name : '';
+    var _finalAff = GS.affection[GS.oneHeartMember] || 0;
+    var _affLabel = getAffectionDesc(_finalAff);
+    var _finalResult = GS.finalResult || '';
+    html += '<div style="text-align:center;padding:30px 20px">' +
+      '<div style="font-size:28px;margin-bottom:10px">💗</div>' +
+      '<div style="font-size:20px;font-weight:700;color:var(--accent-primary);margin-bottom:6px">故事结束</div>' +
+      '<div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">' +
+      (_memberName ? '你与 ' + escHtml(_memberName) + ' 的专属故事' : '只为你心动的故事') +
+      ' · 最终好感度：' + _finalAff + '（' + _affLabel + '）</div>' +
+      (_finalResult ? '<div style="max-width:500px;margin:0 auto;padding:16px;background:var(--bg-card);border-radius:12px;font-size:13px;color:var(--text-primary);line-height:1.8;text-align:left">' +
+      escHtml(_finalResult) + '</div>' : '') +
+      '<button id="restartOneHeartBtn" style="margin-top:20px;padding:10px 24px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer">开始新的故事</button>' +
+      '</div>';
   }
 
   return html;
@@ -1674,6 +1697,9 @@ window.showOneHeartMainlineModal = showOneHeartMainlineModal;
       this.disabled = true;
       await handleFreeAction(inputText);
       this.disabled = false;
+      // 提交后清空输入框
+      var freeInputEl = document.getElementById('freeInput');
+      if (freeInputEl) freeInputEl.value = '';
     });
   }
 
@@ -2296,8 +2322,8 @@ function bindOneHeartEvents() {
             var _newMember = GS.oneHeartRival.memberId;
             GS.oneHeartMember = _newMember;
             GS.oneHeartRival.memberId = _oldMember;
-            var _oldName = GS.oneHeartRival.name;
-            GS.oneHeartRival.name = GS.heroineProfile.name || '';
+            var _oldMemberObj = MEMBERS.find(function(m) { return m.id === _oldMember; });
+            GS.oneHeartRival.name = _oldMemberObj ? _oldMemberObj.name : '';
             GS._rivalSwitched = true;
             if (!GS.affection[_newMember]) GS.affection[_newMember] = GS.oneHeartRivalAff || 40;
             // 清理旧情敌档案免干扰

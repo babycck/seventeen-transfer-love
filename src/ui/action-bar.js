@@ -49,12 +49,9 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isTruthR
     }
   }
 
-  // 短信发送后显示进入下一天/继续今天
+  // 短信发送后显示进入下一天
   if (smsSent && isNight) {
     html += '<button class="btn-next-day" id="btnNextDay">✅ 确认进入下一天</button>';
-    if (!stayExhausted) {
-      html += '<button class="btn-continue" id="btnContinue">✍️ 继续今天（' + GS.stayCount + '/' + MAX_STAY_COUNT + '）</button>';
-    }
   }
 
   html += '</div></div>';
