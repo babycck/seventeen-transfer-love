@@ -538,10 +538,18 @@ export function validateOneHeartNarrative(parsed, GS) {
   // 1. 场景位置连续性校验（模糊匹配 + 合法场景切换豁免 + sceneContext缺失检测）
   if (!isNewDay && !_isSceneChange && oldCtx.location) {
     if (parsed.sceneContext && parsed.sceneContext.location) {
-      // 模糊匹配：一方包含另一方视为同一场景（"咖啡馆" ≈ "咖啡馆二楼"）
+      // 模糊匹配：提取地点主体（剥离楼层/区域后缀）后比较，同一建筑群内移动视为同场景
+      // 例："HYBE公司大楼一楼大厅" 与 "HYBE公司大楼停车场入口附近步道" 主体均为"HYBE公司大楼"
+      var _stripSubArea = function(loc) {
+        return loc.replace(/[一二三四五六七八九十1-9]楼|B[12]层?|大厅|入口|门口|停车场|附近|步道|走廊|电梯|楼梯|休息区|前台|室外|室内|院内|楼下|楼上/g, '').trim();
+      };
       var _newLoc = parsed.sceneContext.location;
       var _oldLoc = oldCtx.location;
-      var _isSameScene = _newLoc.indexOf(_oldLoc) >= 0 || _oldLoc.indexOf(_newLoc) >= 0;
+      var _newSubj = _stripSubArea(_newLoc);
+      var _oldSubj = _stripSubArea(_oldLoc);
+      // 主体匹配优先，否则回退到双向子串包含（"咖啡馆" ≈ "咖啡馆二楼"）
+      var _subjectMatch = _newSubj && _oldSubj && (_newSubj.indexOf(_oldSubj) >= 0 || _oldSubj.indexOf(_newSubj) >= 0);
+      var _isSameScene = _subjectMatch || _newLoc.indexOf(_oldLoc) >= 0 || _oldLoc.indexOf(_newLoc) >= 0;
       if (!_isSameScene) {
         corrections.push('场景矛盾：上一段在「' + _oldLoc + '」，这段变成了「' + _newLoc + '」——请延续上一段场景。如需切换场景，请在选项中明确写出"去某地"');
       }

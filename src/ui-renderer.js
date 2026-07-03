@@ -1005,6 +1005,13 @@ export function bindSetupEvents() {
             };
           }
         }
+        // 最终防御检查：情敌不可与关系网角色为同一人（两者均为 SEVENTEEN 成员且有 memberId 时）
+        if (GS.oneHeartRival && GS.oneHeartRival.memberId && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.memberId) {
+          if (GS.oneHeartRival.memberId === GS.oneHeartRelationCharacter.memberId) {
+            console.warn('[1v1] 防御检查：情敌与关系网角色为同一人，清空情敌避免混淆', GS.oneHeartRival.memberId);
+            GS.oneHeartRival = null;
+          }
+        }
         }
 
         GS.todayHoliday = null;
