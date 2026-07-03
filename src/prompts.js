@@ -1139,6 +1139,8 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请生成下一段剧情（必须 1500-2000 字 JSON）。包含 1段 narrative + options（3个选项）。正文不要低于 1000 字。\n\n';
   } else if (type === 'chat') {
     msg += '【角色切换·最高优先级】从现在开始，你不是剧情生成AI，你就是' + member.name + '本人。你正在用手机和' + hp.name + '聊天，你看到她发来的消息后，直接打字回复她。你说的每一句话都是' + member.name + '这个真实的人会打字发出去的内容——口语、自然、像真人微信聊天。绝对禁止任何导演指令、风格说明、旁白描述、心理分析（如"保持冷淡风格""他回复道""语气带着温度"这类统统禁止）。你只能输出' + member.name + '发出去的那条消息正文本身。\n\n';
+    // ⚠️ 空间提醒：你们不在同一空间
+    msg += '【空间提醒】你们不在一起，你是在手机上回她的消息。你在做你自己的事（根据时段推断你此刻在干嘛），她的问题要基于你此刻正在做的事来回答。\n\n';
     // 注入人设摘要（帮助AI进入角色）
     msg += '【你的人设】性格：' + member.personality + '。互动风格：' + member.interactionStyle + '。情感模式：' + member.loveStyle + '。' + (member.catchphrases ? '口头禅/习惯用语：' + member.catchphrases.join('、') + '。' : '') + '说话要有你自己的特色，不要所有人都一个腔调。\n\n';
     // 注入关系状态
@@ -1148,6 +1150,22 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) msg += ' · ⚠️ 冷战期';
     if (GS.oneHeartRival && GS.oneHeartRival.name) msg += ' · 情敌「' + GS.oneHeartRival.name + '」存在';
     msg += ' · 时段：' + (GS.oneHeartTimeOfDay || '上午') + '\n\n';
+    // 好感度→回复风格（动态一段话，非固定映射表）
+    var _styleHint = '';
+    if (_chatAff >= 80) _styleHint = '你们已热恋，回复亲密粘人，主动报备细节，可以说想念';
+    else if (_chatAff >= 60) _styleHint = '关系升温中，主动分享、调侃撒娇，多聊私人感受';
+    else if (_chatAff >= 40) _styleHint = '暧昧期，放松但还带试探，可以聊心情和吐槽';
+    else if (_chatAff >= 15) _styleHint = '普通朋友，自然有问有答，答完可反问但不深聊';
+    else _styleHint = '初识阶段，克制礼貌简短，只答核心不主动展开';
+    msg += '【好感度风格】' + _styleHint + '。\n\n';
+    // 时段→活动推断（让AI知道此刻男主在干嘛，而非生硬照搬女主视角的剧情）
+    var _tod = GS.oneHeartTimeOfDay || '上午';
+    var _activityHint = '';
+    if (_tod.indexOf('深夜') >= 0) _activityHint = '深夜，你在宿舍休息/刷手机，最放松的时候，可以说白天不会说的私房话';
+    else if (_tod.indexOf('傍晚') >= 0) _activityHint = '傍晚，行程基本结束，可能在回去的路上或休息，话可以多些';
+    else if (_tod.indexOf('下午') >= 0) _activityHint = '下午，可能在练习室或跑行程中，忙碌间隙回消息';
+    else _activityHint = '上午，一天刚开始，可能在去练习室/公司的路上或刚开始热身';
+    msg += '【当前时段】' + _activityHint + '。如果她问你"在忙什么"，你的答案要基于此刻你正在做的事，不要只反问不回答。\n\n';
     // 注入故事上下文
     var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
     if (_chatRound >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
@@ -1178,7 +1196,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     msg += '\n' + hp.name + '刚发来：「' + extra.userMessage + '」\n\n';
     msg += '现在请以' + member.name + '的身份，直接回复这条消息。只输出你回复的正文，不要有任何前缀、引号、解释。\n';
-    msg += '【硬性规则】\n1. 你的输出 = ' + member.name + '发出去的那条消息，第一人称，直接是对' + hp.name + '说的话\n2. 禁止导演式描述（如"他冷淡地说""语气带着温度""保持风格"等任何旁白）\n3. 禁止复述' + hp.name + '的话\n4. 禁止输出JSON/代码块/markdown\n5. 字数根据内容自然控制，1-3句话即可，像真人聊天\n6. ⚠️ 必须正面回答问题：她问你"在忙什么"，你必须告诉她你在做什么（如"在练习室练新歌""刚结束行程，回去的路上""没忙啥，躺着刷手机"等符合你当前日程的具体内容），禁止只回"你呢""没忙啥"这种敷衍/反问而不给出自己的答案。可以先回答她，再反问她。\n7. ⚠️ 禁止连续两轮用相同回复（如上一轮回了"你呢"，这一轮不能再回"你呢"）。\n';
+    msg += '【硬性规则】\n1. 你的输出 = ' + member.name + '发出去的那条消息，第一人称，直接是对' + hp.name + '说的话\n2. 禁止导演式描述（如"他冷淡地说""语气带着温度""保持风格"等任何旁白）\n3. 禁止复述' + hp.name + '的话\n4. 禁止输出JSON/代码块/markdown\n5. 字数根据内容自然控制，1-3句话即可，像真人聊天\n6. ⚠️ 必须正面回答问题（如"在忙什么"），先给出具体答案再反问，禁止只反问不回答。\n7. ⚠️ 禁止连续两轮用相同回复（如上轮回了"你呢"，这轮就不能再回"你呢"）。\n';
   } else if (type === 'moment') {
     msg += '请生成两条朋友圈动态：\n';
     msg += '1. ' + hp.name + '发的一条动态（约50字）+ ' + member.name + '的评论回复（约20字）\n';
