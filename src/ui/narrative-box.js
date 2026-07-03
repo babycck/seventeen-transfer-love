@@ -181,7 +181,8 @@ export function renderNarrativeSection() {
     if (GS.phaseNarrative) {
       allHtml += renderParsedNarrative(GS.parsedNarrative);
     }
-    html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '"></div></div>';
+    // 直接渲染 innerHTML + 保留 data-narrative-html 供打字机使用（刷新后直接显示）
+    html = '<div class="card"><div class="narrative-box" id="narrativeBox" data-narrative-html="' + escHtml(allHtml) + '">' + allHtml + '</div></div>';
     html += '<button class="narrative-edit-btn" id="narrativeEditBtn" title="编辑剧情">✏️ 编辑</button>';
   }
 
