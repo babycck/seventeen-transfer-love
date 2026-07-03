@@ -542,36 +542,6 @@ export function validateOneHeartNarrative(parsed, GS) {
     }
   }
 
-  // 2. 在场人物一致性校验（新增人物 + 人物凭空消失）
-  if (!isNewDay && parsed.sceneContext && parsed.sceneContext.present && parsed.sceneContext.present.length > 0 && oldCtx.present && oldCtx.present.length > 0) {
-    var oldSet = {};
-    for (var i = 0; i < oldCtx.present.length; i++) oldSet[oldCtx.present[i]] = true;
-    var newSet = {};
-    for (var j = 0; j < parsed.sceneContext.present.length; j++) newSet[parsed.sceneContext.present[j]] = true;
-
-    // 2a. 检查凭空出现的新人物
-    var newArrUnknown = [];
-    for (var j2 = 0; j2 < parsed.sceneContext.present.length; j2++) {
-      if (!oldSet[parsed.sceneContext.present[j2]] && parsed.sceneContext.present[j2] !== GS.heroineProfile.name) {
-        newArrUnknown.push(parsed.sceneContext.present[j2]);
-      }
-    }
-    if (newArrUnknown.length > 0 && newArrUnknown.length <= 2) {
-      corrections.push('人物矛盾：上一段在场人物中没有「' + newArrUnknown.join('、') + '」，他们突然出现了——请确保人物出场有合理过渡');
-    }
-
-    // 2b. 检查人物凭空消失（旧场景 >= 3 人，消失 >= 2 人且无过渡）
-    var disappeared = [];
-    for (var k = 0; k < oldCtx.present.length; k++) {
-      if (!newSet[oldCtx.present[k]] && oldCtx.present[k] !== GS.heroineProfile.name) {
-        disappeared.push(oldCtx.present[k]);
-      }
-    }
-    if (disappeared.length >= 2 && oldCtx.present.length >= 3) {
-      corrections.push('人物消失：「' + disappeared.join('、') + '」上一段还在场，这段突然消失了——请描写他们离开的过渡，或在 sceneContext.present 中保留');
-    }
-  }
-
   // 3. 时段合法性校验（AI 在 sceneContext.timeOfDay 中自主判断时段，仅校验合法性）
   var _validTimes = ['上午', '下午', '傍晚', '深夜'];
   if (parsed.sceneContext && parsed.sceneContext.timeOfDay) {

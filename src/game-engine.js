@@ -16,6 +16,7 @@ import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
+import { generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { validateNarrative } from './validator.js';
@@ -1714,6 +1715,9 @@ export async function generateOneHeartRound(extra) {
   if (GS._isGenerating) { console.log('[1v1] skip reentrant'); return; }
   GS._isGenerating = true;
   showLoading('正在生成剧情...');
+  var _needDiary = false;
+  var _needMoment = false;
+  var _needLetter = false;
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     // 如果是走向结局，注入结局指令
@@ -1835,14 +1839,14 @@ export async function generateOneHeartRound(extra) {
       GS.oneHeartDiaryCounter++;
       if (GS.oneHeartDiaryCounter >= 3) {
         GS.oneHeartDiaryCounter = 0;
-        await generateDiary();
+        _needDiary = true;
       }
       // 朋友圈计数器（随机 3-5 段触发）
       GS.oneHeartMomentCounter++;
       var momentThreshold = randInt(3, 5);
       if (GS.oneHeartMomentCounter >= momentThreshold) {
         GS.oneHeartMomentCounter = 0;
-        await generateMoment();
+        _needMoment = true;
       }
     }
 
@@ -1990,7 +1994,7 @@ export async function generateOneHeartRound(extra) {
 
     // 1v1 秘密信件触发（第5回合后每7-10回合）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) >= 5 && (GS.oneHeartGenCount || 0) % randInt(7, 10) === 0) {
-      await generateLetter();
+      _needLetter = true;
     }
 
     // 1v1 主动消息触发（每5-8回合）→ 推入 chatHistory 并标记红点
@@ -2020,6 +2024,20 @@ export async function generateOneHeartRound(extra) {
     GS._isGenerating = false;
     window.__renderAll && window.__renderAll();
     hideLoading();
+  }
+
+  // 锁已释放，执行延迟生成（主剧情成功才设置标志，失败 throw 时跳过）
+  if (_needDiary) {
+    try { await generateDiary(); } catch (e) { console.warn('[1v1] diary deferred error:', e); }
+  }
+  if (_needMoment) {
+    try { await generateMoment(); } catch (e) { console.warn('[1v1] moment deferred error:', e); }
+  }
+  if (_needLetter) {
+    try { await generateLetter(); } catch (e) { console.warn('[1v1] letter deferred error:', e); }
+  }
+  if (_needDiary || _needMoment) {
+    window.__renderAll && window.__renderAll();
   }
 }
 
