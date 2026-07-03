@@ -430,7 +430,8 @@ export function renderSetupWizard() {
       var confirmWorld = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
       var confirmStyle = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
       var hp = GS.heroineProfile;
-      var _rivalOpts = MEMBERS.filter(function(m) { return m.id !== GS.oneHeartMember; });
+      var _relCharId = GS.oneHeartRelationCharacter ? GS.oneHeartRelationCharacter.memberId : '';
+      var _rivalOpts = MEMBERS.filter(function(m) { return m.id !== GS.oneHeartMember && m.id !== _relCharId; });
       var _rivalHtml = '<option value="">🎲 随机情敌（默认）</option>';
       for (var _ri = 0; _ri < _rivalOpts.length; _ri++) {
         _rivalHtml += '<option value="' + _rivalOpts[_ri].id + '">' + _rivalOpts[_ri].emoji + ' ' + _rivalOpts[_ri].name + '</option>';
@@ -958,7 +959,11 @@ export function bindSetupEvents() {
           var _chosenRivalId = _rivalSelect ? _rivalSelect.value : '';
           var rivalPicked = null;
           if (_chosenRivalId) {
-            rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
+            // 排除已抽中关系角色的成员，避免情敌和哥哥/闺蜜是同一人
+            var _relMemId = GS.oneHeartRelationCharacter ? GS.oneHeartRelationCharacter.memberId : '';
+            if (_chosenRivalId !== _relMemId) {
+              rivalPicked = MEMBERS.find(function(m) { return m.id === _chosenRivalId; });
+            }
           }
           if (!rivalPicked && pool.length > 0) {
             var rivalIdx = Math.floor(Math.random() * pool.length);
