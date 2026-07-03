@@ -588,6 +588,8 @@ export function validateOneHeartNarrative(parsed, GS) {
       corrections.push('选项数量异常：应提供 2-4 个选项，当前有 ' + parsed.options.length + ' 个');
     }
     // affDelta 范围校验（-5 ~ 5，超范围修正到边界）
+    for (var oi = 0; oi < parsed.options.length; oi++) {
+      var _opt = parsed.options[oi];
       if (_opt && typeof _opt.affDelta === 'number') {
         if (_opt.affDelta < -5) _opt.affDelta = -5;
         if (_opt.affDelta > 5) _opt.affDelta = 5;
