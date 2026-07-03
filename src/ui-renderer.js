@@ -1257,10 +1257,8 @@ function renderOneHeartGameScreen() {
   // Bottom tab bar
   var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
   var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
-  var _chatDot = GS._newChat ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
-    '<button class="oneheart-tab" data-tab="chat" style="position:relative"><span class="tab-emoji">💬</span>聊天' + _chatDot + '</button>' +
     '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
     '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
@@ -2171,10 +2169,6 @@ function bindOneHeartEvents() {
         case 'story':
           // Already showing story, scroll to top
           window.scrollTo({ top: 0, behavior: 'smooth' });
-          break;
-        case 'chat':
-          GS._newChat = false;
-          showChatModal();
           break;
         case 'diary':
           showDiaryModal();
