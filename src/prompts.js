@@ -932,7 +932,8 @@ export function buildOneHeartSystemPrompt() {
     '9. 遵守饮食禁忌。\n' +
     '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n' +
     '11. 禁止在正文中提及字数、回复长度（如「回了N个字」「只说了两个字」），直接写对话内容本身。\n' +
-    '12. [长度强制] 每段 phase 剧情正文总长度必须达到 1500-2000 字（约等于 1500-2000 个汉字）。这是硬性要求，禁止只输出 300-500 字的简短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n\n' +
+    '12. [长度强制] 每段 phase 剧情正文总长度必须达到 1500-2000 字（约等于 1500-2000 个汉字）。这是硬性要求，禁止只输出 300-500 字的简短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n' +
+    '13. [场景连贯·最高优先级] 剧情必须严格延续上一段的场景、地点、人物位置和时间。除非玩家明确选择"新的一天"或"去某地"，否则不可无故切换场景。常见错误：上段说"下周聚餐"，这段就写"你已经在聚餐"——错误！时间未到就该停在当时，等"新的一天"推进。上段两人在车里，这段不能突然变成在家里。人物位置必须连贯：他在A处就在A处，不能凭空瞬移。\n\n' +
 
     (function() {
       var wc = getWorldConfig(GS.worldSetting);
@@ -1016,7 +1017,9 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '请直接描写约定被实现的过程和场景，围绕这个约定展开这段剧情，不要当作普通的后续延续。\n';
       msg += '但剧情环境、人物状态、时间地点必须和当前正文保持一致，不可脱离主线。\n\n';
     } else if (GS.pendingChoiceText) {
-      msg += '[女主的决定] 她刚刚做出了选择：' + GS.pendingChoiceText + '\n请根据这个选择展开后续剧情。\n\n';
+      msg += '[女主的决定] 她刚刚做出了选择：' + GS.pendingChoiceText + '\n';
+      msg += '请根据这个选择展开后续剧情。\n';
+      msg += '⚠️ 场景延续要求：新剧情必须从上一段结尾处自然接续，保持相同的地点、时间、人物位置。不可无故跳转场景或让人物瞬移。如果选择涉及未来计划（如"下周去聚餐"），不要立刻跳到聚餐当天，而是停留在当下继续这段对话/互动。\n\n';
     }
     // 注入自由输入
     if (GS.freeInput && GS.freeInput.trim()) {
@@ -1100,7 +1103,7 @@ export function buildOneHeartUserMessage(type, extra) {
       _lastNarr = GS.phaseNarrative;
     }
     if (_lastNarr) {
-      msg += '[当前场景] ' + _lastNarr.slice(-500) + '\n\n';
+      msg += '[上一段剧情结尾] 以下是上一段剧情的最后部分，新剧情必须从这里自然接续，不可脱离这个场景另起炉灶：\n' + _lastNarr.slice(-500) + '\n\n';
     }
     // 注入待兑现约定
     if (GS.oneHeartPromises && GS.oneHeartPromises.length > 0) {
