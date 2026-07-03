@@ -1783,6 +1783,12 @@ export async function generateOneHeartRound(extra) {
       }
     }
 
+    // 1v1 事件条目提取（合并到剧情生成调用，零额外 AI 成本；在重试逻辑后统一存储最终 parsed 的 eventItems）
+    if (parsed.eventItems && parsed.eventItems.length > 0) {
+      if (!GS.oneHeartEventLog) GS.oneHeartEventLog = [];
+      GS.oneHeartEventLog = GS.oneHeartEventLog.concat(parsed.eventItems);
+    }
+
     if (GS.pendingChoiceText) {
       // 保存当前 phaseNarrative 到 consequence，防止被后续清空丢失
       if (GS.phaseNarrative && GS.parsedNarrative && GS.parsedNarrative.narrative) {
@@ -1860,55 +1866,9 @@ export async function generateOneHeartRound(extra) {
     GS.isInConsequence = false;
     GS.smsSentToday = false;
 
-    // 1v1 剧情压缩计数 + 触发（基于 todayFullText，不删除原文）
+    // 1v1 回合计数（回礼/冷战/聊天回合判断依赖；旧异步压缩逻辑已移除，事件条目改为每篇剧情生成时 AI 顺带返回）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
       GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
-      if (GS.oneHeartLastCompressedIdx === undefined) GS.oneHeartLastCompressedIdx = 0;
-      var _needMore = GS.todayFullText.length - GS.oneHeartLastCompressedIdx;
-      if (GS.oneHeartGenCount >= 15 && _needMore >= 10 && !GS._compressing) {
-        GS._compressing = true;
-        var _startIdx = GS.oneHeartLastCompressedIdx;
-        // 从 todayFullText 取未压缩的 10 条（只读，不 splice）
-        var _toCompress = GS.todayFullText.slice(_startIdx, _startIdx + 10);
-        // 原文缓存（用于导出）
-        if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
-        GS.oneHeartArchivedNarratives = GS.oneHeartArchivedNarratives.concat(_toCompress);
-        // 异步 AI 压缩（不阻塞渲染）
-        (async function(entries, start) {
-          try {
-            var compressText = '';
-            for (var ci = 0; ci < entries.length; ci++) {
-              compressText += (start + ci + 1) + '. ' + (entries[ci] || '(空)') + '\n';
-            }
-            if (compressText.length > 100) {
-              var summary = await callDeepSeek(
-                '你是记忆压缩助手。将以下多段剧情压缩为约1000字的详细摘要。保留关键事件、对话和情感转折。去掉冗余描写。\n\n⚠️ 必须保留以下信息（如果在这段剧情中出现了）：\n1. 关系状态的变化（告白、吵架、和好、分手、冷战）\n2. 所有出场角色的名字\n3. 关键承诺和约定\n4. 情敌相关的重要互动\n5. 重要场景和地点\n6. 情感线上的转折点\n\n只输出压缩后的文本。',
-                '请将以下剧情压缩为约1000字摘要：\n\n' + compressText,
-                TOKEN_CONFIG.dailySummary || 2000,
-                false,
-                0.2
-              );
-              if (summary && summary.trim()) {
-                if (!GS.dailySummaries) GS.dailySummaries = [];
-                GS.dailySummaries.push('第' + (start + 1) + '-' + (start + entries.length) + '回合压缩记忆：\n' + summary.trim());
-              }
-            }
-            GS.oneHeartGenCount -= 10;
-            // 同步调整约定创建回合，防止压缩后延迟判断失准
-            if (GS.oneHeartPromiseLog) {
-              for (var _pl = 0; _pl < GS.oneHeartPromiseLog.length; _pl++) {
-                GS.oneHeartPromiseLog[_pl].createdAtRound -= 10;
-              }
-            }
-            GS.oneHeartLastCompressedIdx = start + entries.length;
-            saveGame();
-          } catch (e) {
-            console.error('[1v1 compress] error:', e);
-          } finally {
-            GS._compressing = false;
-          }
-        })(_toCompress, _startIdx);
-      }
     }
 
     // 1v1 冷战检测 + 好感度阶段解锁 + 约会日检测

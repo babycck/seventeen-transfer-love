@@ -767,11 +767,17 @@ export function buildOneHeartSystemPrompt() {
     '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
     '  "options": [\n' +
     '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
-    '  ]\n' +
+    '  ],\n' +
+    '  "eventItems": ["一句话事件1", "一句话事件2"]\n' +
     '}\n' +
     '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
     '⚠️ directorOS 不进 blocks。\n' +
-    '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n\n' +
+    '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n' +
+    '⚠️ eventItems 字段说明：从本段剧情中提取关键事件，每个事件用一句话概括（包含人物、地点、事件要素）。\n' +
+    '重点提取「女主、男主（正主）、关系户（哥哥等亲人）、暗恋对象/情敌」之间的互动事件。\n' +
+    '短事件示例：「女主给正主买咖啡」\n' +
+    '长事件示例：「正主在练习室生病了，女主照顾他，被哥哥发现，哥哥让队友金珉奎送正主回宿舍」\n' +
+    '没有值得记录的事件时返回空数组 []。只提取本段实际发生的事件，不要推测或编造。\n\n' +
 
     '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
 
@@ -989,22 +995,21 @@ export function buildOneHeartUserMessage(type, extra) {
   msg += '\n';
 
   if (type === 'phase') {
-    // 注入压缩记忆（历史回顾）
-    if (GS.dailySummaries && GS.dailySummaries.length > 0) {
-      var _recentSums = GS.dailySummaries.slice(-3);
-      msg += '[历史回顾（压缩记忆）]\n';
-      for (var _dsi = 0; _dsi < _recentSums.length; _dsi++) {
-        msg += '第' + (_dsi + 1) + '段压缩记忆：' + _recentSums[_dsi] + '\n';
+    // 注入事件回顾（1v1 事件条目，替代旧的 dailySummaries 压缩记忆）
+    if (GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
+      var _recentEvents = GS.oneHeartEventLog.slice(-40);
+      msg += '[历史事件回顾（仅供上下文参考·禁止复述）]\n';
+      for (var _evi = 0; _evi < _recentEvents.length; _evi++) {
+        msg += '- ' + _recentEvents[_evi] + '\n';
       }
       msg += '\n';
     }
-    // 注入未压缩的近期剧情（从压缩指针到末尾）
-    var _compIdx = GS.oneHeartLastCompressedIdx || 0;
-    var recentTexts = GS.todayFullText.slice(_compIdx);
+    // 注入近期剧情尾部（衔接用，直接取尾部）
+    var recentTexts = GS.todayFullText;
     if (recentTexts.length > 0) {
       var recentJoined = recentTexts.join('\n\n');
       if (recentJoined.length > 3000) recentJoined = recentJoined.slice(-3000);
-      msg += '[近期未压缩剧情]\n' + recentJoined + '\n\n';
+      msg += '[近期剧情]\n' + recentJoined + '\n\n';
     }
     // 注入上一次选择
     if (GS.pendingChoiceText === '📅 新的一天') {
@@ -1203,21 +1208,19 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '【当前时段】' + _activityHint + '。如果她问你"在忙什么"，你的答案要基于此刻你正在做的事，不要只反问不回答。\n\n';
     // 注入故事上下文
     var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
-    if (_chatRound >= 2 && GS.dailySummaries && GS.dailySummaries.length > 0) {
-      var _chatSums = GS.dailySummaries.slice(-3);
-      msg += '[历史回顾]\n';
-      for (var _ci = 0; _ci < _chatSums.length; _ci++) {
-        msg += 'Day ' + (_ci + 1) + '：' + _chatSums[_ci].slice(0, 400) + '\n';
+    if (_chatRound >= 2 && GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
+      var _chatEvents = GS.oneHeartEventLog.slice(-15);
+      msg += '[历史事件回顾]\n';
+      for (var _ci = 0; _ci < _chatEvents.length; _ci++) {
+        msg += '- ' + _chatEvents[_ci] + '\n';
       }
       msg += '\n';
-      var _ciIdx = GS.oneHeartLastCompressedIdx || 0;
-      var curText = GS.todayFullText.slice(_ciIdx).join('\n').slice(-800);
+      var curText = GS.todayFullText.join('\n').slice(-800);
       if (curText.trim()) {
         msg += '[当前进展]\n' + curText + '\n\n';
       }
     } else if (_chatRound === 1) {
-      var _c1Idx = GS.oneHeartLastCompressedIdx || 0;
-      var day1Text = GS.todayFullText.slice(_c1Idx).join('\n').slice(-2000);
+      var day1Text = GS.todayFullText.join('\n').slice(-2000);
       if (day1Text.trim()) {
         msg += '[今日剧情]\n' + day1Text + '\n\n';
       }
@@ -1244,8 +1247,7 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '⚠️ mine.post 和 his.post 必须非空。如果某个post为空，请将其reply内容填入post字段，确保每条动态都有正文。\n';
     msg += '示例：{"mine":{"post":"今天练舞累坏了，腿都不是自己的了","reply":"辛苦了，给你带了饮料","replyBack":"还是你最懂我","photo":"练习室镜子前的自拍","type":"日常"},"his":{"post":"这首歌终于录完了","reply":"太好听了！循环中","replyBack":"谢谢～你喜欢就好","photo":"录音室控制台","type":"日常"}}\n';
     msg += '内容基于当前剧情阶段自然生成。\n';
-    var _mmIdx = GS.oneHeartLastCompressedIdx || 0;
-    var recentNarr = GS.todayFullText.slice(_mmIdx).join('\n').slice(-800);
+    var recentNarr = GS.todayFullText.join('\n').slice(-800);
     if (recentNarr.trim()) {
       msg += '近期剧情：\n' + recentNarr + '\n\n';
     }
@@ -1266,15 +1268,15 @@ export function buildOneHeartUserMessage(type, extra) {
       + (GS.oneHeartRival && GS.oneHeartRival.name ? '「' + GS.oneHeartRival.name + '」是情感阻碍者（情敌），不是恋爱对象。' : '')
       + '不可混淆角色。\n\n';
     msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他近期对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
-    if (GS.dailySummaries && GS.dailySummaries.length > 0) {
-      msg += '[历史回顾]\n';
-      for (var _dri = 0; _dri < GS.dailySummaries.length; _dri++) {
-        msg += '第' + (_dri + 1) + '段：' + GS.dailySummaries[_dri].slice(0, 300) + '\n';
+    if (GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
+      var _diaryEvents = GS.oneHeartEventLog.slice(-20);
+      msg += '[历史事件回顾]\n';
+      for (var _dri = 0; _dri < _diaryEvents.length; _dri++) {
+        msg += '- ' + _diaryEvents[_dri] + '\n';
       }
       msg += '\n';
     }
-    var _deIdx = GS.oneHeartLastCompressedIdx || 0;
-    var diaryNarr = GS.todayFullText.slice(_deIdx).join('\n').slice(-1200);
+    var diaryNarr = GS.todayFullText.join('\n').slice(-1200);
     if (diaryNarr.trim()) {
       msg += '近期重要剧情：\n' + diaryNarr + '\n\n';
     }

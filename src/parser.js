@@ -498,10 +498,19 @@ export function parseOneHeartNarrative(rawText) {
         timeOfDay: typeof parsed.sceneContext.timeOfDay === 'string' ? parsed.sceneContext.timeOfDay : ''
       };
     }
-    return { narrative: narrative, options: options, blocks: blocks, sceneContext: sceneContext };
+    // 提取 eventItems（1v1 事件条目，可选字段）
+    var eventItems = [];
+    if (Array.isArray(parsed.eventItems)) {
+      for (var ei = 0; ei < parsed.eventItems.length; ei++) {
+        if (typeof parsed.eventItems[ei] === 'string' && parsed.eventItems[ei].trim()) {
+          eventItems.push(parsed.eventItems[ei].trim());
+        }
+      }
+    }
+    return { narrative: narrative, options: options, blocks: blocks, sceneContext: sceneContext, eventItems: eventItems };
   } catch (e) {
     // 纯文本 fallback
-    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }], sceneContext: null };
+    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }], sceneContext: null, eventItems: [] };
   }
 }
 

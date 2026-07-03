@@ -31,6 +31,9 @@ export function defaultGameState() {
     oneHeartArchivedNarratives: [],
     oneHeartGenCount: 0,
     oneHeartLastCompressedIdx: 0,
+    oneHeartLastDayStartIdx: 0, // 昨日剧情在 todayFullText 的起点索引（用于生成昨日事件摘要）
+    oneHeartYesterdaySummary: '', // 昨日事件摘要（新的一天时注入 prompt，防止角色失忆）
+    oneHeartEventLog: [], // 1v1 事件条目（每篇剧情生成时 AI 顺带提取，替代旧 dailySummaries 批量压缩）
     oneHeartRelationCharacter: { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false },
     oneHeartRival: { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' },
     oneHeartStartYear: 2025,
@@ -420,6 +423,8 @@ export function migrateSave() {
     if (!GS.oneHeartArchivedNarratives) GS.oneHeartArchivedNarratives = [];
     if (GS.oneHeartGenCount === undefined) GS.oneHeartGenCount = 0;
     if (GS.oneHeartLastCompressedIdx === undefined) GS.oneHeartLastCompressedIdx = 0;
+    if (GS.oneHeartLastDayStartIdx === undefined) GS.oneHeartLastDayStartIdx = 0;
+    if (GS.oneHeartYesterdaySummary === undefined) GS.oneHeartYesterdaySummary = '';
     if (!GS.oneHeartRelationCharacter) GS.oneHeartRelationCharacter = { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false };
     if (!GS.oneHeartRival) GS.oneHeartRival = { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' };
     if (GS.oneHeartStartYear === undefined) GS.oneHeartStartYear = 2025;
@@ -464,6 +469,7 @@ export function migrateSave() {
     // 情敌阶段追踪与去重
     if (!GS.oneHeartRivalStage) GS.oneHeartRivalStage = { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' };
     if (!Array.isArray(GS.oneHeartRivalTriggeredActions)) GS.oneHeartRivalTriggeredActions = [];
+    if (!Array.isArray(GS.oneHeartEventLog)) GS.oneHeartEventLog = [];
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存

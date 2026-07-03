@@ -11,7 +11,7 @@ export function showReviewModal() {
   // Tab 按钮
   var tabsHtml = '<div style="display:flex;gap:4px;margin-bottom:10px;flex-shrink:0">';
   if (isOneHeart) {
-    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 压缩记忆</button>' +
+    tabsHtml += '<button class="tab-btn active" id="reviewTabSummary">📅 事件回顾</button>' +
       '<button class="tab-btn" id="reviewTabPromises">📌 约定 (' + (GS.oneHeartPromises || []).filter(function(p){return !p.fulfilled;}).length + ')</button>';
   } else {
     tabsHtml += '<button class="tab-btn active" id="reviewTabHistory">📖 历史剧情</button>' +
@@ -102,6 +102,22 @@ export function showReviewModal() {
       }
     });
   });
+
+  // 1v1 事件回顾保存
+  var eventSaveBtn = overlay.querySelector('#eventLogSaveBtn');
+  if (eventSaveBtn) {
+    eventSaveBtn.addEventListener('click', function() {
+      var ta = overlay.querySelector('#eventLogEdit');
+      if (ta) {
+        var lines = ta.value.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });
+        GS.oneHeartEventLog = lines;
+        saveGame();
+        this.textContent = '✅ 已保存';
+        var self = this;
+        setTimeout(function() { self.textContent = '保存'; }, 2000);
+      }
+    });
+  }
 
   // 约定编辑保存
   overlay.querySelectorAll('.promise-save').forEach(function(btn) {
@@ -197,8 +213,7 @@ export function showReviewModal() {
     rescanBtn.addEventListener('click', async function() {
       this.disabled = true;
       this.textContent = '⏳ 扫描中...';
-      var _compIdx = GS.oneHeartLastCompressedIdx || 0;
-      var _text = GS.todayFullText.slice(_compIdx).join('\n\n').slice(-3000);
+      var _text = GS.todayFullText.join('\n\n').slice(-3000);
       if (_text.length >= 50) {
         await window.detectOneHeartPromises(_text);
         GS._reviewActiveTab = 'promises';
@@ -337,25 +352,51 @@ function buildPromisesContent() {
 function buildSummaryContent() {
   var isOneHeart = GS.gameMode === 'oneHeart';
   var summaries = GS.dailySummaries || [];
+  var eventLog = GS.oneHeartEventLog || [];
   var html = '';
   if (isOneHeart) {
-    // 1v1 压缩规则说明
+    // 1v1 事件回顾说明
     html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:12px;margin-bottom:10px;font-size:12px;line-height:1.7;color:var(--text-secondary)">' +
-      '<p style="font-weight:700;margin:0 0 6px 0">📋 压缩规则</p>' +
-      '<p style="margin:0">累积到 15 次剧情生成后，自动将前 10 段剧情压缩为摘要。之后每累积 10 次再压缩前 10 段。<br>原文保留在缓存中，导出剧情时可导出全部原文。</p>' +
+      '<p style="font-weight:700;margin:0 0 6px 0">📋 事件回顾规则</p>' +
+      '<p style="margin:0">每篇剧情生成时 AI 自动提取关键事件（女主/正主/关系户/情敌之间的互动）。可在下方文本区手动增删改，每行一条事件，保存后生效。</p>' +
       '</div>';
+    // 事件回顾可编辑文本区
+    if (eventLog.length === 0 && summaries.length === 0) {
+      html += '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无事件记录（推进剧情后自动提取）</p>';
+      return html;
+    }
+    // 优先显示事件条目；若事件为空但有旧 dailySummaries，fallback 显示
+    if (eventLog.length > 0) {
+      var eventText = eventLog.join('\n');
+      html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
+        '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">事件列表（共 ' + eventLog.length + ' 条，每行一条）</p>' +
+        '<textarea id="eventLogEdit" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
+        escHtml(eventText) + '</textarea>' +
+        '<button id="eventLogSaveBtn" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
+    } else {
+      // fallback：旧存档无事件条目，显示旧 dailySummaries 摘要
+      for (var si = 0; si < summaries.length; si++) {
+        var dayNum = si + 1;
+        html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
+          '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">Day ' + dayNum + '（旧摘要）</p>' +
+          '<textarea class="summary-edit" data-day="' + si + '" style="width:100%;min-height:200px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
+          escHtml(summaries[si]) + '</textarea>' +
+          '<button class="btn-summary-save" data-day="' + si + '" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
+      }
+    }
+    return html;
   }
   if (summaries.length === 0) {
     html += '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无压缩记忆（推进剧情后自动生成）</p>';
     return html;
   }
-  for (var si = 0; si < summaries.length; si++) {
-    var dayNum = si + 1;
+  for (var si2 = 0; si2 < summaries.length; si2++) {
+    var dayNum2 = si2 + 1;
     html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
-      '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">Day ' + dayNum + '</p>' +
-      '<textarea class="summary-edit" data-day="' + si + '" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
-      escHtml(summaries[si]) + '</textarea>' +
-      '<button class="btn-summary-save" data-day="' + si + '" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
+      '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">Day ' + dayNum2 + '</p>' +
+      '<textarea class="summary-edit" data-day="' + si2 + '" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
+      escHtml(summaries[si2]) + '</textarea>' +
+      '<button class="btn-summary-save" data-day="' + si2 + '" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
   }
   return html;
 }
