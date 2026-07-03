@@ -1098,9 +1098,11 @@ export function buildOneHeartUserMessage(type, extra) {
     if (_weatherH) msg += '🌤 [天气氛围] ' + _weatherH + '\n\n';
 
     // 注入代码追踪的场景状态（告知AI当前时段和位置）
-    var _timeLabels = ['上午', '下午', '傍晚', '深夜'];
-    var _curTimeLabel = _timeLabels[GS.oneHeartTimeProgress] || '上午';
-    msg += '[场景状态] 当前时段：' + _curTimeLabel + '。剧情必须发生在这个时段内，不可写其他时段的事。\n';
+    var _curTimeLabel = GS.oneHeartTimeOfDay || '上午';
+    msg += '[场景状态] 当前时段：' + _curTimeLabel + '。你可以根据剧情节奏自然推进时段（如从上午发展到下午），但不要倒退。请在本段剧情结束时的 sceneContext.timeOfDay 中返回当前的时段（上午/下午/傍晚/深夜之一）。\n';
+    if (_curTimeLabel === '深夜') {
+      msg += '当前已是深夜，本段剧情应为今天画上句号、自然收尾。不要在深夜时段开启新的外出活动，而是以休息、夜话、内心独白等收束当日。如需推进到第二天，引导玩家选择"新的一天"。\n';
+    }
     var _sceneCtx = GS.oneHeartSceneContext || { location: '', present: [] };
     if (_sceneCtx.location) {
       msg += '目前你们在「' + _sceneCtx.location + '」';
@@ -1109,7 +1111,8 @@ export function buildOneHeartUserMessage(type, extra) {
       }
       msg += '。所有剧情动作必须延续这个场景，人物不可凭空出现或消失。\n';
     }
-    msg += '请输出 JSON 时包含 sceneContext 字段（描述本段剧情结束时的位置和在场人物），格式：{"location":"位置","present":["人物1","人物2"]}\n\n';
+    msg += '请输出 JSON 时包含 sceneContext 字段（描述本段剧情结束时的位置和在场人物），格式：{"location":"位置","present":["人物1","人物2"],"timeOfDay":"上午"}\n';
+    msg += '场景规则：非"新的一天"时必须延续当前场景。仅当选项明确涉及移动（如"去咖啡馆""送她回家"）才允许切换场景，且需描写移动过渡。如不涉及移动，sceneContext.location 必须与当前位置一致或为其子地点（如"咖啡馆"→"咖啡馆二楼"可接受）。\n\n';
 
     // 注入上一段剧情结尾
     var _lastNarr = '';

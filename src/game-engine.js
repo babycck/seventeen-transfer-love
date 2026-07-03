@@ -1645,6 +1645,11 @@ export async function generateOneHeartRound(extra) {
         if (_retryRaw) {
           var _retryParsed = parseOneHeartNarrative(_retryRaw);
           if (_retryParsed && _retryParsed.narrative) {
+            // 二次校验：如果仍有矛盾，记录警告但不阻塞（避免无限重试）
+            var _retryCorrections = validateOneHeartNarrative(_retryParsed, GS);
+            if (_retryCorrections) {
+              console.warn('[1v1] 重试后仍有校验矛盾，采用重试结果：', _retryCorrections);
+            }
             parsed = _retryParsed;
           }
         }
@@ -1679,19 +1684,18 @@ export async function generateOneHeartRound(extra) {
     }
     GS.currentOptions = parsed.options || [];
 
-    // 1v1 时段自动推进
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
-      GS.oneHeartTimeProgress = (GS.oneHeartTimeProgress || 0) + 1;
-      if (GS.oneHeartTimeProgress > 3) GS.oneHeartTimeProgress = 3;
-      var _timeLabels = ['上午', '下午', '傍晚', '深夜'];
-      GS.oneHeartTimeOfDay = _timeLabels[GS.oneHeartTimeProgress];
-    }
-
     // 1v1 场景上下文更新（从 AI 的 sceneContext 字段）
     if (GS.gameMode === 'oneHeart' && parsed.sceneContext && parsed.sceneContext.location) {
+      // 同步 AI 判断的时段（timeOfDay 必须是合法值才更新，否则保留原值）
+      var _validTimeLabels = ['上午', '下午', '傍晚', '深夜'];
+      var _aiTimeOfDay = parsed.sceneContext.timeOfDay || '';
+      if (_validTimeLabels.indexOf(_aiTimeOfDay) >= 0) {
+        GS.oneHeartTimeOfDay = _aiTimeOfDay;
+      }
       GS.oneHeartSceneContext = {
         location: parsed.sceneContext.location,
-        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : []
+        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : [],
+        timeOfDay: _aiTimeOfDay
       };
       saveGame();
     }
@@ -1763,6 +1767,12 @@ export async function generateOneHeartRound(extra) {
               }
             }
             GS.oneHeartGenCount -= 10;
+            // 同步调整约定创建回合，防止压缩后延迟判断失准
+            if (GS.oneHeartPromiseLog) {
+              for (var _pl = 0; _pl < GS.oneHeartPromiseLog.length; _pl++) {
+                GS.oneHeartPromiseLog[_pl].createdAtRound -= 10;
+              }
+            }
             GS.oneHeartLastCompressedIdx = start + entries.length;
             saveGame();
           } catch (e) {

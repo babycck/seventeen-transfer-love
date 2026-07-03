@@ -60,9 +60,9 @@ export function defaultGameState() {
     _rivalIntroduced: false,
     _newMoments: false,
     _newDiary: false,
-    oneHeartTimeOfDay: '上午',
-    oneHeartTimeProgress: 0, // 0=上午 1=下午 2=傍晚 3=深夜，代码控制时段推进
-    oneHeartSceneContext: { location: '', present: [] }, // 代码追踪场景位置和在场人物
+    oneHeartTimeOfDay: '上午', // AI 自主判断的当前时段，由 sceneContext.timeOfDay 同步
+    oneHeartTimeProgress: 0, // [已废弃] 保留向后兼容，不再使用
+    oneHeartSceneContext: { location: '', present: [], timeOfDay: '上午' }, // 代码追踪场景位置、在场人物、时段
     oneHeartPromiseLog: [], // [{ text, createdAtRound }] 约定创建日志，用于延迟兑现控制
     oneHeartLastEventRound: 0,
     _newChat: false,

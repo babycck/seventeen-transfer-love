@@ -494,7 +494,8 @@ export function parseOneHeartNarrative(rawText) {
     if (parsed.sceneContext && typeof parsed.sceneContext === 'object') {
       sceneContext = {
         location: typeof parsed.sceneContext.location === 'string' ? parsed.sceneContext.location : '',
-        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : []
+        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : [],
+        timeOfDay: typeof parsed.sceneContext.timeOfDay === 'string' ? parsed.sceneContext.timeOfDay : ''
       };
     }
     return { narrative: narrative, options: options, blocks: blocks, sceneContext: sceneContext };
@@ -513,40 +514,85 @@ export function parseOneHeartNarrative(rawText) {
 export function validateOneHeartNarrative(parsed, GS) {
   var corrections = [];
 
-  // 1. 场景位置连续性校验（非"新的一天"时，新位置必须与旧位置一致）
   var oldCtx = GS.oneHeartSceneContext || { location: '', present: [] };
-  var isNewDay = GS.pendingChoiceText === '📅 新的一天';
-  if (!isNewDay && parsed.sceneContext && parsed.sceneContext.location && oldCtx.location) {
-    if (parsed.sceneContext.location !== oldCtx.location) {
-      corrections.push('场景矛盾：上一段在「' + oldCtx.location + '」，这段变成了「' + parsed.sceneContext.location + '」——请延续上一段场景，不要切换');
+  // 判断是否为新的一天/生日/节日（这些场景允许重新开始）
+  var _pct = GS.pendingChoiceText || '';
+  var isNewDay = _pct.indexOf('新的一天') >= 0 || _pct.indexOf('生日') >= 0 || _pct.indexOf('今天是') >= 0;
+
+  // 检测是否为合法场景切换（玩家选择了涉及移动的选项）
+  var _isSceneChange = _pct && (
+    _pct.indexOf('去') >= 0 || _pct.indexOf('离开') >= 0 || _pct.indexOf('前往') >= 0 ||
+    _pct.indexOf('走到') >= 0 || _pct.indexOf('回到') >= 0 || _pct.indexOf('送') >= 0 ||
+    _pct.indexOf('搬') >= 0 || _pct.indexOf('出发') >= 0
+  );
+
+  // 1. 场景位置连续性校验（模糊匹配 + 合法场景切换豁免 + sceneContext缺失检测）
+  if (!isNewDay && !_isSceneChange && oldCtx.location) {
+    if (parsed.sceneContext && parsed.sceneContext.location) {
+      // 模糊匹配：一方包含另一方视为同一场景（"咖啡馆" ≈ "咖啡馆二楼"）
+      var _newLoc = parsed.sceneContext.location;
+      var _oldLoc = oldCtx.location;
+      var _isSameScene = _newLoc.indexOf(_oldLoc) >= 0 || _oldLoc.indexOf(_newLoc) >= 0;
+      if (!_isSameScene) {
+        corrections.push('场景矛盾：上一段在「' + _oldLoc + '」，这段变成了「' + _newLoc + '」——请延续上一段场景。如需切换场景，请在选项中明确写出"去某地"');
+      }
+    } else {
+      // AI 没有返回 sceneContext —— 补漏：要求 AI 必须输出该字段
+      corrections.push('格式缺失：请务必在 JSON 中输出 sceneContext 字段，描述本段剧情结束时的位置和在场人物，格式：{"location":"位置","present":["人物1"]}');
     }
   }
 
-  // 2. 在场人物一致性校验
+  // 2. 在场人物一致性校验（新增人物 + 人物凭空消失）
   if (!isNewDay && parsed.sceneContext && parsed.sceneContext.present && parsed.sceneContext.present.length > 0 && oldCtx.present && oldCtx.present.length > 0) {
-    // 检查新场景中是否出现完全不相关的新人物（没有旧场景在场的过渡就凭空出现）
     var oldSet = {};
     for (var i = 0; i < oldCtx.present.length; i++) oldSet[oldCtx.present[i]] = true;
+    var newSet = {};
+    for (var j = 0; j < parsed.sceneContext.present.length; j++) newSet[parsed.sceneContext.present[j]] = true;
+
+    // 2a. 检查凭空出现的新人物
     var newArrUnknown = [];
-    for (var j = 0; j < parsed.sceneContext.present.length; j++) {
-      if (!oldSet[parsed.sceneContext.present[j]] && parsed.sceneContext.present[j] !== GS.heroineProfile.name) {
-        newArrUnknown.push(parsed.sceneContext.present[j]);
+    for (var j2 = 0; j2 < parsed.sceneContext.present.length; j2++) {
+      if (!oldSet[parsed.sceneContext.present[j2]] && parsed.sceneContext.present[j2] !== GS.heroineProfile.name) {
+        newArrUnknown.push(parsed.sceneContext.present[j2]);
       }
     }
     if (newArrUnknown.length > 0 && newArrUnknown.length <= 2) {
-      corrections.push('人物矛盾：上一段在场人物中没有「' + newArrUnknown.join('、') + '」，他们突然出现在了这段剧情中——请确保人物出场有合理过渡');
+      corrections.push('人物矛盾：上一段在场人物中没有「' + newArrUnknown.join('、') + '」，他们突然出现了——请确保人物出场有合理过渡');
+    }
+
+    // 2b. 检查人物凭空消失（旧场景 >= 3 人，消失 >= 2 人且无过渡）
+    var disappeared = [];
+    for (var k = 0; k < oldCtx.present.length; k++) {
+      if (!newSet[oldCtx.present[k]] && oldCtx.present[k] !== GS.heroineProfile.name) {
+        disappeared.push(oldCtx.present[k]);
+      }
+    }
+    if (disappeared.length >= 2 && oldCtx.present.length >= 3) {
+      corrections.push('人物消失：「' + disappeared.join('、') + '」上一段还在场，这段突然消失了——请描写他们离开的过渡，或在 sceneContext.present 中保留');
     }
   }
 
-  // 3. 时段一致性校验（检查 narrative 中是否提到了与当前时段不符的时间描述）
-  var timeLabels = ['上午', '下午', '傍晚', '深夜'];
-  var timeLabel = timeLabels[GS.oneHeartTimeProgress] || '上午';
-  var narrText = parsed.narrative || '';
-  if (narrText) {
-    for (var t = 0; t < timeLabels.length; t++) {
-      if (timeLabels[t] !== timeLabel && narrText.indexOf(timeLabels[t]) >= 0) {
-        // 轻微警告，不阻断（AI 可能在回忆/展望中用到其他时段）
-        break;
+  // 3. 时段合法性校验（AI 在 sceneContext.timeOfDay 中自主判断时段，仅校验合法性）
+  var _validTimes = ['上午', '下午', '傍晚', '深夜'];
+  if (parsed.sceneContext && parsed.sceneContext.timeOfDay) {
+    var _aiTime = parsed.sceneContext.timeOfDay;
+    if (_validTimes.indexOf(_aiTime) < 0) {
+      corrections.push('时段格式错误：sceneContext.timeOfDay 必须是「上午」「下午」「傍晚」「深夜」之一，当前值是「' + _aiTime + '」');
+    }
+  }
+
+  // 4. 选项有效性校验
+  if (parsed.options && Array.isArray(parsed.options)) {
+    // 选项数量应在 2-4 个
+    if (parsed.options.length > 0 && (parsed.options.length < 2 || parsed.options.length > 4)) {
+      corrections.push('选项数量异常：应提供 2-4 个选项，当前有 ' + parsed.options.length + ' 个');
+    }
+    // rivalAffDelta 范围校验（-3 ~ 3，超范围修正到边界）
+    for (var oi = 0; oi < parsed.options.length; oi++) {
+      var _opt = parsed.options[oi];
+      if (_opt && typeof _opt.rivalAffDelta === 'number') {
+        if (_opt.rivalAffDelta < -3) _opt.rivalAffDelta = -3;
+        if (_opt.rivalAffDelta > 3) _opt.rivalAffDelta = 3;
       }
     }
   }
