@@ -2064,6 +2064,12 @@ function bindOneHeartEvents() {
           spawnAffFloat(mid, opt.affDelta);
         }
       }
+      // 1v1 情敌好感度更新
+      if (opt && opt.rivalAffDelta && GS.oneHeartRival && GS.oneHeartRival.name) {
+        GS.oneHeartRivalAff = (GS.oneHeartRivalAff || 0) + opt.rivalAffDelta;
+        if (GS.oneHeartRivalAff < 0) GS.oneHeartRivalAff = 0;
+        spawnAffFloat('rival', opt.rivalAffDelta); // 情敌用 'rival' 标识飘字
+      }
       // 设置选择文本，清空选项，推进
       GS.pendingChoiceText = (opt && opt.text) || '';
       GS.currentOptions = [];

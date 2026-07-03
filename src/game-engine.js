@@ -7,7 +7,7 @@
 } from './core.js';
 import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
-import { parseNarrative, completeSecretMission, parseOneHeartNarrative } from './parser.js';
+import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
@@ -1635,6 +1635,22 @@ export async function generateOneHeartRound(extra) {
       return;
     }
 
+    // 1v1 校验：场景/人物/时段一致性（最多重试1次）
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+      var _corrections = validateOneHeartNarrative(parsed, GS);
+      if (_corrections) {
+        var _retryMsg = userMsg + '\n\n[修正] ' + _corrections + '\n请根据修正指示重新生成。';
+        var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true });
+        var _retryRaw = (_retryGr && _retryGr.raw) ? _retryGr.raw : '';
+        if (_retryRaw) {
+          var _retryParsed = parseOneHeartNarrative(_retryRaw);
+          if (_retryParsed && _retryParsed.narrative) {
+            parsed = _retryParsed;
+          }
+        }
+      }
+    }
+
     if (GS.pendingChoiceText) {
       // 保存当前 phaseNarrative 到 consequence，防止被后续清空丢失
       if (GS.phaseNarrative && GS.parsedNarrative && GS.parsedNarrative.narrative) {
@@ -1662,6 +1678,23 @@ export async function generateOneHeartRound(extra) {
       GS.phaseNarrative = parsed.narrative;
     }
     GS.currentOptions = parsed.options || [];
+
+    // 1v1 时段自动推进
+    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+      GS.oneHeartTimeProgress = (GS.oneHeartTimeProgress || 0) + 1;
+      if (GS.oneHeartTimeProgress > 3) GS.oneHeartTimeProgress = 3;
+      var _timeLabels = ['上午', '下午', '傍晚', '深夜'];
+      GS.oneHeartTimeOfDay = _timeLabels[GS.oneHeartTimeProgress];
+    }
+
+    // 1v1 场景上下文更新（从 AI 的 sceneContext 字段）
+    if (GS.gameMode === 'oneHeart' && parsed.sceneContext && parsed.sceneContext.location) {
+      GS.oneHeartSceneContext = {
+        location: parsed.sceneContext.location,
+        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : []
+      };
+      saveGame();
+    }
 
     if (GS.todayFullText.length === 0) {
       GS.todayFullText = [parsed.narrative];
@@ -2303,6 +2336,9 @@ async function detectOneHeartPromises(text) {
             text: pt,
             fulfilled: false
           });
+          // 记录约定创建回合，用于延迟兑现控制
+          if (!GS.oneHeartPromiseLog) GS.oneHeartPromiseLog = [];
+          GS.oneHeartPromiseLog.push({ text: pt, createdAtRound: GS.oneHeartGenCount || 0 });
           changed = true;
         }
       }

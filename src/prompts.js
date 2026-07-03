@@ -766,7 +766,7 @@ export function buildOneHeartSystemPrompt() {
     '{\n' +
     '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
     '  "options": [\n' +
-    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
+    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "rivalAffDelta": 情敌好感变化值(-3~3,可选)", "affReason": "变化原因简述" }\n' +
     '  ]\n' +
     '}\n' +
     '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
@@ -933,7 +933,10 @@ export function buildOneHeartSystemPrompt() {
     '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n' +
     '11. 禁止在正文中提及字数、回复长度（如「回了N个字」「只说了两个字」），直接写对话内容本身。\n' +
     '12. [长度强制] 每段 phase 剧情正文总长度必须达到 1500-2000 字（约等于 1500-2000 个汉字）。这是硬性要求，禁止只输出 300-500 字的简短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n' +
-    '13. [场景连贯·最高优先级] 剧情必须严格延续上一段的场景、地点、人物位置和时间。除非玩家明确选择"新的一天"或"去某地"，否则不可无故切换场景。常见错误：上段说"下周聚餐"，这段就写"你已经在聚餐"——错误！时间未到就该停在当时，等"新的一天"推进。上段两人在车里，这段不能突然变成在家里。人物位置必须连贯：他在A处就在A处，不能凭空瞬移。\n\n' +
+    '13. [场景连贯·最高优先级] 剧情必须严格延续上一段的场景、地点、人物位置和时间。除非玩家明确选择"新的一天"或"去某地"，否则不可无故切换场景。常见错误：上段说"下周聚餐"，这段就写"你已经在聚餐"——错误！时间未到就该停在当时，等"新的一天"推进。上段两人在车里，这段不能突然变成在家里。人物位置必须连贯：他在A处就在A处，不能凭空瞬移。\n' +
+    '14. [物品连续性] 剧情中涉及的物品（耳机/水杯/手机/钥匙等）必须在之前的剧情中出现过或自然存在于当前场景中，禁止凭空让角色拿出一个从未提过的物品。如果需要新物品，先通过对话或描写引入它。\n' +
+    '15. [人物知识隔离] 每个角色只能知道他们亲眼看到或亲耳听到的信息。禁止"读心"——不要写他知道她在想什么。禁止透露未公开的私密信息（如私密体质、内心独白）。只有女主自己和AI知道的事，其他角色不能知道。\n' +
+    '16. [群聊消息可见性] 群聊中发的消息，群内的所有人都能看到。但人物当面聊天时不依赖群聊——和谁在一起就直接说，不要用手机@同在一个空间的人。\n\n' +
 
     (function() {
       var wc = getWorldConfig(GS.worldSetting);
@@ -1094,7 +1097,21 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     if (_weatherH) msg += '🌤 [天气氛围] ' + _weatherH + '\n\n';
 
-    // 注入当前场景（最后一段已发生的剧情，确保选项上下文不矛盾）
+    // 注入代码追踪的场景状态（告知AI当前时段和位置）
+    var _timeLabels = ['上午', '下午', '傍晚', '深夜'];
+    var _curTimeLabel = _timeLabels[GS.oneHeartTimeProgress] || '上午';
+    msg += '[场景状态] 当前时段：' + _curTimeLabel + '。剧情必须发生在这个时段内，不可写其他时段的事。\n';
+    var _sceneCtx = GS.oneHeartSceneContext || { location: '', present: [] };
+    if (_sceneCtx.location) {
+      msg += '目前你们在「' + _sceneCtx.location + '」';
+      if (_sceneCtx.present && _sceneCtx.present.length > 0) {
+        msg += '，在场人物：' + _sceneCtx.present.join('、');
+      }
+      msg += '。所有剧情动作必须延续这个场景，人物不可凭空出现或消失。\n';
+    }
+    msg += '请输出 JSON 时包含 sceneContext 字段（描述本段剧情结束时的位置和在场人物），格式：{"location":"位置","present":["人物1","人物2"]}\n\n';
+
+    // 注入上一段剧情结尾
     var _lastNarr = '';
     if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
       var _last = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
@@ -1105,13 +1122,22 @@ export function buildOneHeartUserMessage(type, extra) {
     if (_lastNarr) {
       msg += '[上一段剧情结尾] 以下是上一段剧情的最后部分，新剧情必须从这里自然接续，不可脱离这个场景另起炉灶：\n' + _lastNarr.slice(-500) + '\n\n';
     }
-    // 注入待兑现约定
+    // 注入待兑现约定（含延迟控制）
     if (GS.oneHeartPromises && GS.oneHeartPromises.length > 0) {
       var _unfulfilled = GS.oneHeartPromises.filter(function(p) { return !p.fulfilled; });
       if (_unfulfilled.length > 0) {
-        msg += '💡 [待兑现约定] 以下约定等待自然实现，在合适的剧情时机融入即可：\n';
+        msg += '💡 [待兑现约定] 以下约定等待自然实现：\n';
+        var _currentRound = GS.oneHeartGenCount || 0;
         for (var _pi = 0; _pi < _unfulfilled.length; _pi++) {
-          msg += '- ' + _unfulfilled[_pi].text + '\n';
+          var _p = _unfulfilled[_pi];
+          // 检查约定创建时间：未经过3回合的约定标"尚未到时机"
+          var _log = GS.oneHeartPromiseLog ? GS.oneHeartPromiseLog.find(function(l) { return l.text === _p.text; }) : null;
+          var _sinceRound = _log ? (_currentRound - _log.createdAtRound) : 99;
+          if (_sinceRound < 3) {
+            msg += '- ⏳ ' + _p.text + '（尚未到时机，不要立刻兑现）\n';
+          } else {
+            msg += '- ✅ ' + _p.text + '（可自然兑现）\n';
+          }
         }
         msg += '\n';
       }

@@ -489,9 +489,67 @@ export function parseOneHeartNarrative(rawText) {
       narrative = narrBlocks.map(function(b) { return b.content.trim(); }).join('\n\n');
     }
     if (!narrative) narrative = rawText.trim();
-    return { narrative: narrative, options: options, blocks: blocks };
+    // 提取 sceneContext（可选字段）
+    var sceneContext = null;
+    if (parsed.sceneContext && typeof parsed.sceneContext === 'object') {
+      sceneContext = {
+        location: typeof parsed.sceneContext.location === 'string' ? parsed.sceneContext.location : '',
+        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : []
+      };
+    }
+    return { narrative: narrative, options: options, blocks: blocks, sceneContext: sceneContext };
   } catch (e) {
     // 纯文本 fallback
-    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }] };
+    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }], sceneContext: null };
   }
+}
+
+/**
+ * 校验 1v1 剧情一致性
+ * @param {Object} parsed - parseOneHeartNarrative 的返回值
+ * @param {Object} GS - 当前游戏状态
+ * @returns {string|null} - 有矛盾时返回 correction 描述，否则 null
+ */
+export function validateOneHeartNarrative(parsed, GS) {
+  var corrections = [];
+
+  // 1. 场景位置连续性校验（非"新的一天"时，新位置必须与旧位置一致）
+  var oldCtx = GS.oneHeartSceneContext || { location: '', present: [] };
+  var isNewDay = GS.pendingChoiceText === '📅 新的一天';
+  if (!isNewDay && parsed.sceneContext && parsed.sceneContext.location && oldCtx.location) {
+    if (parsed.sceneContext.location !== oldCtx.location) {
+      corrections.push('场景矛盾：上一段在「' + oldCtx.location + '」，这段变成了「' + parsed.sceneContext.location + '」——请延续上一段场景，不要切换');
+    }
+  }
+
+  // 2. 在场人物一致性校验
+  if (!isNewDay && parsed.sceneContext && parsed.sceneContext.present && parsed.sceneContext.present.length > 0 && oldCtx.present && oldCtx.present.length > 0) {
+    // 检查新场景中是否出现完全不相关的新人物（没有旧场景在场的过渡就凭空出现）
+    var oldSet = {};
+    for (var i = 0; i < oldCtx.present.length; i++) oldSet[oldCtx.present[i]] = true;
+    var newArrUnknown = [];
+    for (var j = 0; j < parsed.sceneContext.present.length; j++) {
+      if (!oldSet[parsed.sceneContext.present[j]] && parsed.sceneContext.present[j] !== GS.heroineProfile.name) {
+        newArrUnknown.push(parsed.sceneContext.present[j]);
+      }
+    }
+    if (newArrUnknown.length > 0 && newArrUnknown.length <= 2) {
+      corrections.push('人物矛盾：上一段在场人物中没有「' + newArrUnknown.join('、') + '」，他们突然出现在了这段剧情中——请确保人物出场有合理过渡');
+    }
+  }
+
+  // 3. 时段一致性校验（检查 narrative 中是否提到了与当前时段不符的时间描述）
+  var timeLabels = ['上午', '下午', '傍晚', '深夜'];
+  var timeLabel = timeLabels[GS.oneHeartTimeProgress] || '上午';
+  var narrText = parsed.narrative || '';
+  if (narrText) {
+    for (var t = 0; t < timeLabels.length; t++) {
+      if (timeLabels[t] !== timeLabel && narrText.indexOf(timeLabels[t]) >= 0) {
+        // 轻微警告，不阻断（AI 可能在回忆/展望中用到其他时段）
+        break;
+      }
+    }
+  }
+
+  return corrections.length > 0 ? corrections.join(' | ') : null;
 }

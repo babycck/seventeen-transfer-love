@@ -61,6 +61,9 @@ export function defaultGameState() {
     _newMoments: false,
     _newDiary: false,
     oneHeartTimeOfDay: '上午',
+    oneHeartTimeProgress: 0, // 0=上午 1=下午 2=傍晚 3=深夜，代码控制时段推进
+    oneHeartSceneContext: { location: '', present: [] }, // 代码追踪场景位置和在场人物
+    oneHeartPromiseLog: [], // [{ text, createdAtRound }] 约定创建日志，用于延迟兑现控制
     oneHeartLastEventRound: 0,
     _newChat: false,
     _chatAffCount: 0,
@@ -440,6 +443,9 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];
     if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
     if (GS.oneHeartTimeOfDay === undefined) GS.oneHeartTimeOfDay = '上午';
+    if (GS.oneHeartTimeProgress === undefined) GS.oneHeartTimeProgress = 0;
+    if (GS.oneHeartSceneContext === undefined) GS.oneHeartSceneContext = { location: '', present: [] };
+    if (!Array.isArray(GS.oneHeartPromiseLog)) GS.oneHeartPromiseLog = [];
     if (GS._relCharIntroduced === undefined) GS._relCharIntroduced = false;
     if (GS._rivalIntroduced === undefined) GS._rivalIntroduced = false;
     if (GS._newMoments === undefined) GS._newMoments = false;
