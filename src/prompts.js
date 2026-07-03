@@ -1038,10 +1038,22 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     } else {
       var _aff = GS.affection[GS.oneHeartMember] || 0;
-      if (_aff >= 80) _mood = '💞 [当前关系氛围：热恋期] 你们正处于最甜蜜的阶段。互动自然亲密，充满了爱意。\n\n';
-      else if (_aff >= 60) _mood = '💗 [当前关系氛围：暧昧升温] 感情在稳步加深，互相信任。\n\n';
-      else if (_aff >= 40) _mood = '💛 [当前关系氛围：暧昧期] 你们之间似有若无的情愫在流动。\n\n';
-      else _mood = '💙 [当前关系氛围：初识期] 还在互相了解的阶段，说话客气但有心动的苗头。\n\n';
+      if (_aff >= 80) {
+        _mood = '💞 [当前关系氛围：热恋期] 你们正处于最甜蜜的阶段。互动自然亲密，充满了爱意。\n';
+        _mood += '【剧情方向·深度线】适合：未来规划、深度承诺、见家长、共同生活愿景、信任危机后的重建。不要快速推进到分手/误会的虐心剧情。\n\n';
+      } else if (_aff >= 60) {
+        _mood = '💗 [当前关系氛围：暧昧升温] 感情在稳步加深，互相信任。\n';
+        _mood += '【剧情方向·甜宠线】适合：正式表白、约会、日常甜蜜互动、小惊喜、互相吃醋但能化解。可以有小摩擦但不要升级到冷战。\n\n';
+      } else if (_aff >= 40) {
+        _mood = '💛 [当前关系氛围：暧昧期] 你们之间似有若无的情愫在流动。\n';
+        _mood += '【剧情方向·试探线】适合：暧昧试探、吃醋拉扯、小心思、未说出口的话、第三方介入制造张力。不要快速确认关系。\n\n';
+      } else if (_aff >= 20) {
+        _mood = '💙 [当前关系氛围：普通期] 还在互相了解，说话客气但有心动的苗头。\n';
+        _mood += '【剧情方向·试探线】适合：日常互动中的小心动、试探性的靠近、偶尔的误会、情敌初现。保持克制。\n\n';
+      } else {
+        _mood = '💔 [当前关系氛围：虐心期] 关系处于低谷，互动冷淡或紧张。\n';
+        _mood += '【剧情方向·虐心线】适合：误会、冷战、分手边缘、信任崩塌、情敌趁虚而入。不要出现表白/甜蜜剧情。\n\n';
+      }
     }
     msg += _mood;
 
@@ -1070,17 +1082,8 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
 
-    // 注入情敌情愫暗示（每 5 回合）
-    var _rivalAff = GS.oneHeartRivalAff || 0;
-    if (GS.oneHeartRival && GS.oneHeartRival.name && _rivalAff > 0 && (GS.oneHeartGenCount || 0) % 5 === 0) {
-      if (_rivalAff >= 35) {
-        msg += '💡 你对情敌「' + GS.oneHeartRival.name + '」的感情已经无法忽视。剧情中可以反映你的纠结、他的察觉、以及三人之间的微妙氛围变化。不要直白，保持真实。\n\n';
-      } else if (_rivalAff >= 20) {
-        msg += '💡 情敌「' + GS.oneHeartRival.name + '」在你心里有了位置。你在和他在一起时有时会想起另外那个人。请反映这种微妙的拉扯感——轻度的犹豫、不自觉的对比。\n\n';
-      } else if (_rivalAff >= 5) {
-        msg += '💡 你对「' + GS.oneHeartRival.name + '」有一些微妙的感觉——不多，但有。可以自然地融入一些不经意的瞬间。\n\n';
-      }
-    }
+    // 注入情敌情愫暗示（情敌好感度已废弃，改为仅提示情敌存在）
+    // 原 rivalAff 注入逻辑已移除
 
     // 争吵氛围注入
     if (GS.oneHeartArgueCooldown && GS.oneHeartArgueCooldown > 0) {

@@ -1112,6 +1112,124 @@ export function triggerAffectionFromChoice(choiceText, opt) {
   }
 }
 
+// ==================== 1v1 选项好感度应用（防通胀+下限+日志） ====================
+export function applyOneHeartOptionAffection(opt) {
+  if (!opt) return;
+  var mid = GS.oneHeartMember;
+  if (!mid) return;
+  if (!GS.affection) GS.affection = {};
+  if (!GS.affection[mid]) GS.affection[mid] = 0;
+  var curAff = GS.affection[mid];
+  var affDelta = opt.affDelta || 0;
+
+  // 防通胀：高分段正向加分封顶
+  var finalDelta = affDelta;
+  if (affDelta > 0) {
+    if (curAff >= 80) finalDelta = Math.min(affDelta, 1);
+    else if (curAff >= 60) finalDelta = Math.min(affDelta, 2);
+    else if (curAff >= 40) finalDelta = Math.min(affDelta, 3);
+  }
+  // 负向扣分不受影响
+
+  // 调用 updateAffection（含飘字+里程碑解锁）
+  updateAffection(mid, finalDelta);
+
+  // 正主下限 -20 保护
+  if (GS.affection[mid] < -20) GS.affection[mid] = -20;
+
+  // 记录日志
+  addAffectionLog(mid, finalDelta, opt.affReason || '你选择了某个行动' + (finalDelta !== affDelta ? '（防通胀调整：原' + affDelta + '）' : ''));
+
+  // rivalAffDelta 忽略不处理（情敌好感度已废弃）
+}
+
+// ==================== 1v1 情敌阶段检测与触发 ====================
+export function getRivalStage(aff) {
+  if (aff >= 100) return 6; // 退出
+  if (aff >= 80) return 5;
+  if (aff >= 60) return 4;
+  if (aff >= 40) return 3;
+  if (aff >= 20) return 2;
+  return 1;
+}
+
+// 情敌攻势类型表
+export var RIVAL_ACTIONS = {
+  1: [
+    { id: 's1_meet', desc: '偶遇', detail: '在某个地方不期而遇，他主动打招呼' },
+    { id: 's1_greet', desc: '打招呼', detail: '发来一条简单的问候消息' },
+    { id: 's1_like', desc: '点赞朋友圈', detail: '点赞了女主的朋友圈动态' },
+    { id: 's1_chat', desc: '找借口聊天', detail: '找了一个蹩脚的借口开始聊天' }
+  ],
+  2: [
+    { id: 's2_gift', desc: '送小礼物', detail: '送了一个贴心的小礼物' },
+    { id: 's2_meal', desc: '约吃饭', detail: '约女主一起吃饭' },
+    { id: 's2_alone', desc: '制造独处', detail: '制造了一个两人独处的机会' }
+  ],
+  3: [
+    { id: 's3_contact', desc: '频繁联系', detail: '频繁发消息，明显在示好' },
+    { id: 's3_hint', desc: '言语暗示', detail: '言语中带着暗示性的好感表达' },
+    { id: 's3_care', desc: '关心私事', detail: '过度关心女主的私生活' }
+  ],
+  4: [
+    { id: 's4_bigift', desc: '送大礼', detail: '送了一份贵重的大礼' },
+    { id: 's4_misunderstand', desc: '制造误会', detail: '刻意制造正主对女主的误会' },
+    { id: 's4_compete', desc: '暗示竞争', detail: '明确暗示自己才是更好的选择' }
+  ],
+  5: [
+    { id: 's5_presence', desc: '刷存在感', detail: '偶尔出现刷一下存在感' },
+    { id: 's5_reminisce', desc: '回忆过去', detail: '提起过去你们之间的某个瞬间' },
+    { id: 's5_retreat', desc: '试探退意', detail: '试探性地表达可能要放弃' }
+  ]
+};
+
+// 从当前阶段选取未触发过的攻势
+export function pickRivalAction(stage, triggeredActions) {
+  var actions = RIVAL_ACTIONS[stage] || RIVAL_ACTIONS[1];
+  var available = actions.filter(function(a) {
+    return triggeredActions.indexOf(a.id) < 0;
+  });
+  // 若全部已触发，重置该阶段记录重新随机
+  if (available.length === 0) {
+    available = actions.slice();
+    // 从 triggeredActions 中移除当前阶段的所有ID
+    for (var i = 0; i < actions.length; i++) {
+      var idx = triggeredActions.indexOf(actions[i].id);
+      if (idx >= 0) triggeredActions.splice(idx, 1);
+    }
+  }
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+// 剧情分支代码校验：检测剧情是否符合当前好感度阶段
+export function validateStoryBranch(parsed, aff) {
+  if (!parsed || !parsed.blocks) return null;
+  var narrative = '';
+  for (var i = 0; i < parsed.blocks.length; i++) {
+    if (parsed.blocks[i] && parsed.blocks[i].content) narrative += parsed.blocks[i].content;
+  }
+  if (aff < 20) {
+    // 低好感时检测甜宠关键词
+    if (/表白|告白|我喜欢你|在一起|甜蜜|吻|拥抱/.test(narrative)) {
+      return '当前好感度低于20，不应出现表白/甜蜜剧情，请改为误会/冷战/分手边缘风格';
+    }
+  }
+  return null;
+}
+
+// 事件选项通用模板检测
+export var GENERIC_EVENT_OPTIONS = ['跟着直觉走', '冷静观察', '大胆行动', '靠近他说话', '保持沉默观察', '转身离开现场'];
+export function hasGenericEventOptions(options) {
+  if (!options || !Array.isArray(options)) return false;
+  for (var i = 0; i < options.length; i++) {
+    var optText = typeof options[i] === 'string' ? options[i] : ((options[i] && options[i].text) || '');
+    for (var j = 0; j < GENERIC_EVENT_OPTIONS.length; j++) {
+      if (optText.indexOf(GENERIC_EVENT_OPTIONS[j]) >= 0) return true;
+    }
+  }
+  return false;
+}
+
 // ==================== 吃醋事件系统 ====================
 // 触发条件委托给 skeleton/event-triggers.js
 export function checkJealousyEvent(choiceText) {
@@ -1794,6 +1912,28 @@ export async function generateOneHeartRound(extra) {
       GS.oneHeartAffHistory.push(curAff);
       if (GS.oneHeartAffHistory.length > 5) GS.oneHeartAffHistory.shift();
 
+      // 情敌阶段检测：好感度变化时检查是否进入新阶段
+      if (GS.oneHeartRival && GS.oneHeartRival.name) {
+        // 好感度100时情敌退出
+        if (curAff >= 100) {
+          GS.oneHeartRival.name = '';
+          showToast('💔 情敌已彻底退出你们的故事');
+        } else {
+          var _newStage = getRivalStage(curAff);
+          if (!GS.oneHeartRivalStage) GS.oneHeartRivalStage = { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' };
+          if (_newStage !== GS.oneHeartRivalStage.stage) {
+            // 阶段变化（不管涨跌）→ 重置 eventTriggered，准备触发新事件
+            var _direction = _newStage > GS.oneHeartRivalStage.stage ? 'up' : 'down';
+            GS.oneHeartRivalStage = {
+              stage: _newStage,
+              stageStartGenCount: GS.oneHeartGenCount || 0,
+              eventTriggered: false,
+              lastDirection: _direction
+            };
+          }
+        }
+      }
+
       // 冷战检测：连续 2 回合好感度下降 3 点以上
       if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
       if (GS.oneHeartAffHistory.length >= 2) {
@@ -1991,21 +2131,15 @@ async function checkOneHeartEvents() {
   var rivalAff = GS.oneHeartRivalAff || 0;
   var hasRival = !!(GS.oneHeartRival && GS.oneHeartRival.name);
 
-  // === 告白事件（优先级最高）===
-  if (hasRival && rivalAff >= 40 && Math.random() < 0.5 && !GS._confessionCooldown && !GS._confessionAccepted) {
-    GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
-    GS._pendingEvents.push({ type: 'confession', rivalName: GS.oneHeartRival.name });
-  }
+  // === 告白事件（已改为阶段3触发，见下方情敌专属事件）===
+  // 原 rivalAff >= 40 触发逻辑已移除，改为阶段变化时阶段3自动附带告白
   if (GS._confessionCooldown > 0 && GS._confessionCooldown < 99) GS._confessionCooldown--;
 
-  // === 嫉妒事件（频率随情敌好感度提升）===
-  var _jealousyChance = 0.20;
-  if (hasRival && rivalAff >= 30) _jealousyChance = 0.30;
-  else if (hasRival && rivalAff >= 20) _jealousyChance = 0.25;
-  else if (hasRival && rivalAff >= 10) _jealousyChance = 0.20;
+  // === 嫉妒事件（情敌好感度已废弃，改为固定概率）===
+  var _jealousyChance = hasRival ? 0.20 : 0;
   if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
-    // 情敌好感度高时，部分触发转为激烈争吵
-    if (hasRival && rivalAff >= 20 && Math.random() < 0.30) {
+    // 情敌存在时，部分触发转为激烈争吵
+    if (hasRival && Math.random() < 0.30) {
       // 争吵分支
       var _argueScenario = '';
       var _argueOpts = ['冷静解释', '沉默不语', '反问他"你什么意思"'];
@@ -2152,26 +2286,43 @@ async function checkOneHeartEvents() {
     }
   }
 
-  // === 情敌专属事件 ===
-  if (hasRival && !GS._confessionAccepted && rivalAff >= 15 && Math.random() < 0.15 && GS._pendingEvents.length < 2) {
-    var _rivScenario = '';
-    var _rivOpts = ['靠近他', '保持距离', '装作没发现'];
-    var _useRivPool = GS.oneHeartRivalPool && GS.oneHeartRivalPool.length > 0 && Math.random() < 0.3;
-    if (_useRivPool) {
-      var _rpItem = GS.oneHeartRivalPool[Math.floor(Math.random() * GS.oneHeartRivalPool.length)];
-      _rivScenario = _rpItem.scenario;
-      if (_rpItem.options && _rpItem.options.length >= 3) _rivOpts = _rpItem.options;
-    } else {
+  // === 情敌专属事件（阶段变化触发，去重不重复）===
+  if (hasRival && !GS._confessionAccepted && GS.oneHeartRivalStage && !GS.oneHeartRivalStage.eventTriggered && GS._pendingEvents.length < 2) {
+    var _rs = GS.oneHeartRivalStage;
+    // 阶段变化后立即触发1次情敌事件
+    if (_rs.stage > 0 && _rs.stage <= 5) {
+      // 代码选定攻势类型（去重），AI 只写场景文案
+      if (!Array.isArray(GS.oneHeartRivalTriggeredActions)) GS.oneHeartRivalTriggeredActions = [];
+      var _action = pickRivalAction(_rs.stage, GS.oneHeartRivalTriggeredActions);
+      GS.oneHeartRivalTriggeredActions.push(_action.id);
+      _rs.eventTriggered = true;
+
+      var _direction = _rs.lastDirection || 'up';
+      var _dirDesc = _direction === 'up' ? '升级攻势' : '卷土重来（他觉得你们关系出了问题，机会来了）';
+      var _rivalName = GS.oneHeartRival.name || '他';
+
+      // 阶段3触发告白
+      var _isConfession = _rs.stage === 3;
+
+      var _rivScenario = '';
+      var _rivOpts = ['靠近他', '保持距离', '装作没发现'];
       try {
-        var _wcRi = getWorldConfig(GS.worldSetting);
-        var _wcRiInfo = _wcRi ? (_wcRi.coreTension || '') : '';
-        var _rivRes = await callDeepSeek(
-          '生成一个暧昧的心动场景（50字以内）+ 3个选项（每个20字以内）。场景发生在女主和「' + GS.oneHeartRival.name + '」之间。\n' +
-          '他是你的情敌——但你最近发现他好像没那么讨厌。\n' +
-          '世界观背景：' + GS.worldSetting + (_wcRiInfo ? ' ' + _wcRiInfo : '') + '\n' +
-          '输出JSON：{"scenario":"场景描述","options":["靠近他说话","保持沉默观察","转身离开现场"]}',
-          '生成情敌事件', 300, false, 0.8
-        );
+        var _wcRi2 = getWorldConfig(GS.worldSetting);
+        var _wcRi2Info = _wcRi2 ? (_wcRi2.coreTension || '') : '';
+        var _rivPrompt = '生成一个情敌事件场景（100字以内）+ 3个选项（每个30字以内）。场景发生在女主和「' + _rivalName + '」之间。\n' +
+          '攻势类型必须是：' + _action.desc + '（' + _action.detail + '）。\n' +
+          '方向：' + _dirDesc + '。\n' +
+          '世界观背景：' + GS.worldSetting + (_wcRi2Info ? ' ' + _wcRi2Info : '') + '\n' +
+          '双方关系：好感度' + aff + '（' + getAffectionDesc(aff) + '）\n' +
+          '输出JSON：{"scenario":"场景描述","options":["选项1","选项2","选项3"]}';
+        if (_isConfession) {
+          _rivPrompt = '生成情敌告白事件场景（100字以内）+ 3个选项（每个30字以内）。\n' +
+            '情敌「' + _rivalName + '」决定向女主表白。\n' +
+            '方向：' + _dirDesc + '。\n' +
+            '世界观背景：' + GS.worldSetting + (_wcRi2Info ? ' ' + _wcRi2Info : '') + '\n' +
+            '输出JSON：{"scenario":"场景描述","options":["接受心意","只把你当朋友","需要时间考虑"]}';
+        }
+        var _rivRes = await callDeepSeek(_rivPrompt, '生成情敌事件', 500, false, 0.8);
         var _rivParsed;
         try { _rivParsed = JSON.parse(_rivRes); } catch (pe) {
           var _rm = _rivRes.match(/\{[\s\S]*\}/);
@@ -2180,24 +2331,39 @@ async function checkOneHeartEvents() {
         if (_rivParsed && _rivParsed.scenario) {
           _rivScenario = _rivParsed.scenario;
           if (_rivParsed.options && _rivParsed.options.length >= 3) _rivOpts = _rivParsed.options;
-          if (!GS.oneHeartRivalPool) GS.oneHeartRivalPool = [];
-          if (GS.oneHeartRivalPool.length < 50) {
-            GS.oneHeartRivalPool.push({ scenario: _rivParsed.scenario, options: _rivParsed.options.slice(0, 3) });
-          }
         }
       } catch (e) {}
-    }
-    if (!_rivScenario) {
-      var _rivFb = RIVAL_EVENTS;
-      if (_rivFb.length > 0) {
-        var _rivFbItem = _rivFb[Math.floor(Math.random() * _rivFb.length)];
-        _rivScenario = _rivFbItem.scenario;
-        _rivOpts = _rivFbItem.options;
+
+      // 选项通用模板检测 + 重试1次
+      if (_rivScenario && hasGenericEventOptions(_rivOpts)) {
+        try {
+          var _retryRes = await callDeepSeek(
+            '重新生成情敌事件选项（30字以内×3），不要使用"跟着直觉走/冷静观察/大胆行动"等通用选项。\n' +
+            '场景：' + _rivScenario + '\n输出JSON：{"options":["具体选项1","具体选项2","具体选项3"]}',
+            '重新生成情敌选项', 300, false, 0.8
+          );
+          var _retryParsed;
+          try { _retryParsed = JSON.parse(_retryRes); } catch (pe2) {
+            var _rm2 = _retryRes.match(/\{[\s\S]*\}/);
+            if (_rm2) try { _retryParsed = JSON.parse(_rm2[0]); } catch (pe3) { _retryParsed = null; }
+          }
+          if (_retryParsed && _retryParsed.options && _retryParsed.options.length >= 3 && !hasGenericEventOptions(_retryParsed.options)) {
+            _rivOpts = _retryParsed.options;
+          }
+        } catch (e2) {}
       }
-    }
-    if (_rivScenario) {
+
+      if (!_rivScenario) {
+        // 兜底：基于攻势类型生成场景
+        _rivScenario = _action.detail + '。' + _rivalName + '出现了。';
+      }
+
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
-      GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
+      if (_isConfession) {
+        GS._pendingEvents.push({ type: 'confession', scenario: _rivScenario, options: _rivOpts, rivalName: _rivalName });
+      } else {
+        GS._pendingEvents.push({ type: 'rival', scenario: _rivScenario, options: _rivOpts });
+      }
     }
   }
 
@@ -2207,7 +2373,7 @@ async function checkOneHeartEvents() {
   }
 
   // === 媒体风波事件 ===
-  if ((aff >= 50 || rivalAff >= 10) && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
+  if (aff >= 50 && Math.random() < 0.08 && GS._pendingEvents.length < 2) {
     pickSmallEvent('scandal', SCANDAL_EVENTS);
   }
 

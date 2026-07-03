@@ -594,6 +594,11 @@ export function validateOneHeartNarrative(parsed, GS) {
         if (_opt.rivalAffDelta < -3) _opt.rivalAffDelta = -3;
         if (_opt.rivalAffDelta > 3) _opt.rivalAffDelta = 3;
       }
+      // affDelta 范围校验（-5 ~ 5，超范围修正到边界）
+      if (_opt && typeof _opt.affDelta === 'number') {
+        if (_opt.affDelta < -5) _opt.affDelta = -5;
+        if (_opt.affDelta > 5) _opt.affDelta = 5;
+      }
     }
   }
 

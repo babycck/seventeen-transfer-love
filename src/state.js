@@ -45,6 +45,8 @@ export function defaultGameState() {
     oneHeartExJealousPool: [],
     oneHeartLateNightPool: [],
     oneHeartRivalAff: 0,
+    oneHeartRivalStage: { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' },
+    oneHeartRivalTriggeredActions: [],
     _pendingEvents: [],
     _pendingEventResults: [],
     _usedEventScenarios: [],
@@ -459,6 +461,9 @@ export function migrateSave() {
     if (!GS._affMilestones) GS._affMilestones = {};
     if (GS._dateDayNotified === undefined) GS._dateDayNotified = 0;
     if (!Array.isArray(GS.oneHeartPromises)) GS.oneHeartPromises = [];
+    // 情敌阶段追踪与去重
+    if (!GS.oneHeartRivalStage) GS.oneHeartRivalStage = { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' };
+    if (!Array.isArray(GS.oneHeartRivalTriggeredActions)) GS.oneHeartRivalTriggeredActions = [];
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存
