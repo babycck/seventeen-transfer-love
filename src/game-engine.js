@@ -2452,8 +2452,8 @@ async function detectOneHeartPromises(text) {
     var res = await callDeepSeek(promptText, '检测约定', 500, false, 0.3);
     var parsed;
     try { parsed = JSON.parse(res); } catch (e) {
-      var m = res.match(/\{[\s\S]*\}/);
-      if (m) parsed = JSON.parse(m[0]);
+      var m = res.match(/\{[\s\S]*?\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) { parsed = null; } }
     }
     if (!parsed) return;
 

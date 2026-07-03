@@ -954,7 +954,20 @@ export function bindSetupEvents() {
             };
           }
 
-          // Step4 情敌选择（无条件生效）
+        // Step4 情敌选择
+        if (!relConfig.needExtraRival && relConfig.isRival) {
+          // 关系角色本身就是情敌（如师兄/未婚夫/上司），直接使用关系角色数据
+          var _rc = GS.oneHeartRelationCharacter;
+          GS.oneHeartRival = {
+            name: _rc.name,
+            memberId: _rc.memberId,
+            personality: _rc.personality || '',
+            behaviorLogic: _rc.behaviorLogic || '',
+            interactionStyle: '',
+            loveStyle: ''
+          };
+        } else {
+          // needExtraRival: true，需要生成独立情敌
           var _rivalSelect = document.getElementById('rivalSelect');
           var _chosenRivalId = _rivalSelect ? _rivalSelect.value : '';
           var rivalPicked = null;
@@ -970,6 +983,18 @@ export function bindSetupEvents() {
             rivalPicked = pool[rivalIdx];
           }
           if (rivalPicked) {
+            // 兜底校验：情敌不可与关系角色为同一人
+            var _relId2 = GS.oneHeartRelationCharacter ? GS.oneHeartRelationCharacter.memberId : '';
+            if (_relId2 && rivalPicked.id === _relId2) {
+              var _altPool = pool.filter(function(m) { return m.id !== _relId2; });
+              if (_altPool.length > 0) {
+                rivalPicked = _altPool[Math.floor(Math.random() * _altPool.length)];
+              } else {
+                rivalPicked = null;
+              }
+            }
+          }
+          if (rivalPicked) {
             GS.oneHeartRival = {
               name: rivalPicked.name,
               memberId: rivalPicked.id,
@@ -979,6 +1004,7 @@ export function bindSetupEvents() {
               loveStyle: rivalPicked.loveStyle || ''
             };
           }
+        }
         }
 
         GS.todayHoliday = null;

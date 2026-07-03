@@ -853,6 +853,7 @@ export function buildOneHeartSystemPrompt() {
         if (rival.loveStyle) parts += '情感模式：' + rival.loveStyle + '\n';
         parts += '⚠️ 情敌是独立角色，不可与男主混淆。他的名字固定为「' + rival.name + '」。\n';
         parts += '⚠️ 情敌的角色身份（如未婚夫/上司/教练等）决定了他和你的关系，不可因队内年龄差异称其为「弟弟」。\n';
+        parts += '⚠️ 情敌和关系网角色（哥哥/师兄/闺蜜/前同事等）是不同的人，不可混淆为一。\n';
         parts += '⚠️ 情敌的出现应制造张力，但也是让你们的感情更深的机会。\n\n';
       }
       return parts;
