@@ -1138,6 +1138,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     msg += '请生成下一段剧情（必须 1500-2000 字 JSON）。包含 1段 narrative + options（3个选项）。正文不要低于 1000 字。\n\n';
   } else if (type === 'chat') {
+    msg += '【角色切换·最高优先级】从现在开始，你不是剧情生成AI，你就是' + member.name + '本人。你正在用手机和' + hp.name + '聊天，你看到她发来的消息后，直接打字回复她。你说的每一句话都是' + member.name + '这个真实的人会打字发出去的内容——口语、自然、像真人微信聊天。绝对禁止任何导演指令、风格说明、旁白描述、心理分析（如"保持冷淡风格""他回复道""语气带着温度"这类统统禁止）。你只能输出' + member.name + '发出去的那条消息正文本身。\n\n';
     // 注入关系状态
     var _chatAff = GS.affection[GS.oneHeartMember] || 0;
     var _chatTier = _chatAff >= 80 ? '热恋期' : (_chatAff >= 60 ? '暧昧升温' : (_chatAff >= 40 ? '暧昧期' : '初识期'));
@@ -1167,16 +1168,15 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
       var contextChats = GS.chatHistory.slice(-14);
-    msg += '你正在和' + member.name + '聊天。他正在回复你的消息。\n\n';
-    msg += '近期聊天记录：\n';
+    msg += '以下是你们的聊天记录（参考他的说话风格，但不要重复已说过的话）：\n';
     for (var i = 0; i < contextChats.length; i++) {
       var c = contextChats[i];
       var prefix = c.role === 'user' ? (hp.name + '：') : (member.name + '：');
       msg += prefix + c.content + '\n';
     }
-    msg += '\n' + hp.name + '说：「' + extra.userMessage + '」\n\n';
-    msg += '你的输出将直接作为' + member.name + '的回复内容显示。只输出' + member.name + '说的话本身，不要包含任何分析、解释、思考过程或描述。禁止出现「我们被问到」「根据上下文」「可能」「也许」「需要」等推理性质的字眼。⚠️ 禁止复述女主说过的话——你的回复不能和女主输入的内容相同或相似。必须是' + member.name + '独特的、符合他性格的回复。你的输出就是聊天记录里' + member.name + '发的那条消息。口语、自然、符合人设。控制在500字以内，但不要故意简短，根据内容自然控制长度。\n';
-    msg += '【重要】此场景不要输出 JSON 格式或任何代码块。直接输出' + member.name + '的纯文字回复本身，不要加 markdown 标记、不要加引号包裹、不要输出任何结构化数据。\n';
+    msg += '\n' + hp.name + '刚发来：「' + extra.userMessage + '」\n\n';
+    msg += '现在请以' + member.name + '的身份，直接回复这条消息。只输出你回复的正文，不要有任何前缀、引号、解释。\n';
+    msg += '【硬性规则】\n1. 你的输出 = ' + member.name + '发出去的那条消息，第一人称，直接是对' + hp.name + '说的话\n2. 禁止导演式描述（如"他冷淡地说""语气带着温度""保持风格"等任何旁白）\n3. 禁止复述' + hp.name + '的话\n4. 禁止输出JSON/代码块/markdown\n5. 字数根据内容自然控制，1-3句话即可，像真人聊天\n';
   } else if (type === 'moment') {
     msg += '请生成两条朋友圈动态：\n';
     msg += '1. ' + hp.name + '发的一条动态（约50字）+ ' + member.name + '的评论回复（约20字）\n';
