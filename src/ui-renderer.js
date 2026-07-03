@@ -2255,7 +2255,7 @@ function bindOneHeartEvents() {
       GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
       GS.oneHeartTimeOfDay = '上午';
       GS.oneHeartTimeProgress = 0;
-      GS.oneHeartSceneContext.timeOfDay = '上午';
+      GS.oneHeartSceneContext = { location: '', present: [], timeOfDay: '上午' };
       GS.weather = generateDailyWeather(GS.weather, GS.season);
       // 根据月份动态更新季节
       var _newSeason = getSeasonByMonth(GS.currentDate.month);

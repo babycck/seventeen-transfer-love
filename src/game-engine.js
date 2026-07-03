@@ -1718,6 +1718,11 @@ export async function generateOneHeartRound(extra) {
   var _needDiary = false;
   var _needMoment = false;
   var _needLetter = false;
+  var _lockMorning = GS.pendingChoiceText && (
+    GS.pendingChoiceText.indexOf('新的一天') >= 0 ||
+    GS.pendingChoiceText.indexOf('生日') >= 0 ||
+    GS.pendingChoiceText.indexOf('今天是') >= 0
+  );
   try {
     var sysMsg = buildOneHeartSystemPrompt();
     // 如果是走向结局，注入结局指令
@@ -1811,7 +1816,7 @@ export async function generateOneHeartRound(extra) {
       // 同步 AI 判断的时段（timeOfDay 必须是合法值才更新，否则保留原值）
       var _validTimeLabels = ['上午', '下午', '傍晚', '深夜'];
       var _aiTimeOfDay = parsed.sceneContext.timeOfDay || '';
-      if (_validTimeLabels.indexOf(_aiTimeOfDay) >= 0) {
+      if (_validTimeLabels.indexOf(_aiTimeOfDay) >= 0 && !_lockMorning) {
         GS.oneHeartTimeOfDay = _aiTimeOfDay;
       }
       GS.oneHeartSceneContext = {

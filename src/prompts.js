@@ -1008,7 +1008,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     // 注入上一次选择
     if (GS.pendingChoiceText === '📅 新的一天') {
-      msg += '[INSTRUCTION] 现在是新的一天的清晨。以早晨的氛围开启新一天的剧情，自然衔接昨日的余韵，不要重复昨日已发生的事。\n\n';
+      msg += '[INSTRUCTION] ⚠️ 现在是新的一天的清晨，时段强制为"上午"。必须从早晨场景重新开始（如醒来、晨光、早餐等），禁止延续昨晚的剧情场景。sceneContext.timeOfDay 必须返回"上午"。自然衔接昨日的余韵但不重复昨日已发生的事。\n\n';
     } else if (GS.pendingChoiceText && GS.pendingChoiceText.indexOf('🎂') === 0) {
       msg += '[INSTRUCTION] 今天是他的生日。以庆祝、惊喜、温馨的氛围展开剧情——可以是他为你准备的惊喜，或你们一起过的特别一天。\n\n';
     } else if (GS.pendingChoiceText && (GS.pendingChoiceText.indexOf('💝')>=0 || GS.pendingChoiceText.indexOf('🎄')>=0 || GS.pendingChoiceText.indexOf('🎆')>=0 || GS.pendingChoiceText.indexOf('🎉')>=0)) {
