@@ -8,7 +8,7 @@ var _sleep = function(ms) {
   return new Promise(function(resolve) { setTimeout(resolve, ms); });
 };
 
-// 带自动重试的 AI 生成包装
+  // 带自动重试的 AI 生成包装
 // 如果 validator 返回 error 级问题，自动重试一次并带修正反馈
 export async function generateWithRetry(sysPrompt, userMsg, opts) {
   opts = opts || {};
@@ -17,6 +17,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   var sceneType = opts.sceneType || 'phase';
   var maxAttempts = opts.maxAttempts || 3;
   var skipValidate = opts.skipValidate || false;
+  var providerKey = opts.providerKey || '';
 
   var lastResult = null;
 
@@ -25,7 +26,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
     var raw;
     try {
-      raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType);
+      raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType, providerKey);
     } catch (e) {
       if (e.retryable === false) {
         // 不可重试错误（401/400/403）直接抛出，不浪费重试次数

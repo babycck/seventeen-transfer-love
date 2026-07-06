@@ -86,6 +86,9 @@ export function defaultGameState() {
     step: 1,
     apiKey: '',
     rememberApiKey: true,
+    mainApiProvider: '',
+    mainApiModel: '',
+    mainApiKey: '',
     apiProvider: 'deepseek',
     apiModel: '',
     aiEnabled: true,
@@ -382,6 +385,10 @@ export function migrateSave() {
     if (GS.secretMissionCompletedCount === undefined) GS.secretMissionCompletedCount = 0;
     if (GS.secretMissionUnlockFinal === undefined) GS.secretMissionUnlockFinal = false;
     if (!Array.isArray(GS.aiCorrections)) GS.aiCorrections = [];
+    if (GS.apiKeyAlading === undefined) GS.apiKeyAlading = '';
+    if (GS.mainApiProvider === undefined) GS.mainApiProvider = '';
+    if (GS.mainApiModel === undefined) GS.mainApiModel = '';
+    if (GS.mainApiKey === undefined) GS.mainApiKey = GS.apiKeyAlading || '';
     if (GS.rememberApiKey === undefined) GS.rememberApiKey = true;
     if (GS.apiProvider === undefined) GS.apiProvider = 'deepseek';
     if (GS.apiModel === undefined) GS.apiModel = '';

@@ -725,7 +725,8 @@ export async function handleOptionChoice(opt) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('consequence', { choiceText: opt.text });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 });
+    var _providerKey = (GS.gameMode === 'oneHeart') ? (GS.mainApiProvider || GS.apiProvider) : '';
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75, providerKey: _providerKey });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     if (!parsed) parsed = { options: [] };
@@ -968,7 +969,8 @@ export async function handleFreeAction(actionText) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 });
+    var _providerKey = (GS.gameMode === 'oneHeart') ? (GS.mainApiProvider || GS.apiProvider) : '';
+    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8, providerKey: _providerKey });
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
@@ -1764,7 +1766,7 @@ export async function generateOneHeartRound(extra) {
     }
     var userMsg = buildOneHeartUserMessage('phase');
 
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.mainApiProvider || GS.apiProvider });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
@@ -1788,7 +1790,7 @@ export async function generateOneHeartRound(extra) {
       var _corrections = validateOneHeartNarrative(parsed, GS);
       if (_corrections) {
         var _retryMsg = userMsg + '\n\n[修正] ' + _corrections + '\n请根据修正指示重新生成。';
-        var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true });
+        var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.mainApiProvider || GS.apiProvider });
         var _retryRaw = (_retryGr && _retryGr.raw) ? _retryGr.raw : '';
         if (_retryRaw) {
           var _retryParsed = parseOneHeartNarrative(_retryRaw);

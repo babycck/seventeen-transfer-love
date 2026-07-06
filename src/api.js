@@ -329,7 +329,7 @@ function pickModel(sceneType) {
   return cfg.model;
 }
 
-export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson, temperature, sceneType) {
+export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson, temperature, sceneType, providerKey) {
   useJson = (useJson !== false);
   // 测试模式：从剧情记录文件选取场景
   if (GS.testMode) {
@@ -404,9 +404,17 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   }
 
   maxTokens = maxTokens || 6000;
-  var cfg = getProviderConfig();
+  var cfg = getProviderConfig(providerKey);
+  var isClaude = (providerKey === 'claude');
+  // 正文专用 provider 使用 mainApiKey，否则使用全局 apiKey
+  var apiKey = GS.apiKey;
   var model = GS.apiModel || cfg.model;
-  var isClaude = (GS.apiProvider === 'claude');
+  if (providerKey && providerKey === GS.mainApiProvider && GS.mainApiKey) {
+    apiKey = GS.mainApiKey;
+  }
+  if (providerKey && providerKey === GS.mainApiProvider && GS.mainApiModel) {
+    model = GS.mainApiModel;
+  }
 
   var requestBody;
   var endpointUrl;
@@ -423,7 +431,7 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
     endpointUrl = cfg.endpoint + '/messages';
     headers = {
       'Content-Type': 'application/json',
-      'x-api-key': GS.apiKey,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01'
     };
   } else {
@@ -440,7 +448,7 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
     endpointUrl = cfg.endpoint + '/chat/completions';
     headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + GS.apiKey
+      'Authorization': 'Bearer ' + apiKey
     };
   }
 
