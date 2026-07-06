@@ -725,8 +725,11 @@ export async function handleOptionChoice(opt) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('consequence', { choiceText: opt.text });
-    var _providerKey = (GS.gameMode === 'oneHeart') ? (GS.mainApiProvider || GS.apiProvider) : '';
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.consequence, temperature: 0.75, providerKey: _providerKey });
+    var _opts = { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 };
+    if (GS.gameMode === 'oneHeart') {
+      _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
+    }
+    var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     if (!parsed) parsed = { options: [] };
@@ -969,8 +972,11 @@ export async function handleFreeAction(actionText) {
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
-    var _providerKey = (GS.gameMode === 'oneHeart') ? (GS.mainApiProvider || GS.apiProvider) : '';
-    var _gr = await generateWithRetry(sysPrompt, userMsg, { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8, providerKey: _providerKey });
+    var _opts = { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 };
+    if (GS.gameMode === 'oneHeart') {
+      _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
+    }
+    var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
     var rawText = _gr.raw;
     var parsed = parseNarrative(rawText);
     applyParsedSideEffects(parsed);
