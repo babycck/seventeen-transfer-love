@@ -2,6 +2,7 @@
   MEMBERS, PHASE_LABELS, BEHAVIOR_MAP, WEATHER_POOLS, DATING_LOCATIONS, GS, randInt,
   PUBLIC_IDENTITY_MAP, APPEARANCE_MAP, MBTI_MAP, PRIVATE_TRAIT_MAP
 } from './core.js';
+import { getPlayerBirthYear } from './data.js';
 
 // [改造] getFormatReminder 已删除——JSON 输出无需再追加重复格式提醒。
 // 格式约束已统一在 prompts.js buildSystemPrompt 中的 [SYSTEM] 输出结构 + [RULE] 全局写作规则说明。
@@ -103,8 +104,9 @@ export function getAddressRules() {
   var yearGroups = {};
   for (var i = 0; i < members.length; i++) {
     var m = members[i];
-    if (!yearGroups[m.age]) yearGroups[m.age] = [];
-    yearGroups[m.age].push(m);
+    var _by = m.birthYear || m.age;
+    if (!yearGroups[_by]) yearGroups[_by] = [];
+    yearGroups[_by].push(m);
   }
   var years = Object.keys(yearGroups).map(Number).sort(function(a, b) { return a - b; });
   // 年幼→年长 允许喊"哥"
@@ -137,9 +139,11 @@ export function getAddressRules() {
   lines.push('- 绝对禁止：年长者对年幼者称"哥"（如"崔胜澈对李灿称\'灿哥\'"是严重错误）');
   // 女主规则
   var heroineName = GS.heroineProfile.name || '沈也';
+  var _playerBirthYear = getPlayerBirthYear(GS.heroineProfile.age, GS.oneHeartStartYear || 2025);
   lines.push('- 女主' + heroineName + '：');
+  lines.push('  · 出生年份：' + _playerBirthYear + '年');
   lines.push('  · 好感度≤60：对所有成员直呼名字');
-  lines.push('  · 好感度>60：可对年长者称"欧巴"（亲密称呼）');
+  lines.push('  · 好感度>60：可对出生年份比女主小的成员（年龄比女主大）称"欧巴"（亲密称呼）');
   lines.push('  · 绝对禁止：女主对任何成员称"哥"（"胜澈哥""净汉哥"等一律禁止）');
   // 观察员
   lines.push('- 观察室固定观察员（李龙真/金叡园/郑基锡）：直呼成员名字，禁止称"哥""欧巴"');

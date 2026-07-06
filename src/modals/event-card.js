@@ -1,6 +1,10 @@
-import { MEMBERS, GS, escHtml } from '../core.js';
+import { MEMBERS, GS, escHtml, saveGame } from '../core.js';
 
 export function showEventCardModal() {
+  GS._newEvents = false;
+  var _oldDot = document.querySelector('.oneheart-tab[data-tab="event"] .tab-notification-dot');
+  if (_oldDot) _oldDot.remove();
+
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return;
 
@@ -35,16 +39,20 @@ export function showEventCardModal() {
       if (_c.rivalChange && _c.rivalChange !== 0) {
         _affText += ' <span style="color:' + (_c.rivalChange > 0 ? '#e53935' : '#43a047') + ';font-weight:600">💘 ' + (_c.rivalChange > 0 ? '+' : '') + _c.rivalChange + '</span>';
       }
+      var _storyEscaped = escHtml(_c.story || '');
       cardHtml +=
-        '<div style="background:#fff;border-radius:10px;margin-bottom:10px;padding:12px;border:1px solid var(--border-primary,#e0c0c0);box-shadow:0 1px 3px rgba(0,0,0,0.06)">' +
+        '<div class="event-card-item" style="background:#fff;border-radius:10px;margin-bottom:10px;padding:12px;border:1px solid var(--border-primary,#e0c0c0);box-shadow:0 1px 3px rgba(0,0,0,0.06)">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
         '<span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + _color + '">' + _label + '</span>' +
         (_c.memberName ? '<span style="font-size:12px;color:var(--text-muted)">' + escHtml(_c.memberName) + '</span>' : '') +
         _affText +
+        '<button class="event-edit-btn" data-ei="' + _ei + '" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-muted);padding:2px 6px;border-radius:4px">✏️</button>' +
         '</div>' +
         '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">' + escHtml(_c.scenario || '') + '</div>' +
         '<div style="font-size:13px;color:var(--accent-primary,#c2185b);margin-bottom:8px">👉 ' + escHtml(_c.chosenOption || '') + '</div>' +
-        (_c.story ? '<div style="font-size:14px;line-height:1.7;color:var(--text-primary);padding:8px 10px;background:var(--bg-soft,#fff5f5);border-radius:8px">' + escHtml(_c.story) + '</div>' : '<div style="font-size:13px;color:var(--text-muted);padding:8px">正在生成故事...</div>') +
+        (_c.story
+          ? '<div class="event-story" data-ei="' + _ei + '" style="font-size:14px;line-height:1.7;color:var(--text-primary);padding:8px 10px;background:var(--bg-soft,#fff5f5);border-radius:8px;white-space:pre-wrap">' + _storyEscaped + '</div>'
+          : '<div style="font-size:13px;color:var(--text-muted);padding:8px">正在生成故事...</div>') +
         '</div>';
     }
   }
@@ -58,10 +66,58 @@ export function showEventCardModal() {
 
   document.body.appendChild(overlay);
 
+  // 编辑按钮事件委托
   overlay.addEventListener('click', function(e) {
+    var btn = e.target.closest('.event-edit-btn');
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var ei = parseInt(btn.dataset.ei);
+      toggleEditStory(ei, overlay, btn);
+      return;
+    }
     if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
   });
   overlay.querySelector('#eventCardModalClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
+}
+
+function toggleEditStory(idx, overlay, btn) {
+  var storyEl = overlay.querySelector('.event-story[data-ei="' + idx + '"]');
+  if (!storyEl) return;
+
+  // 如果已经处于编辑状态（有 textarea 替代），则保存
+  var existingTextarea = overlay.querySelector('.event-edit-textarea[data-ei="' + idx + '"]');
+  if (existingTextarea) {
+    // 保存
+    var newText = existingTextarea.value;
+    if (GS.oneHeartEventCards && GS.oneHeartEventCards[idx]) {
+      GS.oneHeartEventCards[idx].story = newText;
+      saveGame();
+    }
+    // 恢复为故事展示 div
+    var parentEl = existingTextarea.parentNode;
+    var displayDiv = document.createElement('div');
+    displayDiv.className = 'event-story';
+    displayDiv.setAttribute('data-ei', idx);
+    displayDiv.style.cssText = 'font-size:14px;line-height:1.7;color:var(--text-primary);padding:8px 10px;background:var(--bg-soft,#fff5f5);border-radius:8px;white-space:pre-wrap';
+    displayDiv.textContent = newText;
+    parentEl.replaceChild(displayDiv, existingTextarea);
+    btn.textContent = '✏️';
+    btn.title = '编辑';
+    return;
+  }
+
+  // 进入编辑模式：将 story div 替换为 textarea
+  var currentText = storyEl.textContent;
+  var textarea = document.createElement('textarea');
+  textarea.className = 'event-edit-textarea';
+  textarea.setAttribute('data-ei', idx);
+  textarea.value = currentText;
+  textarea.style.cssText = 'width:100%;box-sizing:border-box;min-height:120px;font-size:14px;line-height:1.7;padding:8px 10px;border:2px solid var(--accent-primary,#c2185b);border-radius:8px;resize:vertical;font-family:inherit;background:var(--bg-card,#fff);color:var(--text-primary)';
+  storyEl.parentNode.replaceChild(textarea, storyEl);
+  textarea.focus();
+  btn.textContent = '💾';
+  btn.title = '保存';
 }

@@ -1318,7 +1318,7 @@ function renderOneHeartGameScreen() {
 
   // Bottom tab bar
   var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
-  var _eventDot = GS.oneHeartEventCards && GS.oneHeartEventCards.length > 0 ? '<span class="tab-notification-dot"></span>' : '';
+  var _eventDot = GS._newEvents ? '<span class="tab-notification-dot"></span>' : '';
   var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
@@ -2392,11 +2392,17 @@ function bindOneHeartEvents() {
       else if (ev.type === 'confrontation') { _affDelta = [2, -2, -3][chosenIdx] || 0; }
       else if (ev.type === 'rival') { _affDelta = chosenIdx === 0 ? -2 : (chosenIdx === 1 ? 1 : 0); _rivDelta = chosenIdx === 0 ? 2 : (chosenIdx === 1 ? -1 : (chosenIdx === 2 ? 1 : 0)); }
       else if (ev.type === 'confession' && chosenIdx === 0) { _affDelta = 40; }
-      // 生成事件短故事
+      // 生成事件短故事（遮罩 loading 防卡住感）
+      showLoading('正在生成事件故事...');
       var _evCopy = { type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', options: ev.options };
-      var _story = await generateEventStory(_evCopy);
+      try {
+        var _story = await generateEventStory(_evCopy);
+      } finally {
+        hideLoading();
+      }
       // 存入事件卡片
       if (!GS.oneHeartEventCards) GS.oneHeartEventCards = [];
+      GS._newEvents = true;
       GS.oneHeartEventCards.push({
         type: ev.type,
         scenario: ev.scenario || '',

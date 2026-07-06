@@ -67,6 +67,7 @@ export function defaultGameState() {
     _rivalIntroduced: false,
     _newMoments: false,
     _newDiary: false,
+    _newEvents: false,
     oneHeartTimeOfDay: '上午', // AI 自主判断的当前时段，由 sceneContext.timeOfDay 同步
     oneHeartTimeProgress: 0, // [已废弃] 保留向后兼容，不再使用
     oneHeartSceneContext: { location: '', present: [], timeOfDay: '上午' }, // 代码追踪场景位置、在场人物、时段
@@ -464,6 +465,7 @@ export function migrateSave() {
     if (GS._newMoments === undefined) GS._newMoments = false;
     if (GS._newDiary === undefined) GS._newDiary = false;
     if (GS._newChat === undefined) GS._newChat = false;
+    if (GS._newEvents === undefined) GS._newEvents = false;
     if (GS._chatAffCount === undefined) GS._chatAffCount = 0;
     if (GS._chatAffDay === undefined) GS._chatAffDay = 0;
     if (GS._rivalSwitched === undefined) GS._rivalSwitched = false;

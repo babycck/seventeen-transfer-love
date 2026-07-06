@@ -1,5 +1,5 @@
 import { GS } from './state.js';
-import { MEMBERS, PLAYER_BIRTH_YEAR } from './data.js';
+import { MEMBERS, PLAYER_BIRTH_YEAR, getPlayerBirthYear } from './data.js';
 
 // ==================== AI 一致性校验器（JSON 输出版） ====================
 //
@@ -240,7 +240,7 @@ function checkAddressViolation(blocks, observers) {
     if (block.type === 'memberInterview' || block.type === 'xInterview') {
       speaker = memberNameMap[block.member];
     } else if (block.type === 'interview') {
-      speaker = { name: '女主', age: PLAYER_BIRTH_YEAR, isPlayer: true };
+      speaker = { name: '女主', age: PLAYER_BIRTH_YEAR, isPlayer: true, birthYear: getPlayerBirthYear(GS.heroineProfile && GS.heroineProfile.age, GS.oneHeartStartYear || 2025) };
     } else if (block.type === 'observerOS') {
       continue; // 走 observers 数组
     }
@@ -254,8 +254,8 @@ function checkAddressViolation(blocks, observers) {
         if (content.indexOf(patterns[p]) >= 0) {
           if (speaker.isPlayer) {
             violations.push('女主对' + target.name + '称"' + patterns[p] + '"——女主禁止称"哥"，应称"欧巴"（好感度>60）或直呼名字');
-          } else if (speaker.age >= target.age) {
-            violations.push(speaker.name + '（' + speaker.age + '）对' + target.name + '（' + target.age + '）称"' + patterns[p] + '"——年长者/同龄对年幼者禁止称"哥"');
+          } else if ((speaker.birthYear || speaker.age) <= (target.birthYear || target.age)) {
+            violations.push(speaker.name + '（' + (speaker.birthYear || speaker.age) + '年生）对' + target.name + '（' + (target.birthYear || target.age) + '年生）称"' + patterns[p] + '"——年长者/同龄对年幼者禁止称"哥"');
           }
         }
       }

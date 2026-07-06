@@ -10,7 +10,7 @@ import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandator
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
 import { getWorldConfig } from './worlds/index.js';
-import { IDENTITY_RELATION_MAP } from './data.js';
+import { IDENTITY_RELATION_MAP, getPlayerBirthYear } from './data.js';
 
 // ===== System Prompt 缓存 =====
 var _systemPromptCache = null;
@@ -64,7 +64,7 @@ export function buildSystemPrompt() {
     if (m.foodPreferences) tmi += '  饮食：' + m.foodPreferences + '\n';
     if (m.comforts) tmi += '  安慰方式：' + m.comforts.join('、') + '\n';
     return m.emoji + ' ' + m.name + '（' + m.stageName + '）' + isX + ' - ' + m.team + '队' +
-      '\n  年龄：' + m.age + ' · 星座：' + m.zodiac + ' · 第二职业：' + m.secondCareer + (SECOND_CAREER_MAP[m.secondCareer] ? '（' + SECOND_CAREER_MAP[m.secondCareer] + '）' : '') +
+      '\n  出生年份：' + m.birthYear + ' · 星座：' + m.zodiac + ' · 第二职业：' + m.secondCareer + (SECOND_CAREER_MAP[m.secondCareer] ? '（' + SECOND_CAREER_MAP[m.secondCareer] + '）' : '') +
       '\n  性格：' + m.personality + ' · 情感模式：' + m.loveStyle +
       '\n  行为逻辑：' + m.behaviorLogic + ' · 互动风格：' + m.interactionStyle +
       '\n  X关系：' + m.xStory +
@@ -125,8 +125,7 @@ export function buildSystemPrompt() {
     '## SYSTEM ## 制作组角色\n' +
     '扩音器广播：发布任务和规则，不带感情色彩，像机场广播。\n任务卡：放在茶几上的信封/卡片，写着约会配对结果、当日安排等。\n摄像机：固定机位 + 跟拍摄像师，正文中偶尔提及"摄像机红灯亮起"。\n制作组完全不参与对话，不与参与者直接互动。\n\n' +
 
-    '## SYSTEM ## 女主人设（必须严格遵循）\n' +
-    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +
+    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，出生年份：' + (getPlayerBirthYear(hp.age, GS.oneHeartStartYear || 2025)) + '年，职业：' + hp.job + '\n' +
     (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
@@ -822,8 +821,7 @@ export function buildOneHeartSystemPrompt() {
       return worldLines.join('\n');
     })() +
 
-    '[SYSTEM] 女主人设\n' +
-    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '\n' +
+    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，出生年份：' + (getPlayerBirthYear(hp.age, GS.oneHeartStartYear || 2025)) + '年，职业：' + hp.job + '\n' +
     (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
     (hp.birthday ? '- 生日：' + hp.birthday.month + '月' + hp.birthday.day + '日\n' : '') +
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +

@@ -1,6 +1,10 @@
 ﻿// ==================== 常量 ====================
 export var STORAGE_KEY = 'svt_transfer_v20';
-export var PLAYER_BIRTH_YEAR = 2000; // 女主设定出生年份，2025年25岁
+export var PLAYER_BIRTH_YEAR = 2000; // 已废弃，请使用 getPlayerBirthYear()
+export function getPlayerBirthYear(age, year) {
+  year = year || 2025;
+  return year - (age || 22);
+}
 
 export var MAX_STAY_COUNT = 2;
 export var PHASE_ACTION_LIMIT = 3; // 每时段总行动次数上限（选项+自由输入合并计数）
@@ -81,7 +85,7 @@ export var ZODIAC_SIGNS = [
 export var MEMBERS = [
   {
     id: 'scoups', name: '崔胜澈', stageName: 'S.Coups', emoji: '🍒',
-    team: 'Hip-hop', desc: '队长·沉稳可靠', age: 1995, pos: 'SEVENTEEN总队长',
+    team: 'Hip-hop', desc: '队长·沉稳可靠', age: 1995, birthYear: 1995, pos: 'SEVENTEEN总队长',
     personality: '责任感强、外刚内柔、保护欲旺盛、偶尔脆弱',
     loveStyle: '慢热深情型——不轻易动心，一旦认定就默默守护。表达偏行动而非语言。吃醋时变沉默或更"官方"。',
     traits: '习惯性抿嘴、说话前短暂停顿思考、紧张时摸后颈、酒量一般但喜欢喝',
@@ -108,7 +112,7 @@ export var MEMBERS = [
   },
   {
     id: 'jeonghan', name: '尹净汉', stageName: 'Jeonghan', emoji: '👼',
-    team: 'Vocal', desc: '温柔细腻·天使', age: 1995, pos: 'Vocal队',
+    team: 'Vocal', desc: '温柔细腻·天使', age: 1995, birthYear: 1995, pos: 'Vocal队',
     personality: '温柔体贴、高情商、偶尔腹黑、擅长读心',
     loveStyle: '温柔掌控型——用温柔"圈地盘"，不动声色坐在你旁边。吃醋时用更密集的关注让其他人知难而退。',
     traits: '长发及肩常扎起、笑起来眼睛弯弯、喜欢靠在别人身上、擅长用沉默制造暧昧',
@@ -135,7 +139,7 @@ export var MEMBERS = [
   },
   {
     id: 'joshua', name: '洪知秀', stageName: 'Joshua', emoji: '🦌',
-    team: 'Vocal', desc: '绅士优雅·小鹿', age: 1995, pos: 'Vocal队·美籍韩裔',
+    team: 'Vocal', desc: '绅士优雅·小鹿', age: 1995, birthYear: 1995, pos: 'Vocal队·美籍韩裔',
     personality: '绅士风度、优雅从容、外柔内刚、偶尔反差',
     loveStyle: '绅士守候型——尊重对方节奏，好感表现为持续稳定的关注。吃醋时微妙减少与情敌互动。',
     traits: '微笑时像小鹿、弹吉他很好听、教堂哥哥气质、偶尔冷幽默',
@@ -162,7 +166,7 @@ export var MEMBERS = [
   },
   {
     id: 'jun', name: '文俊辉', stageName: 'Jun', emoji: '🐱',
-    team: 'Performance', desc: '猫系美男', age: 1996, pos: 'Performance队',
+    team: 'Performance', desc: '猫系美男', age: 1996, birthYear: 1996, pos: 'Performance队',
     personality: '安静内敛、猫系性格、对熟人反差大、四次元思维',
     loveStyle: '猫系慢热型——需要时间观察确认心意。好感表现为"开始主动出现在你身边"。吃醋时更安静但眼神追随。',
     traits: '像猫喜欢安静角落、突然的四次元发言、对螺蛳粉有执念、武术功底',
@@ -189,7 +193,7 @@ export var MEMBERS = [
   },
   {
     id: 'hoshi', name: '权顺荣', stageName: 'Hoshi', emoji: '🐯',
-    team: 'Performance', desc: '活力老虎', age: 1996, pos: 'Performance队',
+    team: 'Performance', desc: '活力老虎', age: 1996, birthYear: 1996, pos: 'Performance队',
     personality: '能量充沛、热情执着、偶尔中二、对舞蹈极度认真',
     loveStyle: '热情攻势型——喜欢就全力以赴，像对待舞蹈一样认真。吃醋时更努力表现自己。',
     traits: '自称老虎(虎浪嘿)、永远在动、对舞蹈极度认真、容易激动、笑声有感染力',
@@ -216,7 +220,7 @@ export var MEMBERS = [
   },
   {
     id: 'wonwoo', name: '全圆佑', stageName: 'Wonwoo', emoji: '🦊',
-    team: 'Hip-hop', desc: '低音炮·眼镜美男', age: 1996, pos: 'Hip-hop队',
+    team: 'Hip-hop', desc: '低音炮·眼镜美男', age: 1996, birthYear: 1996, pos: 'Hip-hop队',
     personality: '外冷内热、理性克制、思维深邃、偶尔腹黑',
     loveStyle: '理性克制型——心动也会先冷静分析。越压抑越容易失控。吃醋时用毒舌或冷淡掩饰，眼神藏不住。',
     traits: '推眼镜习惯、低音炮嗓音突出、熬夜打游戏、喜欢在阳台发呆',
@@ -243,7 +247,7 @@ export var MEMBERS = [
   },
   {
     id: 'woozi', name: '李知勋', stageName: 'Woozi', emoji: '🍚',
-    team: 'Vocal', desc: '天才制作人', age: 1996, pos: 'Vocal队·SEVENTEEN主制作人',
+    team: 'Vocal', desc: '天才制作人', age: 1996, birthYear: 1996, pos: 'Vocal队·SEVENTEEN主制作人',
     personality: '专注执着、外冷内热、不善表达、内心柔软',
     loveStyle: '笨拙深情型——用奇怪方式表达好感：突然给对方听自己写的歌。吃醋时把自己关工作间写歌。',
     traits: '个子不高气场强、工作时完全沉浸、偶尔孩子气笑容、对在意的人很温柔',
@@ -270,7 +274,7 @@ export var MEMBERS = [
   },
   {
     id: 'dk', name: '李硕珉', stageName: 'DK', emoji: '☀️',
-    team: 'Vocal', desc: '阳光主唱', age: 1997, pos: 'Vocal队·主唱',
+    team: 'Vocal', desc: '阳光主唱', age: 1997, birthYear: 1997, pos: 'Vocal队·主唱',
     personality: '阳光开朗、共情力强、笑点低、偶尔感性',
     loveStyle: '温暖陪伴型——用持续温暖包围对方。好感表现为"把最多的笑容留给你"。吃醋时笑不出来是最大信号。',
     traits: '标志性大笑、唱歌时判若两人、容易哭、对食物有执念、会突然感性爆发',
@@ -297,7 +301,7 @@ export var MEMBERS = [
   },
   {
     id: 'mingyu', name: '金珉奎', stageName: 'Mingyu', emoji: '🐶',
-    team: 'Hip-hop', desc: '门面大狗狗', age: 1997, pos: 'Hip-hop队',
+    team: 'Hip-hop', desc: '门面大狗狗', age: 1997, birthYear: 1997, pos: 'Hip-hop队',
     personality: '热情开朗、细心体贴、偶尔冒失、情绪外露',
     loveStyle: '直球进攻型——喜欢就表现出来，不玩暧昧。吃醋时会直接问"你和他刚才在聊什么"。',
     traits: '做饭时哼歌、身高187cm、笑时眼睛眯成线、容易脸红、力气大动作温柔',
@@ -324,7 +328,7 @@ export var MEMBERS = [
   },
   {
     id: 'the8', name: '徐明浩', stageName: 'The8', emoji: '🐸',
-    team: 'Performance', desc: '艺术灵魂', age: 1997, pos: 'Performance队',
+    team: 'Performance', desc: '艺术灵魂', age: 1997, birthYear: 1997, pos: 'Performance队',
     personality: '艺术气质、内心丰富、外表清冷、对熟人温柔',
     loveStyle: '灵魂共鸣型——追求精神层面契合。好感表现为"开始和你分享他的世界"。吃醋时会画画或编舞表达。',
     traits: '时尚感突出、对茶道有研究、画画很好、舞蹈风格独特、偶尔说出哲学般的话',
@@ -351,7 +355,7 @@ export var MEMBERS = [
   },
   {
     id: 'seungkwan', name: '夫胜宽', stageName: 'Seungkwan', emoji: '🍊',
-    team: 'Vocal', desc: '综艺天才', age: 1998, pos: 'Vocal队',
+    team: 'Vocal', desc: '综艺天才', age: 1998, birthYear: 1998, pos: 'Vocal队',
     personality: '幽默风趣、高敏感、表面活泼内心细腻、胜负欲强',
     loveStyle: '傲娇掩饰型——喜欢时用拌嘴吐槽掩饰，越在意越毒舌。好感表现为"嘴上嫌弃但行动最照顾你"。',
     traits: '反应极快、模仿一流、吐槽精准无恶意、私下很安静、对济州岛有执念、容易水肿',
@@ -378,7 +382,7 @@ export var MEMBERS = [
   },
   {
     id: 'vernon', name: '崔瀚率', stageName: 'Vernon', emoji: '🦅',
-    team: 'Hip-hop', desc: '混血美男·4D灵魂', age: 1998, pos: 'Hip-hop队',
+    team: 'Hip-hop', desc: '混血美男·4D灵魂', age: 1998, birthYear: 1998, pos: 'Hip-hop队',
     personality: '自由随性、思维跳跃、真诚直率、四次元',
     loveStyle: '自然流露型——不刻意追求也不刻意回避。好感表现为"愿意和你分享他的世界"。吃醋时直接沉默或走开。',
     traits: '多语混用、走路有自己节奏、经常放空、突然说出发人深省的话、对音乐极其认真',
@@ -405,7 +409,7 @@ export var MEMBERS = [
   },
   {
     id: 'dino', name: '李灿', stageName: 'Dino', emoji: '🦦',
-    team: 'Performance', desc: '全能忙内', age: 1999, pos: 'Performance队·SEVENTEEN忙内',
+    team: 'Performance', desc: '全能忙内', age: 1999, birthYear: 1999, pos: 'Performance队·SEVENTEEN忙内',
     personality: '努力上进、自信阳光、偶尔撒娇、渴望被认可',
     loveStyle: '年下直进型——不在意年龄差，喜欢就直接表达。好感表现为"在你面前格外认真"。吃醋时直接说"我不喜欢那样"。',
     traits: '永远在练习、认真时皱眉、撒娇时反差极大、舞蹈实力超强',
