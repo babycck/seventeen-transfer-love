@@ -89,10 +89,12 @@ export var API_PROVIDERS = {
   alading: {
     name: 'Alading API',
     endpoint: 'https://www.aladingapi.com/v1',
-    model: '',
+    model: 'kiro-claude-sonnet-5',
     supportsJson: true,
     dynamicModels: true,
-    models: [],
+    models: [
+      { value: 'kiro-claude-sonnet-5', label: 'Kiro Claude Sonnet 5' }
+    ],
     sceneModels: {}
   }
 };
