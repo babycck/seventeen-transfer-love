@@ -405,19 +405,44 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
 
   maxTokens = maxTokens || 6000;
   var cfg = getProviderConfig();
-
   var model = GS.apiModel || cfg.model;
-  var requestBody = {
-    model: model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage }
-    ],
-    max_tokens: maxTokens,
-    temperature: (typeof temperature === 'number' ? temperature : 1)
-  };
-  // 剧情生成（JSON 模式）强制结构化，记忆压缩/送礼等自定义 prompt 仍用自然文本
-  if (useJson && cfg.supportsJson !== false) requestBody.response_format = { type: 'json_object' };
+  var isClaude = (GS.apiProvider === 'claude');
+
+  var requestBody;
+  var endpointUrl;
+  var headers;
+
+  if (isClaude) {
+    requestBody = {
+      model: model,
+      max_tokens: maxTokens,
+      temperature: (typeof temperature === 'number' ? temperature : 1),
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    };
+    endpointUrl = cfg.endpoint + '/messages';
+    headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': GS.apiKey,
+      'anthropic-version': '2023-06-01'
+    };
+  } else {
+    requestBody = {
+      model: model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: maxTokens,
+      temperature: (typeof temperature === 'number' ? temperature : 1)
+    };
+    if (useJson && cfg.supportsJson !== false) requestBody.response_format = { type: 'json_object' };
+    endpointUrl = cfg.endpoint + '/chat/completions';
+    headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + GS.apiKey
+    };
+  }
 
   // 90s 超时，防止 AI 卡住无限等待（含重试余量）
   var controller = new AbortController();
@@ -425,12 +450,9 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
 
   var resp;
   try {
-    resp = await fetch(cfg.endpoint + '/chat/completions', {
+    resp = await fetch(endpointUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + GS.apiKey
-      },
+      headers: headers,
       body: JSON.stringify(requestBody),
       signal: controller.signal
     });
@@ -455,8 +477,13 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
     throw err;
   }
   var data = await resp.json();
-  var msg = data.choices && data.choices[0] && data.choices[0].message;
-  var content = (msg && msg.content && msg.content.trim()) ? msg.content : (msg && msg.reasoning_content || '');
+  var content;
+  if (isClaude) {
+    content = data.content && data.content[0] && data.content[0].text;
+  } else {
+    var msg = data.choices && data.choices[0] && data.choices[0].message;
+    content = (msg && msg.content && msg.content.trim()) ? msg.content : (msg && msg.reasoning_content || '');
+  }
   if (!content || content.trim().length === 0) {
     throw new Error('API 返回了空内容，请检查模型名称和 API Key 权限');
   }
@@ -502,6 +529,27 @@ export async function testAPIConnection(apiKey, providerKey) {
   try {
     var cfg = getProviderConfig(providerKey);
     var model = GS.apiModel || cfg.model;
+    var isClaude = (providerKey === 'claude');
+
+    if (isClaude) {
+      var requestBody = {
+        model: model,
+        max_tokens: 10,
+        temperature: 1,
+        messages: [{ role: 'user', content: '请回复"连接成功"' }]
+      };
+      var resp = await fetch(cfg.endpoint + '/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      return resp.ok;
+    }
+
     var requestBody = {
       model: model,
       messages: [{ role: 'user', content: '请回复"连接成功"' }],

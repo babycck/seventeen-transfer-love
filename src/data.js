@@ -69,6 +69,22 @@ export var API_PROVIDERS = {
       light: 'qwen3.6-flash-2026-04-16',
       cheap: 'qwen3.6-flash-2026-04-16'
     }
+  },
+  claude: {
+    name: 'Claude (Anthropic)',
+    endpoint: 'https://api.anthropic.com/v1',
+    model: 'claude-3-5-sonnet-20241022',
+    supportsJson: false,
+    models: [
+      { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+      { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' }
+    ],
+    sceneModels: {
+      heavy: 'claude-3-5-sonnet-20241022',
+      light: 'claude-3-5-haiku-20241022',
+      cheap: 'claude-3-5-haiku-20241022'
+    }
   }
 };
 
