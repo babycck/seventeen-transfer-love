@@ -18,6 +18,8 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   var maxAttempts = opts.maxAttempts || 3;
   var skipValidate = opts.skipValidate || false;
   var providerKey = opts.providerKey || '';
+  // plainText: 纯文本输出模式（事件故事/聊天），不强制 response_format=json_object，也不做 {...} 提取
+  var useJson = !opts.plainText;
 
   var lastResult = null;
 
@@ -26,7 +28,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
     var raw;
     try {
-      raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, true, temp, sceneType, providerKey);
+      raw = await callDeepSeek(sysPrompt, currentUserMsg, tokens, useJson, temp, sceneType, providerKey);
     } catch (e) {
       if (e.retryable === false) {
         // 不可重试错误（401/400/403）直接抛出，不浪费重试次数
@@ -35,7 +37,8 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
       }
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' network error: ' + e.message);
       if (attempt < maxAttempts - 1) {
-        var backoffMs = 1500 * Math.pow(2, attempt);
+        var baseMs = (e.httpStatus === 503) ? 5000 : 1500;
+        var backoffMs = baseMs * Math.pow(2, attempt);
         console.warn('[ai-generator] retrying in ' + backoffMs + 'ms...');
         await _sleep(backoffMs);
         continue;

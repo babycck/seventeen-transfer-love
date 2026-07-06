@@ -142,6 +142,22 @@ export function showApiSettingsModal() {
 
   var provider = API_PROVIDERS[GS.apiProvider] || API_PROVIDERS.deepseek;
   var showFetchBtn = provider.dynamicModels ? '' : 'display:none;';
+  var isCustomDefault = GS.apiProvider === 'custom';
+  var customDefaultFields = '<div id="customFieldsWrap" style="' + (isCustomDefault ? '' : 'display:none;') + '">' +
+    '<label>自定义接口地址</label>' +
+    '<input type="text" id="customApiEndpointInput" placeholder="https://api.example.com/v1" value="' + escHtml(GS.customApiEndpoint || '') + '" class="settings-input" style="margin-bottom:8px">' +
+    '<label>自定义模型名</label>' +
+    '<input type="text" id="customApiModelInput" placeholder="gpt-4o" value="' + escHtml(GS.customApiModel || '') + '" class="settings-input" style="margin-bottom:8px">' +
+    '</div>';
+  var mainProvider = API_PROVIDERS[GS.mainApiProvider || GS.apiProvider] || API_PROVIDERS.deepseek;
+  var mainShowFetchBtn = mainProvider.dynamicModels ? '' : 'display:none;';
+  var isCustomMain = (GS.mainApiProvider || GS.apiProvider) === 'custom';
+  var customMainFields = '<div id="mainCustomFieldsWrap" style="' + (isCustomMain ? '' : 'display:none;') + '">' +
+    '<label>自定义接口地址</label>' +
+    '<input type="text" id="mainCustomApiEndpointInput" placeholder="https://api.example.com/v1" value="' + escHtml(GS.mainCustomApiEndpoint || '') + '" class="settings-input" style="margin-bottom:8px">' +
+    '<label>自定义模型名</label>' +
+    '<input type="text" id="mainCustomApiModelInput" placeholder="gpt-4o" value="' + escHtml(GS.mainCustomApiModel || '') + '" class="settings-input" style="margin-bottom:8px">' +
+    '</div>';
 
   var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<h3 style="flex-shrink:0">⚙️ 设置</h3>' +
@@ -152,11 +168,13 @@ export function showApiSettingsModal() {
     '<p class="settings-section-title">🔌 API 设置</p>' +
     '<label>AI 提供商</label>' +
     '<select id="apiProviderSelect" class="settings-select">' + providerOptions + '</select>' +
+    customDefaultFields +
+    '<div id="defaultModelWrap" style="' + (isCustomDefault ? 'display:none;' : '') + '">' +
     '<label>AI 模型</label>' +
     '<div style="display:flex;gap:4px;margin-bottom:8px">' +
     '<select id="apiModelSelect" class="settings-select" style="flex:1">' + modelOptions + '</select>' +
     '<button class="btn-secondary" id="fetchModelsBtn" style="padding:6px 10px;border:1px solid var(--border-primary);border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;' + showFetchBtn + '">🔄 获取模型</button>' +
-    '</div>' +
+    '</div></div>' +
     '<label>API Key</label>' +
     '<div style="display:flex;gap:4px;margin-bottom:6px">' +
     '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + escHtml(GS.apiKey) + '" class="settings-input" style="flex:1">' +
@@ -179,11 +197,13 @@ export function showApiSettingsModal() {
     '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px 0">如果配置，1v1 模式的剧情正文将使用此 AI，其他功能（聊天/朋友圈/日记等）仍使用上方默认 AI。</p>' +
     '<label>AI 提供商</label>' +
     '<select id="mainApiProviderSelect" class="settings-select">' + mainProviderOptions + '</select>' +
+    customMainFields +
+    '<div id="mainModelWrap" style="' + (isCustomMain ? 'display:none;' : '') + '">' +
     '<label>AI 模型</label>' +
     '<div style="display:flex;gap:4px;margin-bottom:8px">' +
     '<select id="mainApiModelSelect" class="settings-select" style="flex:1">' + mainModelOptions + '</select>' +
     '<button class="btn-secondary" id="mainFetchModelsBtn" style="padding:6px 10px;border:1px solid var(--border-primary);border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;' + mainShowFetchBtn + '">🔄 获取模型</button>' +
-    '</div>' +
+    '</div></div>' +
     '<label>API Key</label>' +
     '<div style="display:flex;gap:4px;margin-bottom:6px">' +
     '<input type="password" id="mainApiKeyInput" placeholder="sk-..." value="' + escHtml(GS.mainApiKey) + '" class="settings-input" style="flex:1">' +
@@ -269,16 +289,20 @@ export function showApiSettingsModal() {
   overlay.querySelector('#apiProviderSelect').addEventListener('change', function() {
     GS.apiProvider = this.value;
     var provider = API_PROVIDERS[this.value];
-    if (provider && provider.models && provider.models.length > 0) {
+    var isCustom = this.value === 'custom';
+    // 显示/隐藏自定义字段
+    var customWrap = overlay.querySelector('#customFieldsWrap');
+    if (customWrap) customWrap.style.display = isCustom ? '' : 'none';
+    var modelWrap = overlay.querySelector('#defaultModelWrap');
+    if (modelWrap) modelWrap.style.display = isCustom ? 'none' : '';
+    var fetchBtn = overlay.querySelector('#fetchModelsBtn');
+    if (fetchBtn) fetchBtn.style.display = (provider && provider.dynamicModels && !isCustom) ? '' : 'none';
+    if (!isCustom && provider && provider.models && provider.models.length > 0) {
       GS.apiModel = provider.models[0].value;
     }
     var modelSelect = overlay.querySelector('#apiModelSelect');
     if (modelSelect) {
       modelSelect.innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
-    }
-    var fetchBtn = overlay.querySelector('#fetchModelsBtn');
-    if (fetchBtn) {
-      fetchBtn.style.display = (provider && provider.dynamicModels) ? '' : 'none';
     }
     saveGame();
   });
@@ -290,6 +314,20 @@ export function showApiSettingsModal() {
     GS.apiKey = this.value.trim();
     if (GS.rememberApiKey) saveGame();
   });
+  var customEndpointInput = overlay.querySelector('#customApiEndpointInput');
+  if (customEndpointInput) {
+    customEndpointInput.addEventListener('input', function() {
+      GS.customApiEndpoint = this.value.trim();
+      if (GS.rememberApiKey) saveGame();
+    });
+  }
+  var customModelInput = overlay.querySelector('#customApiModelInput');
+  if (customModelInput) {
+    customModelInput.addEventListener('input', function() {
+      GS.customApiModel = this.value.trim();
+      if (GS.rememberApiKey) saveGame();
+    });
+  }
   overlay.querySelector('#rememberApiKeyCheck').addEventListener('change', function() {
     GS.rememberApiKey = this.checked;
     if (!GS.rememberApiKey) {
@@ -307,16 +345,20 @@ export function showApiSettingsModal() {
   overlay.querySelector('#mainApiProviderSelect').addEventListener('change', function() {
     GS.mainApiProvider = this.value;
     var provider = API_PROVIDERS[this.value];
-    if (provider && provider.models && provider.models.length > 0) {
+    var isCustom = this.value === 'custom';
+    // 显示/隐藏自定义字段
+    var customWrap = overlay.querySelector('#mainCustomFieldsWrap');
+    if (customWrap) customWrap.style.display = isCustom ? '' : 'none';
+    var modelWrap = overlay.querySelector('#mainModelWrap');
+    if (modelWrap) modelWrap.style.display = isCustom ? 'none' : '';
+    var fetchBtn = overlay.querySelector('#mainFetchModelsBtn');
+    if (fetchBtn) fetchBtn.style.display = (provider && provider.dynamicModels && !isCustom) ? '' : 'none';
+    if (!isCustom && provider && provider.models && provider.models.length > 0) {
       GS.mainApiModel = provider.models[0].value;
     }
     var modelSelect = overlay.querySelector('#mainApiModelSelect');
     if (modelSelect) {
       modelSelect.innerHTML = buildModelOptionsHtml(GS.mainApiProvider || GS.apiProvider, GS.mainApiModel);
-    }
-    var fetchBtn = overlay.querySelector('#mainFetchModelsBtn');
-    if (fetchBtn) {
-      fetchBtn.style.display = (provider && provider.dynamicModels) ? '' : 'none';
     }
     saveGame();
   });
@@ -328,6 +370,20 @@ export function showApiSettingsModal() {
     GS.mainApiKey = this.value.trim();
     if (GS.rememberApiKey) saveGame();
   });
+  var mainCustomEndpointInput = overlay.querySelector('#mainCustomApiEndpointInput');
+  if (mainCustomEndpointInput) {
+    mainCustomEndpointInput.addEventListener('input', function() {
+      GS.mainCustomApiEndpoint = this.value.trim();
+      if (GS.rememberApiKey) saveGame();
+    });
+  }
+  var mainCustomModelInput = overlay.querySelector('#mainCustomApiModelInput');
+  if (mainCustomModelInput) {
+    mainCustomModelInput.addEventListener('input', function() {
+      GS.mainCustomApiModel = this.value.trim();
+      if (GS.rememberApiKey) saveGame();
+    });
+  }
 
   var mainFetchModelsBtn = overlay.querySelector('#mainFetchModelsBtn');
   if (mainFetchModelsBtn) {
@@ -364,10 +420,20 @@ export function showApiSettingsModal() {
     s.classList.remove('hidden', 'success', 'error', 'testing');
     s.classList.add('testing');
     s.textContent = '⏳ 正在测试连接...';
-    var ok = await testAPIConnection(GS.mainApiKey, GS.mainApiProvider || GS.apiProvider);
+    var res = await testAPIConnection(GS.mainApiKey, GS.mainApiProvider || GS.apiProvider);
     s.classList.remove('testing');
-    s.classList.add(ok ? 'success' : 'error');
-    s.textContent = ok ? '✅ 连接成功！' : '❌ 连接失败，请检查 API Key 和提供商';
+    s.classList.add(res.ok ? 'success' : 'error');
+    if (res.ok) {
+      s.textContent = '✅ 连接成功！';
+    } else {
+      var _msg = '❌ 连接失败';
+      if (res.status === 503) _msg += '（503 服务暂不可用）';
+      else if (res.status === 401) _msg += '（401 鉴权失败）';
+      else if (res.status === 429) _msg += '（429 请求过于频繁）';
+      else if (res.status === 0) _msg += '（网络错误：' + (res.text || '无法连接') + '）';
+      else _msg += '（HTTP ' + res.status + '：' + (res.text || '未知错误') + '）';
+      s.textContent = _msg;
+    }
   });
 
   var fetchModelsBtn = overlay.querySelector('#fetchModelsBtn');
@@ -405,10 +471,20 @@ export function showApiSettingsModal() {
     s.classList.remove('hidden', 'success', 'error', 'testing');
     s.classList.add('testing');
     s.textContent = '⏳ 正在测试连接...';
-    var ok = await testAPIConnection(GS.apiKey, GS.apiProvider);
+    var res = await testAPIConnection(GS.apiKey, GS.apiProvider);
     s.classList.remove('testing');
-    s.classList.add(ok ? 'success' : 'error');
-    s.textContent = ok ? '✅ 连接成功！' : '❌ 连接失败，请检查 API Key 和提供商';
+    s.classList.add(res.ok ? 'success' : 'error');
+    if (res.ok) {
+      s.textContent = '✅ 连接成功！';
+    } else {
+      var _msg = '❌ 连接失败';
+      if (res.status === 503) _msg += '（503 服务暂不可用）';
+      else if (res.status === 401) _msg += '（401 鉴权失败）';
+      else if (res.status === 429) _msg += '（429 请求过于频繁）';
+      else if (res.status === 0) _msg += '（网络错误：' + (res.text || '无法连接') + '）';
+      else _msg += '（HTTP ' + res.status + '：' + (res.text || '未知错误') + '）';
+      s.textContent = _msg;
+    }
   });
 
   // === 主题切换事件 ===

@@ -91,12 +91,22 @@ export var API_PROVIDERS = {
     endpoint: 'https://www.aladingapi.com/v1',
     model: 'kiro-claude-sonnet-5',
     supportsJson: true,
-    dynamicModels: true,
+    dynamicModels: false,
     models: [
       { value: 'kiro-claude-sonnet-5', label: 'Kiro Claude Sonnet 5' }
     ],
     sceneModels: {}
+  },
+  custom: {
+    name: '自定义 API',
+    endpoint: '',
+    model: '',
+    supportsJson: true,
+    dynamicModels: false,
+    models: [],
+    sceneModels: {}
   }
+
 };
 
 // 保留旧常量以兼容直接引用（已废弃·请使用 API_PROVIDERS）

@@ -726,7 +726,7 @@ export async function handleOptionChoice(opt) {
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('consequence', { choiceText: opt.text });
     var _opts = { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 };
-    if (GS.gameMode === 'oneHeart') {
+    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
       _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
     }
     var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
@@ -973,7 +973,7 @@ export async function handleFreeAction(actionText) {
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
     var _opts = { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 };
-    if (GS.gameMode === 'oneHeart') {
+    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
       _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
     }
     var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
@@ -1772,7 +1772,7 @@ export async function generateOneHeartRound(extra) {
     }
     var userMsg = buildOneHeartUserMessage('phase');
 
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.mainApiProvider || GS.apiProvider });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.useSeparateApi ? (GS.mainApiProvider || GS.apiProvider) : GS.apiProvider });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
@@ -1796,7 +1796,7 @@ export async function generateOneHeartRound(extra) {
       var _corrections = validateOneHeartNarrative(parsed, GS);
       if (_corrections) {
         var _retryMsg = userMsg + '\n\n[修正] ' + _corrections + '\n请根据修正指示重新生成。';
-        var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.mainApiProvider || GS.apiProvider });
+        var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.useSeparateApi ? (GS.mainApiProvider || GS.apiProvider) : GS.apiProvider });
         var _retryRaw = (_retryGr && _retryGr.raw) ? _retryGr.raw : '';
         if (_retryRaw) {
           var _retryParsed = parseOneHeartNarrative(_retryRaw);
@@ -2575,7 +2575,7 @@ export async function sendChatMessage(userMessage) {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
 
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.75, skipValidate: true });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.75, skipValidate: true, plainText: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) {
@@ -2693,16 +2693,34 @@ export async function generateDiary() {
   }
 }
 
+// 清理事件故事文本：去除推理模型的 <think> 块、markdown 围栏、首尾引号
+function cleanEventStoryText(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  var t = raw;
+  // 去除 <think>...</think> 块（含跨行，部分推理模型如 DeepSeek-R1 会输出）
+  t = t.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // 去除未闭合的 <think> 到结尾
+  t = t.replace(/<think>[\s\S]*$/gi, '');
+  t = t.trim();
+  // 去除 markdown 代码块围栏（整段被包裹时）
+  if (t.indexOf('```') === 0) {
+    t = t.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  // 去除首尾引号
+  t = t.replace(/^["']+|["']+$/g, '');
+  return t.trim();
+}
+
 // [事件卡片系统] 事件选择后立即生成独立短故事（~150-200字）
 export async function generateEventStory(ev) {
   if (!ev || !ev.scenario) return '';
   try {
-    var sysMsg = buildOneHeartSystemPrompt();
+    var sysMsg = buildOneHeartSystemPrompt('story');
     var userMsg = buildOneHeartEventStoryPrompt(ev);
-    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.eventStoryGen, temperature: 0.85, skipValidate: true });
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.eventStoryGen, temperature: 0.85, skipValidate: true, plainText: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
-    var story = raw.trim().replace(/^["']|["']$/g, '');
+    var story = cleanEventStoryText(raw);
     if (story.length < 50) story = ev.scenario + '\n' + ev.chosenOption;
     return story;
   } catch (e) {

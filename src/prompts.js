@@ -775,7 +775,7 @@ export function buildUserMessage(type, extra) {
 
 // ==================== 1v1「只为你心动」模式 Prompt ====================
 
-export function buildOneHeartSystemPrompt() {
+export function buildOneHeartSystemPrompt(format) {
   var hp = GS.heroineProfile;
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   if (!member) return buildSystemPrompt();
@@ -783,25 +783,39 @@ export function buildOneHeartSystemPrompt() {
   var world = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
   var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
 
-  var result = '你是「只为你心动」——一款1v1沉浸式恋爱文字游戏的剧情生成AI。你必须只输出 JSON 对象，禁止输出 markdown 代码块或任何解释文字。\n\n' +
+  var outputHeader;
+  if (format === 'story') {
+    outputHeader = '你是一个恋爱故事的写手。根据场景写一段150-200字的小剧场故事。\n\n' +
+      '[SYSTEM] 输出说明\n' +
+      '- 只输出故事正文，不要标题、不要标签、不要JSON格式、不要引号包裹。\n' +
+      '- 以第一人称"我"叙述。\n' +
+      '- 有画面感、有细节、有内心感受。\n' +
+      '- 必须包括' + member.name + '的反应和互动。\n' +
+      '- 禁止出现"好感度""修罗场""情敌"等游戏术语。\n' +
+      '- 禁止评价或总结选择的结果。\n\n';
+  } else {
+    outputHeader = '你是「只为你心动」——一款1v1沉浸式恋爱文字游戏的剧情生成AI。你必须只输出 JSON 对象，禁止输出 markdown 代码块或任何解释文字。\n\n' +
 
-    '[SYSTEM] 输出结构（强制 JSON · 字段须严格匹配）\n' +
-    '{\n' +
-    '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
-    '  "options": [\n' +
-    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
-    '  ],\n' +
-    '  "eventItems": ["一句话事件1", "一句话事件2"]\n' +
-    '}\n' +
-    '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
-    '⚠️ directorOS 不进 blocks。\n' +
-    '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n' +
-    '⚠️ eventItems 字段说明：从本段剧情中提取关键事件，每个事件用一句话概括（包含人物、地点、事件要素）。\n' +
-    '【强制规则】每个事件必须写明具体人名，禁止使用"他/她/男主/正主/情敌"等代词。必须用实际角色名字（如"' + member.name + '","' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '","女主","' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '"等）。\n' +
-    '重点提取「女主、' + member.name + '（正主）、关系户（' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '等亲人）、暗恋对象/' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '」之间的互动事件。\n' +
-    '短事件示例：「女主给' + member.name + '买咖啡」\n' +
-    '长事件示例：「' + member.name + '在练习室生病了，女主照顾' + member.name + '，被' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '发现，' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '让队友金珉奎送' + member.name + '回宿舍」\n' +
-    '没有值得记录的事件时返回空数组 []。只提取本段实际发生的事件，不要推测或编造。\n\n' +
+      '[SYSTEM] 输出结构（强制 JSON · 字段须严格匹配）\n' +
+      '{\n' +
+      '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
+      '  "options": [\n' +
+      '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
+      '  ],\n' +
+      '  "eventItems": ["一句话事件1", "一句话事件2"]\n' +
+      '}\n' +
+      '⚠️ 所有 content 字段使用中文叙述。对话使用「」引用。禁止使用 ASCII 双引号。\n' +
+      '⚠️ directorOS 不进 blocks。\n' +
+      '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n' +
+      '⚠️ eventItems 字段说明：从本段剧情中提取关键事件，每个事件用一句话概括（包含人物、地点、事件要素）。\n' +
+      '【强制规则】每个事件必须写明具体人名，禁止使用"他/她/男主/正主/情敌"等代词。必须用实际角色名字（如"' + member.name + '","' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '","女主","' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '"等）。\n' +
+      '重点提取「女主、' + member.name + '（正主）、关系户（' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '等亲人）、暗恋对象/' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '」之间的互动事件。\n' +
+      '短事件示例：「女主给' + member.name + '买咖啡」\n' +
+      '长事件示例：「' + member.name + '在练习室生病了，女主照顾' + member.name + '，被' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '发现，' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '让队友金珉奎送' + member.name + '回宿舍」\n' +
+      '没有值得记录的事件时返回空数组 []。只提取本段实际发生的事件，不要推测或编造。\n\n';
+  }
+
+  var result = outputHeader +
 
     '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
 

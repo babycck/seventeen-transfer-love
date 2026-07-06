@@ -209,6 +209,70 @@ export function renderSetupWizard() {
     var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
     var provider = API_PROVIDERS[GS.apiProvider] || API_PROVIDERS.deepseek;
     var showFetchBtn = provider.dynamicModels ? '' : 'display:none;';
+    var isOneHeart = modeSel === 'oneHeart';
+    var useSep = GS.useSeparateApi && isOneHeart;
+    var sepToggleHtml = '';
+    if (isOneHeart) {
+      sepToggleHtml = '<div style="display:flex;gap:8px;margin:10px 0;padding:8px;background:var(--bg-card,#faf5f5);border:1.5px solid var(--border-primary,#e0c0c0);border-radius:10px">' +
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;margin:0;flex:1;justify-content:center;padding:6px;border-radius:8px;background:' + (!useSep ? 'var(--accent-primary,#e91e63);color:#fff' : 'transparent') + '" id="apiModeUnified">' +
+        '<input type="radio" name="apiMode" style="display:none"' + (!useSep ? ' checked' : '') + '>📦 统一 API（所有功能用一个模型）</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;margin:0;flex:1;justify-content:center;padding:6px;border-radius:8px;background:' + (useSep ? 'var(--accent-primary,#e91e63);color:#fff' : 'transparent') + '" id="apiModeSeparate">' +
+        '<input type="radio" name="apiMode" style="display:none"' + (useSep ? ' checked' : '') + '>⚡ 分离 API（正文 + 其他分别配置）</label></div>';
+    }
+    // 统一 API 块（默认 API，所有功能共用）
+    var buildApiBlock = function(opts) {
+      var _idPrefix = opts.idPrefix || '';
+      var _provider = API_PROVIDERS[opts.provider] || API_PROVIDERS.deepseek;
+      var _isCustom = opts.provider === 'custom';
+      var _showFetchBtn = (!_isCustom && _provider.dynamicModels) ? '' : 'display:none;';
+      var _modelOpts = buildModelOptionsHtml(opts.provider, opts.model);
+      var _hasKey = opts.apiKey && opts.apiKey.length > 0;
+      var _providerOpts = '';
+      for (var _pk in API_PROVIDERS) {
+        var _pp = API_PROVIDERS[_pk];
+        _providerOpts += '<option value="' + _pk + '"' + (opts.provider === _pk ? ' selected' : '') + '>' + _pp.name + '</option>';
+      }
+      var _title = opts.title || 'API 设置';
+      var _subtitle = opts.subtitle || '选择 AI 提供商并输入 API Key 以启用 AI 剧情生成';
+      var _showTest = opts.showTest !== false;
+      var _showAiEnabled = opts.showAiEnabled !== false;
+      var _testBtnId = _idPrefix + 'testApiBtn';
+      var _statusId = _idPrefix + 'apiStatus';
+      var _customFields = '<div id="' + _idPrefix + 'customFieldsWrap" style="' + (_isCustom ? '' : 'display:none;') + '">' +
+        '<label>自定义接口地址</label>' +
+        '<input type="text" id="' + _idPrefix + 'customApiEndpointInput" placeholder="https://api.example.com/v1" value="' + escHtml(opts.customEndpoint || '') + '" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
+        '<label>自定义模型名</label>' +
+        '<input type="text" id="' + _idPrefix + 'customApiModelInput" placeholder="gpt-4o" value="' + escHtml(opts.customModel || '') + '" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
+        '</div>';
+      return '<h3 style="font-size:14px;margin:0 0 6px;color:var(--text-primary)">' + _title + '</h3>' +
+        '<p class="step-desc" style="font-size:12px;margin:0 0 8px">' + _subtitle + '</p>' +
+        '<label>AI 提供商</label>' +
+        '<select id="' + _idPrefix + 'apiProviderSelect" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' + _providerOpts + '</select>' +
+        _customFields +
+        '<div id="' + _idPrefix + 'modelSelectWrap" style="' + (_isCustom ? 'display:none;' : '') + '">' +
+        '<label>AI 模型</label>' +
+        '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+        '<select id="' + _idPrefix + 'apiModelSelect" style="flex:1;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;background:#fff">' + _modelOpts + '</select>' +
+        '<button class="btn-secondary" id="' + _idPrefix + 'fetchModelsBtn" style="padding:6px 10px;border:1.5px solid #e0c0c0;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;' + _showFetchBtn + '">🔄 获取模型</button>' +
+        '</div></div>' +
+        '<label>API Key' + (_hasKey ? ' <span style="color:#4caf50;font-size:12px">✅ 已输入</span>' : '') + '</label>' +
+        '<div style="display:flex;gap:4px">' +
+        '<input type="password" id="' + _idPrefix + 'apiKeyInput" placeholder="sk-..." value="' + escHtml(opts.apiKey) + '" style="flex:1">' +
+        '<button type="button" id="' + _idPrefix + 'toggleApiKeyBtn" style="padding:6px 10px;border:1.5px solid #e0c0c0;border-radius:8px;background:#fff;cursor:pointer;font-size:12px">👁</button>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;margin:0">' +
+        '<input type="checkbox" id="' + _idPrefix + 'rememberApiKeyCheck" ' + (GS.rememberApiKey ? 'checked' : '') + '> 记住 API Key（仅保存到本地浏览器）</label>' +
+        '</div>' +
+        (_showTest || _showAiEnabled ? '<div style="display:flex;gap:6px;margin-top:6px">' : '') +
+        (_showTest ? '<button class="btn-secondary" id="' + _testBtnId + '" style="flex:1">🔍 测试连接</button>' : '') +
+        (_showAiEnabled ? '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;margin:0"><input type="checkbox" id="' + _idPrefix + 'aiEnabledCheck" ' + (GS.aiEnabled ? 'checked' : '') + '> 启用AI</label>' : '') +
+        (_showTest || _showAiEnabled ? '</div>' : '') +
+        '<div id="' + _statusId + '" class="api-status hidden"></div>';
+    };
+    var unifiedHtml = buildApiBlock({ idPrefix: '', provider: GS.apiProvider, model: GS.apiModel, apiKey: GS.apiKey, customEndpoint: GS.customApiEndpoint, customModel: GS.customApiModel, title: '🔑 API 设置', subtitle: '选择 AI 提供商并输入 API Key 以启用 AI 剧情生成', showTest: true, showAiEnabled: true });
+    var otherHtml = buildApiBlock({ idPrefix: 'other', provider: GS.apiProvider, model: GS.apiModel, apiKey: GS.apiKey, customEndpoint: GS.customApiEndpoint, customModel: GS.customApiModel, title: '🔌 其他功能 API', subtitle: '用于聊天、朋友圈、短信、日记等辅助功能', showTest: true, showAiEnabled: false });
+    var mainHtml = buildApiBlock({ idPrefix: 'main', provider: GS.mainApiProvider || GS.apiProvider, model: GS.mainApiModel || GS.apiModel, apiKey: GS.mainApiKey || GS.apiKey, customEndpoint: GS.mainCustomApiEndpoint, customModel: GS.mainCustomApiModel, title: '📝 正文专用 API', subtitle: '用于 1v1 模式的剧情正文生成', showTest: true, showAiEnabled: false });
     html = '<div class="setup-step">' +
       '<h2>🎮 选择游戏模式</h2>' +
       '<div class="mode-select">' +
@@ -219,39 +283,13 @@ export function renderSetupWizard() {
       '<span class="mode-emoji">💗</span><span class="mode-name">只为你心动</span>' +
       '<span class="mode-desc">1v1 模式 · 与 1 位成员展开专属恋爱</span></button></div>' +
       '<hr style="margin:16px 0;border:none;border-top:1px solid #f0e0e0">' +
-      '<h2>🔑 API 设置</h2>' +
-      '<p class="step-desc">选择 AI 提供商并输入 API Key 以启用 AI 剧情生成</p>' +
-      '<label>AI 提供商</label>' +
-      '<select id="apiProviderSelect" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
-      providerOptions + '</select>' +
-      '<label>AI 模型</label>' +
-      '<div style="display:flex;gap:4px;margin-bottom:8px">' +
-      '<select id="apiModelSelect" style="flex:1;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;background:#fff">' +
-      modelOptions + '</select>' +
-      '<button class="btn-secondary" id="fetchModelsBtn" style="padding:6px 10px;border:1.5px solid #e0c0c0;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;' + showFetchBtn + '">🔄 获取模型</button>' +
-      '</div>' +
-      '<label>API Key' + (hasKey ? ' <span style="color:#4caf50;font-size:12px">✅ 已输入</span>' : '') + '</label>' +
-      '<div style="display:flex;gap:4px">' +
-      '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + escHtml(GS.apiKey) + '" style="flex:1">' +
-      '<button type="button" id="toggleApiKeyBtn" style="padding:6px 10px;border:1.5px solid #e0c0c0;border-radius:8px;background:#fff;cursor:pointer;font-size:12px">👁</button>' +
-      '</div>' +
-      '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' +
-      '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;margin:0">' +
-      '<input type="checkbox" id="rememberApiKeyCheck" ' + (GS.rememberApiKey ? 'checked' : '') + '> 记住 API Key（仅保存到本地浏览器）</label>' +
-      '</div>' +
+      sepToggleHtml +
+      (useSep ? otherHtml + '<hr style="margin:12px 0;border:none;border-top:1px solid #f0e0e0">' + mainHtml : unifiedHtml) +
       '<p style="font-size:11px;color:#8b6b6b;margin-top:4px">🔒 隐私说明：API Key 仅存储在你当前浏览器的本地空间中，不会上传到任何服务器，其他人无法看到。</p>' +
-      '<div style="display:flex;gap:6px;margin-top:6px">' +
-      '<button class="btn-secondary" id="testApiBtn" style="flex:1">🔍 测试连接</button>' +
-      '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;margin:0">' +
-      '<input type="checkbox" id="aiEnabledCheck" ' + (GS.aiEnabled ? 'checked' : '') + '> 启用AI</label></div>' +
-      '<div id="apiStatus" class="api-status hidden"></div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;flex-direction:column">' +
       '<button class="btn-primary" id="step1Next">下一步 →</button>' +
       '<button class="btn-secondary" id="step1ImportBtn" style="background:#f0f7ff;border-color:#5b9bd5;color:#2e5c8a">📂 导入存档（继续之前的游戏）</button>' +
       '<input type="file" id="step1ImportInput" accept=".json" style="display:none">' +
-      // 测试版入口已暂时屏蔽，取消下面注释即可恢复
-      //'<button class="btn-secondary" id="enterTestModeBtn" style="background:#fff8e1;border-color:#ffc107;color:#f57f17;font-size:13px">🧪 进入测试版（跳过API配置）</button>' +
-      //'<p style="font-size:11px;color:#8b6b6b;margin:0">测试版使用本地预生成剧情，无需API Key即可体验游戏流程。</p>' +
       '</div></div>';
   } else if (GS.step === 2) {
     if (GS.gameMode === 'oneHeart') {
@@ -504,97 +542,183 @@ export function bindSetupEvents() {
         renderAll();
       });
     }
-    document.getElementById('apiProviderSelect').addEventListener('change', function() {
-      GS.apiProvider = this.value;
-      var provider = API_PROVIDERS[this.value];
-      if (provider && provider.models && provider.models.length > 0) {
-        GS.apiModel = provider.models[0].value;
-      }
-      var modelSelect = document.getElementById('apiModelSelect');
-      if (modelSelect) {
-        modelSelect.innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
-      }
-      var fetchBtn = document.getElementById('fetchModelsBtn');
-      if (fetchBtn) {
-        fetchBtn.style.display = (provider && provider.dynamicModels) ? '' : 'none';
-      }
-      saveGame();
-    });
-    document.getElementById('apiModelSelect').addEventListener('change', function() {
-      GS.apiModel = this.value;
-      saveGame();
-    });
-    document.getElementById('apiKeyInput').addEventListener('input', function() {
-      GS.apiKey = this.value.trim();
-      if (GS.rememberApiKey) saveGame();
-    });
-    document.getElementById('rememberApiKeyCheck').addEventListener('change', function() {
-      GS.rememberApiKey = this.checked;
-      if (!GS.rememberApiKey) {
-        GS.apiKey = '';
-        document.getElementById('apiKeyInput').value = '';
-      }
-      saveGame();
-    });
-    document.getElementById('aiEnabledCheck').addEventListener('change', function() {
-      GS.aiEnabled = this.checked;
-      saveGame();
-    });
-    var fetchModelsBtn = document.getElementById('fetchModelsBtn');
-    if (fetchModelsBtn) {
-      fetchModelsBtn.addEventListener('click', async function() {
-        var self = this;
-        self.textContent = '⏳ 获取中...';
-        self.disabled = true;
-        try {
-          var models = await fetchModels(GS.apiKey, GS.apiProvider);
-          if (models.length > 0) {
-            API_PROVIDERS[GS.apiProvider].models = models;
-            GS.apiModel = models[0].value;
-            document.getElementById('apiModelSelect').innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
-            showToast('✅ 已获取 ' + models.length + ' 个模型');
-          } else {
-            showToast('⚠️ 未获取到模型，请检查 API Key 和提供商');
-          }
-        } catch (e) {
-          showToast('⚠️ 获取模型失败：' + e.message);
-        }
-        self.textContent = '🔄 获取模型';
-        self.disabled = false;
+    // 分离 API 模式切换
+    var apiModeUnified = document.getElementById('apiModeUnified');
+    var apiModeSeparate = document.getElementById('apiModeSeparate');
+    if (apiModeUnified) {
+      apiModeUnified.addEventListener('click', function() {
+        GS.useSeparateApi = false;
+        saveGame();
+        renderAll();
       });
     }
-    document.getElementById('testApiBtn').addEventListener('click', async function() {
-      var s = document.getElementById('apiStatus');
-      s.classList.remove('hidden', 'success', 'error', 'testing');
-      s.classList.add('testing');
-      s.textContent = '⏳ 正在测试连接...';
-      var ok = await testAPIConnection(GS.apiKey, GS.apiProvider);
-      s.classList.remove('testing');
-      if (ok) {
-        s.classList.add('success');
-        s.textContent = '✅ 连接成功！API Key 有效';
-      } else {
-        s.classList.add('error');
-        s.textContent = '❌ 连接失败，请检查 API Key 和提供商设置';
+    if (apiModeSeparate) {
+      apiModeSeparate.addEventListener('click', function() {
+        GS.useSeparateApi = true;
+        saveGame();
+        renderAll();
+      });
+    }
+    // 绑定 API 配置块事件
+    function bindApiBlockEvents(idPrefix, setProvider, setModel, setKey, setCustomEndpoint, setCustomModel) {
+      var prefix = idPrefix || '';
+      var providerSelect = document.getElementById(prefix + 'apiProviderSelect');
+      if (providerSelect) {
+        providerSelect.addEventListener('change', function() {
+          setProvider(this.value);
+          var provider = API_PROVIDERS[this.value];
+          var isCustom = this.value === 'custom';
+          // 切换自定义字段显示
+          var customWrap = document.getElementById(prefix + 'customFieldsWrap');
+          if (customWrap) customWrap.style.display = isCustom ? '' : 'none';
+          var modelWrap = document.getElementById(prefix + 'modelSelectWrap');
+          if (modelWrap) modelWrap.style.display = isCustom ? 'none' : '';
+          var fetchBtn = document.getElementById(prefix + 'fetchModelsBtn');
+          if (fetchBtn) fetchBtn.style.display = (provider && provider.dynamicModels && !isCustom) ? '' : 'none';
+          if (!isCustom && provider && provider.models && provider.models.length > 0) {
+            setModel(provider.models[0].value);
+          }
+          var modelSelect = document.getElementById(prefix + 'apiModelSelect');
+          if (modelSelect) {
+            modelSelect.innerHTML = buildModelOptionsHtml(setProvider(), setModel());
+          }
+          saveGame();
+        });
       }
-    });
-    var toggleBtn = document.getElementById('toggleApiKeyBtn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', function() {
-        var input = document.getElementById('apiKeyInput');
-        if (input.type === 'password') {
-          input.type = 'text';
-          this.textContent = '🙈';
-        } else {
-          input.type = 'password';
-          this.textContent = '👁';
-        }
+      var modelSelect = document.getElementById(prefix + 'apiModelSelect');
+      if (modelSelect) {
+        modelSelect.addEventListener('change', function() {
+          setModel(this.value);
+          saveGame();
+        });
+      }
+      var apiKeyInput = document.getElementById(prefix + 'apiKeyInput');
+      if (apiKeyInput) {
+        apiKeyInput.addEventListener('input', function() {
+          setKey(this.value.trim());
+          if (GS.rememberApiKey) saveGame();
+        });
+      }
+      var customEndpointInput = document.getElementById(prefix + 'customApiEndpointInput');
+      if (customEndpointInput) {
+        customEndpointInput.addEventListener('input', function() {
+          if (setCustomEndpoint) {
+            setCustomEndpoint(this.value.trim());
+            if (GS.rememberApiKey) saveGame();
+          }
+        });
+      }
+      var customModelInput = document.getElementById(prefix + 'customApiModelInput');
+      if (customModelInput) {
+        customModelInput.addEventListener('input', function() {
+          if (setCustomModel) {
+            setCustomModel(this.value.trim());
+            if (GS.rememberApiKey) saveGame();
+          }
+        });
+      }
+      var fetchBtn = document.getElementById(prefix + 'fetchModelsBtn');
+      if (fetchBtn) {
+        fetchBtn.addEventListener('click', async function() {
+          var self = this;
+          self.textContent = '⏳ 获取中...';
+          self.disabled = true;
+          try {
+            var models = await fetchModels(setKey(), setProvider());
+            if (models.length > 0) {
+              API_PROVIDERS[setProvider()].models = models;
+              setModel(models[0].value);
+              var ms = document.getElementById(prefix + 'apiModelSelect');
+              if (ms) ms.innerHTML = buildModelOptionsHtml(setProvider(), setModel());
+              showToast('✅ 已获取 ' + models.length + ' 个模型');
+            } else {
+              showToast('⚠️ 未获取到模型，请检查 API Key 和提供商');
+            }
+          } catch (e) {
+            showToast('⚠️ 获取模型失败：' + e.message);
+          }
+          self.textContent = '🔄 获取模型';
+          self.disabled = false;
+        });
+      }
+      var testBtn = document.getElementById(prefix + 'testApiBtn');
+      if (testBtn) {
+        testBtn.addEventListener('click', async function() {
+          var s = document.getElementById(prefix + 'apiStatus');
+          s.classList.remove('hidden', 'success', 'error', 'testing');
+          s.classList.add('testing');
+          s.textContent = '⏳ 正在测试连接...';
+          var res = await testAPIConnection(setKey(), setProvider());
+          s.classList.remove('testing');
+          if (res.ok) {
+            s.classList.add('success');
+            s.textContent = '✅ 连接成功！API Key 有效';
+          } else {
+            s.classList.add('error');
+            var _msg = '❌ 连接失败';
+            if (res.status === 503) _msg += '（503 服务暂不可用，可能是 Alading 服务器维护或模型额度耗尽）';
+            else if (res.status === 401) _msg += '（401 鉴权失败，请检查 API Key）';
+            else if (res.status === 429) _msg += '（429 请求过于频繁，请稍后再试）';
+            else if (res.status === 0) _msg += '（网络错误：' + (res.text || '无法连接到服务器') + '）';
+            else _msg += '（HTTP ' + res.status + '：' + (res.text || '未知错误') + '）';
+            s.textContent = _msg;
+          }
+        });
+      }
+      var toggleBtn = document.getElementById(prefix + 'toggleApiKeyBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+          var input = document.getElementById(prefix + 'apiKeyInput');
+          if (input.type === 'password') {
+            input.type = 'text';
+            this.textContent = '🙈';
+          } else {
+            input.type = 'password';
+            this.textContent = '👁';
+          }
+        });
+      }
+    }
+    bindApiBlockEvents('', function(v) { if (v !== undefined) GS.apiProvider = v; return GS.apiProvider; }, function(v) { if (v !== undefined) GS.apiModel = v; return GS.apiModel; }, function(v) { if (v !== undefined) GS.apiKey = v; return GS.apiKey; }, function(v) { if (v !== undefined) GS.customApiEndpoint = v; return GS.customApiEndpoint; }, function(v) { if (v !== undefined) GS.customApiModel = v; return GS.customApiModel; });
+    bindApiBlockEvents('other', function(v) { if (v !== undefined) GS.apiProvider = v; return GS.apiProvider; }, function(v) { if (v !== undefined) GS.apiModel = v; return GS.apiModel; }, function(v) { if (v !== undefined) GS.apiKey = v; return GS.apiKey; }, function(v) { if (v !== undefined) GS.customApiEndpoint = v; return GS.customApiEndpoint; }, function(v) { if (v !== undefined) GS.customApiModel = v; return GS.customApiModel; });
+    bindApiBlockEvents('main', function(v) { if (v !== undefined) GS.mainApiProvider = v; return GS.mainApiProvider; }, function(v) { if (v !== undefined) GS.mainApiModel = v; return GS.mainApiModel; }, function(v) { if (v !== undefined) GS.mainApiKey = v; return GS.mainApiKey; }, function(v) { if (v !== undefined) GS.mainCustomApiEndpoint = v; return GS.mainCustomApiEndpoint; }, function(v) { if (v !== undefined) GS.mainCustomApiModel = v; return GS.mainCustomApiModel; });
+    var rememberCheck = document.getElementById('rememberApiKeyCheck');
+    var otherRememberCheck = document.getElementById('otherrememberApiKeyCheck');
+    var mainRememberCheck = document.getElementById('mainrememberApiKeyCheck');
+    function handleRememberChange(checked) {
+      GS.rememberApiKey = checked;
+      if (!GS.rememberApiKey) {
+        GS.apiKey = '';
+        GS.mainApiKey = '';
+        var inp = document.getElementById('apiKeyInput');
+        if (inp) inp.value = '';
+        var oinp = document.getElementById('otherapiKeyInput');
+        if (oinp) oinp.value = '';
+        var minp = document.getElementById('mainapiKeyInput');
+        if (minp) minp.value = '';
+      }
+      saveGame();
+    }
+    if (rememberCheck) rememberCheck.addEventListener('change', function() { handleRememberChange(this.checked); });
+    if (otherRememberCheck) otherRememberCheck.addEventListener('change', function() { handleRememberChange(this.checked); });
+    if (mainRememberCheck) mainRememberCheck.addEventListener('change', function() { handleRememberChange(this.checked); });
+    var aiEnabledCheck = document.getElementById('aiEnabledCheck');
+    if (aiEnabledCheck) {
+      aiEnabledCheck.addEventListener('change', function() {
+        GS.aiEnabled = this.checked;
+        saveGame();
       });
     }
     document.getElementById('step1Next').addEventListener('click', function() {
       if (!GS.apiKey.trim()) {
         showToast('请输入 API Key');
         return;
+      }
+      if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+        if (!GS.mainApiKey.trim()) {
+          showToast('请输入正文专用 API Key');
+          return;
+        }
       }
       GS.step = 2;
       saveGame();

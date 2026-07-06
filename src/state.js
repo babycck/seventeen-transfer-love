@@ -89,6 +89,7 @@ export function defaultGameState() {
     mainApiProvider: '',
     mainApiModel: '',
     mainApiKey: '',
+    useSeparateApi: false,
     apiProvider: 'deepseek',
     apiModel: '',
     aiEnabled: true,
@@ -389,6 +390,11 @@ export function migrateSave() {
     if (GS.mainApiProvider === undefined) GS.mainApiProvider = '';
     if (GS.mainApiModel === undefined) GS.mainApiModel = '';
     if (GS.mainApiKey === undefined) GS.mainApiKey = GS.apiKeyAlading || '';
+    if (GS.useSeparateApi === undefined) GS.useSeparateApi = false;
+    if (GS.customApiEndpoint === undefined) GS.customApiEndpoint = '';
+    if (GS.customApiModel === undefined) GS.customApiModel = '';
+    if (GS.mainCustomApiEndpoint === undefined) GS.mainCustomApiEndpoint = '';
+    if (GS.mainCustomApiModel === undefined) GS.mainCustomApiModel = '';
     if (GS.rememberApiKey === undefined) GS.rememberApiKey = true;
     if (GS.apiProvider === undefined) GS.apiProvider = 'deepseek';
     if (GS.apiModel === undefined) GS.apiModel = '';
@@ -512,6 +518,14 @@ export async function resetGame() {
   var savedRememberApiKey = GS.rememberApiKey;
   var savedApiProvider = GS.apiProvider || 'deepseek';
   var savedApiModel = GS.apiModel || '';
+  var savedUseSeparateApi = GS.useSeparateApi || false;
+  var savedMainApiProvider = GS.mainApiProvider || '';
+  var savedMainApiModel = GS.mainApiModel || '';
+  var savedMainApiKey = GS.mainApiKey || '';
+  var savedCustomApiEndpoint = GS.customApiEndpoint || '';
+  var savedCustomApiModel = GS.customApiModel || '';
+  var savedMainCustomApiEndpoint = GS.mainCustomApiEndpoint || '';
+  var savedMainCustomApiModel = GS.mainCustomApiModel || '';
   // 保留用户偏好
   var savedTheme = GS.theme || 'auto';
   var savedTypewriterSpeed = GS.typewriterSpeed == null ? 30 : GS.typewriterSpeed;
@@ -546,6 +560,14 @@ export async function resetGame() {
   GS.typewriterSpeed = savedTypewriterSpeed;
   GS.apiProvider = savedApiProvider;
   GS.apiModel = savedApiModel;
+  GS.useSeparateApi = savedUseSeparateApi;
+  GS.mainApiProvider = savedMainApiProvider;
+  GS.mainApiModel = savedMainApiModel;
+  GS.mainApiKey = savedMainApiKey;
+  GS.customApiEndpoint = savedCustomApiEndpoint;
+  GS.customApiModel = savedCustomApiModel;
+  GS.mainCustomApiEndpoint = savedMainCustomApiEndpoint;
+  GS.mainCustomApiModel = savedMainCustomApiModel;
   GS.gameMode = savedGameMode;
   GS.oneHeartMember = savedOneHeartMember;
   GS.worldSetting = savedWorldSetting;

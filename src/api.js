@@ -3,6 +3,18 @@ import { GS } from './state.js';
 
 function getProviderConfig(providerKey) {
   var key = providerKey || GS.apiProvider || 'deepseek';
+  if (key === 'custom') {
+    var isMain = providerKey && providerKey === GS.mainApiProvider;
+    return {
+      name: '自定义 API',
+      endpoint: isMain ? (GS.mainCustomApiEndpoint || '') : (GS.customApiEndpoint || ''),
+      model: isMain ? (GS.mainCustomApiModel || '') : (GS.customApiModel || ''),
+      supportsJson: true,
+      dynamicModels: false,
+      models: [],
+      sceneModels: {}
+    };
+  }
   return API_PROVIDERS[key] || API_PROVIDERS.deepseek;
 }
 
@@ -408,12 +420,18 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   var isClaude = (providerKey === 'claude');
   // 正文专用 provider 使用 mainApiKey，否则使用全局 apiKey
   var apiKey = GS.apiKey;
-  var model = GS.apiModel || cfg.model;
   if (providerKey && providerKey === GS.mainApiProvider && GS.mainApiKey) {
     apiKey = GS.mainApiKey;
   }
-  if (providerKey && providerKey === GS.mainApiProvider && GS.mainApiModel) {
-    model = GS.mainApiModel;
+  // 自定义 API 的模型名取自 customApiModel/customMainApiModel，不由 GS.apiModel 覆盖
+  var model;
+  if (providerKey === 'custom') {
+    model = cfg.model;
+  } else {
+    model = GS.apiModel || cfg.model;
+    if (providerKey && providerKey === GS.mainApiProvider && GS.mainApiModel) {
+      model = GS.mainApiModel;
+    }
   }
 
   var requestBody;
@@ -473,18 +491,65 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
   clearTimeout(timeoutId);
   if (!resp.ok) {
     var errText = await resp.text();
-    var err = new Error('API ' + resp.status + ': ' + errText);
+    // 尝试解析 new-api 网关的错误结构，提取更友好的错误信息
+    var _friendlyMsg = '';
+    try {
+      var _errJson = JSON.parse(errText);
+      if (_errJson && _errJson.error && _errJson.error.message) {
+        _friendlyMsg = _errJson.error.message;
+      }
+    } catch (e) {}
+    var err = new Error('API ' + resp.status + '：' + (_friendlyMsg || errText));
     err.httpStatus = resp.status;
     err.isNetworkError = false;
     // 429 限流 / 5xx 服务端错误 → 可重试；4xx 鉴权/格式错误 → 不可重试
+    // 但 model_not_found / invalid_api_key 等业务错误即使返回 5xx 也不可重试
     if (resp.status === 429 || resp.status >= 500) {
-      err.retryable = true;
+      if (errText.indexOf('model_not_found') >= 0 || errText.indexOf('invalid_api_key') >= 0 || errText.indexOf('invalid_api key') >= 0) {
+        err.retryable = false;
+      } else {
+        err.retryable = true;
+      }
     } else {
       err.retryable = false;
     }
     throw err;
   }
-  var data = await resp.json();
+  // 防护：服务器返回 200 但 body 是 HTML（维护页/网关错误/CDN 拦截页）时，
+  // resp.json() 会抛出 "Unexpected token '<'"，错误信息对用户毫无意义。
+  // 这里主动检测 Content-Type，并捕获 SyntaxError 转成可重试的描述性错误。
+  var contentType = resp.headers.get('Content-Type') || '';
+  var rawBody = await resp.text();
+  if (contentType.indexOf('text/html') >= 0 || rawBody.trim().charAt(0) === '<') {
+    // 诊断日志：打印实际返回的 HTML 内容片段，便于定位根因（维护页/网关错误/路径错误等）
+    var _bodySnip = rawBody.slice(0, 800).replace(/\s+/g, ' ');
+    var _epSnip = endpointUrl.replace(/\/chat\/completions.*$/, '/chat/completions');
+    console.warn('[api] 非 JSON 响应: status=' + resp.status + ' model=' + model + ' endpoint=' + _epSnip + ' contentType=' + contentType + '\nbody片段: ' + _bodySnip);
+    // 部分第三方代理不支持 response_format 参数会返回 HTML，若本次带了则降级重试一次
+    if (!isClaude && useJson && cfg.supportsJson !== false && requestBody.response_format) {
+      console.warn('[api] endpoint 返回 HTML，疑似不支持 response_format，降级重试（去掉 response_format）');
+      return callDeepSeek(systemPrompt, userMessage, maxTokens, false, temperature, sceneType, providerKey);
+    }
+    var _epHint = '';
+    if (endpointUrl.indexOf('/v1/chat/completions') < 0) {
+      _epHint = '（endpoint 似乎缺少 /v1 前缀，请在 API 设置中确认 endpoint 为 https://xxx.com/v1 格式）';
+    }
+    var htmlErr = new Error('AI 服务返回了 HTML 页面而非 JSON 响应' + _epHint + '，请检查 endpoint 配置或稍后重试');
+    htmlErr.httpStatus = resp.status;
+    htmlErr.isNetworkError = false;
+    htmlErr.retryable = false;
+    throw htmlErr;
+  }
+  var data;
+  try {
+    data = JSON.parse(rawBody);
+  } catch (parseErr) {
+    var jErr = new Error('AI 服务返回了无法解析的响应（非有效 JSON），请稍后重试');
+    jErr.httpStatus = resp.status;
+    jErr.isNetworkError = false;
+    jErr.retryable = true;
+    throw jErr;
+  }
   var content;
   if (isClaude) {
     content = data.content && data.content[0] && data.content[0].text;
@@ -496,20 +561,20 @@ export async function callDeepSeek(systemPrompt, userMessage, maxTokens, useJson
     throw new Error('API 返回了空内容，请检查模型名称和 API Key 权限');
   }
   // 兜底：模型偶尔会在 JSON 外围包 ```json 代码块——strip 掉再返回
-  content = stripJsonFence(content).trim();
+  content = stripJsonFence(content, useJson).trim();
   return content;
 }
 
-// 去除 ```json / ``` 围栏，提取最外层 { ... } 子串
-function stripJsonFence(text) {
+// 去除 ```json / ``` 围栏；extractJson 为 true 时再提取最外层 { ... } 子串
+function stripJsonFence(text, extractJson) {
   if (!text) return text;
   var t = text.trim();
-  // 去代码围栏
+  // 去代码围栏（对所有模式安全：仅在 ``` 开头时才动）
   if (t.indexOf('```') === 0) {
     t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   }
-  // 提取最外层 { ... } 子串（应付模型前后偶尔的解释文字）
-  if (t.charAt(0) !== '{') {
+  // 提取最外层 { ... } 子串（仅 JSON 模式需要；纯文本模式会误伤含花括号的故事正文）
+  if (extractJson && t.charAt(0) !== '{') {
     var start = t.indexOf('{');
     var end = t.lastIndexOf('}');
     if (start >= 0 && end > start) {
@@ -574,7 +639,8 @@ export async function fetchModels(apiKey, providerKey) {
 export async function testAPIConnection(apiKey, providerKey) {
   try {
     var cfg = getProviderConfig(providerKey);
-    var model = GS.apiModel || cfg.model;
+    // 自定义 API 的模型名取自 customApiModel，不由 GS.apiModel 覆盖
+    var model = (providerKey === 'custom') ? cfg.model : (GS.apiModel || cfg.model);
     var isClaude = (providerKey === 'claude');
 
     if (isClaude) {
@@ -610,8 +676,33 @@ export async function testAPIConnection(apiKey, providerKey) {
       },
       body: JSON.stringify(requestBody)
     });
-    return resp.ok;
+    var errText = '';
+    // 即使 resp.ok，也要验证响应是 JSON 而非 HTML（避免 endpoint 缺少 /v1 时误判为成功）
+    var _ct = resp.headers.get('Content-Type') || '';
+    var _body = '';
+    try { _body = await resp.text(); } catch (e) {}
+    if (!resp.ok) {
+      // 尝试解析 JSON 错误体，获取更友好的错误消息（统一与 callDeepSeek 的逻辑）
+      var _friendlyMsg = '';
+      try {
+        var _errJson = JSON.parse(_body);
+        if (_errJson && _errJson.error && _errJson.error.message) {
+          _friendlyMsg = _errJson.error.message;
+        }
+      } catch (e) {}
+      return { ok: false, status: resp.status, text: _friendlyMsg || _body || resp.statusText };
+    }
+    // resp.ok 但返回 HTML → endpoint 路径错误（常见于缺少 /v1 前缀）
+    if (_ct.indexOf('text/html') >= 0 || _body.trim().charAt(0) === '<') {
+      var _v1Hint = (cfg.endpoint.indexOf('/v1') < 0) ? '，endpoint 似乎缺少 /v1 前缀（正确格式如 https://xxx.com/v1）' : '';
+      return { ok: false, status: resp.status, text: 'endpoint 返回了 HTML 页面而非 API 响应' + _v1Hint };
+    }
+    // 验证是有效 JSON
+    try { JSON.parse(_body); } catch (e) {
+      return { ok: false, status: resp.status, text: 'endpoint 返回了非 JSON 响应：' + _body.slice(0, 200) };
+    }
+    return { ok: true, status: resp.status, text: '' };
   } catch (e) {
-    return false;
+    return { ok: false, status: 0, text: e.message };
   }
 }
