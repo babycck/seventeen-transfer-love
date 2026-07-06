@@ -4,7 +4,7 @@
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
   HEROINE_PUBLIC_IDENTITIES, HEROINE_TEMPLATES,
   API_PROVIDERS, ONE_HEART_WORLDS, ONE_HEART_STYLES,
-  GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection,
+  GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection, fetchModels,
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
 import { setGS } from './state.js';
@@ -207,6 +207,8 @@ export function renderSetupWizard() {
       providerOptions += '<option value="' + pk + '"' + (GS.apiProvider === pk ? ' selected' : '') + '>' + p.name + '</option>';
     }
     var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
+    var provider = API_PROVIDERS[GS.apiProvider] || API_PROVIDERS.deepseek;
+    var showFetchBtn = provider.dynamicModels ? '' : 'display:none;';
     html = '<div class="setup-step">' +
       '<h2>🎮 选择游戏模式</h2>' +
       '<div class="mode-select">' +
@@ -223,8 +225,11 @@ export function renderSetupWizard() {
       '<select id="apiProviderSelect" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
       providerOptions + '</select>' +
       '<label>AI 模型</label>' +
-      '<select id="apiModelSelect" style="width:100%;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;margin-bottom:8px;background:#fff">' +
+      '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+      '<select id="apiModelSelect" style="flex:1;padding:8px 10px;border:1.5px solid #e0c0c0;border-radius:10px;font-size:13px;background:#fff">' +
       modelOptions + '</select>' +
+      '<button class="btn-secondary" id="fetchModelsBtn" style="padding:6px 10px;border:1.5px solid #e0c0c0;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;white-space:nowrap;' + showFetchBtn + '">🔄 获取模型</button>' +
+      '</div>' +
       '<label>API Key' + (hasKey ? ' <span style="color:#4caf50;font-size:12px">✅ 已输入</span>' : '') + '</label>' +
       '<div style="display:flex;gap:4px">' +
       '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + escHtml(GS.apiKey) + '" style="flex:1">' +
@@ -509,6 +514,10 @@ export function bindSetupEvents() {
       if (modelSelect) {
         modelSelect.innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
       }
+      var fetchBtn = document.getElementById('fetchModelsBtn');
+      if (fetchBtn) {
+        fetchBtn.style.display = (provider && provider.dynamicModels) ? '' : 'none';
+      }
       saveGame();
     });
     document.getElementById('apiModelSelect').addEventListener('change', function() {
@@ -531,6 +540,29 @@ export function bindSetupEvents() {
       GS.aiEnabled = this.checked;
       saveGame();
     });
+    var fetchModelsBtn = document.getElementById('fetchModelsBtn');
+    if (fetchModelsBtn) {
+      fetchModelsBtn.addEventListener('click', async function() {
+        var self = this;
+        self.textContent = '⏳ 获取中...';
+        self.disabled = true;
+        try {
+          var models = await fetchModels(GS.apiKey, GS.apiProvider);
+          if (models.length > 0) {
+            API_PROVIDERS[GS.apiProvider].models = models;
+            GS.apiModel = models[0].value;
+            document.getElementById('apiModelSelect').innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
+            showToast('✅ 已获取 ' + models.length + ' 个模型');
+          } else {
+            showToast('⚠️ 未获取到模型，请检查 API Key 和提供商');
+          }
+        } catch (e) {
+          showToast('⚠️ 获取模型失败：' + e.message);
+        }
+        self.textContent = '🔄 获取模型';
+        self.disabled = false;
+      });
+    }
     document.getElementById('testApiBtn').addEventListener('click', async function() {
       var s = document.getElementById('apiStatus');
       s.classList.remove('hidden', 'success', 'error', 'testing');

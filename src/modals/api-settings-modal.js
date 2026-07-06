@@ -1,4 +1,4 @@
-import { API_PROVIDERS, GS, saveGame, resetGame, resetCache, escHtml, testAPIConnection, showToast } from '../core.js';
+import { API_PROVIDERS, GS, saveGame, resetGame, resetCache, escHtml, testAPIConnection, fetchModels, showToast } from '../core.js';
 import { STORAGE_KEY } from '../data.js';
 import { setGS } from '../state.js';
 import { showConfirmModal } from './confirm-modal.js';
@@ -131,6 +131,9 @@ export function showApiSettingsModal() {
   var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
   var themeVal = GS.theme || 'auto';
 
+  var provider = API_PROVIDERS[GS.apiProvider] || API_PROVIDERS.deepseek;
+  var showFetchBtn = provider.dynamicModels ? '' : 'display:none;';
+
   var inner = '<div class="modal-content" style="display:flex;flex-direction:column">' +
     '<h3 style="flex-shrink:0">⚙️ 设置</h3>' +
     '<div class="settings-scroll" style="flex:1;overflow-y:auto;padding-right:4px">' +
@@ -141,7 +144,10 @@ export function showApiSettingsModal() {
     '<label>AI 提供商</label>' +
     '<select id="apiProviderSelect" class="settings-select">' + providerOptions + '</select>' +
     '<label>AI 模型</label>' +
-    '<select id="apiModelSelect" class="settings-select">' + modelOptions + '</select>' +
+    '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+    '<select id="apiModelSelect" class="settings-select" style="flex:1">' + modelOptions + '</select>' +
+    '<button class="btn-secondary" id="fetchModelsBtn" style="padding:6px 10px;border:1px solid var(--border-primary);border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap;' + showFetchBtn + '">🔄 获取模型</button>' +
+    '</div>' +
     '<label>API Key</label>' +
     '<div style="display:flex;gap:4px;margin-bottom:6px">' +
     '<input type="password" id="apiKeyInput" placeholder="sk-..." value="' + escHtml(GS.apiKey) + '" class="settings-input" style="flex:1">' +
@@ -241,6 +247,10 @@ export function showApiSettingsModal() {
     if (modelSelect) {
       modelSelect.innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
     }
+    var fetchBtn = overlay.querySelector('#fetchModelsBtn');
+    if (fetchBtn) {
+      fetchBtn.style.display = (provider && provider.dynamicModels) ? '' : 'none';
+    }
     saveGame();
   });
   overlay.querySelector('#apiModelSelect').addEventListener('change', function() {
@@ -263,6 +273,30 @@ export function showApiSettingsModal() {
     GS.aiEnabled = this.checked;
     saveGame();
   });
+
+  var fetchModelsBtn = overlay.querySelector('#fetchModelsBtn');
+  if (fetchModelsBtn) {
+    fetchModelsBtn.addEventListener('click', async function() {
+      var self = this;
+      self.textContent = '⏳ 获取中...';
+      self.disabled = true;
+      try {
+        var models = await fetchModels(GS.apiKey, GS.apiProvider);
+        if (models.length > 0) {
+          API_PROVIDERS[GS.apiProvider].models = models;
+          GS.apiModel = models[0].value;
+          overlay.querySelector('#apiModelSelect').innerHTML = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
+          showToast('✅ 已获取 ' + models.length + ' 个模型');
+        } else {
+          showToast('⚠️ 未获取到模型，请检查 API Key 和提供商');
+        }
+      } catch (e) {
+        showToast('⚠️ 获取模型失败：' + e.message);
+      }
+      self.textContent = '🔄 获取模型';
+      self.disabled = false;
+    });
+  }
 
   overlay.querySelector('#toggleApiKeyBtn').addEventListener('click', function() {
     var input = overlay.querySelector('#apiKeyInput');

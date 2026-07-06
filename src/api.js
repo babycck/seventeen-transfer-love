@@ -525,6 +525,44 @@ export async function loadTestScene(type) {
   return _pickTestScene(type);
 }
 
+export async function fetchModels(apiKey, providerKey) {
+  try {
+    var cfg = getProviderConfig(providerKey);
+    var isClaude = (providerKey === 'claude');
+    var headers;
+    if (isClaude) {
+      headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      };
+    } else {
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      };
+    }
+    var resp = await fetch(cfg.endpoint + '/models', {
+      method: 'GET',
+      headers: headers
+    });
+    if (!resp.ok) return [];
+    var data = await resp.json();
+    var list = [];
+    if (data.data && Array.isArray(data.data)) {
+      for (var i = 0; i < data.data.length; i++) {
+        var m = data.data[i];
+        if (m.id) {
+          list.push({ value: m.id, label: m.id });
+        }
+      }
+    }
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+
 export async function testAPIConnection(apiKey, providerKey) {
   try {
     var cfg = getProviderConfig(providerKey);

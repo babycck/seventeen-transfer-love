@@ -85,6 +85,15 @@ export var API_PROVIDERS = {
       light: 'claude-3-5-haiku-20241022',
       cheap: 'claude-3-5-haiku-20241022'
     }
+  },
+  alading: {
+    name: 'Alading API',
+    endpoint: 'https://www.aladingapi.com/v1',
+    model: '',
+    supportsJson: true,
+    dynamicModels: true,
+    models: [],
+    sceneModels: {}
   }
 };
 
