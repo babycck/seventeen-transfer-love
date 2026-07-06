@@ -76,6 +76,11 @@ export function showEventCardModal() {
       toggleEditStory(ei, overlay, btn);
       return;
     }
+    // 点击 textarea 时阻止冒泡，防止触发 overlay 关闭
+    if (e.target.classList.contains('event-edit-textarea')) {
+      e.stopPropagation();
+      return;
+    }
     if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
   });
   overlay.querySelector('#eventCardModalClose').addEventListener('click', function(e) {
@@ -84,9 +89,6 @@ export function showEventCardModal() {
 }
 
 function toggleEditStory(idx, overlay, btn) {
-  var storyEl = overlay.querySelector('.event-story[data-ei="' + idx + '"]');
-  if (!storyEl) return;
-
   // 如果已经处于编辑状态（有 textarea 替代），则保存
   var existingTextarea = overlay.querySelector('.event-edit-textarea[data-ei="' + idx + '"]');
   if (existingTextarea) {
@@ -110,6 +112,8 @@ function toggleEditStory(idx, overlay, btn) {
   }
 
   // 进入编辑模式：将 story div 替换为 textarea
+  var storyEl = overlay.querySelector('.event-story[data-ei="' + idx + '"]');
+  if (!storyEl) return;
   var currentText = storyEl.textContent;
   var textarea = document.createElement('textarea');
   textarea.className = 'event-edit-textarea';
