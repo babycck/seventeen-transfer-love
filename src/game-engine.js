@@ -10,7 +10,7 @@ import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped, compressOneHeartYesterday, dedupeEventLog } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
-import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt } from './prompts.js';
+import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt, buildOneHeartEventStorySystemPrompt } from './prompts.js';
 import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
@@ -2715,7 +2715,7 @@ function cleanEventStoryText(raw) {
 export async function generateEventStory(ev) {
   if (!ev || !ev.scenario) return '';
   try {
-    var sysMsg = buildOneHeartSystemPrompt('story');
+    var sysMsg = buildOneHeartEventStorySystemPrompt();
     var userMsg = buildOneHeartEventStoryPrompt(ev);
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.eventStoryGen, temperature: 0.85, skipValidate: true, plainText: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
