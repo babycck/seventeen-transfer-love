@@ -8,8 +8,8 @@
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
 import { setGS } from './state.js';
-import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection } from './game-engine.js';
+import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
@@ -18,7 +18,7 @@ import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
 // 1v1 模态弹窗
-import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal } from './modals.js';
+import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal, showEventCardModal } from './modals.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
 import { renderParsedNarrative, renderNarrativeSection, startTypewriter, showEditButton } from './ui/narrative-box.js';
@@ -1318,10 +1318,12 @@ function renderOneHeartGameScreen() {
 
   // Bottom tab bar
   var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
+  var _eventDot = GS.oneHeartEventCards && GS.oneHeartEventCards.length > 0 ? '<span class="tab-notification-dot"></span>' : '';
   var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
     '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
+    '<button class="oneheart-tab" data-tab="event" style="position:relative"><span class="tab-emoji">⚡</span>事件' + _eventDot + '</button>' +
     '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
 
@@ -2227,6 +2229,9 @@ function bindOneHeartEvents() {
         case 'diary':
           showDiaryModal();
           break;
+        case 'event':
+          showEventCardModal();
+          break;
         case 'moments':
           showMomentsModal();
           break;
@@ -2340,15 +2345,15 @@ function bindOneHeartEvents() {
       if (ev.type === 'jealousy') {
         if (chosenIdx === 0) { if (_memId) { updateAffection(_memId, 2); addAffectionLog(_memId, 2, '吃醋事件：你选择了靠近他'); } }
         else if (chosenIdx === 1) { /* 中立选项，不变 */ }
-        else if (chosenIdx === 2) { if (_memId) { updateAffection(_memId, -1); addAffectionLog(_memId, -1, '吃醋事件：你选择了靠近情敌'); } }
+        else if (chosenIdx === 2) { if (_memId) { updateAffection(_memId, -1); addAffectionLog(_memId, -1, '吃醋事件：你选择了靠近情敌'); } updateRivalTendency(1, '吃醋事件：靠近情敌'); }
       } else if (ev.type === 'confrontation') {
         var _deltas = [2, -2, -3];
         var _d = _deltas[chosenIdx] || 0;
         if (_memId && _d !== 0) { updateAffection(_memId, _d); addAffectionLog(_memId, _d, '争吵事件选项'); }
       } else if (ev.type === 'rival') {
-        if (chosenIdx === 0) { if (_memId) { updateAffection(_memId, -2); addAffectionLog(_memId, -2, '情敌事件：你选择了靠近情敌'); } }
-        else if (chosenIdx === 1) { if (_memId) { updateAffection(_memId, -1); addAffectionLog(_memId, -1, '情敌事件：保持距离'); } }
-        else if (chosenIdx === 2) { showToast('🤫 你装作没发现，但心里有些在意'); }
+        if (chosenIdx === 0) { if (_memId) { updateAffection(_memId, -2); addAffectionLog(_memId, -2, '情敌事件：你选择了靠近情敌'); } updateRivalTendency(2, '情敌事件：主动靠近情敌'); }
+        else if (chosenIdx === 1) { if (_memId) { updateAffection(_memId, 1); addAffectionLog(_memId, 1, '情敌事件：保持距离'); } updateRivalTendency(-1, '情敌事件：保持距离'); }
+        else if (chosenIdx === 2) { showToast('🤫 你装作没发现，但心里有些在意'); updateRivalTendency(1, '情敌事件：装作没发现'); }
       } else if (ev.type === 'confession') {
         if (chosenIdx === 0) {
           GS._confessionAccepted = true;
@@ -2376,13 +2381,39 @@ function bindOneHeartEvents() {
       }
       // 标记事件为已用
       if (ev.scenario && window.markEventUsed) window.markEventUsed(ev.scenario);
-      if (!GS._pendingEventResults) GS._pendingEventResults = [];
-      GS._pendingEventResults.push({ type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', chosenIdx: chosenIdx });
-      // 设置选择文本，推进下回合
-      GS.pendingChoiceText = ev.type + '：' + ((ev.options || [])[chosenIdx] || '');
+
+      // [事件卡片系统] 生成独立短故事并存入事件卡片（不再注入主线 prompt）
+      var _memberName_ = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+      var _mName = _memberName_ ? _memberName_.name : '';
+      // 估算好感度变化（与上方结算逻辑一致）
+      var _affDelta = 0;
+      var _rivDelta = 0;
+      if (ev.type === 'jealousy') { _affDelta = chosenIdx === 0 ? 2 : (chosenIdx === 2 ? -1 : 0); _rivDelta = chosenIdx === 2 ? 1 : 0; }
+      else if (ev.type === 'confrontation') { _affDelta = [2, -2, -3][chosenIdx] || 0; }
+      else if (ev.type === 'rival') { _affDelta = chosenIdx === 0 ? -2 : (chosenIdx === 1 ? 1 : 0); _rivDelta = chosenIdx === 0 ? 2 : (chosenIdx === 1 ? -1 : (chosenIdx === 2 ? 1 : 0)); }
+      else if (ev.type === 'confession' && chosenIdx === 0) { _affDelta = 40; }
+      // 生成事件短故事
+      var _evCopy = { type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', options: ev.options };
+      var _story = await generateEventStory(_evCopy);
+      // 存入事件卡片
+      if (!GS.oneHeartEventCards) GS.oneHeartEventCards = [];
+      GS.oneHeartEventCards.push({
+        type: ev.type,
+        scenario: ev.scenario || '',
+        chosenOption: (ev.options || [])[chosenIdx] || '',
+        story: _story,
+        affChange: _affDelta,
+        rivalChange: _rivDelta,
+        memberName: _mName,
+        timestamp: Date.now()
+      });
+      // 限制50条上限
+      if (GS.oneHeartEventCards.length > 50) GS.oneHeartEventCards.shift();
+      showToast('⚡ 事件已记录，可点击底部"事件"Tab查看详情');
+
       saveGame();
       var _ob8 = document.getElementById('operationBody'); if (_ob8) _ob8.style.display = 'none';
-      await generateOneHeartRound();
+      renderAll();
     });
   });
 

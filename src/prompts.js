@@ -5,6 +5,7 @@
   SECOND_CAREER_MAP
 } from './core.js';
 import { formatCorrections } from './validator.js';
+import { dedupeEventLog } from './memory.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask, getSeasonByMonth } from './formatters.js';
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
@@ -279,11 +280,34 @@ export function buildUserMessage(type, extra) {
   }
   msg += '\n';
 
-  // 历史压缩记忆（dailySummaries）
+  // 历史压缩记忆（dailySummaries）— [计划B问题3] 分层衰减注入
   if (GS.dailySummaries && GS.dailySummaries.length > 0) {
     msg += '[历史回顾]\n';
-    for (var _dsi = 0; _dsi < GS.dailySummaries.length; _dsi++) {
-      msg += 'Day ' + (_dsi + 1) + '：' + GS.dailySummaries[_dsi] + '\n';
+    var _totalDays = GS.dailySummaries.length;
+    for (var _dsi = 0; _dsi < _totalDays; _dsi++) {
+      var _dayNum = _dsi + 1;
+      var _distFromEnd = _totalDays - _dsi;
+      var _summary = GS.dailySummaries[_dsi];
+      if (_distFromEnd <= 2) {
+        // 最近2天：完整摘要
+        msg += 'Day ' + _dayNum + '：' + _summary + '\n';
+      } else if (_distFromEnd <= 5) {
+        // 3-5天前：截取前200字
+        msg += 'Day ' + _dayNum + '：' + (_summary.length > 200 ? _summary.slice(0, 200) + '……' : _summary) + '\n';
+      } else {
+        // 6+天前：只保留约定和揭示信息（JSON条目解析）
+        var _parsed2 = null;
+        try { _parsed2 = JSON.parse(_summary); } catch (e) {
+          var _m2 = _summary.match(/\{[\s\S]*\}/);
+          if (_m2) { try { _parsed2 = JSON.parse(_m2[0]); } catch (e2) {} }
+        }
+        if (_parsed2) {
+          var _keep = [];
+          if (_parsed2.promises && _parsed2.promises.length > 0) _keep = _keep.concat(_parsed2.promises.map(function(p) { return '约定：' + p; }));
+          if (_parsed2.revealedInfo && _parsed2.revealedInfo.length > 0) _keep = _keep.concat(_parsed2.revealedInfo.map(function(r) { return '揭示：' + r; }));
+          if (_keep.length > 0) msg += 'Day ' + _dayNum + '：' + _keep.join('；') + '\n';
+        }
+      }
     }
     msg += '\n';
   }
@@ -774,9 +798,10 @@ export function buildOneHeartSystemPrompt() {
     '⚠️ directorOS 不进 blocks。\n' +
     '⚠️ affDelta 表示选择此选项后的好感增减：正向选择→+1~5，平淡/错过→0~-1，负面行为→-2~-5。\n' +
     '⚠️ eventItems 字段说明：从本段剧情中提取关键事件，每个事件用一句话概括（包含人物、地点、事件要素）。\n' +
-    '重点提取「女主、男主（正主）、关系户（哥哥等亲人）、暗恋对象/情敌」之间的互动事件。\n' +
-    '短事件示例：「女主给正主买咖啡」\n' +
-    '长事件示例：「正主在练习室生病了，女主照顾他，被哥哥发现，哥哥让队友金珉奎送正主回宿舍」\n' +
+    '【强制规则】每个事件必须写明具体人名，禁止使用"他/她/男主/正主/情敌"等代词。必须用实际角色名字（如"' + member.name + '","' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '","女主","' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '"等）。\n' +
+    '重点提取「女主、' + member.name + '（正主）、关系户（' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '等亲人）、暗恋对象/' + (GS.oneHeartRival && GS.oneHeartRival.name ? GS.oneHeartRival.name : '情敌') + '」之间的互动事件。\n' +
+    '短事件示例：「女主给' + member.name + '买咖啡」\n' +
+    '长事件示例：「' + member.name + '在练习室生病了，女主照顾' + member.name + '，被' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '发现，' + (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? GS.oneHeartRelationCharacter.name : '哥哥') + '让队友金珉奎送' + member.name + '回宿舍」\n' +
     '没有值得记录的事件时返回空数组 []。只提取本段实际发生的事件，不要推测或编造。\n\n' +
 
     '[SYSTEM] 写作风格：' + (style ? style.name + '——' + style.desc : '自然流畅') + '\n\n' +
@@ -811,6 +836,22 @@ export function buildOneHeartSystemPrompt() {
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
     getHeroineBehaviorText() + '\n\n' +
+
+    '[SYSTEM] 时间线约束（强制执行）\n' +
+    '当前故事进度：第' + (GS.day || 1) + '天，已发生约' + (GS.oneHeartGenCount || 0) + '次互动。男女主已认识' + (GS.day || 1) + '天。\n' +
+    (function() {
+      var _aff = GS.affection[member.id] || 0;
+      if (_aff < 20) return '好感度仅' + _aff + '，两人处于初识阶段，几乎没有任何共同经历。';
+      if (_aff < 40) return '好感度' + _aff + '，两人处于互相了解阶段。';
+      if (_aff < 60) return '好感度' + _aff + '，两人处于暧昧期。';
+      if (_aff < 80) return '好感度' + _aff + '，两人感情在升温。';
+      return '好感度' + _aff + '，两人处于热恋期。';
+    })() + '\n' +
+    '⚠️ 禁止编造超出当前时间线的回忆或背景（如"三个月前""很久以前""从小一起长大""高中时""大学时代"等）。\n' +
+    '⚠️ 如果好感度低于40或认识天数少于3天，禁止描写任何"过去的美好回忆""曾经很亲密""以前经常一起"等暗示关系已存在很久的内容。\n' +
+    '⚠️ 所有对"过去"的提及必须限定在当前认识时间之内（如"昨天""上次见面""前几天""这段时间"）。\n' +
+    '⚠️ 女主和' + member.name + '的关系发展只能基于当前已发生的互动，不能预设他们已经认识很久或有过深厚感情基础。\n' +
+    '⚠️ 禁止描写两人在本次故事开始前就已经互相喜欢、暧昧、眉目传情等。故事的感情线必须从当前进度开始发展。\n\n' +
 
     '[SYSTEM] 参与角色\n' +
     member.emoji + ' ' + member.name + '（' + member.stageName + '）- ' + member.team + '队\n' +
@@ -964,7 +1005,7 @@ export function buildOneHeartSystemPrompt() {
       return '初识期';
     })() + '（好感度 ' + (GS.affection[GS.oneHeartMember] || 0) + '）\n' +
     (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '- ' + GS.oneHeartRelationCharacter.role + '：' + GS.oneHeartRelationCharacter.name + '\n' : '') +
-    (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + (GS.oneHeartRival.interactionStyle ? '（互动风格：' + GS.oneHeartRival.interactionStyle + (GS.oneHeartRival.loveStyle ? ' · 情感模式：' + GS.oneHeartRival.loveStyle : '') + '）' : '') + '\n' : '') +
+    (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + (GS.oneHeartRival.interactionStyle ? '（互动风格：' + GS.oneHeartRival.interactionStyle + (GS.oneHeartRival.loveStyle ? ' · 情感模式：' + GS.oneHeartRival.loveStyle : '') + '）' : '') + (GS.oneHeartRivalAff ? '（情敌倾向：' + GS.oneHeartRivalAff + '）' : '') + '\n' : '') +
     (GS.oneHeartPromises && GS.oneHeartPromises.length > 0 ? '- 约定：' + GS.oneHeartPromises.filter(function(p){return !p.fulfilled;}).map(function(p){return p.text;}).join('、') + '\n' : '') +
     (GS._confessionAccepted ? '- 情敌路线已激活\n' : '') +
     (GS.oneHeartColdWar && GS.oneHeartColdWar.active ? '- 状态：正在冷战中\n' : '') +
@@ -980,6 +1021,21 @@ export function buildOneHeartUserMessage(type, extra) {
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
   var hp = GS.heroineProfile;
   var msg = '';
+
+  // 角色名辅助变量（用于事件日志注入加角色前缀，防止AI混淆"他"指谁）
+  var _memberName = member ? member.name : '';
+  var _rivalName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+  var _relName = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) ? GS.oneHeartRelationCharacter.name : '';
+  // 根据事件文本中出现的人名推断涉及角色，加前缀标注
+  function _prefixEvent(text) {
+    var _tags = [];
+    if (_memberName && text.indexOf(_memberName) >= 0) _tags.push('男主');
+    if (_rivalName && text.indexOf(_rivalName) >= 0) _tags.push('情敌');
+    if (_relName && text.indexOf(_relName) >= 0) _tags.push('关系户');
+    if (text.indexOf('女主') >= 0) _tags.push('女主');
+    if (_tags.length > 0) return '[' + _tags.join('/') + '] ' + text;
+    return text;
+  }
 
   if (GS.currentDate && GS.currentDate.month) {
     msg += '[上下文] ' + (GS.oneHeartStartYear || 2025) + '年' + GS.currentDate.month + '月' + GS.currentDate.day + '日';
@@ -998,10 +1054,28 @@ export function buildOneHeartUserMessage(type, extra) {
   if (type === 'phase') {
     // 注入事件回顾（1v1 事件条目，替代旧的 dailySummaries 压缩记忆）
     if (GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
-      var _recentEvents = GS.oneHeartEventLog.slice(-40);
+      var _recentEvents = dedupeEventLog(GS.oneHeartEventLog.slice(-40));
       msg += '[历史事件回顾（仅供上下文参考·禁止复述）]\n';
       for (var _evi = 0; _evi < _recentEvents.length; _evi++) {
-        msg += '- ' + _recentEvents[_evi] + '\n';
+        msg += '- ' + _prefixEvent(_recentEvents[_evi]) + '\n';
+      }
+      msg += '\n';
+    }
+    // [计划B问题1] 注入 1v1 跨天结构化摘要（最近3天）
+    if (GS.oneHeartDailySummaries && GS.oneHeartDailySummaries.length > 0) {
+      var _ohsLast = GS.oneHeartDailySummaries.slice(-3);
+      msg += '[昨日及近期记忆（结构化·禁止复述）]\n';
+      for (var _ohsi = 0; _ohsi < _ohsLast.length; _ohsi++) {
+        var _ohsEntry = _ohsLast[_ohsi];
+        var _ohsParsed = null;
+        try { _ohsParsed = JSON.parse(_ohsEntry); } catch (e) {}
+        if (_ohsParsed) {
+          if (_ohsParsed.events && _ohsParsed.events.length > 0) msg += '事件：' + _ohsParsed.events.join('；') + '\n';
+          if (_ohsParsed.promises && _ohsParsed.promises.length > 0) msg += '约定：' + _ohsParsed.promises.join('；') + '\n';
+          if (_ohsParsed.revealedInfo && _ohsParsed.revealedInfo.length > 0) msg += '已揭示：' + _ohsParsed.revealedInfo.join('；') + '\n';
+        } else {
+          msg += _ohsEntry + '\n';
+        }
       }
       msg += '\n';
     }
@@ -1088,8 +1162,14 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
 
-    // 注入情敌情愫暗示（情敌好感度已废弃，改为仅提示情敌存在）
-    // 原 rivalAff 注入逻辑已移除
+    // [计划A] 注入情敌倾向值提示（让 AI 感知女主对情敌的动摇程度）
+    if (GS.oneHeartRival && GS.oneHeartRival.name && GS.oneHeartRivalAff && !GS._rivalSwitched) {
+      if (GS.oneHeartRivalAff >= 40) {
+        msg += '⚠️ [情敌动摇] 女主对情敌「' + GS.oneHeartRival.name + '」的倾向值为' + GS.oneHeartRivalAff + '，已明显动摇。剧情中可体现女主内心的纠结和犹豫，情敌的存在感增强。\n\n';
+      } else if (GS.oneHeartRivalAff >= 20) {
+        msg += '⚠️ [情敌动摇] 女主对情敌「' + GS.oneHeartRival.name + '」的倾向值为' + GS.oneHeartRivalAff + '，略有动摇。剧情中可微妙地体现女主对情敌的在意。\n\n';
+      }
+    }
 
     // 争吵氛围注入
     if (GS.oneHeartArgueCooldown && GS.oneHeartArgueCooldown > 0) {
@@ -1169,7 +1249,17 @@ export function buildOneHeartUserMessage(type, extra) {
         else if (_er.type === 'confrontation') _erLabel = '激烈争吵';
         else if (_er.type === 'rival') _erLabel = '情敌暧昧';
         else if (_er.type === 'confession') _erLabel = '告白';
-        msg += '[' + _erLabel + ']\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
+        // [计划A] 情敌相关事件明确标注角色对象，避免 AI 把对情敌的态度误用到正主身上
+        var _mainMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+        var _mainName = _mainMember ? _mainMember.name : '他';
+        var _rivalNameH = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+        if (_er.type === 'rival' || _er.type === 'confession') {
+          msg += '[' + _erLabel + '·对象是情敌「' + _rivalNameH + '」不是正主「' + _mainName + '」]\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n⚠️ 这个选择是女主对情敌「' + _rivalNameH + '」的态度，不是对正主「' + _mainName + '」的态度。后续剧情中女主与正主「' + _mainName + '」的关系保持原样，不要把这个选择的结果（如拒绝、靠近）映射到正主身上。\n请在本段剧情中自然融入这个选择的结果。\n\n';
+        } else if (_er.type === 'jealousy' && _er.chosenIdx === 2) {
+          msg += '[' + _erLabel + ']\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n⚠️ 此选项中的"靠近/疏远"针对的是情敌「' + _rivalNameH + '」，正主「' + _mainName + '」的反应应基于吃醋情境，不要把女主对情敌的态度写成对正主的拒绝。\n请在本段剧情中自然融入这个选择的结果。\n\n';
+        } else {
+          msg += '[' + _erLabel + ']\n发生了事件：\n' + _er.scenario + '\n你选择了：「' + _er.chosenOption + '」\n请在本段剧情中自然融入这个选择的结果。\n\n';
+        }
       }
       GS._pendingEventResults = [];
     }
@@ -1210,10 +1300,10 @@ export function buildOneHeartUserMessage(type, extra) {
     // 注入故事上下文
     var _chatRound = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
     if (_chatRound >= 2 && GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
-      var _chatEvents = GS.oneHeartEventLog.slice(-15);
+      var _chatEvents = dedupeEventLog(GS.oneHeartEventLog.slice(-15));
       msg += '[历史事件回顾]\n';
       for (var _ci = 0; _ci < _chatEvents.length; _ci++) {
-        msg += '- ' + _chatEvents[_ci] + '\n';
+        msg += '- ' + _prefixEvent(_chatEvents[_ci]) + '\n';
       }
       msg += '\n';
       var curText = GS.todayFullText.join('\n').slice(-800);
@@ -1254,9 +1344,9 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     if (Array.isArray(GS.moments) && GS.moments.length > 0) {
       msg += '已有动态（请避免重复类似内容）：\n';
-      var lastMoments = GS.moments.slice(-3);
+      var lastMoments = GS.moments.slice(-5);
       for (var _mmi = 0; _mmi < lastMoments.length; _mmi++) {
-        msg += '- ' + lastMoments[_mmi].post + '\n';
+        msg += '- ' + lastMoments[_mmi].post + '（评论: ' + (lastMoments[_mmi].reply || '') + '）\n';
       }
       msg += '\n';
     }
@@ -1270,10 +1360,10 @@ export function buildOneHeartUserMessage(type, extra) {
       + '不可混淆角色。\n\n';
     msg += '另一篇是' + member.name + '的日记，以' + member.name + '的第一人称视角写今天的日记。记录他近期对女主的观察和感受。不要加心情标签，不要加标题，就是日期+正文。\n\n';
     if (GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
-      var _diaryEvents = GS.oneHeartEventLog.slice(-20);
+      var _diaryEvents = dedupeEventLog(GS.oneHeartEventLog.slice(-20));
       msg += '[历史事件回顾]\n';
       for (var _dri = 0; _dri < _diaryEvents.length; _dri++) {
-        msg += '- ' + _diaryEvents[_dri] + '\n';
+        msg += '- ' + _prefixEvent(_diaryEvents[_dri]) + '\n';
       }
       msg += '\n';
     }
@@ -1282,10 +1372,10 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '近期重要剧情：\n' + diaryNarr + '\n\n';
     }
     if (Array.isArray(GS.diaryEntries) && GS.diaryEntries.length > 0) {
-      msg += '已有日记（请避免重复类似内容）：\n';
-      var lastEntries = GS.diaryEntries.slice(-2);
+      msg += '已有日记（请避免重复提及相同事件/场景/对话）：\n';
+      var lastEntries = GS.diaryEntries.slice(-4);
       for (var _dei = 0; _dei < lastEntries.length; _dei++) {
-        msg += '- 第' + (_dei + 1) + '篇: ' + (lastEntries[_dei].heroineEntry || '').slice(0, 60) + '\n';
+        msg += '- 第' + (_dei + 1) + '篇: 女主篇: ' + (lastEntries[_dei].heroineEntry || '').slice(0, 150) + ' | 男主篇: ' + (lastEntries[_dei].memberEntry || '').slice(0, 150) + '\n';
       }
       msg += '\n';
     }
@@ -1298,4 +1388,36 @@ export function buildOneHeartUserMessage(type, extra) {
   }
 
   return msg;
+}
+
+// [事件卡片系统] 事件短故事 prompt
+// 基于事件类型、场景、玩家选择，生成一段 150-200 字的独立短故事
+export function buildOneHeartEventStoryPrompt(ev) {
+  var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+  var memberName = member ? member.name : '他';
+  var hp = GS.heroineProfile;
+  var hpName = hp ? hp.name : '女主';
+  var _rivalName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+
+  var _worldLabel = '';
+  var _worldCfg = null;
+  try { _worldCfg = JSON.parse(GS.oneHeartCustomWorld || '{}'); } catch (e) {}
+  if (_worldCfg && _worldCfg.title) _worldLabel = _worldCfg.title;
+  else if (GS.worldSetting) _worldLabel = GS.worldSetting;
+
+  var promptText = '你是' + hpName + '（我）和' + memberName + '的恋爱故事AI。\n\n';
+  promptText += '请根据以下场景，写一段150-200字的小故事：\n\n';
+  promptText += '场景：' + (ev.scenario || '') + '\n';
+  promptText += '我的选择：' + (ev.chosenOption || '') + '\n';
+  if (_rivalName) promptText += '（注意：' + _rivalName + '是情敌，不是正主）\n';
+  if (_worldLabel) promptText += '世界观：' + _worldLabel + '\n';
+  promptText += '\n要求：\n';
+  promptText += '1. 以第一人称（"我"）写这段故事，' + hpName + '就是我\n';
+  promptText += '2. 写150-200字，像一段简短的小说片段，有画面感、有细节、有内心感受\n';
+  promptText += '3. 这段故事是独立的"事件小剧场"，不需要与主线剧情衔接\n';
+  promptText += '4. 必须自然写出' + memberName + '的反应和互动\n';
+  promptText += '5. ⚠️ 禁止写出"好感度""修罗场""情敌""游戏机制"等游戏术语\n';
+  promptText += '6. ⚠️ 禁止评价或总结这个选择的结果，只需要描写当时发生了什么\n';
+  promptText += '只输出故事正文，不要标题、不要标签、不要引号包裹。';
+  return promptText;
 }

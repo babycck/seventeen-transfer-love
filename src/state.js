@@ -34,6 +34,7 @@ export function defaultGameState() {
     oneHeartLastDayStartIdx: 0, // 昨日剧情在 todayFullText 的起点索引（用于生成昨日事件摘要）
     oneHeartYesterdaySummary: '', // 昨日事件摘要（新的一天时注入 prompt，防止角色失忆）
     oneHeartEventLog: [], // 1v1 事件条目（每篇剧情生成时 AI 顺带提取，替代旧 dailySummaries 批量压缩）
+    oneHeartDailySummaries: [], // 1v1 每日结构化摘要（新一天时压缩昨日全文，注入最近3天）
     oneHeartRelationCharacter: { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false },
     oneHeartRival: { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' },
     oneHeartStartYear: 2025,
@@ -47,7 +48,8 @@ export function defaultGameState() {
     oneHeartSickPool: [],
     oneHeartExJealousPool: [],
     oneHeartLateNightPool: [],
-    oneHeartRivalAff: 0,
+    oneHeartRivalAff: 0, // 情敌倾向值（被事件选项驱动：靠近情敌+、疏远情敌-）
+    oneHeartRivalAffLog: [], // 情敌倾向值变化日志 [{round, change, reason, total}]
     oneHeartRivalStage: { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' },
     oneHeartRivalTriggeredActions: [],
     _pendingEvents: [],
@@ -75,8 +77,9 @@ export function defaultGameState() {
     _chatAffDay: 0,
     _rivalSwitched: false,
     _confessionAccepted: false,
-    _confessionCooldown: 0,
-    _affMilestones: {},
+  _confessionCooldown: 0,
+  oneHeartEventCards: [], // 事件卡片列表 [{type, scenario, chosenOption, story, affChange, rivalChange, memberName, timestamp}]
+  _affMilestones: {},
     _dateDayNotified: 0,
     profileLocked: false,
     step: 1,
@@ -439,11 +442,14 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartExJealousPool)) GS.oneHeartExJealousPool = [];
     if (!Array.isArray(GS.oneHeartLateNightPool)) GS.oneHeartLateNightPool = [];
     if (GS.oneHeartRivalAff === undefined) GS.oneHeartRivalAff = 0;
+    if (!Array.isArray(GS.oneHeartRivalAffLog)) GS.oneHeartRivalAffLog = [];
+    if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
     if (!Array.isArray(GS._usedEventScenarios)) GS._usedEventScenarios = [];
     if (GS._compressing === undefined) GS._compressing = false;
     if (GS.oneHeartArgueCooldown === undefined) GS.oneHeartArgueCooldown = 0;
     if (!Array.isArray(GS._pendingEvents)) GS._pendingEvents = [];
     if (!Array.isArray(GS._pendingEventResults)) GS._pendingEventResults = [];
+    if (!Array.isArray(GS.oneHeartEventCards)) GS.oneHeartEventCards = [];
     if (!Array.isArray(GS.letters)) GS.letters = [];
     if (GS.oneHeartLastEventRound === undefined) GS.oneHeartLastEventRound = 0;
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };

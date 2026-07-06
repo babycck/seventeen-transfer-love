@@ -116,6 +116,33 @@ export function addAffectionLog(memberId, delta, reason) {
   });
 }
 
+// ==================== 情敌倾向值（1v1 模式专用） ====================
+// 重新启用 oneHeartRivalAff 字段作为「情敌倾向值」
+// 情敌事件/吃醋事件中涉及情敌的选项 → 调用此函数更新情敌倾向
+// 主线选项若 AI 返回 affName 匹配情敌名 → 也走此通道
+export function updateRivalTendency(delta, reason) {
+  if (!GS.oneHeartRivalAff) GS.oneHeartRivalAff = 0;
+  // 情敌已转正后不再维护倾向值
+  if (GS._rivalSwitched) return;
+  var before = GS.oneHeartRivalAff;
+  var after = Math.max(-100, Math.min(100, before + delta));
+  GS.oneHeartRivalAff = after;
+  if (!GS.oneHeartRivalAffLog) GS.oneHeartRivalAffLog = [];
+  GS.oneHeartRivalAffLog.push({
+    round: GS.oneHeartGenCount || 0,
+    change: delta,
+    reason: reason || '',
+    total: after
+  });
+  // Toast 提示（情敌存在时才显示）
+  if (delta !== 0 && GS.oneHeartRival && GS.oneHeartRival.name && typeof showToast === 'function') {
+    var _rivalName = GS.oneHeartRival.name;
+    var _sign = delta > 0 ? '+' : '';
+    var _label = delta > 0 ? '💘 对' + _rivalName + '的心动倾向 ' : '🛡️ 对' + _rivalName + '的疏离 ';
+    showToast(_label + _sign + delta);
+  }
+}
+
 
 
 

@@ -960,6 +960,7 @@ export var ONE_HEART_TOKEN_CONFIG = {
   chatReply: 1000,
   momentGen: 800,
   diaryGen: 1200,
+  eventStoryGen: 800,
   theaterGen: 3000
 };
 

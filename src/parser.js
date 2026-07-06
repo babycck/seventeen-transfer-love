@@ -560,5 +560,71 @@ export function validateOneHeartNarrative(parsed, GS) {
     }
   }
 
+  // [计划B问题4] 剧情重复检测：新剧情与最近3天摘要做 Jaccard 相似度，>40% 返回 correction
+  if (!isNewDay && parsed.blocks && GS.oneHeartDailySummaries && GS.oneHeartDailySummaries.length > 0) {
+    var _narrText = '';
+    for (var _bi = 0; _bi < parsed.blocks.length; _bi++) {
+      if (parsed.blocks[_bi] && parsed.blocks[_bi].type === 'narrative' && parsed.blocks[_bi].content) {
+        _narrText += parsed.blocks[_bi].content;
+      }
+    }
+    if (_narrText.length > 50) {
+      var _recent3 = GS.oneHeartDailySummaries.slice(-3);
+      for (var _si = 0; _si < _recent3.length; _si++) {
+        var _simSummary = _recent3[_si];
+        var _simParsed = null;
+        try { _simParsed = JSON.parse(_simSummary); } catch (e) {}
+        var _simText = _simParsed ? (_simParsed.events || []).join('') + (_simParsed.dialogues || []).join('') : _simSummary;
+        var _jaccard = _oneHeartJaccard(_narrText, _simText);
+        if (_jaccard > 0.4) {
+          corrections.push('剧情重复检测：本段剧情与近期记忆的关键词重叠度达' + Math.round(_jaccard * 100) + '%，请换一个切入角度或新的事件展开');
+          break;
+        }
+      }
+    }
+  }
+
+  // [事件角色校验] eventItems 中若含"他/她"但没有明确人名，返回 correction
+  if (parsed.eventItems && parsed.eventItems.length > 0) {
+    var _memberName = (GS.oneHeartMember && MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; })) ? MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }).name : '';
+    var _rivalName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+    var _relName = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) ? GS.oneHeartRelationCharacter.name : '';
+    for (var _ei = 0; _ei < parsed.eventItems.length; _ei++) {
+      var _item = parsed.eventItems[_ei];
+      if (/[他她]/.test(_item)) {
+        var _hasName = (_memberName && _item.indexOf(_memberName) >= 0) ||
+                       (_rivalName && _item.indexOf(_rivalName) >= 0) ||
+                       (_relName && _item.indexOf(_relName) >= 0) ||
+                       _item.indexOf('女主') >= 0;
+        if (!_hasName) {
+          corrections.push('eventItems[' + _ei + '] 使用了代词"他/她"但没有明确人名，必须写明具体角色名字（如"' + _memberName + '"或"女主"）');
+        }
+      }
+    }
+  }
+
   return corrections.length > 0 ? corrections.join(' | ') : null;
+}
+
+// [计划B问题4] Jaccard 相似度辅助函数（1v1 剧情重复检测）
+var _OH_STOP_WORDS = { '他说': 1, '她说': 1, '看着': 1, '然后': 1, '一个': 1, '什么': 1, '这个': 1, '那个': 1, '自己': 1, '已经': 1, '可以': 1, '没有': 1, '他们': 1, '但是': 1, '因为': 1, '所以': 1, '如果': 1, '现在': 1, '这里': 1, '那里': 1 };
+function _oneHeartJaccard(a, b) {
+  var _wordsA = (a || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
+  var _wordsB = (b || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
+  // 过滤停用词
+  _wordsA = _wordsA.filter(function(w) { return !_OH_STOP_WORDS[w]; });
+  _wordsB = _wordsB.filter(function(w) { return !_OH_STOP_WORDS[w]; });
+  if (_wordsA.length === 0 || _wordsB.length === 0) return 0;
+  var _setA = {};
+  for (var _i = 0; _i < _wordsA.length; _i++) _setA[_wordsA[_i]] = true;
+  var _setB = {};
+  for (var _j = 0; _j < _wordsB.length; _j++) _setB[_wordsB[_j]] = true;
+  var _inter = 0;
+  var _allKeys = {};
+  for (var _k in _setA) { _allKeys[_k] = true; if (_setB[_k]) _inter++; }
+  for (var _k2 in _setB) { _allKeys[_k2] = true; }
+  var _union = 0;
+  for (var _k3 in _allKeys) _union++;
+  if (_union === 0) return 0;
+  return _inter / _union;
 }

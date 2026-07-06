@@ -58,6 +58,22 @@ export function validateNarrative(rawText, parsed) {
     corrections.push({ severity: 'warning', type: 'format', message: '选项超过 4 个' });
   }
 
+  // [计划B问题4] 剧情重复检测：新剧情与最近3天 dailySummaries 做 Jaccard 相似度，>40% 返回 correction
+  if (totalText.length > 100 && GS.dailySummaries && GS.dailySummaries.length > 0) {
+    var _recent3d = GS.dailySummaries.slice(-3);
+    for (var _di = 0; _di < _recent3d.length; _di++) {
+      var _dSum = _recent3d[_di];
+      var _dParsed = null;
+      try { _dParsed = JSON.parse(_dSum); } catch (e) {}
+      var _dText = _dParsed ? (_dParsed.events || []).join('') + (_dParsed.dialogues || []).join('') : _dSum;
+      var _dJaccard = _transferJaccard(totalText, _dText);
+      if (_dJaccard > 0.4) {
+        corrections.push({ severity: 'warning', type: 'repetition', message: '剧情重复检测：本段剧情与近期记忆的关键词重叠度达' + Math.round(_dJaccard * 100) + '%，请换一个切入角度或新的事件展开' });
+        break;
+      }
+    }
+  }
+
   return corrections;
 }
 
@@ -425,4 +441,26 @@ function checkSmokingViolation(text) {
     }
   }
   return corrections;
+}
+
+// [计划B问题4] Jaccard 相似度辅助函数（换乘恋爱剧情重复检测）
+var _TRANSFER_STOP_WORDS = { '他说': 1, '她说': 1, '看着': 1, '然后': 1, '一个': 1, '什么': 1, '这个': 1, '那个': 1, '自己': 1, '已经': 1, '可以': 1, '没有': 1, '他们': 1, '但是': 1, '因为': 1, '所以': 1, '如果': 1, '现在': 1, '这里': 1, '那里': 1 };
+function _transferJaccard(a, b) {
+  var _wordsA = (a || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
+  var _wordsB = (b || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
+  _wordsA = _wordsA.filter(function(w) { return !_TRANSFER_STOP_WORDS[w]; });
+  _wordsB = _wordsB.filter(function(w) { return !_TRANSFER_STOP_WORDS[w]; });
+  if (_wordsA.length === 0 || _wordsB.length === 0) return 0;
+  var _setA = {};
+  for (var _i = 0; _i < _wordsA.length; _i++) _setA[_wordsA[_i]] = true;
+  var _setB = {};
+  for (var _j = 0; _j < _wordsB.length; _j++) _setB[_wordsB[_j]] = true;
+  var _inter = 0;
+  var _allKeys = {};
+  for (var _k in _setA) { _allKeys[_k] = true; if (_setB[_k]) _inter++; }
+  for (var _k2 in _setB) { _allKeys[_k2] = true; }
+  var _union = 0;
+  for (var _k3 in _allKeys) _union++;
+  if (_union === 0) return 0;
+  return _inter / _union;
 }

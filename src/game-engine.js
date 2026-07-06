@@ -8,10 +8,10 @@
 import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative } from './parser.js';
-import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped } from './memory.js';
+import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped, compressOneHeartYesterday, dedupeEventLog } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
-import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage } from './prompts.js';
-import { updateAffection, addAffectionLog, getAffectionDesc } from './affection.js';
+import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt } from './prompts.js';
+import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
@@ -1123,6 +1123,19 @@ export function applyOneHeartOptionAffection(opt) {
   var curAff = GS.affection[mid];
   var affDelta = opt.affDelta || 0;
 
+  // [计划A] 检测选项是否指向情敌（affName 匹配情敌名）→ 路由到情敌倾向而非正主好感度
+  var _rivalName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+  var _isRivalTarget = _rivalName && opt.affName && (
+    opt.affName === _rivalName || opt.affName.indexOf(_rivalName) >= 0 || _rivalName.indexOf(opt.affName) >= 0
+  );
+  if (_isRivalTarget && !GS._rivalSwitched) {
+    var _rivalDelta = opt.affDelta || opt.rivalAffDelta || 0;
+    if (_rivalDelta !== 0) {
+      updateRivalTendency(_rivalDelta, opt.affReason || '主线选项涉及情敌');
+    }
+    return;
+  }
+
   // 防通胀：高分段正向加分封顶
   var finalDelta = affDelta;
   if (affDelta > 0) {
@@ -1140,8 +1153,6 @@ export function applyOneHeartOptionAffection(opt) {
 
   // 记录日志
   addAffectionLog(mid, finalDelta, opt.affReason || '你选择了某个行动' + (finalDelta !== affDelta ? '（防通胀调整：原' + affDelta + '）' : ''));
-
-  // rivalAffDelta 忽略不处理（情敌好感度已废弃）
 }
 
 // ==================== 1v1 情敌阶段检测与触发 ====================
@@ -1724,6 +1735,16 @@ export async function generateOneHeartRound(extra) {
     GS.pendingChoiceText.indexOf('今天是') >= 0
   );
   try {
+    // [计划B问题1] 新的一天时压缩昨日全文为结构化摘要（在 prompt 构建前完成，确保 AI 能看到昨日记忆）
+    if (_lockMorning && GS.todayFullText && GS.todayFullText.length > 0) {
+      try {
+        await compressOneHeartYesterday();
+      } catch (e) {
+        console.warn('[1v1] compressOneHeartYesterday error:', e);
+      }
+      // 更新今天起点索引，下次"新的一天"只压缩新一天的内容
+      GS.oneHeartLastDayStartIdx = GS.todayFullText.length;
+    }
     var sysMsg = buildOneHeartSystemPrompt();
     // 如果是走向结局，注入结局指令
     if (extra.isEnding) {
@@ -1787,6 +1808,14 @@ export async function generateOneHeartRound(extra) {
     if (parsed.eventItems && parsed.eventItems.length > 0) {
       if (!GS.oneHeartEventLog) GS.oneHeartEventLog = [];
       GS.oneHeartEventLog = GS.oneHeartEventLog.concat(parsed.eventItems);
+      // [计划B问题5+6] 事件日志去重 + 200条软上限
+      GS.oneHeartEventLog = dedupeEventLog(GS.oneHeartEventLog);
+      if (GS.oneHeartEventLog.length > 200) {
+        var _earlyItems = GS.oneHeartEventLog.slice(0, 100);
+        var _recentItems = GS.oneHeartEventLog.slice(100);
+        var _merged = '[早期事件] ' + _earlyItems.join('；');
+        GS.oneHeartEventLog = [_merged].concat(_recentItems);
+      }
     }
 
     if (GS.pendingChoiceText) {
@@ -2653,6 +2682,24 @@ export async function generateDiary() {
     return null;
   } finally {
     GS._isGenerating = false;
+  }
+}
+
+// [事件卡片系统] 事件选择后立即生成独立短故事（~150-200字）
+export async function generateEventStory(ev) {
+  if (!ev || !ev.scenario) return '';
+  try {
+    var sysMsg = buildOneHeartSystemPrompt();
+    var userMsg = buildOneHeartEventStoryPrompt(ev);
+    var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.eventStoryGen, temperature: 0.85, skipValidate: true });
+    var raw = (_gr && _gr.raw) ? _gr.raw : '';
+    if (typeof raw !== 'string') raw = '';
+    var story = raw.trim().replace(/^["']|["']$/g, '');
+    if (story.length < 50) story = ev.scenario + '\n' + ev.chosenOption;
+    return story;
+  } catch (e) {
+    console.warn('[1v1] event story error:', e);
+    return ev.scenario + '\n' + ev.chosenOption;
   }
 }
 

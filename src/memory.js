@@ -153,22 +153,100 @@ export async function compressTodayToSummary() {
   if (!GS.aiEnabled) return full.slice(0, 1000);
   try {
     var result = await callDeepSeek(
-      '你是记忆压缩助手。将以下一天的恋爱综艺剧情压缩为约1000字的详细摘要。\n\n' +
-      '必须保留以下内容（缺一不可）：\n' +
-      '1. 关键事件：今天发生了什么，按时间顺序\n' +
-      '2. 本日重要发言：角色今天说过的关键台词/有信息量的对话节选\n' +
-      '3. 待兑现约定：今天角色之间约定了什么（如"明天一起做早餐""下午去买东西"）——每条单独列出\n' +
-      '4. 今日已揭示信息：女主和每位成员今天说过的偏好、禁忌、习惯、过敏原等（如"女主不喜欢香菜""崔胜澈怕高"）——每条单独列出\n\n' +
-      '只输出压缩后的文本。',
-      '请将以下Day ' + GS.day + '的全部剧情压缩为约1000字的详细摘要（必须包含关键事件、本日重要发言、待兑现约定、今日已揭示信息三个部分）：\n\n' + full,
+      '你是记忆压缩助手。将以下一天的恋爱综艺剧情压缩为结构化 JSON 摘要。\n\n' +
+      '必须包含以下字段：\n' +
+      '{"events":["关键事件1","关键事件2"],"dialogues":["重要台词1"],"promises":["约定1"],"revealedInfo":["已揭示偏好/禁忌1"]}\n\n' +
+      '规则：\n1. events：今天发生了什么关键事件（按时间顺序，每条简洁一句话）\n2. dialogues：角色说过的关键台词/有信息量的对话节选\n3. promises：角色之间约定了什么（每条单独列出）\n4. revealedInfo：女主和每位成员说过的偏好、禁忌、习惯、过敏原等（每条单独列出）\n\n只输出 JSON，不要其他文本。',
+      '请将以下Day ' + GS.day + '的全部剧情压缩为结构化 JSON 摘要：\n\n' + full,
       TOKEN_CONFIG.dailySummary,
       false,
       0.2
     );
+    var _parsed = null;
+    try { _parsed = JSON.parse(result); } catch (e) {
+      var _m = result.match(/\{[\s\S]*\}/);
+      if (_m) { try { _parsed = JSON.parse(_m[0]); } catch (e2) {} }
+    }
+    if (_parsed && (_parsed.events || _parsed.dialogues || _parsed.promises || _parsed.revealedInfo)) {
+      return JSON.stringify(_parsed);
+    }
     return result.trim();
   } catch (e) {
     return full.slice(0, 1000);
   }
+}
+
+// ==================== 1v1 模式昨日压缩（计划B问题1） ====================
+// 在"新的一天"时压缩昨日全文为结构化 JSON 摘要
+// 结果存入 GS.oneHeartYesterdaySummary + GS.oneHeartDailySummaries（限7条）
+export async function compressOneHeartYesterday() {
+  if (!GS.todayFullText || GS.todayFullText.length === 0) return '';
+  var startIdx = GS.oneHeartLastDayStartIdx || 0;
+  var yTexts = GS.todayFullText.slice(startIdx);
+  if (yTexts.length < 2) return '';
+  var yJoined = yTexts.join('\n\n---\n\n');
+  if (yJoined.length < 200) return '';
+  if (!GS.aiEnabled) {
+    var _fallback = yJoined.slice(0, 1000);
+    GS.oneHeartYesterdaySummary = _fallback;
+    if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
+    GS.oneHeartDailySummaries.push(_fallback);
+    if (GS.oneHeartDailySummaries.length > 7) GS.oneHeartDailySummaries.shift();
+    return _fallback;
+  }
+  try {
+    var result = await callDeepSeek(
+      '你是记忆压缩助手。将以下一天的恋爱剧情压缩为结构化 JSON 摘要。\n\n' +
+      '必须包含以下字段：\n' +
+      '{"events":["关键事件1"],"dialogues":["重要台词1"],"promises":["约定1"],"revealedInfo":["已揭示偏好1"]}\n\n' +
+      '规则：\n1. events：发生了什么关键事件（按时间顺序，每条简洁一句话）\n2. dialogues：角色说过的关键台词/有信息量的对话节选\n3. promises：角色之间约定了什么（每条单独列出）\n4. revealedInfo：女主和成员说过的偏好、禁忌、习惯、过敏原等（每条单独列出）\n\n只输出 JSON，不要其他文本。',
+      '请将以下昨日剧情压缩为结构化 JSON 摘要：\n\n' + yJoined.slice(0, 8000),
+      TOKEN_CONFIG.dailySummary,
+      false,
+      0.2
+    );
+    var parsed = null;
+    try { parsed = JSON.parse(result); } catch (e) {
+      var m = result.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) {} }
+    }
+    var summary;
+    if (parsed && (parsed.events || parsed.dialogues || parsed.promises || parsed.revealedInfo)) {
+      summary = JSON.stringify(parsed);
+    } else {
+      summary = yJoined.slice(0, 1000);
+    }
+    GS.oneHeartYesterdaySummary = summary;
+    if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
+    GS.oneHeartDailySummaries.push(summary);
+    if (GS.oneHeartDailySummaries.length > 7) GS.oneHeartDailySummaries.shift();
+    return summary;
+  } catch (e) {
+    var fallback = yJoined.slice(0, 1000);
+    GS.oneHeartYesterdaySummary = fallback;
+    if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
+    GS.oneHeartDailySummaries.push(fallback);
+    if (GS.oneHeartDailySummaries.length > 7) GS.oneHeartDailySummaries.shift();
+    return fallback;
+  }
+}
+
+// ==================== 事件日志去重（计划B问题6） ====================
+// 对事件条目按"前8字+后8字"指纹去重，保留首次出现的条目
+// AI 提取的 eventItems 可能有微小措辞差异但实质相同，指纹匹配命中即视为重复
+export function dedupeEventLog(arr) {
+  if (!arr || !Array.isArray(arr) || arr.length === 0) return arr;
+  var seen = {};
+  var result = [];
+  for (var i = 0; i < arr.length; i++) {
+    var item = String(arr[i] || '');
+    if (item.length === 0) continue;
+    var fingerprint = item.slice(0, 8) + '|' + item.slice(-8);
+    if (seen[fingerprint]) continue;
+    seen[fingerprint] = true;
+    result.push(arr[i]);
+  }
+  return result;
 }
 
 

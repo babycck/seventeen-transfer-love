@@ -367,10 +367,35 @@ function buildSummaryContent() {
     }
     // 优先显示事件条目；若事件为空但有旧 dailySummaries，fallback 显示
     if (eventLog.length > 0) {
+      // 新增：可视化事件速览（带自动推断的角色标签）
+      var _memberName = (GS.oneHeartMember && MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; })) ? MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }).name : '';
+      var _rivalName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+      var _relName = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) ? GS.oneHeartRelationCharacter.name : '';
+      var _tagDefs = [
+        { key: '男主', name: _memberName, bg: '#e3f2fd' },
+        { key: '情敌', name: _rivalName, bg: '#ffebee' },
+        { key: '关系户', name: _relName, bg: '#fff3e0' },
+        { key: '女主', name: '女主', bg: '#fce4ec' }
+      ];
+      html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
+        '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">📋 事件速览（共 ' + eventLog.length + ' 条·带角色标签）</p>' +
+        '<div style="display:flex;flex-direction:column;gap:6px;">';
+      for (var _ei = 0; _ei < eventLog.length; _ei++) {
+        var _evt = eventLog[_ei];
+        var _tagHtml = '';
+        for (var _ti = 0; _ti < _tagDefs.length; _ti++) {
+          if (_tagDefs[_ti].name && _evt.indexOf(_tagDefs[_ti].name) >= 0) {
+            _tagHtml += '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;margin-right:4px;background:' + _tagDefs[_ti].bg + ';color:var(--text-secondary)">' + _tagDefs[_ti].key + '</span>';
+          }
+        }
+        html += '<div style="padding:8px 10px;background:#fff;border-radius:8px;border:1px solid var(--border-primary,#e0c0c0);font-size:13px;line-height:1.5">' + _tagHtml + escHtml(_evt) + '</div>';
+      }
+      html += '</div></div>';
+      // 可编辑文本区
       var eventText = eventLog.join('\n');
       html += '<div style="background:var(--bg-soft,#fff5f5);border-radius:10px;padding:14px;margin-bottom:10px">' +
-        '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">事件列表（共 ' + eventLog.length + ' 条，每行一条）</p>' +
-        '<textarea id="eventLogEdit" style="width:100%;min-height:400px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
+        '<p style="font-weight:700;font-size:13px;color:var(--text-secondary,#5d3a3a);margin-bottom:6px">事件编辑（每行一条）</p>' +
+        '<textarea id="eventLogEdit" style="width:100%;min-height:300px;border:1.5px solid var(--border-primary,#e0c0c0);border-radius:8px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">' +
         escHtml(eventText) + '</textarea>' +
         '<button id="eventLogSaveBtn" style="margin-top:4px;padding:4px 14px;border-radius:8px;border:none;background:#fce4ec;color:#c2185b;font-size:12px;cursor:pointer">保存</button></div>';
     } else {
