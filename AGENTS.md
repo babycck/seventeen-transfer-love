@@ -57,7 +57,7 @@ src/
 ├── ui-renderer.js      — 页面渲染调度 + 主题切换 + Canvas图表 + 1v1 界面
 ├── state.js            — 状态管理、读写存档、迁移（v22）
 ├── store.js            — 状态机（dispatch/reducer/subscribe）
-├── parser.js           — 解析 AI 返回文本（narrative / options）
+├── parser.js           — 解析 AI 返回文本（narrative / options）；`safeParseJson()` 稳健解析（未加引号键名修复 + 平衡括号提取 + repairJson 兜底），失败返回 null 不抛错
 ├── formatters.js       — 格式化工具（日期、天气、星座等）
 ├── prompts.js          — Prompt 构建（system + user message）
 ├── ai-generator.js     — AI 生成包装（自动重试 + correction 反馈）
@@ -314,6 +314,14 @@ src/
 - `generateMoment()` — 生成朋友圈动态
 - `generateTheater(themePrompt)` — 生成番外
 
+### 约会门槛与约后禁探班（娱乐圈行程条）
+- **发起约会**：行程条空闲档显示「💞时段」chip，点击触发 `initiateOneHeartDate(slot, sneakOut)`。
+  - 普通档（上午/下午/傍晚等）：需 `好感度 >= 20` 或进入暧昧期（`oneHeartRomanceStage >= 1`）。
+  - 翘班约（`sneakOut`）：需 `好感度 >= 40` 或明确期（`oneHeartRomanceStage >= 2`）。
+  - **深夜档单独更高门槛**：需 `好感度 >= 40` 或明确期（`oneHeartRomanceStage >= 2`），UI 显示 `🔒深夜·需好感≥40`，未达标不可点。
+  - 门槛在 UI 灰化与 `initiateOneHeartDate` 函数层**双重拦截**（防旧存档直调绕过）。
+- **约后禁止同日探班**（已修复真 bug）：约会当天 `GS.oneHeartDateToday` 置位 → 所有探班按钮灰化为 `🔒已约会`；`doVisitMember()` 函数层二次兜底，UI 被绕过也拦截并提示「今天已经约过啦」。「约会」与「探班」同一天互斥二选一。
+
 ### 新弹窗（modals/）
 - `chat-modal.js` — 实时聊天（正在输入动画，15条上下文窗口）
 - `moments-modal.js` — 朋友圈时间线（AI 生成 + 成员评论）
@@ -373,6 +381,7 @@ src/
 | Day4/5 记忆物品轮转 | buildUserMessage | 每次只注入 1 位成员，`GS.xItemsRevealRound` 轮转 |
 | Day3 故事环节澄清 | buildUserMessage | 明确"不是真心话游戏，没有抽卡/强制规则" |
 | 选项多样性约束 | noRepeatNote | 避免"主动搭话""保持距离"等通用模板重复 |
+| 主剧情字数 | prompts.js (system + phase user msg) | 换乘 phase 正文强制 1500-2000 字；1v1 开场/后续段 1500-2000 字（选项后续 consequence 同样 1500-2000） |
 
 ## 17. 激活码鉴权系统（已关闭）
 - 状态：已关闭，代码保留，可随时开启
