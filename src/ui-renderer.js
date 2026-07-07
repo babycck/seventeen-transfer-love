@@ -1982,14 +1982,26 @@ export function scrollToLatestContent() {
       mrBody.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    // 优先滚动到最新剧情区域
+    var newContent = document.getElementById('narrativeNewContent');
+    if (newContent) {
+      newContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     var box = document.getElementById('narrativeBox');
     if (!box) return;
+    // 其次：最后一个 consequence-item
+    var items = box.querySelectorAll('.consequence-item');
+    if (items.length > 0) {
+      items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    // 兜底：旧格式 .separator
     var separators = box.querySelectorAll('.separator');
     if (separators.length > 0) {
-      // 有后续剧情追加，滚动到最后一个分割线（最新内容开头）
       separators[separators.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    // 没有分割线时（第一次生成），不滚动，保持从顶部开始阅读
+    // 无匹配时不滚动，保持从顶部开始阅读
   }, 100);
 }
 
