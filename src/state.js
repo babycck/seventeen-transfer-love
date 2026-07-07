@@ -66,6 +66,13 @@ export function defaultGameState() {
     oneHeartBrotherPool: [], // 哥哥专属事件缓冲（参谋/掩护/调侃/考验，运行期填充）
     brotherTestNudged: false, // IMP-17：本局「哥哥的考验」是否已触发（仅一次）
     brotherAtHome: true, // 哥哥是否在家（由 IMP-16 行程派生；不在家=正当空档，可放男主进门且哥哥知情）
+    idolFatigue: 25, // 偶像疲劳值（0~100）：按每日行程累积、每日恢复；>=60 触发疲惫失态 beat（娱乐圈世界观）
+    brotherAffMilestone: 0, // 哥哥随感情深化而放心的里程碑（0/40/60/80，仅「队友的妹妹」）
+    // IMP-ENT-DATE：日程约束 / 主动约会相关
+    oneHeartDateToday: false, // 当日是否已主动发起约会
+    oneHeartBrotherChatToday: false, // 当日是否已「找哥哥聊聊」（每日限一次，防刷哥哥好感）
+    oneHeartDateWindowAvailable: false, // 当日是否存在有效空档（哥哥不在家 + 男主有空档），供跨天错过判定
+    oneHeartBrotherTempChange: false, // B4：哥哥行程临时变更（中段翻转）待生效标记
     _pendingEvents: [],
     _pendingEventResults: [],
     _usedEventScenarios: [],
@@ -550,6 +557,13 @@ export function migrateSave() {
     if (GS.brotherTestNudged === undefined) GS.brotherTestNudged = false;
     if (GS.oneHeartScandalCount === undefined) GS.oneHeartScandalCount = 0;
     if (GS.brotherAtHome === undefined) GS.brotherAtHome = true;
+    if (GS.idolFatigue === undefined) GS.idolFatigue = 25;
+    if (GS.brotherAffMilestone === undefined) GS.brotherAffMilestone = 0;
+    // IMP-ENT-DATE：新字段兜底
+    if (GS.oneHeartDateToday === undefined) GS.oneHeartDateToday = false;
+    if (GS.oneHeartBrotherChatToday === undefined) GS.oneHeartBrotherChatToday = false;
+    if (GS.oneHeartDateWindowAvailable === undefined) GS.oneHeartDateWindowAvailable = false;
+    if (GS.oneHeartBrotherTempChange === undefined) GS.oneHeartBrotherTempChange = false;
     if (!GS.heroinePersona || typeof GS.heroinePersona !== 'object') GS.heroinePersona = { scores: {}, current: '' };
     if (!GS.heroinePersona.scores) GS.heroinePersona.scores = {};
     if (!GS.heroinePersona.current && GS.heroinePersona.current !== '') GS.heroinePersona.current = '';

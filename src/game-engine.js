@@ -7,11 +7,11 @@
 } from './core.js';
 import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
-import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative } from './parser.js';
+import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative, safeParseJson } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped, compressOneHeartYesterday, dedupeEventLog } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
-import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt, buildOneHeartEventStorySystemPrompt } from './prompts.js';
-import { ENT_SCHEDULE_POOL } from './worlds/entertainment.js';
+import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt, buildOneHeartEventStorySystemPrompt, buildOneHeartChatSystemPrompt } from './prompts.js';
+import { ENT_SCHEDULE_POOL, BROTHER_EVENTS, ENT_DATEABLE_WINDOWS } from './worlds/entertainment.js';
 import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency, AFFECTION_MIN } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
 import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS, ONE_HEART_ENDING_TEMPLATES } from './data.js';
@@ -20,6 +20,7 @@ import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, sh
 import { generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
+import { createModal } from './modals/modal-factory.js';
 import { validateNarrative } from './validator.js';
 import { checkMissionInteract, shouldTriggerSecretMission } from './utils.js';
 // 骨架模块（Phase 4 渐进式接管）
@@ -1900,8 +1901,41 @@ function pickOneHeartRandomEvent() {
   return picked;
 }
 
+// IMP-17[fix]：哥哥专属事件抽选（仅「队友的妹妹」设定，role==='哥哥'）
+// 确定性：按「当前回合 >= minRound 且独立概率命中」筛选候选，去重缓冲 oneHeartBrotherPool 保证不重复，
+// 使哥哥戏份稳定、多样、不靠 AI 随缘。返回事件对象（含 stanceDelta）。
+function pickOneHeartBrotherEvent() {
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return null;
+  if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return null;
+  if (!BROTHER_EVENTS || !BROTHER_EVENTS.length) return null;
+  if (!Array.isArray(GS.oneHeartBrotherPool)) GS.oneHeartBrotherPool = [];
+  var round = GS.oneHeartGenCount || 0;
+  var used = GS.oneHeartBrotherPool;
+  var candidates = [];
+  for (var i = 0; i < BROTHER_EVENTS.length; i++) {
+    var e = BROTHER_EVENTS[i];
+    if (used.indexOf(e.id) >= 0) continue;            // 已触发过，跳过
+    if (round < (e.minRound || 0)) continue;          // 未到节奏，跳过
+    if (Math.random() < (e.prob || 0.15)) candidates.push(e);  // 独立概率命中
+  }
+  if (!candidates.length) {
+    // 池内全部抽过 → 重置缓冲，重新从全池抽（保证长线游玩仍有哥哥戏份）
+    GS.oneHeartBrotherPool = [];
+    for (var j = 0; j < BROTHER_EVENTS.length; j++) {
+      var e2 = BROTHER_EVENTS[j];
+      if (round >= (e2.minRound || 0) && Math.random() < (e2.prob || 0.15)) candidates.push(e2);
+    }
+  }
+  if (!candidates.length) return null;
+  var picked = candidates[Math.floor(Math.random() * candidates.length)];
+  GS.oneHeartBrotherPool.push(picked.id);
+  if (GS.oneHeartBrotherPool.length > 12) GS.oneHeartBrotherPool.shift();
+  return picked;
+}
+
 // IMP-17：哥哥支持度更新（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
-// 立场由数值 oneHeartBrotherAff 单一推导：>=30 supportive / 0~30 consultant / -30~0 testing / <-30 protective
+// 立场由数值 oneHeartBrotherAff 单一推导：>=20 supportive / 0~20 consultant / -20~0 testing / <-20 protective
+// 阈值从 ±30 收紧到 ±20，使正常通关更易摸到 supportive（HE 可达），仍保留四态区分。
 export function updateBrotherStance(delta, reason) {
   if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
@@ -1909,7 +1943,7 @@ export function updateBrotherStance(delta, reason) {
   var before = GS.oneHeartBrotherAff;
   var after = Math.max(-100, Math.min(100, before + (delta || 0)));
   GS.oneHeartBrotherAff = after;
-  GS.brotherStance = after >= 30 ? 'supportive' : (after >= 0 ? 'consultant' : (after >= -30 ? 'testing' : 'protective'));
+  GS.brotherStance = after >= 20 ? 'supportive' : (after >= 0 ? 'consultant' : (after >= -20 ? 'testing' : 'protective'));
   if (!GS.oneHeartBrotherLog) GS.oneHeartBrotherLog = [];
   GS.oneHeartBrotherLog.push({ round: GS.oneHeartGenCount || 0, change: delta || 0, reason: reason || '', total: after });
   if (delta && delta !== 0 && typeof showToast === 'function') {
@@ -1919,6 +1953,45 @@ export function updateBrotherStance(delta, reason) {
   }
   saveGame();
 }
+
+// IMP-ENT-DATE(B1)：主动「找哥哥聊聊」
+export async function handleBrotherChat() {
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
+  if (GS.oneHeartBrotherChatToday) { showToast('🔒 今天已经跟哥哥聊过啦，明天再来吧'); return; }
+  var _broName = GS.oneHeartRelationCharacter.name || '哥哥';
+  var _bsNow = GS.brotherStance || 'consultant';
+  var _opts = [
+    { text: '报备进展：跟哥哥说说你和他的近况', delta: 1, reason: '向哥哥报备进展，兄妹更亲近', tone: '你跟哥哥闲聊，报备了最近和男主的点点滴滴，' },
+    { text: '探口风：问哥哥觉得他这人怎么样', delta: (_bsNow === 'testing' || _bsNow === 'protective') ? 2 : 1, reason: '探哥哥对男主看法', tone: '你向哥哥试探他对男主的真实看法，' },
+    { text: '撒娇：让哥哥替你打掩护（圆谎/挡视线）', delta: 2, reason: '撒娇让哥哥打掩护', tone: '你撒娇让哥哥帮你打掩护，' }
+  ];
+  var _chosen = await new Promise(function(resolve) {
+    var _html = '<div class="modal-card" style="max-width:340px;background:var(--bg-card);border:1px solid var(--border-primary);border-radius:14px;padding:16px">' +
+      '<div style="font-weight:600;margin-bottom:6px;font-size:14px">💬 找' + escHtml(_broName) + '聊聊</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">你想和哥哥聊点什么？</div>' +
+      _opts.map(function(o, i) {
+        return '<button class="brother-chat-opt" data-i="' + i + '" style="display:block;width:100%;text-align:left;margin:6px 0;padding:9px 11px;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:9px;color:var(--text-primary);cursor:pointer;font-size:12px">' + escHtml(o.text) + '</button>';
+      }).join('') +
+      '<button class="brother-chat-cancel" style="margin-top:8px;width:100%;padding:9px;background:transparent;border:1px solid var(--border-primary);border-radius:9px;color:var(--text-muted);cursor:pointer;font-size:12px">取消</button>' +
+      '</div>';
+    var _ov = createModal(_html);
+    _ov.querySelectorAll('.brother-chat-opt').forEach(function(b) {
+      b.addEventListener('click', function() { _ov.remove(); resolve(_opts[parseInt(this.dataset.i)]); });
+    });
+    _ov.querySelector('.brother-chat-cancel').addEventListener('click', function() { _ov.remove(); resolve(null); });
+  });
+  if (!_chosen) return;
+  updateBrotherStance(_chosen.delta, _chosen.reason);
+  GS.oneHeartBrotherChatToday = true;
+  saveGame();
+  GS.pendingChoiceText = '💬 找' + _broName + '聊聊：' + _chosen.text;
+  GS._pendingSource = 'brotherChat';
+  if (window.__renderAll) window.__renderAll();
+  await generateOneHeartRound({ isBrotherChat: true, tone: _chosen.tone });
+  if (window.__renderAll) window.__renderAll();
+}
+window.handleBrotherChat = handleBrotherChat;
 
 // IMP-18：1v1 结局判定（聚合既有仪表盘，不新增独立数值）
 // 输入：brotherStance(IMP-17) / oneHeartRivalAff(情敌倾向) / GS.mood(IMP-13) / oneHeartScandalPool(曝光) / affection(男主好感)
@@ -1992,6 +2065,8 @@ export function generateOneHeartSchedule() {
   var timeSlots = ['上午', '午后', '傍晚', '深夜'];
   var usedTasks = {};
   var schedule = {};
+  // 偶像疲劳：进入新一天先恢复（睡眠/休整），再于下方按男主今日行程累积消耗
+  GS.idolFatigue = Math.max(10, (GS.idolFatigue || 25) - 12);
   for (var i = 0; i < roles.length; i++) {
     var r = roles[i];
     if (!r.id) { schedule[r.key] = null; continue; }
@@ -2004,20 +2079,33 @@ export function generateOneHeartSchedule() {
     }
     if (!pick) pick = ENT_SCHEDULE_POOL[Math.floor(Math.random() * ENT_SCHEDULE_POOL.length)];
     usedTasks[pick.id] = true;
+    var _busySlot = timeSlots[i % timeSlots.length];
     schedule[r.key] = {
       roleKey: r.key,
       memberId: r.id,
-      timeOfDay: timeSlots[i % timeSlots.length],
+      timeOfDay: _busySlot,
       task: pick.task,
       place: pick.place,
       cat: pick.cat,
       visited: false,
       visitWindow: Math.random() > 0.3
     };
+    // IMP-ENT-DATE：男主（main）派生「工作时段 busySlot」与「可约空档 freeWindows」
+    if (r.key === 'main') {
+      schedule[r.key].busySlot = _busySlot;
+      schedule[r.key].freeWindows = (ENT_DATEABLE_WINDOWS[pick.cat] || []).slice();
+    }
     // IMP-17：哥哥（related）若当天是"行程"类（海外/品牌公开活动）则不在家=正当空档
     if (r.key === 'related') {
       schedule[r.key].away = (pick.cat === '行程');
+      // IMP-ENT-DATE：暴露不在家原因文案（如「录节目」），供 UI「哥哥今天 XX，不在家」
+      schedule[r.key].awayReason = (pick.cat === '行程') ? pick.task : '';
     }
+  }
+  // 偶像疲劳：按男主（main）今日行程类型累积消耗（录音/舞蹈/综艺/拍摄/粉丝/跨界/行程 各档消耗不同）
+  var _fatMap = { '录音': 8, '舞蹈': 10, '综艺': 9, '拍摄': 8, '粉丝': 11, '跨界': 9, '行程': 14 };
+  if (schedule.main && schedule.main.cat && _fatMap[schedule.main.cat]) {
+    GS.idolFatigue = Math.min(100, (GS.idolFatigue || 25) + _fatMap[schedule.main.cat]);
   }
   // IMP-17：由哥哥（related）行程派生「是否在家」——仅队友的妹妹设定有意义
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
@@ -2025,6 +2113,18 @@ export function generateOneHeartSchedule() {
     GS.brotherAtHome = !(_relSch && _relSch.away);
   } else {
     GS.brotherAtHome = true;
+  }
+  // IMP-ENT-DATE：新的一天重置当日约会标记；计算「昨日是否存在有效空档」用于跨天错过判定
+  GS.oneHeartDateToday = false;
+  GS.oneHeartBrotherChatToday = false; // 新的一天重置「找哥哥聊聊」次数
+  var _mainFree = (schedule.main && schedule.main.freeWindows && schedule.main.freeWindows.length > 0);
+  GS.oneHeartDateWindowAvailable = !!(_mainFree && GS.brotherAtHome);
+  // IMP-ENT-DATE(B4)：哥哥行程临时变更（空档泡汤）——小概率当天中段翻转。
+  // 仅记录计划值，真正翻转发生在玩家发起约会时（initiateOneHeartDate），制造"本以为有空档却泡汤"张力。
+  if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    GS.oneHeartBrotherTempChange = (Math.random() < 0.2) ? !GS.brotherAtHome : false;
+  } else {
+    GS.oneHeartBrotherTempChange = false;
   }
   GS.oneHeartSchedule = schedule;
   saveGame();
@@ -2039,6 +2139,11 @@ export async function doVisitMember(roleKey) {
   if (GS.oneHeartVisitLocked && GS.oneHeartVisitLocked !== roleKey) {
     var _lv = MEMBERS.find(function(m) { return m.id === ((GS.oneHeartSchedule[GS.oneHeartVisitLocked] || {}).memberId); });
     showToast('⚠️ 今天的时间已给了' + (_lv ? _lv.name : '他') + '，先进入新的一天吧');
+    return;
+  }
+  // IMP-ENT-DATE[fix]：约会后禁止同日探班（UI 灰化外的函数层兜底）
+  if (GS.oneHeartDateToday) {
+    showToast('🔒 今天已经约过啦，先进入新的一天吧');
     return;
   }
   if (sch.visited) {
@@ -2056,12 +2161,67 @@ export async function doVisitMember(roleKey) {
   // IMP-17：探哥哥（related，且为「队友的妹妹」设定）强化兄妹信任，推高 brotherStance
   if (roleKey === 'related' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     updateBrotherStance(3, '探班哥哥，兄妹更亲近');
+  } else if (roleKey === 'rival') {
+    // 你老往情敌那儿跑，哥哥起疑（仅队友的妹妹：updateBrotherStance 自带 role 守卫，其他身份无副作用）
+    updateBrotherStance(-2, '你探情敌，哥哥起疑');
   }
   saveGame();
   if (window.__renderAll) window.__renderAll();
   await generateOneHeartRound({ isVisit: true, visitRoleKey: roleKey });
   if (window.__renderAll) window.__renderAll();
 }
+
+// IMP-ENT-DATE：玩家主动发起约会
+export async function initiateOneHeartDate(opts) {
+  opts = opts || {};
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if (!GS.oneHeartSchedule || !GS.oneHeartSchedule.main) { showToast('⚠️ 今日行程尚未生成'); return; }
+  if (GS.oneHeartDateToday) { showToast('✅ 今天已经约过啦，先进入新的一天吧'); return; }
+  var _mainSch = GS.oneHeartSchedule.main;
+  var _free = _mainSch.freeWindows || [];
+  var _busy = _mainSch.busySlot;
+  var slot = opts.timeOfDay || (_free.length ? _free[0] : '傍晚');
+  var sneakOut = (slot === _busy); // 约在工作时段=翘班溜出来
+  // IMP-ENT-DATE：约会轻量门槛（与日程条 chip 禁用态一致，函数内再加一道代码 guard）
+  var _affGate = GS.affection[GS.oneHeartMember] || 0;
+  var _stageGate = GS.oneHeartRomanceStage || 0;
+  if (slot === '深夜') {
+    if (!(_stageGate >= 2 || _affGate >= 40)) { showToast('🔒 深夜见面需要更深的感情（好感≥40 或明确期）'); return; }
+  } else if (sneakOut) {
+    if (!(_stageGate >= 2 || _affGate >= 40)) { showToast('🔒 好感还不够，暂不能约他翘班溜出来（需好感≥40 或明确期）'); return; }
+  } else {
+    if (!(_stageGate >= 1 || _affGate >= 20)) { showToast('🔒 先多相处（好感≥20 或进入暧昧期）才能发起约会哦~'); return; }
+  }
+  // IMP-ENT-DATE(B4)：哥哥行程临时变更（空档泡汤）——此刻真正翻转
+  var tempChanged = false;
+  if (GS.oneHeartBrotherTempChange) {
+    GS.brotherAtHome = !GS.brotherAtHome;
+    GS.oneHeartBrotherTempChange = false;
+    tempChanged = true;
+  }
+  var brotherHome = !!GS.brotherAtHome;
+  // IMP-ENT-DATE：男主进家门见哥哥 → 男主本人示好，推高哥哥好感（补足只靠妹妹推高的缺口）
+  if (brotherHome) {
+    updateBrotherStance(1, '男主在你家主动跟哥哥套近乎');
+  }
+  GS.oneHeartDateToday = true;
+  GS.oneHeartTimeOfDay = slot;
+  var _choice = '💞 发起约会（' + slot + '）' + (sneakOut ? '·他偷偷溜出来' : '') + (brotherHome ? '·哥哥在家只能外面见' : '·哥哥不在家=正当空档');
+  if (tempChanged) _choice += '（哥哥临时' + (brotherHome ? '回' : '走') + '，空档泡汤）';
+  GS.pendingChoiceText = _choice;
+  GS._pendingSource = 'date';
+  // 翘班后果：曝光 +1 + 疲劳惩罚（已接入 endingMeters.scandal）
+  if (sneakOut) {
+    GS.oneHeartScandalCount = (GS.oneHeartScandalCount || 0) + 1;
+    GS.idolFatigue = Math.min(100, (GS.idolFatigue || 25) + 8);
+    console.warn('[1v1-date] sneakOut date → scandal+1, fatigue+8');
+  }
+  saveGame();
+  if (window.__renderAll) window.__renderAll();
+  await generateOneHeartRound({ isDate: true, sneakOut: sneakOut, brotherHome: brotherHome, timeOfDay: slot, tempChanged: tempChanged });
+  if (window.__renderAll) window.__renderAll();
+}
+window.initiateOneHeartDate = initiateOneHeartDate;
 
 export async function generateOneHeartRound(extra) {
   extra = extra || {};
@@ -2076,6 +2236,7 @@ export async function generateOneHeartRound(extra) {
     GS.pendingChoiceText.indexOf('生日') >= 0 ||
     GS.pendingChoiceText.indexOf('今天是') >= 0
   );
+  var _missedWindow = false; // IMP-ENT-DATE：昨日有有效空档却没约会 → 跨天错过叙事
   try {
     // [计划B问题1] 新的一天时压缩昨日全文为结构化摘要（在 prompt 构建前完成，确保 AI 能看到昨日记忆）
     if (_lockMorning && GS.todayFullText && GS.todayFullText.length > 0) {
@@ -2086,6 +2247,8 @@ export async function generateOneHeartRound(extra) {
       }
       // 更新今天起点索引，下次"新的一天"只压缩新一天的内容
       GS.oneHeartLastDayStartIdx = GS.todayFullText.length;
+      // IMP-ENT-DATE：在 generateOneHeartSchedule 重置前捕获「昨日有效空档但未约会」
+      if (GS.oneHeartDateWindowAvailable && !GS.oneHeartDateToday) _missedWindow = true;
       // IMP-16：新的一天生成娱乐圈行程（仅娱乐圈世界观）
       generateOneHeartSchedule();
     }
@@ -2114,7 +2277,24 @@ export async function generateOneHeartRound(extra) {
         sysMsg += '\n\n[随机事件] 请触发以下剧情——根据当前世界观自然改编场景和人物互动方式，但保留核心情感互动：\n"' + picked.desc + '"';
       }
     }
-    var userMsg = buildOneHeartUserMessage(extra.isEnding ? 'ending' : 'phase', { endingType: _endType });
+    // IMP-ENT-DATE(B2/B5)：代码护栏——把「是否强制拦门 / 情敌助攻权重」从纯 prompt 提为代码判定，随 extra 传入 prompts.js
+    var _bsNow = GS.brotherStance || 'consultant';
+    var _enforceBrotherStop = (GS.oneHeartRomanceStage || 0) >= 2 && (_bsNow === 'testing' || _bsNow === 'protective');
+    var _brotherAssist = (GS.oneHeartRivalAff || 0) >= 20 && _bsNow === 'supportive';
+    var userMsg = buildOneHeartUserMessage(extra.isEnding ? 'ending' : 'phase', { endingType: _endType, isVisit: extra.isVisit, visitRoleKey: extra.visitRoleKey, enforceBrotherStop: _enforceBrotherStop, brotherAssist: _brotherAssist });
+
+    // IMP-17[fix]：感情越深，哥哥越放心（确定性正向来源，仅「队友的妹妹」）
+    // 好感度跨过 40/60/80 里程碑时各 +3，让正常通关可稳定推高 brotherStance → supportive（HE 可达）。
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
+      var _ba = GS.affection[GS.oneHeartMember] || 0;
+      var _ms = [40, 60, 80];
+      for (var _mi = 0; _mi < _ms.length; _mi++) {
+        if (_ba >= _ms[_mi] && (GS.brotherAffMilestone || 0) < _ms[_mi]) {
+          GS.brotherAffMilestone = _ms[_mi];
+          updateBrotherStance(3, '感情稳定，哥哥也放心些');
+        }
+      }
+    }
 
     // IMP-17 ⑦ 中点「哥哥的考验」：中局哥哥把男主单独叫去"谈谈"试探诚意（仅队友的妹妹设定）
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
@@ -2124,6 +2304,43 @@ export async function generateOneHeartRound(extra) {
         GS.brotherTestNudged = true;
         saveGame();
       }
+    }
+
+    // IMP-17[fix]：哥哥专属事件（代码抽选，确定性触发，仅「队友的妹妹」）
+    // 与 isRandom 同链路注入 userMsg；事件自带的 stanceDelta 立即结算，使 testing/protective 真正可达。
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
+      var _be = pickOneHeartBrotherEvent();
+      if (_be) {
+        userMsg += '[哥哥专属] 请触发以下哥哥相关剧情——根据当前世界观自然改编场景与互动方式，但保留核心情感互动：\n"' + _be.desc + '"\n';
+        if (_be.stanceDelta) updateBrotherStance(_be.stanceDelta, _be.name);
+      }
+    }
+
+
+    // IMP-ENT-DATE：主动约会 / 找哥哥聊聊 场景约束注入
+    if (extra.isDate) {
+      var _dt = extra.timeOfDay || GS.oneHeartTimeOfDay || '傍晚';
+      userMsg += '[主动约会场景] 本段是女主主动发起的约会，时段：' + _dt + '。\n';
+      if (extra.brotherHome) {
+        userMsg += '- 哥哥在家，男主不能登门，你们只能在外部低调匆匆见（楼梯间/车里/街角/便利店），注意避开哥哥视线——但哥哥其实知情、会调侃或掩护，绝不拆穿。\n';
+      } else {
+        userMsg += '- 哥哥不在家（正当空档），男主可名正言顺来住处，氛围放松、像偷偷谈恋爱的小日子。\n';
+      }
+      if (extra.sneakOut) {
+        userMsg += '- 这是他翘班 / 偷偷溜出来的约会：必须体现被拍风险与赶场张力（频频看表、经纪人来电、压低帽檐避开镜头、话里带紧绷），制造地下恋的隐秘刺激。\n';
+      }
+      if (extra.tempChanged) {
+        userMsg += '- 哥哥临时' + (extra.brotherHome ? '回' : '走') + '，原本的空档泡汤了，写出这份"差一点就见到"的遗憾与只能匆匆见面的地下恋张力。\n';
+      }
+      userMsg += '\n';
+    }
+    if (extra.isBrotherChat) {
+      var _bcName = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) || '哥哥';
+      userMsg += '[找哥哥聊聊] 本段是女主主动找哥哥「' + _bcName + '」聊天的场景。' + (extra.tone || '你们闲聊近况。') + '哥哥按当前立场（' + (GS.brotherStance || 'consultant') + '）自然回应：给建议 / 调侃 / 提醒"别被拍"，并可轻微影响男主情绪（哥哥支持→男主放松）。哥哥是你最信任的参谋与掩护，绝不拆穿你。\n\n';
+    }
+    // IMP-ENT-DATE：跨天错过空档叙事（昨日有空档却没约）
+    if (_missedWindow) {
+      userMsg += '[错过空档] 昨天其实有个能和他见面的空档（哥哥不在家），你却没约——今天他赶回工作 / 哥哥提前回了，那份"差一点就见到"的遗憾浮上心头。可在本段自然带出这份错过，与地下恋里身不由己的张力。\n\n';
     }
 
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.useSeparateApi ? (GS.mainApiProvider || GS.apiProvider) : GS.apiProvider });
@@ -2504,7 +2721,17 @@ async function pickSmallEvent(key, hardcodeArr) {
     GS._pendingEvents.push({ type: cfg.type, scenario: scenario, options: opts });
     // IMP-18[fix]：scandal 事件实际入队时累加曝光次数（= 玩家经历的公众翻车次数）
     if (cfg.type === 'scandal') {
-      GS.oneHeartScandalCount = (GS.oneHeartScandalCount || 0) + 1;
+      // IMP-ENT-DATE(B3)：妹妹正当接近权·降曝光——队友的妹妹出现在他工作场合可解释为"来找哥哥"，
+      // 因此即便被拍，外人只联想到兄妹，半数公众曝光翻车被掩护掉、不计入 scandal 计数。
+      var _shield = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥');
+      var _shielded = _shield && Math.random() < 0.5;
+      if (!_shielded) {
+        GS.oneHeartScandalCount = (GS.oneHeartScandalCount || 0) + 1;
+      } else {
+        console.warn('[1v1-shield] scandal 被妹妹身份掩护（解释为来找哥哥），曝光计数不打');
+      }
+      // IMP-17[fix]：公众曝光翻车 → 哥哥担心被拍，立场下滑（仅队友的妹妹；可激活 testing/protective）
+      updateBrotherStance(_shielded ? -1 : -3, '公众曝光翻车，哥哥担心被拍');
     }
   }
 }
@@ -2680,7 +2907,8 @@ async function checkOneHeartEvents() {
   if (hasRival && !GS._confessionAccepted && GS.oneHeartRivalStage && !GS.oneHeartRivalStage.eventTriggered && GS._pendingEvents.length < 2) {
     var _rs = GS.oneHeartRivalStage;
     // 阶段变化后立即触发1次情敌事件
-    if (_rs.stage > 0 && _rs.stage <= 5) {
+    // IMP：门槛设为 stage >= 2（好感 >= 20），避免 Day1 好感为 0 时阶段 0→1 误判为「变化」而空降情敌事件（内容空洞）
+    if (_rs.stage >= 2 && _rs.stage <= 5) {
       // 代码选定攻势类型（去重），AI 只写场景文案
       if (!Array.isArray(GS.oneHeartRivalTriggeredActions)) GS.oneHeartRivalTriggeredActions = [];
       var _action = pickRivalAction(_rs.stage, GS.oneHeartRivalTriggeredActions);
@@ -2943,69 +3171,35 @@ export async function sendChatMessage(userMessage) {
 
   GS._isGenerating = true;
   try {
-    var sysMsg = buildOneHeartSystemPrompt();
+    var sysMsg = buildOneHeartChatSystemPrompt();
     var userMsg = buildOneHeartUserMessage('chat', { userMessage: userMessage.trim() });
 
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.chatReply, temperature: 0.75, skipValidate: true, plainText: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
-    if (!raw) {
-      showToast('聊天回复生成失败');
-      return '';
-    }
-
-    var clean = raw.replace(/^["'\s]+|["'\s]+$/g, '');
-    // 1v1 聊天防 JSON 污染：如果 AI 仍输出 JSON，先尝试提取其中文字内容
+    var clean = raw.replace(/^[\s"'```]+|[\s"'```]+$/g, '');
+    // 意外返回 JSON 时稳健提取字符串字段（不崩溃、不残留 JSON 原文）
     if (clean.charAt(0) === '{' || clean.charAt(0) === '[') {
       try {
         var parsedJson = JSON.parse(clean);
-        if (parsedJson && typeof parsedJson.content === 'string' && parsedJson.content.trim()) {
-          clean = parsedJson.content.trim();
-        } else if (parsedJson && typeof parsedJson.narrative === 'string' && parsedJson.narrative.trim()) {
-          clean = parsedJson.narrative.trim();
-        } else if (parsedJson && parsedJson.blocks && Array.isArray(parsedJson.blocks) && parsedJson.blocks.length > 0) {
-          var blockTexts = parsedJson.blocks.map(function(b) { return b && typeof b.content === 'string' ? b.content.trim() : ''; }).filter(Boolean);
-          if (blockTexts.length > 0) clean = blockTexts.join('\n');
-        }
-      } catch (e) {
-        // 非完整 JSON，继续走下面的兜底逻辑
-      }
+        var _extracted = '';
+        if (parsedJson && typeof parsedJson.content === 'string' && parsedJson.content.trim()) _extracted = parsedJson.content.trim();
+        else if (parsedJson && typeof parsedJson.narrative === 'string' && parsedJson.narrative.trim()) _extracted = parsedJson.narrative.trim();
+        else if (parsedJson && parsedJson.blocks && Array.isArray(parsedJson.blocks) && parsedJson.blocks.length > 0) {
+          _extracted = parsedJson.blocks.map(function(b) { return b && typeof b.content === 'string' ? b.content.trim() : ''; }).filter(Boolean).join('\n');
+        } else if (typeof parsedJson === 'string') _extracted = parsedJson;
+        if (_extracted) clean = _extracted;
+      } catch (e) { /* 非完整 JSON，保留原文本 */ }
     }
-    // 取最后一段对话：优先匹配「」或“”，否则取最后一个非空段落
-    var diaMatch = clean.match(/「([^」]+)」/g);
-    if (!diaMatch) diaMatch = clean.match(/“([^”]+)”/g);
-    if (diaMatch && diaMatch.length > 0) {
-      clean = diaMatch[diaMatch.length - 1].replace(/[「」“”]/g, '');
-      // 检测复述：仅当用户输入非空且 AI 回复长度与用户输入相近时才判定
-      var strippedUser = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
-      var strippedClean = clean.replace(/[〜～~!！?？。、\s]/g, '');
-      var _isEcho = strippedUser.length > 0 &&
-        strippedClean.length > 0 &&
-        strippedClean.length <= strippedUser.length * 2 &&
-        (strippedClean === strippedUser || strippedClean.indexOf(strippedUser) >= 0);
-      if (_isEcho) {
-        if (diaMatch.length >= 2) {
-          clean = diaMatch[diaMatch.length - 2].replace(/[「」“”]/g, '');
-        }
-        // 倒数第二段也不存在时，保留原始 clean（比省略号友好）
-      }
-    } else {
-      var parts = clean.split('\n').filter(Boolean);
-      if (parts.length > 0) clean = parts[parts.length - 1];
-      // 如果最后一句话包含思考痕迹，取末尾短句
-      if (/[？。！]/.test(clean)) {
-        var sentences = clean.split(/[？。！]+/).filter(Boolean);
-        clean = sentences[sentences.length - 1];
-      }
-      if (clean.length > 80) clean = clean.slice(-50);
-      // 检测复述（无引号路径）：同上严格约束
-      var strippedUser2 = userMessage.trim().replace(/[〜～~!！?？。、\s]/g, '');
-      var strippedClean2 = clean.replace(/[〜～~!！?？。、\s]/g, '');
-      var _isEcho2 = strippedUser2.length > 0 &&
-        strippedClean2.length > 0 &&
-        strippedClean2.length <= strippedUser2.length * 2 &&
-        (strippedClean2 === strippedUser2 || strippedClean2.indexOf(strippedUser2) >= 0);
-      // 即使判定复述，也保留 clean（不再返回省略号）
+    // 按句边界在约 200 字内截断（删去旧 slice(-50) 半句截断）
+    if (clean.length > 200) {
+      var _trunc = clean.slice(0, 200);
+      var _lastPunc = Math.max(_trunc.lastIndexOf('。'), _trunc.lastIndexOf('！'), _trunc.lastIndexOf('？'));
+      clean = (_lastPunc > 0 ? _trunc.slice(0, _lastPunc + 1) : _trunc);
+    }
+    // 兜底：API 失败/空回复 → 友好文案保证「显示」，不返回空串
+    if (!clean) {
+      clean = '（网络开小差了，再发一次试试）';
     }
     GS.chatHistory.push({ role: 'ai', content: clean });
     if (GS.chatHistory.length > 50) {
@@ -3015,8 +3209,10 @@ export async function sendChatMessage(userMessage) {
     return clean;
   } catch (e) {
     console.error('[1v1] chat error:', e);
-    showToast('聊天回复生成失败');
-    return '';
+    var _fallback = '（网络开小差了，再发一次试试）';
+    GS.chatHistory.push({ role: 'ai', content: _fallback });
+    saveGame();
+    return _fallback;
   } finally {
     GS._isGenerating = false;
   }
@@ -3034,14 +3230,8 @@ export async function generateDiary() {
     if (typeof raw !== 'string') raw = '';
     if (!raw) return null;
 
-    var json;
-    try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      var match = raw.match(/\{[\s\S]*\}/);
-      if (match) json = JSON.parse(match[0]);
-      else throw e;
-    }
+    var json = safeParseJson(raw);
+    if (!json) return null;
 
     var entry = {
       date: GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day,
@@ -3112,14 +3302,8 @@ export async function generateMoment() {
     if (typeof raw !== 'string') raw = '';
     if (!raw) return null;
 
-    var json;
-    try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      var match = raw.match(/\{[\s\S]*\}/);
-      if (match) json = JSON.parse(match[0]);
-      else throw e;
-    }
+    var json = safeParseJson(raw);
+    if (!json) return null;
 
     if (!GS.moments) GS.moments = [];
     var ts = GS.currentDate ? GS.currentDate.month + '月' + GS.currentDate.day + '日' : 'Day ' + GS.day;
@@ -3185,14 +3369,8 @@ export async function generateTheater(themePrompt) {
       return null;
     }
 
-    var json;
-    try {
-      json = JSON.parse(raw);
-    } catch (e) {
-      var match = raw.match(/\{[\s\S]*\}/);
-      if (match) json = JSON.parse(match[0]);
-      else throw e;
-    }
+    var json = safeParseJson(raw);
+    if (!json) return null;
 
     var narrativeBlocks = '';
     if (json.blocks && Array.isArray(json.blocks)) {
@@ -3242,11 +3420,7 @@ async function generateLetter() {
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
     if (!raw) return;
-    var json;
-    try { json = JSON.parse(raw); } catch (e) {
-      var m = raw.match(/\{[\s\S]*\}/);
-      if (m) json = JSON.parse(m[0]);
-    }
+    var json = safeParseJson(raw);
     if (!json || !json.content) return;
     if (!GS.letters) GS.letters = [];
     GS.letters.push({

@@ -9,6 +9,79 @@ import { sanitizeScene } from './schema.js';
 // AI 现在只输出 JSON，本地用 schema 做兜底 + 字段拆分。
 // 旧版 emoji 状态机解析已废弃（用户已确认重置游戏，不兼容旧 markdown 输出）。
 
+// 将未加引号的键名（如 {mine: ...} / {, post: ...}）补成合法 JSON 键名 "mine"
+// 字符串感知：仅在非字符串上下文、且键名紧跟 ':' 时修正，避免误伤正文。
+function quoteUnquotedKeys(s) {
+  if (typeof s !== 'string') return s;
+  var out = '';
+  var inStr = false;
+  var esc = false;
+  var n = s.length;
+  for (var i = 0; i < n; i++) {
+    var c = s[i];
+    if (esc) { out += c; esc = false; continue; }
+    if (c === '\\') { out += c; esc = true; continue; }
+    if (c === '"') { inStr = !inStr; out += c; continue; }
+    if (!inStr && (c === '{' || c === ',' || c === '[')) {
+      var j = i + 1;
+      while (j < n && (s[j] === ' ' || s[j] === '\t' || s[j] === '\n' || s[j] === '\r')) j++;
+      var k = j;
+      while (k < n && /[A-Za-z_$]/.test(s[k])) k++;
+      if (k > j) {
+        var mm = k;
+        while (mm < n && (s[mm] === ' ' || s[mm] === '\t' || s[mm] === '\n' || s[mm] === '\r')) mm++;
+        if (s[mm] === ':') {
+          out += c + '"' + s.slice(j, k) + '"';
+          i = mm - 1; // 跳到 ':' 前，循环 i++ 后正常写入 ':'
+          continue;
+        }
+      }
+    }
+    out += c;
+  }
+  return out;
+}
+
+// 平衡括号扫描：从首个 '{' 起，按字符串/转义感知找到匹配的最外层 '}'
+function extractBalancedObject(s) {
+  if (typeof s !== 'string') return null;
+  var start = s.indexOf('{');
+  if (start < 0) return null;
+  var depth = 0;
+  var inStr = false;
+  var esc = false;
+  for (var i = start; i < s.length; i++) {
+    var c = s[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (!inStr) {
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) return s.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
+}
+
+// 稳健解析单个 JSON 对象：直接解析 → 平衡括号提取 + 修复 → repairJson 兜底。
+// 任意一步失败都返回 null（不抛错），供调用方优雅降级。
+export function safeParseJson(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  var s = raw.trim();
+  if (!s) return null;
+  try { return JSON.parse(s); } catch (e) {}
+  var balanced = extractBalancedObject(s);
+  if (balanced) {
+    try { return JSON.parse(balanced); } catch (e) {}
+    try { return JSON.parse(repairJson(balanced)); } catch (e) {}
+  }
+  try { return JSON.parse(repairJson(s)); } catch (e) {}
+  return null;
+}
+
 function repairJson(raw) {
   if (!raw || typeof raw !== 'string') return raw;
   try { JSON.parse(raw); return raw; } catch (e) {}
@@ -19,6 +92,8 @@ function repairJson(raw) {
     s = s.slice(firstBrace, lastBrace + 1);
   }
   try { JSON.parse(s); return s; } catch (e) {}
+  // 修复未加引号的键名（如 {mine: ...}），再做后续修复
+  s = quoteUnquotedKeys(s);
   // 修复对象和数组末尾的多余逗号
   s = s.replace(/,\s*([}\]])/g, '$1');
   try { JSON.parse(s); return s; } catch (e) {}

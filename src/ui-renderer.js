@@ -9,7 +9,7 @@
 } from './core.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard, doVisitMember } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
@@ -1172,6 +1172,9 @@ export function bindSetupEvents() {
 
         GS.todayHoliday = null;
         saveGame();
+        if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
+          generateOneHeartSchedule();
+        }
         if (GS.aiEnabled) {
           showLoading('正在准备第一天...');
         }
@@ -1489,6 +1492,7 @@ function renderOneHeartGameScreen() {
       '<button class="oneheart-action-btn" data-cmd="set_mainline">📌 设定主线</button>' +
       '<button class="oneheart-action-btn" data-cmd="mainline">📌 拉回主线</button>' +
       '<button class="oneheart-action-btn" data-cmd="random">🎲 随机事件</button>' +
+      (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' ? '<button class="oneheart-action-btn" data-cmd="brother_chat"' + (GS.oneHeartBrotherChatToday ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>💬 找哥哥聊聊' + (GS.oneHeartBrotherChatToday ? '（今日已聊）' : '') + '</button>' : '') +
       '<button class="oneheart-action-btn" data-cmd="ending">🏁 走向大结局</button>' +
       '</div>' +
       '</div></div></div>' +
@@ -1504,6 +1508,7 @@ function renderOneHeartGameScreen() {
     '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
     '<button class="oneheart-tab" data-tab="event" style="position:relative"><span class="tab-emoji">⚡</span>事件' + _eventDot + '</button>' +
     '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
+    '<button class="oneheart-tab" data-tab="chat" style="position:relative"><span class="tab-emoji">💬</span>聊天' + (GS._newChat ? '<span class="tab-notification-dot"></span>' : '') + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
 
   // Game over
@@ -2353,8 +2358,8 @@ function renderOneHeartScheduleStrip() {
     if (!s) continue;
     var name = (MEMBERS.find(function(m) { return m.id === s.memberId; }) || {}).name || '?';
     var locked = GS.oneHeartVisitLocked && GS.oneHeartVisitLocked !== key;
-    var disabled = s.visited || locked || !s.visitWindow;
-    var status = s.visited ? '✅已探' : (locked ? '🔒时间已过' : (!s.visitWindow ? '🚫封闭' : '🎬可探'));
+    var disabled = s.visited || GS.oneHeartDateToday || locked || !s.visitWindow;
+    var status = s.visited ? '✅已探' : (GS.oneHeartDateToday ? '🔒已约会' : (locked ? '🔒时间已过' : (!s.visitWindow ? '🚫封闭' : '🎬可探')));
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
       '<span>' + labels[key] + '·' + name + '：' + escHtml(s.task) + '（' + s.timeOfDay + '）</span>' +
       (disabled
@@ -2362,12 +2367,62 @@ function renderOneHeartScheduleStrip() {
         : '<button class="oneheart-visit-btn" data-visit-role="' + key + '" style="background:linear-gradient(135deg,#7c4dff,#651fff);color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer">' + status + '</button>') +
       '</div>';
   }
+  // IMP-ENT-DATE：男主可约时段 chips（高亮空档 / 灰色在忙）
+  var _mainSch = GS.oneHeartSchedule.main;
+  if (_mainSch) {
+    var _allSlots = ['上午', '午后', '傍晚', '深夜'];
+    var _free = _mainSch.freeWindows || [];
+    var _busy = _mainSch.busySlot;
+    // IMP-ENT-DATE：约会轻量门槛（代码级）。普通空档约需 阶段≥1 或 好感≥20；翘班约需 阶段≥2 或 好感≥40。
+    var _affNow = GS.affection[GS.oneHeartMember] || 0;
+    var _stageNow = GS.oneHeartRomanceStage || 0;
+    var _dated = GS.oneHeartDateToday;
+    var _canNormal = _dated ? false : (_stageNow >= 1 || _affNow >= 20);
+    var _canSneak = _dated ? false : (_stageNow >= 2 || _affNow >= 40);
+    var _canLateNight = _dated ? false : (_stageNow >= 2 || _affNow >= 40);
+    var _chipHtml = '';
+    for (var _si = 0; _si < _allSlots.length; _si++) {
+      var _slot = _allSlots[_si];
+      if (_free.indexOf(_slot) >= 0) {
+        if (_slot === '深夜') {
+          if (_canLateNight) {
+            _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="约在' + _slot + '" style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💞' + _slot + '</button>';
+          } else {
+            _chipHtml += '<button class="oneheart-date-slot" disabled title="深夜见面需要更深的感情（好感≥40 或明确期）" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '·需好感≥40</button>';
+          }
+        } else if (_canNormal) {
+          _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="约在' + _slot + '" style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💞' + _slot + '</button>';
+        } else {
+          _chipHtml += '<button class="oneheart-date-slot" disabled title="先多相处（好感≥20 或进入暧昧期）才能约会哦~" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '</button>';
+        }
+      } else if (_slot === _busy) {
+        if (_canSneak) {
+          _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="他当天在忙，约这须翘班赶场（曝光风险）" style="background:linear-gradient(135deg,#ff5252,#c62828);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💢' + _slot + '·翘班</button>';
+        } else {
+          _chipHtml += '<button class="oneheart-date-slot" disabled title="好感还不够，暂不能约他翘班溜出来（需好感≥40 或明确期）" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '·翘班</button>';
+        }
+      } else {
+        _chipHtml += '<span style="color:#888;font-size:11px;margin-left:4px">' + _slot + '</span>';
+      }
+    }
+    html += '<div style="margin-top:6px;border-top:1px dashed var(--border-color,#eee);padding-top:4px">🕒 可约时段：' + (_free.length ? _chipHtml : '<button class="oneheart-date-slot" disabled style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:not-allowed">💞 今天他不在首尔，无法约会</button>') + '</div>';
+    if (_free.length) {
+      var _dateHint = (GS.brotherAtHome ? '🏠哥哥在家→只能外面匆匆见' : '✈️哥哥不在家=正当空档，可来住处');
+      if (GS.oneHeartDateToday) _dateHint = '✅ 今天已经约过啦，先进入新的一天吧';
+      else if (!_canNormal) _dateHint = '🔒 先多相处（好感≥20 或进入暧昧期）才能发起约会哦~';
+      else if (!_canSneak && _busy) _dateHint += ' · 🔒 翘班约需好感≥40 或明确期';
+      if (!GS.oneHeartDateToday && !_canLateNight && _free.indexOf('深夜') >= 0) _dateHint += ' · 🔒 深夜见面需好感≥40 或明确期';
+      html += '<div style="margin-top:3px;color:#b9aee0;font-size:11px">' + _dateHint + '</div>';
+    }
+  }
   // IMP-17：哥哥立场指示（仅队友的妹妹设定，related=哥哥）
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     var _bs = GS.brotherStance || 'consultant';
     var _bsIcon = { consultant: '🤝', supportive: '💚', testing: '🔍', protective: '🛡️' }[_bs] || '🤝';
     var _bsText = { consultant: '参谋', supportive: '支持', testing: '试探', protective: '提醒曝光' }[_bs] || '参谋';
-    var _bhome = GS.brotherAtHome ? '🏠在家' : '✈️不在家(空档)';
+    var _relSch = GS.oneHeartSchedule.related;
+    var _awayReason = (_relSch && _relSch.awayReason) ? '（今天' + escHtml(_relSch.awayReason) + '，不在家）' : '';
+    var _bhome = GS.brotherAtHome ? '🏠在家' : ('✈️不在家(空档)' + _awayReason);
     html += '<div style="margin-top:6px;border-top:1px dashed var(--border-color,#eee);padding-top:4px">' +
       _bsIcon + ' 哥哥立场：<b>' + _bsText + '</b> · ' + _bhome + '</div>';
   }
@@ -2379,6 +2434,15 @@ function renderOneHeartScheduleStrip() {
       this.disabled = true;
       this.textContent = '探班中…';
       await doVisitMember(role);
+    });
+  });
+  strip.querySelectorAll('.oneheart-date-slot').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      if (GS.oneHeartDateToday) { showToast('✅ 今天已经约过啦，先进入新的一天吧'); return; }
+      var slot = this.dataset.dateSlot;
+      this.disabled = true;
+      this.textContent = '约会中…';
+      if (window.initiateOneHeartDate) await window.initiateOneHeartDate({ timeOfDay: slot });
     });
   });
 }
@@ -2479,6 +2543,9 @@ function bindOneHeartEvents() {
             renderAll();
           }
           break;
+        case 'brother_chat':
+          if (window.handleBrotherChat) await window.handleBrotherChat();
+          break;
       }
     });
   });
@@ -2526,6 +2593,9 @@ function bindOneHeartEvents() {
           break;
         case 'theater':
           showTheaterModal();
+          break;
+        case 'chat':
+          showChatModal();
           break;
       }
     });
