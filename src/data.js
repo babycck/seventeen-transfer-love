@@ -511,16 +511,16 @@ export var HEART_NOTE_TEMPLATES = {
 
 // ==================== 任务卡系统（10张） ====================
 export var MISSION_CARDS = [
-  { id: 'mc_1', name: '沉默游戏', desc: '从现在起 1 小时内，你不能和你的好感对象说话。违者罚酒 1 杯。', dayMin: 3, dayMax: 10, phase: 'any' },
-  { id: 'mc_2', name: '换位晚餐', desc: '今晚你必须坐在你最少接触的成员旁边吃饭。', dayMin: 3, dayMax: 10, phase: 'evening' },
-  { id: 'mc_3', name: '真心话抽取', desc: '从盒子里抽一张问题卡，必须如实回答。', dayMin: 3, dayMax: 10, phase: 'any' },
-  { id: 'mc_4', name: '一日经纪人', desc: '为一位成员完成一个私人请求。晚餐前完成。', dayMin: 3, dayMax: 10, phase: 'afternoon' },
-  { id: 'mc_5', name: '秘密信号', desc: '对指定成员做一个只有你们懂的暗号/动作。如果他识别并回应了，任务成功。', dayMin: 4, dayMax: 10, phase: 'any' },
-  { id: 'mc_6', name: '交换物品', desc: '从身上取下一件物品，和一位成员交换。直到明天才能归还。', dayMin: 3, dayMax: 10, phase: 'any' },
-  { id: 'mc_7', name: '三行诗', desc: '以某位成员的名字为题，即兴作一首三行诗。', dayMin: 3, dayMax: 10, phase: 'any' },
-  { id: 'mc_8', name: '幕后采访', desc: '去采访间录制一段 30 秒的视频，说出今天让你心动的一个瞬间。制作组会播给所有人看。', dayMin: 5, dayMax: 10, phase: 'evening' },
-  { id: 'mc_9', name: '双人任务', desc: '和 X 一起完成一道菜/一项家务。期间不准谈感情话题。', dayMin: 3, dayMax: 10, phase: 'afternoon' },
-  { id: 'mc_10', name: '最终告白预演', desc: '写一张纸条，假设今天是最后一天，你会选择和谁一起离开？不用署名，放进信箱。制作组会在晚餐时匿名朗读。', dayMin: 8, dayMax: 11, phase: 'evening' }
+  { id: 'mc_1', name: '沉默游戏', desc: '从现在起 1 小时内，你不能和你的好感对象说话。违者罚酒 1 杯。', dayMin: 3, dayMax: 10, phase: 'any', type: 'action' },
+  { id: 'mc_2', name: '换位晚餐', desc: '今晚你必须坐在你最少接触的成员旁边吃饭。', dayMin: 3, dayMax: 10, phase: 'evening', type: 'action' },
+  { id: 'mc_3', name: '真心话抽取', desc: '从盒子里抽一张问题卡，必须如实回答。', dayMin: 3, dayMax: 10, phase: 'any', type: 'input', inputLabel: '你抽到的问题 & 你的回答' },
+  { id: 'mc_4', name: '一日经纪人', desc: '为一位成员完成一个私人请求。晚餐前完成。', dayMin: 3, dayMax: 10, phase: 'afternoon', type: 'action' },
+  { id: 'mc_5', name: '秘密信号', desc: '对指定成员做一个只有你们懂的暗号/动作。如果他识别并回应了，任务成功。', dayMin: 4, dayMax: 10, phase: 'any', type: 'action' },
+  { id: 'mc_6', name: '交换物品', desc: '从身上取下一件物品，和一位成员交换。直到明天才能归还。', dayMin: 3, dayMax: 10, phase: 'any', type: 'input', inputLabel: '你想交换什么物品 & 交换对象' },
+  { id: 'mc_7', name: '三行诗', desc: '以某位成员的名字为题，即兴作一首三行诗。', dayMin: 3, dayMax: 10, phase: 'any', type: 'input', inputLabel: '你的三行诗（写给谁）' },
+  { id: 'mc_8', name: '幕后采访', desc: '去采访间录制一段 30 秒的视频，说出今天让你心动的一个瞬间。制作组会播给所有人看。', dayMin: 5, dayMax: 10, phase: 'evening', type: 'input', inputLabel: '你想在采访里说的话' },
+  { id: 'mc_9', name: '双人任务', desc: '和 X 一起完成一道菜/一项家务。期间不准谈感情话题。', dayMin: 3, dayMax: 10, phase: 'afternoon', type: 'action' },
+  { id: 'mc_10', name: '最终告白预演', desc: '写一张纸条，假设今天是最后一天，你会选择和谁一起离开？不用署名，放进信箱。制作组会在晚餐时匿名朗读。', dayMin: 8, dayMax: 11, phase: 'evening', type: 'input', inputLabel: '你在纸条上写的内容' }
 ];
 
 // ==================== 随机日常事件池（15个） ====================

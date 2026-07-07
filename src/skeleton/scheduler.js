@@ -186,6 +186,26 @@ export function checkMissionCard() {
   saveGame();
   return card;
 }
+
+// 跨天时清理当前任务卡：写入历史记录并清空状态
+export function cleanupMissionCard() {
+  if (GS.todayMissionCard) {
+    var record = {
+      id: GS.todayMissionCard.id,
+      name: GS.todayMissionCard.name,
+      desc: GS.todayMissionCard.desc,
+      type: GS.todayMissionCard.type || 'action',
+      day: GS.day,
+      status: GS.todayMissionCard.completed ? 'completed' : 'failed',
+      userInput: GS.todayMissionCard.userInput || ''
+    };
+    if (!Array.isArray(GS.missionCardHistory)) GS.missionCardHistory = [];
+    GS.missionCardHistory.push(record);
+  }
+  GS.todayMissionCard = null;
+  // 跨天后注入暂存内容已无意义，清空
+  GS.pendingTaskResult = null;
+}
 export function advanceDateAndWeather() {
   GS.day++;
   if (GS.gameDates && GS.gameDates[GS.day - 1]) {

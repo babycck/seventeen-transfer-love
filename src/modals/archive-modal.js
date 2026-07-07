@@ -12,6 +12,7 @@ export function showArchiveModal() {
     '<button class="tab-btn" id="archiveTabItems">📦 记忆物品</button>' +
     '<button class="tab-btn" id="archiveTabNotes">📝 心动笔记</button>' +
     '<button class="tab-btn" id="archiveTabMissions">🎯 秘密任务</button>' +
+    '<button class="tab-btn" id="archiveTabMCards">🎴 任务卡</button>' +
     '</div>' +
 
     // Tab 1：X 档案
@@ -34,6 +35,11 @@ export function showArchiveModal() {
     buildSecretMissionContent() +
     '</div>' +
 
+    // Tab 5：任务卡历史
+    '<div id="archiveMCardsContent" style="display:none;flex:1;overflow-y:auto;padding-right:4px">' +
+    buildMissionCardHistoryContent() +
+    '</div>' +
+
     '<button class="modal-close-x" id="archiveClose">✕</button></div>';
 
   overlay.innerHTML = inner;
@@ -43,6 +49,7 @@ export function showArchiveModal() {
   overlay.querySelector('#archiveTabItems').addEventListener('click', function() { switchArchiveTab(overlay, 'Items'); });
   overlay.querySelector('#archiveTabNotes').addEventListener('click', function() { switchArchiveTab(overlay, 'Notes'); });
   overlay.querySelector('#archiveTabMissions').addEventListener('click', function() { switchArchiveTab(overlay, 'Missions'); });
+  overlay.querySelector('#archiveTabMCards').addEventListener('click', function() { switchArchiveTab(overlay, 'MCards'); });
   overlay.querySelector('#archiveClose').addEventListener('click', function(e) {
     e.preventDefault(); e.stopPropagation(); overlay.remove();
   });
@@ -52,9 +59,9 @@ export function showArchiveModal() {
 }
 
 function switchArchiveTab(overlay, tab) {
-  var tabs = ['X', 'Items', 'Notes', 'Missions'];
-  var ids = ['archiveTabX', 'archiveTabItems', 'archiveTabNotes', 'archiveTabMissions'];
-  var contentIds = ['archiveXContent', 'archiveItemsContent', 'archiveNotesContent', 'archiveMissionsContent'];
+  var tabs = ['X', 'Items', 'Notes', 'Missions', 'MCards'];
+  var ids = ['archiveTabX', 'archiveTabItems', 'archiveTabNotes', 'archiveTabMissions', 'archiveTabMCards'];
+  var contentIds = ['archiveXContent', 'archiveItemsContent', 'archiveNotesContent', 'archiveMissionsContent', 'archiveMCardsContent'];
   for (var i = 0; i < tabs.length; i++) {
     overlay.querySelector('#' + ids[i]).classList.toggle('active', tabs[i] === tab);
     document.getElementById(contentIds[i]).style.display = tabs[i] === tab ? '' : 'none';
@@ -215,6 +222,45 @@ function buildSecretMissionContent() {
         (mission.description ? '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:2px">' + escHtml(mission.description) + '</p>' : '') +
         '<p style="font-size:11px;color:var(--text-muted)">触发于 Day ' + (mission.day || '?') +
         (mission.targetMember ? ' · 目标：' + escHtml(mission.targetMember) : '') + '</p>' +
+        '</div>';
+    }
+  }
+  return html;
+}
+
+function buildMissionCardHistoryContent() {
+  var html = '<p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">制作组任务卡记录（含当前进行中和历史）。</p>';
+  var current = GS.todayMissionCard;
+  var history = GS.missionCardHistory || [];
+
+  // 当前进行中的任务卡
+  if (current) {
+    var typeLabel = current.type === 'input' ? '✍️ 输入类' : '🏃 行动类';
+    html += '<div style="background:linear-gradient(135deg,#fce4ec,#fff3e0);border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid ' + (current.completed ? 'var(--accent-success)' : '#c62828') + '">' +
+      '<p style="font-weight:700;font-size:14px;color:#c62828;margin-bottom:4px">🎴 当前任务卡' + (current.completed ? ' · <span style="color:var(--accent-success)">✅ 已完成</span>' : ' · 进行中') + '</p>' +
+      '<p style="font-size:11px;color:' + (current.type === 'input' ? '#1565c0' : '#e65100') + ';margin-bottom:4px">' + typeLabel + '</p>' +
+      '<p style="font-size:13px;color:var(--text-primary);font-weight:600;margin-bottom:4px">' + escHtml(current.name) + '</p>' +
+      '<p style="font-size:12px;color:var(--text-secondary);line-height:1.6">' + escHtml(current.desc) + '</p>' +
+      (current.userInput ? '<div style="background:rgba(255,255,255,0.6);border-radius:6px;padding:6px;margin-top:6px"><p style="font-size:11px;color:var(--text-muted);margin-bottom:2px">提交内容：</p><p style="font-size:12px;color:var(--text-primary);white-space:pre-wrap">' + escHtml(current.userInput) + '</p></div>' : '') +
+      '</div>';
+  }
+
+  if (history.length === 0 && !current) {
+    html += '<p style="color:var(--text-muted);text-align:center;padding:20px 0">暂无任务卡记录</p>';
+  } else if (history.length > 0) {
+    html += '<p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:14px 0 8px 0">📜 历史记录</p>';
+    for (var i = history.length - 1; i >= 0; i--) {
+      var rec = history[i];
+      var hTypeLabel = rec.type === 'input' ? '✍️ 输入类' : '🏃 行动类';
+      html += '<div style="background:var(--bg-soft);border-radius:10px;padding:10px;margin-bottom:8px">' +
+        '<p style="font-weight:600;font-size:13px;color:var(--text-primary);margin-bottom:2px">' +
+        escHtml(rec.name || '未命名任务') +
+        (rec.status === 'completed' ? ' <span style="color:var(--accent-success);font-weight:700">✅ 已完成</span>' : ' <span style="color:var(--accent-warning);font-weight:700">⏳ 未完成</span>') +
+        '</p>' +
+        '<p style="font-size:11px;color:' + (rec.type === 'input' ? '#1565c0' : '#e65100') + ';margin-bottom:2px">' + hTypeLabel + '</p>' +
+        '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:2px">' + escHtml(rec.desc) + '</p>' +
+        (rec.userInput ? '<p style="font-size:11px;color:var(--text-muted);margin-top:4px;background:rgba(255,255,255,0.4);border-radius:4px;padding:4px">提交内容：' + escHtml(rec.userInput) + '</p>' : '') +
+        '<p style="font-size:11px;color:var(--text-muted)">触发于 Day ' + (rec.day || '?') + '</p>' +
         '</div>';
     }
   }

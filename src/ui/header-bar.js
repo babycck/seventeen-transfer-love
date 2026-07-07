@@ -33,10 +33,22 @@ export function renderHeader() {
     '<button id="settingsBtn" title="设置">⚙️</button>' +
     '<button id="helpBtn" title="帮助（规则速览·使用说明）">❓</button>' +
     '<button id="reviewBtn" title="回顾（历史剧情·短信历史）">📚</button>' +
+    (GS.gameMode !== 'oneHeart' ? '<button id="taskPanelBtn" title="任务面板（任务卡·秘密任务）" style="position:relative">🎴' + buildTaskBadge() + '</button>' : '') +
     (GS.gameMode !== 'oneHeart' ? '<button id="archiveBtn" title="档案（X档案·记忆物品·心动笔记·秘密任务）">📋</button>' : '') +
     (GS.gameMode === 'oneHeart' || (GS.gifts && GS.gifts.length > 0) ? '<button id="giftBtn" title="礼物 / 送礼记录">🎁</button>' : '') +
     (GS.day === 7 && GS.midnightCall && GS.midnightCall.status === 'done' ? '<button id="midnightCallRecordBtn" title="午夜电话记录（Day 7 反馈）">📞</button>' : '') +
     '</div></div>';
 
   return html;
+}
+
+// 构建活跃任务角标（未完成任务卡+秘密任务）
+function buildTaskBadge() {
+  var count = 0;
+  if (GS.todayMissionCard && !GS.todayMissionCard.completed) count++;
+  if (GS.secretMission && GS.secretMission.status === 'active') count++;
+  if (count > 0) {
+    return '<span style="position:absolute;top:-4px;right:-4px;background:#c62828;color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;animation:pulse-sms 1.5s infinite">' + count + '</span>';
+  }
+  return '';
 }

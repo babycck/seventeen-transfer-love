@@ -163,6 +163,8 @@ export function defaultGameState() {
     todayMissionCard: null,
     missionCardHistory: [],
     missionCardUsedIds: [],
+    // 输入类任务完成后暂存的内容，注入下一段AI剧情后清空
+    pendingTaskResult: null,
     // 成员回礼系统
     pendingReturnGifts: [],
     returnGiftHistory: [],
@@ -372,6 +374,7 @@ export function migrateSave() {
     if (GS.todayMissionCard === undefined) GS.todayMissionCard = null;
     if (!Array.isArray(GS.missionCardHistory)) GS.missionCardHistory = [];
     if (!Array.isArray(GS.missionCardUsedIds)) GS.missionCardUsedIds = [];
+    if (GS.pendingTaskResult === undefined) GS.pendingTaskResult = null;
     if (!GS.drinkCounts) GS.drinkCounts = {}; // [P0-3]
     if (GS.truthState === undefined) GS.truthState = null; // [P0-3]
     if (!GS.affMilestoneShown) GS.affMilestoneShown = {}; // [P1-4]

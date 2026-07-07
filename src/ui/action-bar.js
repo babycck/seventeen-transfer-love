@@ -6,6 +6,8 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isTruthR
   var isNight = GS.phaseIndex === 3;
   var smsSent = GS.smsSentToday;
   var stayExhausted = GS.stayCount >= MAX_STAY_COUNT;
+  // 是否有可执行的行动类任务卡（未完成）
+  var hasActionTask = GS.todayMissionCard && GS.todayMissionCard.type === 'action' && !GS.todayMissionCard.completed && GS.gameMode === 'transfer';
 
   // 真心话模式下只显示重新生成
   if (GS.truthState && GS.truthState.active) {
@@ -22,6 +24,9 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isTruthR
       html += '<button class="btn-skip" id="btnSkip">▶ ' + (isNight ? '进入下一天' : '跳过进入下一时段') + '</button>';
     } else {
       html += '<button class="btn-skip" id="btnSkip" style="font-weight:900">▶ ' + (isNight ? '进入下一天' : '进入下一时段') + '</button>';
+    }
+    if (hasActionTask) {
+      html += '<button class="btn-do-task" id="btnDoTask" style="background:linear-gradient(135deg,#c62828,#e53935);color:#fff;border:none">🎴 做任务</button>';
     }
     if (isNight && !smsSent && !GS.gameOver) {
       if (GS.day === 6 && GS.midnightCall && GS.midnightCall.status === 'pending') {
@@ -46,6 +51,9 @@ export function renderActionBar(hasConsequences, phaseChoicesExhausted, isTruthR
         html += '<button class="btn-sms" id="btnSms">📨 发送心动短信</button>';
       }
       html += '<button class="btn-regenerate" id="btnRegenerate">🔄 重新生成本段</button>';
+    }
+    if (hasActionTask) {
+      html += '<button class="btn-do-task" id="btnDoTask" style="background:linear-gradient(135deg,#c62828,#e53935);color:#fff;border:none">🎴 做任务</button>';
     }
   }
 

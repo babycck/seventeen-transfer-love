@@ -34,6 +34,7 @@ import { showTruthAnswerModal as modalTruthAnswer } from './modals/truth-answer.
 import {
   resetDayState as skeletonResetDay,
   cleanupSecretMission as skeletonCleanupMission,
+  cleanupMissionCard as skeletonCleanupMissionCard,
   updateObserverGuestPrevious as skeletonUpdateObserver,
   generateDayGifts as skeletonGenGifts,
   advanceDateAndWeather as skeletonAdvanceDate,
@@ -1382,6 +1383,7 @@ export async function proceedToNextDay() {
 
   await skeletonGenGifts();
   skeletonCleanupMission();
+  skeletonCleanupMissionCard();
   // 清理当日特殊状态
   GS.xGhostEvent = null;
   skeletonUpdateObserver();
@@ -1403,7 +1405,7 @@ export async function proceedToNextDay() {
   // 任务卡触发检查
   var missionCard = skeletonMissionCard();
   if (missionCard) {
-    showMissionCardModal(missionCard);
+    showToast('🎴 制作组任务卡：' + missionCard.name + '（点击右上角任务按钮查看详情并完成）');
   }
 
   saveGame();
@@ -1725,6 +1727,97 @@ export function showMissionCardModal(card) {
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
   });
+}
+
+// ==================== 任务卡交互（统一任务面板） ====================
+
+// 行动类任务：点击"做任务"立即生成一段任务执行剧情
+export async function doActionTask() {
+  if (!GS.todayMissionCard) {
+    showToast('⚠️ 当前没有进行中的任务卡');
+    return;
+  }
+  if (GS.todayMissionCard.type !== 'action') {
+    showToast('⚠️ 此任务为输入类，请在任务面板中输入内容完成');
+    return;
+  }
+  if (!GS.aiEnabled) {
+    showToast('⚠️ AI 未启用，请先启用 AI。');
+    return;
+  }
+  GS._isGenerating = true;
+  showLoading('正在生成任务执行剧情...');
+  try {
+    await compressTodayForInjection();
+    var card = GS.todayMissionCard;
+    var sysPrompt = buildSystemPrompt();
+    var actionDesc = '执行制作组任务卡「' + card.name + '」：' + card.desc;
+    var userMsg = buildUserMessage('freeAction', {
+      actionText: actionDesc,
+      doActionTask: true,
+      skipActiveMissionCard: true
+    });
+    var _opts = { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 };
+    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+      _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
+    }
+    var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
+    var rawText = _gr.raw;
+    var parsed = parseNarrative(rawText);
+    applyParsedSideEffects(parsed);
+    var corrections = validateNarrative(rawText, parsed);
+    pushCorrections(corrections);
+    dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: '🎴 执行任务：' + card.name });
+    // 标记任务已完成
+    GS.todayMissionCard.completed = true;
+    GS.isInConsequence = true;
+    dispatch({ type: 'PUSH_TODAY_TEXT', text: rawText });
+    saveGame();
+    if (window.__renderAll) window.__renderAll();
+    window.scrollTo(0, 0);
+  } catch (e) {
+    console.error('[doActionTask] AI 生成失败:', e);
+    showToast('⚠️ ' + formatAIError(e));
+  } finally {
+    GS._isGenerating = false;
+  }
+  hideLoading();
+}
+
+// 输入类任务：玩家在面板输入内容后完成，存入 pendingTaskResult 注入下一段剧情
+export function completeTaskInput(userInput) {
+  if (!GS.todayMissionCard) {
+    showToast('⚠️ 当前没有进行中的任务卡');
+    return;
+  }
+  if (GS.todayMissionCard.type !== 'input') {
+    showToast('⚠️ 此任务为行动类，请通过剧情完成后点击"已完成"');
+    return;
+  }
+  if (!userInput || !userInput.trim()) {
+    showToast('⚠️ 请输入任务内容');
+    return;
+  }
+  GS.todayMissionCard.userInput = userInput.trim();
+  GS.todayMissionCard.completed = true;
+  GS.pendingTaskResult = {
+    taskName: GS.todayMissionCard.name,
+    taskDesc: GS.todayMissionCard.desc,
+    userInput: userInput.trim()
+  };
+  saveGame();
+  showToast('✅ 任务内容已记录，将在下一段剧情中体现');
+  if (window.__renderAll) window.__renderAll();
+}
+
+// 行动类任务：玩家通过剧情完成后手动标记完成
+export function completeMissionCard() {
+  if (!GS.todayMissionCard) return;
+  if (GS.todayMissionCard.completed) return;
+  GS.todayMissionCard.completed = true;
+  saveGame();
+  showToast('✅ 任务「' + GS.todayMissionCard.name + '」已标记完成');
+  if (window.__renderAll) window.__renderAll();
 }
 
 // ==================== 1v1「只为你心动」模式 ====================

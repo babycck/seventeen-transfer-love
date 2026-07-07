@@ -9,11 +9,11 @@
 } from './core.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
-import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal } from './modals.js';
+import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
@@ -1311,6 +1311,27 @@ export function renderGameScreen() {
   // 叙事（使用 UI 组件）
   html += renderNarrativeSection();
 
+  // 制作组任务卡提示条
+  if (GS.todayMissionCard && !GS.todayMissionCard.completed && GS.gameMode === 'transfer') {
+    var mc = GS.todayMissionCard;
+    var mcTypeLabel = mc.type === 'input' ? '✍️ 输入类' : '🏃 行动类';
+    var mcTypeColor = mc.type === 'input' ? '#1565c0' : '#e65100';
+    var mcHint = mc.type === 'input'
+      ? '点击下方「打开任务面板」输入任务内容'
+      : '通过剧情执行任务，或点击底部「🎴 做任务」按钮生成任务剧情';
+    html += '<div class="card" style="border-left:3px solid #c62828;background:linear-gradient(135deg,#fce4ec,#fff3e0)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" id="mcToggle">' +
+      '<div><span style="font-size:13px;font-weight:700;color:#c62828">🎴 制作组任务卡</span>' +
+      '<span style="font-size:11px;color:' + mcTypeColor + ';margin-left:6px;background:rgba(255,255,255,0.7);padding:1px 6px;border-radius:8px">' + mcTypeLabel + '</span></div>' +
+      '<span id="mcToggleIcon" style="font-size:11px;color:#c62828">▾</span></div>' +
+      '<div id="mcBody" style="margin-top:8px;font-size:12px;color:#5d3a3a;line-height:1.7">' +
+      '<p style="margin-bottom:4px"><strong>' + escHtml(mc.name) + '</strong></p>' +
+      '<p style="margin-bottom:4px">' + escHtml(mc.desc) + '</p>' +
+      '<p style="font-size:11px;color:#8b6b6b">💡 ' + mcHint + '</p>' +
+      '<button id="mcOpenPanelBtn" style="margin-top:8px;padding:5px 12px;border:1px solid #c62828;border-radius:6px;background:#fff;color:#c62828;font-size:11px;cursor:pointer;font-weight:600;">🎴 打开任务面板</button>' +
+      '</div></div>';
+  }
+
   // 秘密任务通知条
   if (GS.secretMission && GS.secretMission.status === 'active') {
     var smTargetName = GS.secretMission.targetMemberId ? (MEMBERS.find(function(m) { return m.id === GS.secretMission.targetMemberId; }) || {}).name : '';
@@ -1752,6 +1773,16 @@ export function bindGameEvents() {
     });
   }
 
+  // 做任务按钮（行动类任务卡）
+  var doTaskBtn = document.getElementById('btnDoTask');
+  if (doTaskBtn) {
+    doTaskBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      await doActionTask();
+      this.disabled = false;
+    });
+  }
+
   var smsBtn = document.getElementById('btnSms');
   if (smsBtn) smsBtn.addEventListener('click', function() { showSmsModal(); });
 
@@ -1792,9 +1823,28 @@ export function bindGameEvents() {
   var archiveBtn = document.getElementById('archiveBtn');
   if (archiveBtn) archiveBtn.addEventListener('click', showArchiveModal);
 
+  // [NEW] 任务面板按钮 → 统一任务面板（任务卡+秘密任务）
+  var taskPanelBtn = document.getElementById('taskPanelBtn');
+  if (taskPanelBtn) taskPanelBtn.addEventListener('click', showTaskPanel);
+
   // [P0-2] 小礼物面板
   var giftBtn = document.getElementById('giftBtn');
   if (giftBtn) giftBtn.addEventListener('click', showGiftPanel);
+
+  // 制作组任务卡提示条折叠 + 打开面板
+  var mcToggle = document.getElementById('mcToggle');
+  if (mcToggle) {
+    mcToggle.addEventListener('click', function() {
+      var body = document.getElementById('mcBody');
+      var icon = document.getElementById('mcToggleIcon');
+      if (body) {
+        body.classList.toggle('hidden');
+        if (icon) icon.textContent = body.classList.contains('hidden') ? '▸' : '▾';
+      }
+    });
+  }
+  var mcOpenPanelBtn = document.getElementById('mcOpenPanelBtn');
+  if (mcOpenPanelBtn) mcOpenPanelBtn.addEventListener('click', showTaskPanel);
 
   // 秘密任务通知条折叠
   var missionToggle = document.getElementById('missionToggle');
@@ -2202,6 +2252,10 @@ export async function enterTestMode() {
   GS.secretMission = null;
   GS.secretMissionInteracted = false;
   GS.secretMissionHistory = [];
+  GS.todayMissionCard = null;
+  GS.missionCardHistory = [];
+  GS.missionCardUsedIds = [];
+  GS.pendingTaskResult = null;
   GS.jealousyMission = null;
   GS.jealousyMissionTriggeredDays = [];
   if (GS.day >= 8) GS.midnightCall = null;

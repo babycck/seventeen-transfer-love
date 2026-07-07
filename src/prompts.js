@@ -517,6 +517,29 @@ export function buildUserMessage(type, extra) {
       '提示：' + sm.hint + '\n';
   }
 
+  // 制作组任务卡（活跃且未完成时注入，doActionTask 执行时跳过避免冲突）
+  if (GS.todayMissionCard && !GS.todayMissionCard.completed && !extra.skipActiveMissionCard) {
+    var mc = GS.todayMissionCard;
+    msg += '\n[INSTRUCTION] 制作组任务卡（任务类型：' + (mc.type === 'input' ? '输入类' : '行动类') + '）\n' +
+      '任务名：' + mc.name + '\n任务要求：' + mc.desc + '\n';
+    if (mc.type === 'action') {
+      msg += '请在剧情中为女主创造完成这个任务的机会和场景（如制作组广播宣布、成员反应、执行过程），让女主可以通过选项或自由输入来执行任务。\n';
+    } else {
+      msg += '这是输入类任务，女主需要在任务面板中输入内容（如写诗、写纸条）。在她提交前，请在剧情中自然引出这个任务场景（如制作组递上纸笔、宣布任务）。提交后的内容会在下一段剧情中体现。\n';
+    }
+  }
+
+  // 输入类任务完成后暂存的内容，注入下一段剧情让 AI 自然体现（选项生成时跳过）
+  if (GS.pendingTaskResult && type !== 'generateOptions') {
+    var ptr = GS.pendingTaskResult;
+    msg += '\n[INSTRUCTION] 制作组任务卡完成内容（请在叙事中自然体现，不要复述指令本身）\n' +
+      '任务名：' + ptr.taskName + ' · 任务要求：' + ptr.taskDesc + '\n' +
+      '女主提交的内容：' + ptr.userInput + '\n' +
+      '请在 narrative 中描写女主执行/说出这段内容的场景，以及成员们的反应。这段内容是真实发生的剧情。\n';
+    // 注入后清空，避免重复注入
+    GS.pendingTaskResult = null;
+  }
+
   // Day 9 X 约会日
   if (GS.day === 9) {
     var otherMemberNames = otherMembers.map(function(m) { return m.name; }).join('和');
@@ -668,14 +691,26 @@ export function buildUserMessage(type, extra) {
   } else if (type === 'freeAction') {
     var freeNoRepeat = '⚠️ narrative 中禁止复述/禁止总结/禁止回顾/禁止重新描写已发生事件。\n' +
       '⚠️ 采访间（interview/memberInterview/xInterview）可以使用刚发生的事件作为引子来表达当下感受，但不要大段照搬。\n';
-    msg += '[INSTRUCTION] 生成任务·自由剧情扩写\n玩家是这一段的剧情导演，写下了以下期望发生的剧情梗概：\n"' + extra.actionText + '"\n\n' +
-      '当前时间：Day ' + GS.day + ' ' + phaseLabel + '。请将这段梗概扩写为完整的剧情段落（1200-1800字 JSON）。\n' +
-      '扩写要求：\n' +
-      '- 以玩家输入的剧情梗概为主干，扩写出完整的场景、对话、氛围、心理描写\n' +
-      '- 允许基于成员人设调整不合理之处（如某成员不会做的事可适当改写），但关键事件和走向尽量贴近玩家输入\n' +
-      '- 与已有剧情自然衔接，不要重复已发生的内容\n' +
-      '- 不要生成 options（玩家用自由剧情替代了选项选择）\n' +
-      '- 必须包含 narrative + interview + memberInterview + observers\n' + freeNoRepeat;
+    if (extra.doActionTask) {
+      msg += '[INSTRUCTION] 生成任务·制作组任务卡执行\n' +
+        '玩家选择执行制作组任务卡：\n"' + extra.actionText + '"\n\n' +
+        '当前时间：Day ' + GS.day + ' ' + phaseLabel + '。请生成女主执行这个任务的完整剧情场景（1000-1500字 JSON）。\n' +
+        '要求：\n' +
+        '- 描写制作组如何宣布/布置这个任务，女主执行任务的过程、与成员的互动和反应\n' +
+        '- 任务执行中要有具体的场景细节、对话、成员反应\n' +
+        '- 任务必须在本段剧情中完成，给出执行结果（成功/有趣插曲/意外状况）\n' +
+        '- 不要生成 options（任务执行剧情不加选项）\n' +
+        '- 必须包含 narrative + interview + memberInterview + observers\n' + freeNoRepeat;
+    } else {
+      msg += '[INSTRUCTION] 生成任务·自由剧情扩写\n玩家是这一段的剧情导演，写下了以下期望发生的剧情梗概：\n"' + extra.actionText + '"\n\n' +
+        '当前时间：Day ' + GS.day + ' ' + phaseLabel + '。请将这段梗概扩写为完整的剧情段落（1200-1800字 JSON）。\n' +
+        '扩写要求：\n' +
+        '- 以玩家输入的剧情梗概为主干，扩写出完整的场景、对话、氛围、心理描写\n' +
+        '- 允许基于成员人设调整不合理之处（如某成员不会做的事可适当改写），但关键事件和走向尽量贴近玩家输入\n' +
+        '- 与已有剧情自然衔接，不要重复已发生的内容\n' +
+        '- 不要生成 options（玩家用自由剧情替代了选项选择）\n' +
+        '- 必须包含 narrative + interview + memberInterview + observers\n' + freeNoRepeat;
+    }
   } else if (type === 'sms') {
     msg += '[INSTRUCTION] 生成任务\n女主给' + extra.targetName + '发送了心动短信："' + extra.smsContent + '"\n' +
       '请生成短信发送后的剧情（不超过50字 JSON）：描写' + extra.targetName + '收到短信时的反应、其他成员的反应、女主的心情。\n' +
