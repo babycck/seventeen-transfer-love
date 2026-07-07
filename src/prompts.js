@@ -208,6 +208,8 @@ export function buildSystemPrompt() {
     '   - 读信过程描写：谁在读、语气、停顿、微表情\n' +
     '   - 读完后反应：沉默、对话、眼神交流\n\n' +
 
+    '16. [长度强制] 选项后续剧情（consequence）正文必须达到 1000-1500 字（约等于 1000-1500 个汉字）。这是硬性要求，禁止输出过短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n\n' +
+
     '## SYSTEM ## 好感度行为参考\n' +
     '- ≥40：主动靠近、吃醋、明显好感\n- ≥15：关注中、有好感\n- ≥0：中性友好\n- ≤-15：冷淡回避\n' +
     '⚠️ 观察员绝对不能提及好感度数值或量化指标\n\n' +
@@ -660,7 +662,7 @@ export function buildUserMessage(type, extra) {
 
   if (type === 'consequence') {
     msg += '[INSTRUCTION] 生成任务\n玩家选择了选项："' + extra.choiceText + '"——这就是你的起点。用一句话锚定位置后直接开始写。\n' +
-      '请生成后续剧情（800-1000字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
+      '请生成后续剧情（1000-1500字 JSON），必须包含至少1段 narrative + 1段 interview + 1段 memberInterview + observers 数组 + options 数组（3个选项，每个选项含 affName/affDelta/affReason）。\n' +
       '⚠️ 选项必须基于你刚刚生成的后续剧情来推导——从这段剧情中的具体事件、对话、氛围中提取行动方向，禁止使用与剧情无关的通用选项模板。\n' +
       '如果选项明确扣分则填 riskMember/riskDelta。\n' + noRepeatNote + optionLengthRule;
   } else if (type === 'freeAction') {
