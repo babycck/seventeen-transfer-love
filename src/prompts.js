@@ -10,7 +10,9 @@ import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandator
 import { getAffectionDesc } from './affection.js';
 import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
 import { getWorldConfig } from './worlds/index.js';
-import { IDENTITY_RELATION_MAP, getPlayerBirthYear } from './data.js';
+import { IDENTITY_RELATION_MAP, getPlayerBirthYear, ONE_HEART_ENDING_TEMPLATES } from './data.js';
+import { activeEventThisPhase } from './skeleton/event-triggers.js';
+import { buildMoodInstruction } from './skeleton/mood-engine.js';
 
 // ===== System Prompt 缓存 =====
 var _systemPromptCache = null;
@@ -328,8 +330,11 @@ export function buildUserMessage(type, extra) {
     }
   }
 
+  // 相位级事件仲裁（IMP-01）：同一相位只放行一个主导强制事件，其余顺延
+  var dominantEvent = activeEventThisPhase();
+
   // 嫉妒任务
-  if (GS.jealousyMission && GS.jealousyMission.day === GS.day && GS.jealousyMission.status === 'active') {
+  if (dominantEvent === 'jealousyMission' && GS.jealousyMission && GS.jealousyMission.day === GS.day && GS.jealousyMission.status === 'active') {
     var jm = GS.jealousyMission;
     msg += '[INSTRUCTION] 制作组嫉妒任务（强制执行）\n' +
       '任务：' + jm.title + ' · ' + jm.desc + '（目标成员：' + jm.targetName + '）\n' +
@@ -337,7 +342,7 @@ export function buildUserMessage(type, extra) {
   }
 
   // X幽灵存在
-  if (GS.xGhostEvent && GS.xGhostEvent.day === GS.day) {
+  if (dominantEvent === 'xGhostEvent' && GS.xGhostEvent && GS.xGhostEvent.day === GS.day) {
     msg += '[INSTRUCTION] X幽灵存在事件（强制执行）\n' +
       '今天剧情中必须浮现一条来自场外X的碎片化痕迹（三选一）：\n' +
       '1. 女主在家门口发现一张未署名的纸条，内容涉及某个只有X才知道的回忆细节（不暴露是X，用模糊指代如\"有人\"）\n' +
@@ -358,15 +363,80 @@ export function buildUserMessage(type, extra) {
     msg += '\n';
   }
 
+  // IMP-10：脚踏两条船高风险期
+  if (GS.secretDating) {
+    msg += '[INSTRUCTION] 脚踏两条船高风险期：女主同时与两位及以上成员关系亲密且尚未公开。请在剧情中自然流露"被撞见/穿帮"的紧张感——成员间微妙的试探、某一方的察觉、女主的心虚与权衡。但不要一次性写死结局，留博弈空间。\n\n';
+  }
+
+  // IMP-11：成员间关系网
+  if (GS.memberBond && Object.keys(GS.memberBond).length > 0) {
+    var _relLines = [];
+    for (var _bk in GS.memberBond) {
+      var _bv = GS.memberBond[_bk];
+      if (!_bv) continue;
+      var _ids = _bk.split('|');
+      var _ma = MEMBERS.find(function(m) { return m.id === _ids[0]; });
+      var _mb = MEMBERS.find(function(m) { return m.id === _ids[1]; });
+      if (!_ma || !_mb) continue;
+      var _rel = _bv <= -2 ? '暗中较劲/敌对' : (_bv >= 2 ? '同盟/亲近' : '微妙');
+      _relLines.push('- ' + _ma.name + ' 与 ' + _mb.name + '：' + _rel + (Math.abs(_bv) >= 2 ? '（强度 ' + Math.abs(_bv) + '）' : ''));
+    }
+    if (_relLines.length > 0) {
+      msg += '[INSTRUCTION] 成员间关系网（请在群戏中自然体现，不要生硬点明标签）：\n' + _relLines.join('\n') + '\n\n';
+    }
+  }
+
+  // IMP-12：抉择代价链（长线后果延迟爆发）
+  if (GS.futureConsequences && GS.futureConsequences.length > 0) {
+    var _due = [];
+    for (var _fi = 0; _fi < GS.futureConsequences.length; _fi++) {
+      var _fc = GS.futureConsequences[_fi];
+      if (!_fc.triggered && _fc.dueDay <= GS.day) _due.push(_fc);
+    }
+    if (_due.length > 0) {
+      var _fcLines = _due.map(function(f) { return '- ' + f.text; });
+      msg += '[INSTRUCTION] 延迟爆发的后果（长线因果·自然融入剧情）：\n' + _fcLines.join('\n') +
+        '\n这些是你早前的选择埋下的种子，如今开始回响——让早期选择在后期持续呼应。\n\n';
+      for (var _fj = 0; _fj < _due.length; _fj++) _due[_fj].triggered = true;
+      saveGame();
+    }
+  }
+
+  // IMP-13：情绪状态链——当前心境注入（让 AI 不瞎写变脸）
+  var _moodBlock = buildMoodInstruction();
+  if (_moodBlock) msg += _moodBlock;
+
+  // IMP-15：三人差异化反应（仅共享事件相位注入，避免对私人戏份过度约束）
+  var _isSharedEvent = false;
+  if (GS.jealousyMission && GS.jealousyMission.day === GS.day && GS.jealousyMission.status === 'active') _isSharedEvent = true;
+  if (GS.exMessage && GS.exMessage.day === GS.day && !GS.exMessage.handled) _isSharedEvent = true;
+  if (GS.xGhostEvent && GS.xGhostEvent.day === GS.day) _isSharedEvent = true;
+  if (GS.day === 7 && GS.phaseIndex === 2 && GS.questionBox && GS.questionBox.active) _isSharedEvent = true;
+  if (GS.day === 6 && GS.phaseIndex === 3 && GS.midnightCall) _isSharedEvent = true;
+  if (GS.rivalryIntensity >= 2) _isSharedEvent = true;
+  if (_isSharedEvent && GS.selectedMembers.length >= 2) {
+    var _diffLines = [];
+    for (var _di = 0; _di < GS.selectedMembers.length; _di++) {
+      var _dm = MEMBERS.find(function(m) { return m.id === GS.selectedMembers[_di]; });
+      if (!_dm) continue;
+      var _ptag = (_dm.personality && _dm.personality.length) ? _dm.personality.join('/') : '成员';
+      _diffLines.push('- ' + _dm.name + '（' + _ptag + '）：应写出符合其性格底色的典型反应方式');
+    }
+    msg += '[INSTRUCTION] 三人反应差异化(强制)\n' +
+      '以下共享事件三人都会知道，但必须写出三种音色迥异的反应（结合各自性格与当前心境，见"当前心境"块）：\n' +
+      _diffLines.join('\n') + '\n' +
+      '禁止三人给出"同构"反应(只换名字的版本)。每人反应必须体现各自性格 + 当前心境。\n\n';
+  }
+
   // 前任来电
-  if (GS.exMessage && GS.exMessage.day === GS.day && !GS.exMessage.handled) {
+  if (dominantEvent === 'exMessage' && GS.exMessage && GS.exMessage.day === GS.day && !GS.exMessage.handled) {
     var em = GS.exMessage;
     msg += '[INSTRUCTION] 突发事件：前任来电\n' +
       em.memberName + '的手机亮了——是一条来自他前任的消息。描写 ' + em.memberName + ' 看到消息时的表情变化、女主的反应、周围其他成员是否注意到这个异样\n\n';
   }
 
   // Day 11 真心话惩罚
-  if (GS.day === 11 && GS.phaseIndex === 3 && GS.truthPunishment) {
+  if (dominantEvent === 'truthPunishment' && GS.day === 11 && GS.phaseIndex === 3 && GS.truthPunishment) {
     var tp = GS.truthPunishment;
     var tm = MEMBERS.find(function(m) { return m.id === tp.targetId; });
     msg += '[INSTRUCTION] 真心话惩罚（强制执行·无选项）\n惩罚内容：' + tp.desc + '\n涉及成员：' + (tm ? tm.name : '嘉宾') + '\n这是强制剧情，无选项，玩家只能观看。\n\n';
@@ -377,6 +447,11 @@ export function buildUserMessage(type, extra) {
     msg += '[INSTRUCTION] 女主私密体质提醒：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。⚠️ 私密体质是女主专属设定，禁止映射到任何成员身上。\n\n';
   }
 
+  // 女主人格画像（IMP-09：暗藏积累，自然体现，勿生硬点明）
+  if (GS.heroinePersona && GS.heroinePersona.current) {
+    msg += '[INSTRUCTION] 女主人格画像（自然体现在反应/台词/小动作中，不要直白说出标签）：女主属于「' + GS.heroinePersona.current + '」。成员对她的互动应呼应这一性格——对撒娇型更主动宠溺、对撩拨型会被反撩、对迟钝型更耐心试探、对独立型更尊重边界。\n\n';
+  }
+
   // 时段边界
   if (type === 'phase') {
     msg += PHASE_BOUNDARIES[PHASES[GS.phaseIndex]] + '\n' + PHASE_TONE[PHASES[GS.phaseIndex]] + '\n\n';
@@ -385,11 +460,12 @@ export function buildUserMessage(type, extra) {
   }
 
   // Day 7 提问箱
-  if (GS.day === 7 && GS.phaseIndex === 2 && GS.questionBox && GS.questionBox.active) {
+  if (dominantEvent === 'questionBox' && GS.day === 7 && GS.phaseIndex === 2 && GS.questionBox && GS.questionBox.active) {
     var qb = GS.questionBox;
     msg += '[INSTRUCTION] Day 7 匿名提问箱（强制执行）\n问题：' + qb.currentQuestion + '\n' +
       '请在剧情中描写：制作组广播宣布规则 → 成员们写问题时的微妙表情 → 抽签顺序和前面1-2位成员的回答 → 最后轮到女主被抽中。\n' +
       '⚠️ 女主选项由本地固定，AI 不需要再生成 options。\n' +
+      (GS.secretDating ? '⚠️ 当前处于脚踏两条船高风险期，匿名问题可直戳女主周旋两人——问题可带"你心里到底有谁""是不是同时和两个人暧昧"的尖锐指向，把穿帮张力推到顶点。\n' : '') +
       '⚠️ 关键：剧情必须停在「问题展示在女主面前，等待她做出选择」的这一刻——不要写女主的回答，不要写女主喝酒的动作，不要预写结局。\n' +
       '⚠️ 不要提前泄露问题内容，让女主在剧情中才知道被问到什么\n\n';
   }
@@ -517,15 +593,22 @@ export function buildUserMessage(type, extra) {
       '提示：' + sm.hint + '\n';
   }
 
-  // 制作组任务卡（活跃且未完成时注入，doActionTask 执行时跳过避免冲突）
+  // 制作组任务卡（活跃且未完成时注入；仅首次写"广播宣布"，后续轻量提示，避免每个 phase 重复广播）
   if (GS.todayMissionCard && !GS.todayMissionCard.completed && !extra.skipActiveMissionCard) {
     var mc = GS.todayMissionCard;
+    var _mcFirst = !mc.injected;
     msg += '\n[INSTRUCTION] 制作组任务卡（任务类型：' + (mc.type === 'input' ? '输入类' : '行动类') + '）\n' +
       '任务名：' + mc.name + '\n任务要求：' + mc.desc + '\n';
-    if (mc.type === 'action') {
-      msg += '请在剧情中为女主创造完成这个任务的机会和场景（如制作组广播宣布、成员反应、执行过程），让女主可以通过选项或自由输入来执行任务。\n';
+    if (_mcFirst) {
+      if (mc.type === 'action') {
+        msg += '请在剧情中为女主创造完成这个任务的机会和场景（如制作组广播宣布、成员反应、执行过程），让女主可以通过选项或自由输入来执行任务。\n';
+      } else {
+        msg += '这是输入类任务，女主需要在任务面板中输入内容（如写诗、写纸条）。在她提交前，请在剧情中自然引出这个任务场景（如制作组递上纸笔、宣布任务）。提交后的内容会在下一段剧情中体现。\n';
+      }
+      mc.injected = true;
+      if (typeof saveGame === 'function') saveGame();
     } else {
-      msg += '这是输入类任务，女主需要在任务面板中输入内容（如写诗、写纸条）。在她提交前，请在剧情中自然引出这个任务场景（如制作组递上纸笔、宣布任务）。提交后的内容会在下一段剧情中体现。\n';
+      msg += '⚠️ 该任务卡已在今天较早时段由制作组广播宣布过，请勿再次描写"广播宣布/发任务卡"的发起过程。当前只需在剧情中自然地为女主保留完成它的机会（如她可随时选择执行、或对话里提及尚未完成），不要重复发起。\n';
     }
   }
 
@@ -771,6 +854,10 @@ export function buildUserMessage(type, extra) {
         '- 女主的故事：反映你的职业（' + hp.job + '）和性格\n' +
         '- 每个故事后可以有其他人的追问和反应。观察员分析每个故事中隐藏的信息\n';
     }
+    // Day 3 故事环节收束：仅上午进行，后续时段不要复述/重开
+    if (GS.day === 3 && GS.phaseIndex !== 0) {
+      msg += '\n⚠️ Day 3 的「每人说一个故事」环节已在上午进行完毕。当前时段（' + phaseLabel + '）不要再重新讲或复述上午的故事内容，也不要让角色再次"说一个故事"。请开启全新场景与活动（如一起做饭、客厅闲聊、阳台独处、准备晚餐），把上午的故事当作已发生的背景余韵。\n';
+    }
 
     // Day 11 傍晚初始阶段说明：18 题（只在 phase=phase 首次进入时注入；由 truthState 注入更具体规则，此处为兜底）
     if (GS.day === 11 && GS.phaseIndex === 2 && !GS.truthState) {
@@ -793,6 +880,11 @@ export function buildUserMessage(type, extra) {
       msg += '\n⚠️ 今天是X约会日！强制与X约会。选项只生成1个：「▶ 进入约会场景」。';
     }
 
+    // 深夜时段收束：禁止重开/复述白天已发生的场景与事件
+    if (GS.phaseIndex === 3) {
+      msg += '\n⚠️ 当前是深夜时段：这是一天的收束时刻。白天已发生的事件（任务、故事、约会、互动）都已落幕，不要重新开启或复述白天已写过的场景/对话/事件。请聚焦深夜独有的氛围（睡前闲聊、成员归位、安静独处、明日悬念），自然收尾当天。\n';
+    }
+
     if (GS.phaseIndex === 3 && !GS.smsSentToday) {
       msg += '\n深夜时段：在 smsDrafts 数组中额外输出3条短信草稿（每条≤25字）。短信草稿必须基于当天剧情动态生成——如当天去了海边则含"海风"意象。短信风格：简短、含蓄、暗示。不直白表白。\n⚠️ 正文（blocks）中禁止出现任何与短信相关的内容——不要写"收到短信""拿起手机""睡前消息"。正文仅描写深夜氛围和成员互动，短信环节在剧情结束后由玩家独立选择发送。';
     }
@@ -806,6 +898,23 @@ export function buildUserMessage(type, extra) {
     }
     msg += '请确保本次生成的每个选项文本与此列表中所有文本完全不同。\n\n';
   }
+
+  // IMP-14：连续性硬事实锚（禁止 AI 推翻已确立事实，灭掉最致命的崩塌类出戏）
+  var _presentNames = GS.selectedMembers.map(function(id) {
+    var m = MEMBERS.find(function(x) { return x.id === id; });
+    return m ? m.name : id;
+  }).join('、');
+  var _established = '';
+  if (GS.consequenceNarratives && GS.consequenceNarratives.length > 0) {
+    var _lastC = GS.consequenceNarratives[GS.consequenceNarratives.length - 1];
+    if (_lastC && _lastC.choiceText) _established = _lastC.choiceText;
+  }
+  if (!_established && GS.pendingChoiceText) _established = GS.pendingChoiceText;
+  msg += '[INSTRUCTION] 不可推翻的事实(你必须遵守)\n' +
+    '- 今天天气：' + (GS.weather || '未知') + ' / 季节：' + (GS.season || '未知') + ' / 游戏第 ' + GS.day + ' 天\n' +
+    '- 在场成员：' + (_presentNames || '（心动小屋成员）') + '\n' +
+    (_established ? '- 已定论：' + _established + '\n' : '') +
+    '规则：禁止修改上述天气/日期/在场者/已定论事件。需要演进时只能在新写剧情里自然推进，不能"改写"前面已发生的事。\n\n';
 
   return msg;
 }
@@ -1086,6 +1195,11 @@ export function buildOneHeartUserMessage(type, extra) {
   }
   msg += '\n';
 
+  // 女主人格画像（IMP-09：暗藏积累，自然体现，勿生硬点明）
+  if (GS.heroinePersona && GS.heroinePersona.current) {
+    msg += '[INSTRUCTION] 女主人格画像（自然体现在反应/台词/小动作中，不要直白说出标签）：女主属于「' + GS.heroinePersona.current + '」。男主对她的互动应呼应这一性格——对撒娇型更主动宠溺、对撩拨型会被反撩、对迟钝型更耐心试探、对独立型更尊重边界。\n\n';
+  }
+
   if (type === 'phase') {
     // 注入事件回顾（1v1 事件条目，替代旧的 dailySummaries 压缩记忆）
     if (GS.oneHeartEventLog && GS.oneHeartEventLog.length > 0) {
@@ -1171,6 +1285,21 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
     msg += _mood;
+
+    // IMP-19：感情进度门控（禁止越级行为，让感情随时间长出来）
+    if (GS.gameMode === 'oneHeart') {
+      var _rs = GS.oneHeartRomanceStage || 0;
+      var _rsRound = GS.oneHeartGenCount || 0;
+      if (_rs === 0) {
+        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n\n';
+      } else if (_rs === 1) {
+        msg += '[INSTRUCTION] 感情进度门控（当前：暧昧期·round ' + _rsRound + '）\n感情明确但不能一步到位——互动升温、可有些小甜蜜，但仍需克制。情敌开始正面竞争（争宠/较劲），但还不是告白时刻。禁止过早摊牌。\n\n';
+      } else if (_rs === 2) {
+        msg += '[INSTRUCTION] 感情进度门控（当前：明确期·round ' + _rsRound + '）\n两人关系已明确，可铺垫告白与更深的承诺，但正式的告白/摊牌高潮建议留到更高潮阶段（round>=12）。情敌竞争上升但结构完整。\n\n';
+      } else {
+        msg += '[INSTRUCTION] 感情进度门控（当前：高潮期·round ' + _rsRound + '）\n感情已充分铺垫，此刻允许告白/摊牌类高潮事件（需好感达标：男主>=60、情敌>=50）。可写情感爆发、关系确认或重大转折。\n\n';
+      }
+    }
 
     // 约会日提示
     if (GS.oneHeartDiaryCounter > 0 && GS.oneHeartDiaryCounter % 5 === 0) {
@@ -1420,6 +1549,81 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '请根据以下主题生成一段独立番外剧情（约1000字）：\n';
     msg += extra.themePrompt || '一段你和' + member.name + '的日常温馨片段。';
     msg += '\n只输出 JSON：{"blocks":[{"type":"narrative","content":"..."}]}';
+  } else if (type === 'ending') {
+    // IMP-18：结局生成（HE/NE/BE 按 endingType 定调）
+    var _et2 = ONE_HEART_ENDING_TEMPLATES[extra.endingType] || ONE_HEART_ENDING_TEMPLATES.NE;
+    msg += '【这是故事的结局幕，必须收束】\n';
+    msg += '本局判定结局档位：' + _et2.label + '（' + _et2.desc + '）。\n';
+    msg += '写作语气要求：' + _et2.tone + '\n';
+    msg += '请基于已有的全部剧情（好感度、哥哥立场、情敌走向、曝光风险、男主当前心境）自然收束，写一段 1200-1800 字的完整结局：交代两人关系的终局、各自心境、以及若有"一年后"的余韵可自然带出。禁止中途再开启新冲突或新支线，必须给这段关系一个明确的句号。\n';
+    msg += '只输出 JSON：{"blocks":[{"type":"narrative","content":"..."}]}';
+  }
+
+  // IMP-16：探班场景（visitSet）
+  if (extra && extra.isVisit && extra.visitRoleKey && GS.oneHeartSchedule && GS.oneHeartSchedule[extra.visitRoleKey]) {
+    var _vs = GS.oneHeartSchedule[extra.visitRoleKey];
+    var _vsName = (MEMBERS.find(function(m) { return m.id === _vs.memberId; }) || {}).name || '他';
+    msg += '[INSTRUCTION] 探班场景（visitSet）\n你偷偷来到 ' + _vsName + ' 的工作现场——' + _vs.place + '，他正在：' + _vs.task + '（时段：' + _vs.timeOfDay + '）。\n';
+    if (extra.visitRoleKey === 'main') {
+      msg += '场景基调：职场反差（冷脸专注工作→看到你出现偷偷展露喜色）× 地下恋风险（怕被工作人员/狗仔撞见）。描写他表面专业、私下因你到来的慌乱与甜蜜，可自然送咖啡/带饭、聊天。\n';
+    } else if (extra.visitRoleKey === 'related') {
+      msg += '场景基调：关系张力（该关系户与你的特殊关系，如「队友的妹妹」下即亲哥，他在意会误会）。描写你出现的微妙与他的反应，可自然送咖啡/带饭、聊天。\n';
+    } else if (extra.visitRoleKey === 'rival') {
+      msg += '场景基调：修罗场直球——你主动探情敌，男主后续会吃醋（情敌倾向上升）。描写情敌对你的态度与你心里的盘算，可自然送咖啡/带饭、聊天。\n';
+    }
+    msg += '结局停在探班结束的温情或张力一刻，不要写后续约会推进。\n\n';
+  }
+
+  // IMP-17：哥哥＝信任圈内人（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
+  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    var _bs = GS.brotherStance || 'consultant';
+    var _bsMap = {
+      consultant: '参谋（默认：你告诉他一切、他给意见）',
+      supportive: '支持（认可男主、主动掩护你）',
+      testing: '试探（想看男主是否真心对你好）',
+      protective: '提醒（担心公众曝光风险，提醒"别被拍"——反对的是被拍，不是这段关系）'
+    };
+    var _bsInstr = '';
+    if (_bs === 'supportive') _bsInstr = '哥哥已是你的头号参谋与掩护，会主动替你打圆场、在家庭群替你圆话、甚至故意留你俩独处。';
+    else if (_bs === 'testing') _bsInstr = '哥哥正暗中试探男主诚意，可能故意把两人凑一起观察，或对男主说些"考校"的话——善意但较真。';
+    else if (_bs === 'protective') _bsInstr = '哥哥更在意曝光风险，会反复提醒"别被拍/别留痕迹"，但不反对这段关系本身。';
+    else _bsInstr = '哥哥是你无话不谈的参谋，你乐意把进展告诉他，他给建议、调侃你、偶尔提醒。';
+    var _bhome = GS.brotherAtHome;
+    var _bhomeText = _bhome
+      ? '在家（男主不便来，你与男主的私下相处需避开哥哥视线，但哥哥其实知情且会调侃）'
+      : '不在家/出差（正当空档：你敢放男主进门，且哥哥知情）';
+    if (type === 'phase') {
+      msg += '[INSTRUCTION] 哥哥的立场与在家状态（强制遵循·娱乐圈「队友的妹妹」设定）\n';
+      msg += '- 哥哥立场：' + (_bsMap[_bs] || _bsMap.consultant) + '。' + _bsInstr + '\n';
+      msg += '- 哥哥是否在家：' + _bhomeText + '\n';
+      msg += '- 设定铁律：哥哥是你最信任的参谋与掩护，你对他无话不谈。偷偷摸摸的张力来自公众/粉丝/公司/行业视线，而非自家客厅。哥哥若知情会调侃或掩护，绝不拆穿。\n';
+      msg += '- 参谋指令：女主向哥哥汇报进展/寻求意见时，哥哥按当前立场自然回应（建议/调侃/提醒"别被拍"），并可轻微影响男主情绪（哥哥支持→男主放松）。\n\n';
+    }
+  }
+
+  // IMP-21：队友的妹妹 深度增强包（A~H，reframe for brother-as-confidant；仅娱乐圈·哥哥设定）
+  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && type === 'phase') {
+    var _bhome2 = GS.brotherAtHome;
+    msg += '[INSTRUCTION] 队友的妹妹·独家戏（强制遵循·哥哥知情且是你参谋，reframe）\n';
+    // A 同住空间的哥哥存在感（喜剧/张力，非"被抓"）
+    msg += '- 哥哥的存在感（A）：同居空间里充满哥哥的物品（拖鞋/游戏机/合照），男主每次来都处在"哥哥的存在感"包围里——又紧张又好笑，是独家偷感来源，不是被抓的恐怖。\n';
+    // B 哥哥直男关心反差喜剧
+    msg += '- 哥哥的直男关心（B）：哥哥会当着男主面唠叨你（早点睡/别乱吃），男主就坐在旁边——荒诞反差既是甜点也是掩护。\n';
+    // C 当哥面的"演技"甜点（reframe 三人默契）
+    msg += '- 当哥面的"演技"（C）：哥哥在时男主叫你"妹妹"、关上门才敢抱你——但哥哥知情，这是三人默契喜剧，核心糖保留。\n';
+    // D 家庭层面独有场景（reframe 支持向）
+    msg += '- 家庭层面（D）：哥哥生日/家庭群/父母来电时，哥哥替你打掩护而非拆穿（"你哥说你最近怪怪的"→哥哥圆过去）。\n';
+    // E 伪装进出的"间谍片"细节（躲的是公众，非哥哥）
+    msg += '- 伪装进出（E）：男主走消防梯/戴全套装/车库进，怕的是邻居/狗仔/其他队员，不是哥哥。偷感来自公众视线。\n';
+    // F 哥哥临时改行程突发（reframe 喜剧）
+    msg += (_bhome2
+      ? '- 哥哥提前回（F）：若本段写哥哥突然回家，你慌张让男主躲（衣柜/阳台），哥哥发"我回来啦，你那位还在吗？"调侃——紧张变笑点，哥哥其实知情。\n'
+      : '- 哥哥不在（F 反向）：哥哥出差/录制时你敢放男主进门，这是正当空档，哥哥知情不反对。\n');
+    // G 已被 IMP-18 覆盖：BE 来自公众曝光翻车/关系失败，非哥哥发现
+    msg += '- 被发现（G，已定）：即便"被哥哥撞见"，他也是温情"我早知道"，绝不会成为 BE 来源；BE 只来自公众曝光翻车或关系本身失败。\n';
+    // H 手机/家庭群曝光（reframe 安全向）
+    msg += '- 手机/家庭群（H）：哥哥在家庭群发消息，因知情所以安全/喜剧；你回"哥别闹"即可化解，不必紧张。\n';
+    msg += '以上所有张力都来自"公众/粉丝/公司视线"与"三人默契喜剧"，哥哥永远是你的内应而非威胁。\n\n';
   }
 
   return msg;

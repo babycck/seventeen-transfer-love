@@ -1,4 +1,4 @@
-﻿import { STORAGE_KEY, SAVE_SIZE_WARN } from './data.js';
+﻿import { STORAGE_KEY, SAVE_SIZE_WARN, MISSION_CARDS } from './data.js';
 import { clearStoryCache } from './story-cache.js';
 import { showConfirmModal } from './modals/confirm-modal.js';
 
@@ -44,14 +44,28 @@ export function defaultGameState() {
     oneHeartSurprisePool: [],
     oneHeartRivalPool: [],
     oneHeartCelebrityPool: [],
-    oneHeartScandalPool: [],
+    oneHeartScandalPool: [], // 媒体风波事件缓存池（仅模板缓存，非曝光计数）
+    oneHeartScandalCount: 0, // IMP-18：玩家实际经历的公众曝光翻车次数（scandal 事件入队时 +1）
     oneHeartSickPool: [],
     oneHeartExJealousPool: [],
     oneHeartLateNightPool: [],
+    oneHeartRandomUsed: [], // IMP-05：随机事件用去重环形缓冲（存最近抽过的 id）
+    heroinePersona: { scores: {}, current: '' }, // IMP-09：女主人格画像（暗藏，由选项/自由输入推断）
+    oneHeartSchedule: null, // IMP-16：今日行程（娱乐圈世界观：{main,related,rival}）
+    oneHeartVisitLog: [], // IMP-16：探班记录 [{roleKey,day,task}]
+    oneHeartVisitLocked: '', // IMP-16：今日探班时间锁（已探成员 roleKey）
     oneHeartRivalAff: 0, // 情敌倾向值（被事件选项驱动：靠近情敌+、疏远情敌-）
     oneHeartRivalAffLog: [], // 情敌倾向值变化日志 [{round, change, reason, total}]
     oneHeartRivalStage: { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' },
     oneHeartRivalTriggeredActions: [],
+    oneHeartRomanceStage: 0, // IMP-19：感情进度阶段（0初识/1暧昧/2明确/3高潮），由回合数推进，门控激进/告白类行为
+    // IMP-17：哥哥＝信任圈内人（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
+    brotherStance: 'consultant', // 哥哥立场：consultant(默认参谋)/supportive(认可掩护)/testing(试探)/protective(提醒曝光风险)
+    oneHeartBrotherAff: 0, // 哥哥支持度数值（驱动 brotherStance 推导，范围 -100~100）
+    oneHeartBrotherLog: [], // 哥哥立场变化日志 [{round, change, reason, total}]
+    oneHeartBrotherPool: [], // 哥哥专属事件缓冲（参谋/掩护/调侃/考验，运行期填充）
+    brotherTestNudged: false, // IMP-17：本局「哥哥的考验」是否已触发（仅一次）
+    brotherAtHome: true, // 哥哥是否在家（由 IMP-16 行程派生；不在家=正当空档，可放男主进门且哥哥知情）
     _pendingEvents: [],
     _pendingEventResults: [],
     _usedEventScenarios: [],
@@ -146,6 +160,8 @@ export function defaultGameState() {
     endingChosenId: '',
     endingEpilogue: null,
     endingArchive: [],
+    oneHeartEnding: '', // IMP-18：1v1 结局类型（HE/NE/BE）
+    endingMeters: null, // IMP-18：结局判定仪表盘快照（brotherStance/rivalAff/scandal/affection/mood）
     prevSummary: '',
     prevRawText: '',
     pendingDatingResult: null,
@@ -250,6 +266,16 @@ export function defaultGameState() {
     affectionHistory: [],
     // [v22] 修罗场强度
     rivalryIntensity: 0,
+    // [v22] 修罗场高危态标记（BUG-04：仅在从 <2 人 >=60 跃迁到 >=2 人时 +1，避免稳态重复累加）
+    rivalryHighActive: false,
+    // IMP-10：脚踏两条船高风险期（同时与 >=2 人好感 >=50 且未公开时为 true）
+    secretDating: false,
+    // IMP-11：成员间关系网（A↔B 彼此好感/敌意，key=按 id 排序拼 '|'）
+    memberBond: {},
+    // IMP-12：抉择代价链（长线后果队列，{dueDay,type,text,triggered}）
+    futureConsequences: [],
+    // IMP-13：情绪状态链（某成员此刻心情，{state,cause,since,intensity}）
+    mood: {},
     // [v22] X幽灵事件
     xGhostEvent: null,
     // [v22] 记忆闪回已触发记录
@@ -320,7 +346,12 @@ export function migrateSave() {
       if (GS.theme === undefined) GS.theme = 'auto';
       if (GS.typewriterSpeed === undefined) GS.typewriterSpeed = 30;
       if (!Array.isArray(GS.affectionHistory)) GS.affectionHistory = [];
-      if (GS.rivalryIntensity === undefined) GS.rivalryIntensity = 0;
+    if (GS.rivalryIntensity === undefined) GS.rivalryIntensity = 0;
+    if (GS.rivalryHighActive === undefined) GS.rivalryHighActive = false;
+    if (GS.secretDating === undefined) GS.secretDating = false;
+    if (!GS.memberBond || typeof GS.memberBond !== 'object') GS.memberBond = {};
+    if (!Array.isArray(GS.futureConsequences)) GS.futureConsequences = [];
+    if (!GS.mood || typeof GS.mood !== 'object') GS.mood = {};
       if (GS.xGhostEvent === undefined) GS.xGhostEvent = null;
       if (!GS.flashbackShown) GS.flashbackShown = {};
     }
@@ -375,6 +406,16 @@ export function migrateSave() {
     if (!Array.isArray(GS.missionCardHistory)) GS.missionCardHistory = [];
     if (!Array.isArray(GS.missionCardUsedIds)) GS.missionCardUsedIds = [];
     if (GS.pendingTaskResult === undefined) GS.pendingTaskResult = null;
+    // 旧存档任务卡补全 type/inputLabel（按 id 从最新 MISSION_CARDS 补齐，避免 type 为 undefined 卡死）
+    if (GS.todayMissionCard && GS.todayMissionCard.id && GS.todayMissionCard.type === undefined) {
+      var _mRef = MISSION_CARDS.find(function(c) { return c.id === GS.todayMissionCard.id; });
+      if (_mRef) {
+        GS.todayMissionCard.type = _mRef.type;
+        if (_mRef.inputLabel !== undefined) GS.todayMissionCard.inputLabel = _mRef.inputLabel;
+      } else {
+        GS.todayMissionCard.type = 'action';
+      }
+    }
     if (!GS.drinkCounts) GS.drinkCounts = {}; // [P0-3]
     if (GS.truthState === undefined) GS.truthState = null; // [P0-3]
     if (!GS.affMilestoneShown) GS.affMilestoneShown = {}; // [P1-4]
@@ -434,6 +475,8 @@ export function migrateSave() {
     if (GS.endingChosenId === undefined) GS.endingChosenId = '';
     if (GS.endingEpilogue === undefined) GS.endingEpilogue = null;
     if (!GS.endingArchive) GS.endingArchive = [];
+    if (GS.oneHeartEnding === undefined) GS.oneHeartEnding = '';
+    if (GS.endingMeters === undefined) GS.endingMeters = null;
     GS._isGenerating = false;
     GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
     // [diary] 日记系统
@@ -493,7 +536,23 @@ export function migrateSave() {
     // 情敌阶段追踪与去重
     if (!GS.oneHeartRivalStage) GS.oneHeartRivalStage = { stage: 0, stageStartGenCount: 0, eventTriggered: false, lastDirection: '' };
     if (!Array.isArray(GS.oneHeartRivalTriggeredActions)) GS.oneHeartRivalTriggeredActions = [];
+    if (GS.oneHeartRomanceStage === undefined) GS.oneHeartRomanceStage = 0;
     if (!Array.isArray(GS.oneHeartEventLog)) GS.oneHeartEventLog = [];
+    if (!Array.isArray(GS.oneHeartRandomUsed)) GS.oneHeartRandomUsed = [];
+    if (GS.oneHeartSchedule === undefined) GS.oneHeartSchedule = null;
+    if (!Array.isArray(GS.oneHeartVisitLog)) GS.oneHeartVisitLog = [];
+    if (GS.oneHeartVisitLocked === undefined) GS.oneHeartVisitLocked = '';
+    // IMP-17：哥哥立场相关兜底
+    if (GS.brotherStance === undefined || !GS.brotherStance) GS.brotherStance = 'consultant';
+    if (GS.oneHeartBrotherAff === undefined) GS.oneHeartBrotherAff = 0;
+    if (!Array.isArray(GS.oneHeartBrotherLog)) GS.oneHeartBrotherLog = [];
+    if (!Array.isArray(GS.oneHeartBrotherPool)) GS.oneHeartBrotherPool = [];
+    if (GS.brotherTestNudged === undefined) GS.brotherTestNudged = false;
+    if (GS.oneHeartScandalCount === undefined) GS.oneHeartScandalCount = 0;
+    if (GS.brotherAtHome === undefined) GS.brotherAtHome = true;
+    if (!GS.heroinePersona || typeof GS.heroinePersona !== 'object') GS.heroinePersona = { scores: {}, current: '' };
+    if (!GS.heroinePersona.scores) GS.heroinePersona.scores = {};
+    if (!GS.heroinePersona.current && GS.heroinePersona.current !== '') GS.heroinePersona.current = '';
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
     // 约会礼物池与去重缓存
@@ -509,6 +568,14 @@ export function migrateSave() {
       scheduler: false
     };
     saveGame();
+  }
+  // BUG-16: 字段兜底移出版本判断——即使 v22 存档缺新字段也补回默认值，
+  // 避免运行期读取 undefined 崩溃（旧逻辑全部在 version!=='v22' 分支内，v22 存档缺字段不补）。
+  var _defState = defaultGameState();
+  for (var _dk in _defState) {
+    if (Object.prototype.hasOwnProperty.call(_defState, _dk) && GS[_dk] === undefined) {
+      GS[_dk] = _defState[_dk];
+    }
   }
 }
 

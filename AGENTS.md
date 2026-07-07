@@ -188,7 +188,7 @@ src/
 
 ### 4.5 随机事件（RANDOM_EVENTS）
 - 每天 15% 触发率，由 `evaluateCond(condition, GS)` 判断条件
-- 条件表达式只支持 `==` 和 `>=` 运算，不支持 `||`（需拆分为多个独立事件）
+- 条件表达式支持运算符：`==`、`>=`、`<=`、`>`、`<`，以及多条件拼接 `&&`（不支持 `||`，需拆分为多个独立事件）。字段名：day / phase / season / weather / affection（取英雄好感，恒 0 已废弃语义）/ drinkCount（女主饮酒数）/ memberDrinkCount（在场成员最大饮酒数）。
 - `re_2` 已拆分为 `re_2_summer` / `re_2_winter`
 
 ### 4.6 任务卡（Mission Card）

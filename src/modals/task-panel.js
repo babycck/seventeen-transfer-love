@@ -2,7 +2,7 @@ import { GS } from '../state.js';
 import { MEMBERS } from '../data.js';
 import { escHtml, showToast } from '../utils.js';
 import { showConfirmModal } from './confirm-modal.js';
-import { completeTaskInput, completeMissionCard } from '../game-engine.js';
+import { completeTaskInput, completeMissionCard, doActionTask } from '../game-engine.js';
 import { completeSecretMission } from '../parser.js';
 
 // 统一任务面板：任务卡 + 秘密任务
@@ -54,7 +54,7 @@ export function showTaskPanel() {
   if (taskDoBtn) {
     taskDoBtn.addEventListener('click', function() {
       overlay.remove();
-      if (window.doActionTask) window.doActionTask();
+      doActionTask();
     });
   }
 

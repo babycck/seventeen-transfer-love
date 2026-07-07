@@ -11,9 +11,10 @@ import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validate
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped, compressOneHeartYesterday, dedupeEventLog } from './memory.js';
 import { rollDatingDice, pickDatingLocation } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt, buildOneHeartEventStorySystemPrompt } from './prompts.js';
-import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency } from './affection.js';
+import { ENT_SCHEDULE_POOL } from './worlds/entertainment.js';
+import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency, AFFECTION_MIN } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo } from './promises.js';
-import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS } from './data.js';
+import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS, ONE_HEART_ENDING_TEMPLATES } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
 import { generateMessage } from './modals/message-modal.js';
@@ -24,7 +25,8 @@ import { checkMissionInteract, shouldTriggerSecretMission } from './utils.js';
 // 骨架模块（Phase 4 渐进式接管）
 import { settlePendingAffChanges as skeletonSettleAff } from './skeleton/affection-engine.js';
 import { applyDrinksFromParsed as skeletonApplyDrinks } from './skeleton/drink-engine.js';
-import { checkExMessageTrigger as skeletonCheckExMsg, handleExMessageChoice as skeletonHandleExMsg, checkJealousyMissionTrigger as skeletonJealMission, checkJealousyEvent as skeletonJealEvent } from './skeleton/event-triggers.js';
+import { checkExMessageTrigger as skeletonCheckExMsg, handleExMessageChoice as skeletonHandleExMsg, checkJealousyMissionTrigger as skeletonJealMission, checkJealousyEvent as skeletonJealEvent, updateSecretDating as skeletonUpdateSecretDating } from './skeleton/event-triggers.js';
+import { setMood as skeletonSetMood, driftMood as skeletonDriftMood, decayMoodDaily as skeletonDecayMoodDaily } from './skeleton/mood-engine.js';
 import { generateOptions as skeletonGenOptions, getFallbackOptions as skeletonGetFallbackOpts } from './skeleton/option-engine.js';
 // 模态弹窗（Phase 5 模块化）
 import { showDatingDiceModal as modalDatingDice } from './modals/dating-dice.js';
@@ -344,6 +346,7 @@ export function applyDrinksFromParsed(parsed) {
 // [改造] 统一应用 parsed 的副作用：drinks 累加 + 秘密任务完成
 export function applyParsedSideEffects(parsed) {
   applyDrinksFromParsed(parsed);
+  skeletonUpdateSecretDating(); // IMP-10：副作用结算后刷新脚踏两条船高风险状态
 }
 
 // [P0-3] Day 11 深夜醉酒剧情生成
@@ -457,7 +460,12 @@ export async function generateDrunkNarrative() {
     applyParsedSideEffects(GS.parsedNarrative);
     var corrections = validateNarrative(rawText, GS.parsedNarrative);
     pushCorrections(corrections);
-    GS.currentOptions = GS.parsedNarrative.options;
+    var drunkOpts = GS.parsedNarrative.options || [];
+    // BUG-06: 保证醉酒流程始终存在"进入深夜"出口，避免选项不命中关键词时卡死
+    if (!drunkOpts.some(function(o) { return o && o.text && o.text.indexOf('进入深夜') >= 0; })) {
+      drunkOpts = drunkOpts.concat([{ label: '▶', text: '▶ 进入深夜' }]);
+    }
+    GS.currentOptions = drunkOpts;
     GS.consequenceNarratives = [];
     GS.isInConsequence = false;
     GS.phaseOptionCount = 0;
@@ -485,7 +493,12 @@ export async function generateDrunkConsequence(choiceText, memberId) {
     var corrections = validateNarrative(rawText, parsed);
     pushCorrections(corrections);
     dispatch({ type: 'PUSH_CONSEQUENCE', rawText: rawText, parsed: parsed, choiceText: choiceText });
-    GS.currentOptions = parsed.options;
+    var drunkOpts2 = parsed.options || [];
+    // BUG-06: 保证醉酒后续始终存在"进入深夜"出口，避免选项不命中关键词时卡死
+    if (!drunkOpts2.some(function(o) { return o && o.text && o.text.indexOf('进入深夜') >= 0; })) {
+      drunkOpts2 = drunkOpts2.concat([{ label: '▶', text: '▶ 进入深夜' }]);
+    }
+    GS.currentOptions = drunkOpts2;
     dispatch({ type: 'PUSH_TODAY_TEXT', text:rawText });
     saveGame();
     if (window.__renderAll) window.__renderAll();
@@ -695,11 +708,11 @@ export async function handleOptionChoice(opt) {
       await generateDrunkConsequence(opt.text, GS.secretX);
       return;
     }
-    // X醉酒或攻略对象醉酒：直接生成后续
-    if (GS.drunkTrigger !== 'heroine') {
-      await generateDrunkConsequence(opt.text, GS.drunkTrigger);
-      return;
-    }
+    // BUG-06: 未命中上述关键词的醉酒选项（含女主醉酒的其他选择）统一走醉酒后续，
+    // 避免落入普通 consequence 分支后无"进入深夜"入口而卡死
+    var drunkTarget = (GS.drunkTrigger === 'heroine') ? null : GS.drunkTrigger;
+    await generateDrunkConsequence(opt.text, drunkTarget);
+    return;
   }
 
   // Day 7 匿名提问箱选项处理
@@ -746,6 +759,14 @@ export async function handleOptionChoice(opt) {
     // 好感度快照（用于后续的 auto Toast 比对）
     GS._affSnapshot = JSON.parse(JSON.stringify(GS.affection));
     triggerAffectionFromChoice(opt.text, opt);
+    // BUG-08: 结算风险选项扣分（选项自带 riskMember/riskDelta，此前被丢弃）
+    if (opt && opt.riskMember && opt.riskDelta) {
+      var riskMem = MEMBERS.find(function(m) { return m.name === opt.riskMember; });
+      if (riskMem && GS.selectedMembers.indexOf(riskMem.id) >= 0) {
+        updateAffection(riskMem.id, opt.riskDelta);
+        addAffectionLog(riskMem.id, opt.riskDelta, '风险选项后果：' + (opt.affReason || '风险选择'));
+      }
+    }
     checkJealousyEvent(opt.text);
     checkMissionInteract(opt.text);
     // 应用 pendingJealousy 好感度变化并清除
@@ -970,6 +991,7 @@ export async function handleFreeAction(actionText) {
   GS._isGenerating = true;
   showLoading('正在扩写你的剧情...');
   try {
+    updateHeroinePersona(actionText); // IMP-09：自由输入也计入人格推断
     await compressTodayForInjection();
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
@@ -1051,7 +1073,41 @@ export function handleExMessageChoice(choice) {
   return skeletonHandleExMsg(choice);
 }
 
+// IMP-09：女主人格画像——由选项文本/自由输入关键词推断，暗藏积累，无额外 AI 成本
+var PERSONA_KEYWORDS = {
+  sajiao: ['撒娇', '抱抱', '蹭', '赖', '依靠', '求你', '委屈', '央求', '耍赖', '黏', '赖着', '撒个娇'],
+  duli: ['自己', '独立', '不靠', '我行我素', '我来', '我决定', '靠自己', '不用你', '自己来', '我自己'],
+  liaobo: ['撩', '挑逗', '故意', '靠近', '眼神', '调戏', '逗他', '撩拨', '撩他', '暧昧地', '勾引', '撩了一下'],
+  chidun: ['没注意', '迟钝', '没反应', '愣', '没懂', '发呆', '愣住', '没察觉', '后知后觉', '没意识', '没发现']
+};
+var PERSONA_LABELS = { sajiao: '撒娇型', duli: '独立型', liaobo: '撩拨型', chidun: '迟钝型' };
+
+export function updateHeroinePersona(text) {
+  if (!text) return;
+  if (!GS.heroinePersona) GS.heroinePersona = { scores: {}, current: '' };
+  if (!GS.heroinePersona.scores) GS.heroinePersona.scores = {};
+  var scores = GS.heroinePersona.scores;
+  for (var key in PERSONA_KEYWORDS) {
+    if (!PERSONA_KEYWORDS.hasOwnProperty(key)) continue;
+    var kws = PERSONA_KEYWORDS[key];
+    for (var i = 0; i < kws.length; i++) {
+      if (text.indexOf(kws[i]) >= 0) {
+        scores[key] = (scores[key] || 0) + 1;
+        break; // 同一人格关键词每句最多 +1，避免长文本刷分
+      }
+    }
+  }
+  var bestKey = '';
+  var bestVal = 0;
+  for (var k in scores) {
+    if (scores[k] > bestVal) { bestVal = scores[k]; bestKey = k; }
+  }
+  GS.heroinePersona.current = bestKey ? (PERSONA_LABELS[bestKey] || '') : '';
+  saveGame();
+}
+
 export function triggerAffectionFromChoice(choiceText, opt) {
+  updateHeroinePersona(choiceText);
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
@@ -1070,6 +1126,7 @@ export function triggerAffectionFromChoice(choiceText, opt) {
       for (var j = 0; j < otherMembers.length; j++) {
         updateAffection(otherMembers[j].id, -1);
         addAffectionLog(otherMembers[j].id, -1, '未选中');
+        skeletonDriftMood(otherMembers[j].id, 'jealous', '这一轮没被你选中', 1); // IMP-13
       }
       return;
     }
@@ -1101,7 +1158,10 @@ export function triggerAffectionFromChoice(choiceText, opt) {
         for (var j2 = 0; j2 < otherMembers2.length; j2++) {
           updateAffection(otherMembers2[j2].id, -1);
           addAffectionLog(otherMembers2[j2].id, -1, '未选中');
+          skeletonDriftMood(otherMembers2[j2].id, 'jealous', '这一轮没被你选中', 1); // IMP-13
         }
+        // BUG-03: 即时消费后从 pending 移除，避免下一段 settlePendingAffChanges 重复结算同一笔
+        GS.pendingAffChanges.shift();
         return;
       }
     }
@@ -1119,6 +1179,7 @@ export function triggerAffectionFromChoice(choiceText, opt) {
   for (var j = 0; j < otherMembers.length; j++) {
     updateAffection(otherMembers[j].id, -1);
     addAffectionLog(otherMembers[j].id, -1, '未选中');
+    skeletonDriftMood(otherMembers[j].id, 'jealous', '这一轮没被你选中', 1); // IMP-13
   }
 }
 
@@ -1154,11 +1215,10 @@ export function applyOneHeartOptionAffection(opt) {
   }
   // 负向扣分不受影响
 
-  // 调用 updateAffection（含飘字+里程碑解锁）
+  // 调用 updateAffection（含飘字+里程碑解锁，内部已按 AFFECTION_MIN/MAX 统一 clamp）
   updateAffection(mid, finalDelta);
 
-  // 正主下限 -20 保护
-  if (GS.affection[mid] < -20) GS.affection[mid] = -20;
+  // [BUG-13] 不再二次 clamp：1v1 与 transfer 共用 updateAffection 的单一下限（AFFECTION_MIN），消除双标
 
   // 记录日志
   addAffectionLog(mid, finalDelta, opt.affReason || '你选择了某个行动' + (finalDelta !== affDelta ? '（防通胀调整：原' + affDelta + '）' : ''));
@@ -1388,6 +1448,7 @@ export async function proceedToNextDay() {
   GS.xGhostEvent = null;
   skeletonUpdateObserver();
   skeletonAdvanceDate();
+  skeletonDecayMoodDaily(); // IMP-13：进入新一天，情绪强度自然衰减
   // 好感度快照（用于结局折线图）
   if (!Array.isArray(GS.affectionHistory)) GS.affectionHistory = [];
   GS.affectionHistory.push({
@@ -1703,33 +1764,9 @@ export function showReturnGiftModal(member, gift) {
   });
 }
 
-// ==================== 任务卡弹窗 ====================
-export function showMissionCardModal(card) {
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = '<div class="modal-content" style="text-align:center;border:2px solid #c62828">' +
-    '<button class="modal-close-x" id="missionCardClose" style="color:#fff">✕</button>' +
-    '<div style="background:#c62828;color:#fff;padding:16px;border-radius:10px 10px 0 0;margin:-16px -16px 16px -16px">' +
-    '<p style="font-size:11px;letter-spacing:2px;opacity:0.8">制作组任务卡</p>' +
-    '<p style="font-size:18px;font-weight:700;margin-top:4px">' + escHtml(card.name) + '</p>' +
-    '</div>' +
-    '<div style="background:#fce4ec;border-radius:12px;padding:16px;margin:12px 0;border-left:4px solid #c62828">' +
-    '<p style="font-size:14px;color:#5d3a3a;line-height:1.6">' + escHtml(card.desc) + '</p>' +
-    '</div>' +
-    '<button id="missionCardAck" style="background:#c62828;color:#fff;padding:10px 32px;border:none;border-radius:8px;font-size:14px;cursor:pointer">确认接收</button></div>';
-  document.body.appendChild(overlay);
-  overlay.querySelector('#missionCardClose').addEventListener('click', function(e) {
-    e.preventDefault(); e.stopPropagation(); overlay.remove();
-  });
-  overlay.querySelector('#missionCardAck').addEventListener('click', function(e) {
-    e.preventDefault(); e.stopPropagation(); overlay.remove();
-  });
-  overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); }
-  });
-}
-
 // ==================== 任务卡交互（统一任务面板） ====================
+// 注：原 showMissionCardModal 为死代码（无调用点、modals.js 未导出），已删除；
+// 任务卡现通过 proceedToNextDay 的 toast 通知 + 统一任务面板（doActionTask / doInputTask）承接。
 
 // 行动类任务：点击"做任务"立即生成一段任务执行剧情
 export async function doActionTask() {
@@ -1822,6 +1859,207 @@ export function completeMissionCard() {
 
 // ==================== 1v1「只为你心动」模式 ====================
 
+// IMP-05：1v1 随机事件抽取——按关系阶段从对应分组抽 + 去重环形缓冲
+function getOneHeartRelationshipStage(aff) {
+  if (aff >= 60) return 'deep';
+  if (aff >= 40) return 'love';
+  if (aff >= 20) return 'crush';
+  return 'early';
+}
+
+function pickOneHeartRandomEvent() {
+  var aff = GS.affection[GS.oneHeartMember] || 0;
+  var stage = getOneHeartRelationshipStage(aff);
+  // 分组索引区间（与 data.js ONE_HEART_RANDOM_EVENTS 注释分组一一对应）
+  var ranges = {
+    early: [[0, 22]],                 // 暧昧升温（轻量初识）
+    crush: [[0, 38]],                 // 暧昧升温 + 日常甜暖
+    love:  [[22, 51]],                // 日常甜暖 + 情感冲击
+    deep:  [[38, 60]]                 // 情感冲击 + 戏剧冲突
+  }[stage];
+  var pool = [];
+  for (var r = 0; r < ranges.length; r++) {
+    for (var i = ranges[r][0]; i < ranges[r][1]; i++) {
+      if (ONE_HEART_RANDOM_EVENTS[i]) pool.push(ONE_HEART_RANDOM_EVENTS[i]);
+    }
+  }
+  // 去重环形缓冲：抽过的近期（最近 10 个）不再抽，避免长线游玩明显重复
+  if (!Array.isArray(GS.oneHeartRandomUsed)) GS.oneHeartRandomUsed = [];
+  var avail = pool.filter(function(e) { return GS.oneHeartRandomUsed.indexOf(e.id) < 0; });
+  if (avail.length === 0) {
+    // 池内全部抽过 → 重置缓冲，重新从全池抽
+    GS.oneHeartRandomUsed = [];
+    avail = pool.slice();
+  }
+  var picked = avail[Math.floor(Math.random() * avail.length)];
+  GS.oneHeartRandomUsed.push(picked.id);
+  if (GS.oneHeartRandomUsed.length > 10) GS.oneHeartRandomUsed.shift();
+  return picked;
+}
+
+// IMP-17：哥哥支持度更新（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
+// 立场由数值 oneHeartBrotherAff 单一推导：>=30 supportive / 0~30 consultant / -30~0 testing / <-30 protective
+export function updateBrotherStance(delta, reason) {
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
+  if (!GS.oneHeartBrotherAff) GS.oneHeartBrotherAff = 0;
+  var before = GS.oneHeartBrotherAff;
+  var after = Math.max(-100, Math.min(100, before + (delta || 0)));
+  GS.oneHeartBrotherAff = after;
+  GS.brotherStance = after >= 30 ? 'supportive' : (after >= 0 ? 'consultant' : (after >= -30 ? 'testing' : 'protective'));
+  if (!GS.oneHeartBrotherLog) GS.oneHeartBrotherLog = [];
+  GS.oneHeartBrotherLog.push({ round: GS.oneHeartGenCount || 0, change: delta || 0, reason: reason || '', total: after });
+  if (delta && delta !== 0 && typeof showToast === 'function') {
+    var _sign = delta > 0 ? '+' : '';
+    var _label = delta > 0 ? '🤝 哥哥更信任你了 ' : '⚠️ 哥哥有些顾虑 ';
+    showToast(_label + _sign + delta);
+  }
+  saveGame();
+}
+
+// IMP-18：1v1 结局判定（聚合既有仪表盘，不新增独立数值）
+// 输入：brotherStance(IMP-17) / oneHeartRivalAff(情敌倾向) / GS.mood(IMP-13) / oneHeartScandalPool(曝光) / affection(男主好感)
+export function evaluateEnding() {
+  var aff = GS.affection[GS.oneHeartMember] || 0;
+  var brother = GS.brotherStance || 'consultant';
+  var rival = GS.oneHeartRivalAff || 0; // >0 女主偏向情敌；<0 情敌线翻车（对正主有利）
+  // IMP-18[fix]：scandal 应为「玩家实际经历的公众曝光翻车次数」，而非事件缓存池长度（池只增不减且语义为模板缓存）。
+  // 优先取 oneHeartScandalCount（事件成功入队时 +1）；旧存档无此字段时回退兼容 oneHeartScandalPool 长度。
+  var scandal = (GS.oneHeartScandalCount || 0) || ((GS.oneHeartScandalPool && GS.oneHeartScandalPool.length) || 0);
+  // 男主情绪基调（IMP-13）：愤怒/冷淡最差，开心/感动最好
+  var moodVal = 0;
+  if (GS.mood && GS.oneHeartMember && GS.mood[GS.oneHeartMember]) {
+    var _ms = GS.mood[GS.oneHeartMember].state;
+    if (_ms === 'angry' || _ms === 'cold') moodVal = -2;
+    else if (_ms === 'jealous') moodVal = -1;
+    else if (_ms === 'happy' || _ms === 'moved' || _ms === 'touched') moodVal = 1;
+  }
+  var meters = { affection: aff, brotherStance: brother, rivalAff: rival, scandal: scandal, moodValue: moodVal };
+  // 评分（越高越可能 HE）
+  var score = 0;
+  score += Math.max(-30, Math.min(40, aff - 40)); // 好感 40→0，80→40
+  if (brother === 'supportive') score += 20;
+  else if (brother === 'consultant') score += 8;
+  else if (brother === 'protective') score += 4; // 提醒曝光但不反对
+  // testing 不加不减
+  if (rival > 0) score -= rival * 0.5; // 偏向情敌→扣分
+  else score += Math.min(10, -rival * 0.3); // 情敌翻车→略加分
+  score -= scandal * 5; // 曝光翻车重罚
+  score += moodVal * 5;
+  var type;
+  if (scandal >= 3 || rival >= 50 || aff < 20) type = 'BE';
+  else if (score >= 35 && aff >= 60 && brother === 'supportive') type = 'HE';
+  else if (score <= 0) type = 'BE';
+  else type = 'NE';
+  return { endingType: type, meters: meters, score: Math.round(score) };
+}
+
+// IMP-18：rollEnding（同档内轻随机，仅影响文案语气，不改变档位结论）
+export function rollEnding() {
+  var res = evaluateEnding();
+  // 轻微随机扰动评分展示，但档位已由 evaluateEnding 锁定
+  return res;
+}
+
+// IMP-19：感情进度阶段推进（由回合数驱动，门控激进/告白类行为）
+// 0 初识(round<4) / 1 暧昧(4-7) / 2 明确(8-11) / 3 高潮(>=12)
+export function updateOneHeartRomanceStage() {
+  if (GS.gameMode !== 'oneHeart') return;
+  var _gc = GS.oneHeartGenCount || 0;
+  var _stage = 0;
+  if (_gc >= 12) _stage = 3;
+  else if (_gc >= 8) _stage = 2;
+  else if (_gc >= 4) _stage = 1;
+  else _stage = 0;
+  if (GS.oneHeartRomanceStage !== _stage) {
+    GS.oneHeartRomanceStage = _stage;
+    saveGame();
+  }
+}
+
+// IMP-16：生成娱乐圈今日行程（三人窗口错开，逼选其一）
+export function generateOneHeartSchedule() {
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if (!ENT_SCHEDULE_POOL || !ENT_SCHEDULE_POOL.length) return;
+  var roles = [
+    { key: 'main', id: GS.oneHeartMember },
+    { key: 'related', id: (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.memberId) || '' },
+    { key: 'rival', id: (GS.oneHeartRival && GS.oneHeartRival.memberId) || '' }
+  ];
+  var timeSlots = ['上午', '午后', '傍晚', '深夜'];
+  var usedTasks = {};
+  var schedule = {};
+  for (var i = 0; i < roles.length; i++) {
+    var r = roles[i];
+    if (!r.id) { schedule[r.key] = null; continue; }
+    var pick = null;
+    var tries = 0;
+    while (tries < 20) {
+      var cand = ENT_SCHEDULE_POOL[Math.floor(Math.random() * ENT_SCHEDULE_POOL.length)];
+      if (!usedTasks[cand.id]) { pick = cand; break; }
+      tries++;
+    }
+    if (!pick) pick = ENT_SCHEDULE_POOL[Math.floor(Math.random() * ENT_SCHEDULE_POOL.length)];
+    usedTasks[pick.id] = true;
+    schedule[r.key] = {
+      roleKey: r.key,
+      memberId: r.id,
+      timeOfDay: timeSlots[i % timeSlots.length],
+      task: pick.task,
+      place: pick.place,
+      cat: pick.cat,
+      visited: false,
+      visitWindow: Math.random() > 0.3
+    };
+    // IMP-17：哥哥（related）若当天是"行程"类（海外/品牌公开活动）则不在家=正当空档
+    if (r.key === 'related') {
+      schedule[r.key].away = (pick.cat === '行程');
+    }
+  }
+  // IMP-17：由哥哥（related）行程派生「是否在家」——仅队友的妹妹设定有意义
+  if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    var _relSch = schedule.related;
+    GS.brotherAtHome = !(_relSch && _relSch.away);
+  } else {
+    GS.brotherAtHome = true;
+  }
+  GS.oneHeartSchedule = schedule;
+  saveGame();
+}
+
+// IMP-16：探班——锁定到某位成员的工作时段，生成 visitSet 场景
+export async function doVisitMember(roleKey) {
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  var sch = GS.oneHeartSchedule && GS.oneHeartSchedule[roleKey];
+  if (!sch) { showToast('⚠️ 该成员今日无公开行程'); return; }
+  // IMP-16[fix]：同日时间锁防御——今天的时间已给某位成员则不能再探其他人（UI 灰化外的函数层兜底）
+  if (GS.oneHeartVisitLocked && GS.oneHeartVisitLocked !== roleKey) {
+    var _lv = MEMBERS.find(function(m) { return m.id === ((GS.oneHeartSchedule[GS.oneHeartVisitLocked] || {}).memberId); });
+    showToast('⚠️ 今天的时间已给了' + (_lv ? _lv.name : '他') + '，先进入新的一天吧');
+    return;
+  }
+  if (sch.visited) {
+    var _vn = MEMBERS.find(function(m) { return m.id === sch.memberId; });
+    showToast('⚠️ 今日已探过 ' + (_vn ? _vn.name : '他'));
+    return;
+  }
+  var vname = (MEMBERS.find(function(m) { return m.id === sch.memberId; }) || {}).name || '他';
+  GS.pendingChoiceText = '🎬 探班·' + vname + '（' + sch.task + '）';
+  GS.oneHeartTimeOfDay = sch.timeOfDay;
+  GS.oneHeartVisitLocked = roleKey; // 时间锁：今天把时间给了谁就是谁
+  sch.visited = true;
+  if (!GS.oneHeartVisitLog) GS.oneHeartVisitLog = [];
+  GS.oneHeartVisitLog.push({ roleKey: roleKey, day: GS.day, task: sch.task });
+  // IMP-17：探哥哥（related，且为「队友的妹妹」设定）强化兄妹信任，推高 brotherStance
+  if (roleKey === 'related' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    updateBrotherStance(3, '探班哥哥，兄妹更亲近');
+  }
+  saveGame();
+  if (window.__renderAll) window.__renderAll();
+  await generateOneHeartRound({ isVisit: true, visitRoleKey: roleKey });
+  if (window.__renderAll) window.__renderAll();
+}
+
 export async function generateOneHeartRound(extra) {
   extra = extra || {};
   if (GS._isGenerating) { console.log('[1v1] skip reentrant'); return; }
@@ -1845,25 +2083,45 @@ export async function generateOneHeartRound(extra) {
       }
       // 更新今天起点索引，下次"新的一天"只压缩新一天的内容
       GS.oneHeartLastDayStartIdx = GS.todayFullText.length;
+      // IMP-16：新的一天生成娱乐圈行程（仅娱乐圈世界观）
+      generateOneHeartSchedule();
+    }
+    var _endType = '';
+    var _endRes = null;
+    if (extra.isEnding) {
+      _endRes = rollEnding();
+      _endType = _endRes.endingType;
+      GS.oneHeartEnding = _endType;
+      GS.endingMeters = _endRes.meters;
     }
     var sysMsg = buildOneHeartSystemPrompt();
-    // 如果是走向结局，注入结局指令
+    // 如果是走向结局，注入结局指令（按档位定调）
     if (extra.isEnding) {
-      sysMsg += '\n\n[指令] 这是故事的最后一幕。请根据已有的故事发展和主线方向，生成一个完整的结局场景，给这段关系一个收尾。情感要饱满，有始有终。结局可以是温暖的、遗憾的、开放式的——但必须是完整的。';
+      var _et = ONE_HEART_ENDING_TEMPLATES[_endType] || ONE_HEART_ENDING_TEMPLATES.NE;
+      sysMsg += '\n\n[指令] 这是故事的最后一幕，必须是一个完整的结局场景。本局判定的结局基调为【' + _et.label + '】：' + _et.desc + '。写作语气：' + _et.tone + '给这段关系一个收尾，情感饱满、有始有终。';
     }
     // 如果是自由推演，注入自动推演指令
     if (extra.isFreeDeduction) {
       sysMsg += '\n\n[指令] 自由推演模式——请根据女主的性格、当前剧情发展，自然地推进故事。不需要特定方向，让故事跟随角色性格自然流动。';
     }
-    // 如果是随机事件，从 1v1 专属池中随机选取
+    // 如果是随机事件，按当前关系阶段从对应分组抽（IMP-05：阶段匹配 + 去重缓冲）
     if (extra.isRandom) {
-      var pool = ONE_HEART_RANDOM_EVENTS;
-      var picked = pool[Math.floor(Math.random() * pool.length)];
+      var picked = pickOneHeartRandomEvent();
       if (picked) {
         sysMsg += '\n\n[随机事件] 请触发以下剧情——根据当前世界观自然改编场景和人物互动方式，但保留核心情感互动：\n"' + picked.desc + '"';
       }
     }
-    var userMsg = buildOneHeartUserMessage('phase');
+    var userMsg = buildOneHeartUserMessage(extra.isEnding ? 'ending' : 'phase', { endingType: _endType });
+
+    // IMP-17 ⑦ 中点「哥哥的考验」：中局哥哥把男主单独叫去"谈谈"试探诚意（仅队友的妹妹设定）
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+      if ((GS.oneHeartGenCount || 0) >= 15 && !GS.brotherTestNudged) {
+        userMsg += '[角色出场] 中局，哥哥把男主单独叫去"谈谈"——他想试探男主是否真心对你好（哥哥是参谋/掩护，不是反对者）。请自然写出这段试探、男主的紧张反应、以及你（女主）在旁的微妙心情。哥哥的立场会因此次互动而微妙变化。\n\n';
+        updateBrotherStance(2, '中局哥哥"谈谈"，更认可男主');
+        GS.brotherTestNudged = true;
+        saveGame();
+      }
+    }
 
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.useSeparateApi ? (GS.mainApiProvider || GS.apiProvider) : GS.apiProvider });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
@@ -1999,6 +2257,8 @@ export async function generateOneHeartRound(extra) {
     // 1v1 回合计数（回礼/冷战/聊天回合判断依赖；旧异步压缩逻辑已移除，事件条目改为每篇剧情生成时 AI 顺带返回）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
       GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
+      // IMP-19：感情进度阶段推进（门控激进/告白类行为）
+      updateOneHeartRomanceStage();
     }
 
     // 1v1 冷战检测 + 好感度阶段解锁 + 约会日检测
@@ -2108,8 +2368,19 @@ export async function generateOneHeartRound(extra) {
     // 如果是走向结局，生成后结束游戏
     if (extra.isEnding) {
       GS.gameOver = true;
-      GS.finalChoice = GS.oneHeartMainLine || '与大结局';
+      var _etLabel = (ONE_HEART_ENDING_TEMPLATES[GS.oneHeartEnding] || {}).label || '结局';
+      GS.finalChoice = (_etLabel ? '【' + _etLabel + '】' : '') + (GS.oneHeartMainLine || '大结局');
       GS.finalResult = parsed.narrative;
+      // 结局图鉴存档
+      if (!GS.endingArchive) GS.endingArchive = [];
+      var _affSnap = {};
+      _affSnap[GS.oneHeartMember] = GS.affection[GS.oneHeartMember] || 0;
+      GS.endingArchive.push({
+        endingType: GS.oneHeartEnding,
+        finalChoice: GS.finalChoice,
+        affections: _affSnap,
+        date: (GS.currentDate ? (GS.currentDate.month + '月' + GS.currentDate.day + '日') : '')
+      });
       saveGame();
     }
   } catch (e) {
@@ -2228,6 +2499,10 @@ async function pickSmallEvent(key, hardcodeArr) {
   if (scenario) {
     GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
     GS._pendingEvents.push({ type: cfg.type, scenario: scenario, options: opts });
+    // IMP-18[fix]：scandal 事件实际入队时累加曝光次数（= 玩家经历的公众翻车次数）
+    if (cfg.type === 'scandal') {
+      GS.oneHeartScandalCount = (GS.oneHeartScandalCount || 0) + 1;
+    }
   }
 }
 

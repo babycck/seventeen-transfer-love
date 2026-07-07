@@ -68,7 +68,9 @@ export function evaluateCond(cond, day, phase, season, weather, affections) {
       var sp = part.split('==');
       result = resolveValue(sp[0].trim(), day, phase, season, weather, affections) === sp[1].trim().replace(/^['"]|['"]$/g, '');
     } else {
-      result = true;
+      // BUG-18: 未知字段/无运算符匹配，原静默 result=true 会掩盖条件笔误；改为 fail-closed 并按不满足处理 + 告警
+      console.warn('[evaluateCond] 未知条件字段或格式（已按"不满足"处理）: ' + part);
+      result = false;
     }
     if (!result) return false;
   }
@@ -77,11 +79,25 @@ export function evaluateCond(cond, day, phase, season, weather, affections) {
 
 function resolveValue(name, day, phase, season, weather, affections) {
   if (name === 'day') return day;
-  if (name === 'phase') return phase;
+  if (name === 'phase') {
+    // BUG-20: 调用方可能传数字索引（phaseIndex）而非时段字符串，做映射避免静默失效
+    if (typeof phase === 'number' && PHASES && PHASES[phase]) return PHASES[phase];
+    return phase;
+  }
   if (name === 'season') return season;
   if (name === 'weather') return weather;
   if (name === 'affection') return affections['heroine'] || 0;
   if (name === 'drinkCount') return (GS.drinkCounts && GS.drinkCounts['heroine']) || 0;
+  // BUG-10: 成员最大饮酒数（re_13 文案写"某成员喝到微醺"，原 drinkCount 只取女主，语义错位）
+  if (name === 'memberDrinkCount') {
+    if (!GS.selectedMembers || !GS.drinkCounts) return 0;
+    var maxD = 0;
+    for (var di = 0; di < GS.selectedMembers.length; di++) {
+      var dmc = GS.drinkCounts[GS.selectedMembers[di]] || 0;
+      if (dmc > maxD) maxD = dmc;
+    }
+    return maxD;
+  }
   return name;
 }
 
@@ -98,6 +114,8 @@ export function shouldTriggerRandomEvent() {
   var dayMandatory = mandatoryPhases[GS.day] || [];
   if (dayMandatory.indexOf(PHASES[GS.phaseIndex]) >= 0) return null;
   if (GS.todayRandomEventTriggered) return null;
+  // 双向互斥：若当日上午已触发秘密任务，则不再抢占随机事件槽位
+  if (GS.secretMission) return null;
   if (Math.random() > 0.15) return null;
   var phaseStr = PHASES[GS.phaseIndex];
   var eligible = RANDOM_EVENTS_POOL.filter(function(e) {
@@ -132,8 +150,8 @@ export function shouldTriggerSecretMission() {
   if (isDatingDay) return false;
   // 随机事件日不触发（互斥）
   if (GS.todayRandomEventTriggered) return false;
-  // 强制任务日不触发
-  var mandatoryDays = [1, 3, 6, 7, 11, 12];
+  // 强制任务日不触发（Day7 仅傍晚 questionBox 占用，上午空闲，已移除以允许秘密任务）
+  var mandatoryDays = [1, 3, 6, 11, 12];
   if (mandatoryDays.indexOf(GS.day) >= 0) return false;
   // 概率触发：30%
   if (Math.random() > 0.30) return false;

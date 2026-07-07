@@ -9,9 +9,9 @@
 } from './core.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard, doVisitMember } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
-import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY } from './data.js';
+import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -1480,6 +1480,8 @@ function renderOneHeartGameScreen() {
       '<button id="btnSubmitFreeInput" class="operation-submit-sm" title="提交剧情">▶</button>' +
       '</div>' +
       '<button id="btnNewDay" class="operation-submit" style="margin-top:6px">📅 新的一天</button>' +
+      // IMP-16：娱乐圈今日行程条容器（由 JS 按世界观填充）
+      '<div id="oneHeartScheduleStrip"></div>' +
       // 2×3 网格
       '<div class="oneheart-action-grid">' +
       '<button class="oneheart-action-btn" data-cmd="regenerate">🔄 重新生成</button>' +
@@ -1510,15 +1512,28 @@ function renderOneHeartGameScreen() {
     var _memberName = _member ? _member.name : '';
     var _finalAff = GS.affection[GS.oneHeartMember] || 0;
     var _affLabel = getAffectionDesc(_finalAff);
+    var _endType = GS.oneHeartEnding || 'NE';
+    var _endMeta = (ONE_HEART_ENDING_TEMPLATES && ONE_HEART_ENDING_TEMPLATES[_endType]) || (ONE_HEART_ENDING_TEMPLATES && ONE_HEART_ENDING_TEMPLATES.NE);
+    var _endLabel = _endMeta ? _endMeta.label : '结局';
+    var _endBanner = _endType === 'HE' ? '#2e7d32' : (_endType === 'BE' ? '#c62828' : '#7b1fa2');
+    var _endIcon = _endType === 'HE' ? '💍' : (_endType === 'BE' ? '💔' : '🌙');
     var _finalResult = GS.finalResult || '';
     html += '<div style="text-align:center;padding:30px 20px">' +
-      '<div style="font-size:28px;margin-bottom:10px">💗</div>' +
+      '<div style="font-size:30px;margin-bottom:8px">' + _endIcon + '</div>' +
+      '<div style="display:inline-block;padding:4px 16px;border-radius:20px;color:#fff;font-weight:700;font-size:16px;background:' + _endBanner + ';margin-bottom:10px">' + escHtml(_endLabel) + '</div>' +
       '<div style="font-size:20px;font-weight:700;color:var(--accent-primary);margin-bottom:6px">故事结束</div>' +
       '<div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">' +
       (_memberName ? '你与 ' + escHtml(_memberName) + ' 的专属故事' : '只为你心动的故事') +
       ' · 最终好感度：' + _finalAff + '（' + _affLabel + '）</div>' +
-      (_finalResult ? '<div style="max-width:500px;margin:0 auto;padding:16px;background:var(--bg-card);border-radius:12px;font-size:13px;color:var(--text-primary);line-height:1.8;text-align:left">' +
+      (_finalResult ? '<div style="max-width:520px;margin:0 auto;padding:16px;background:var(--bg-card);border-radius:12px;font-size:13px;color:var(--text-primary);line-height:1.8;text-align:left">' +
       escHtml(_finalResult) + '</div>' : '') +
+      (GS.endingMeters ? '<div style="max-width:520px;margin:14px auto 0;padding:12px 16px;background:var(--bg-card);border-radius:12px;font-size:12px;color:var(--text-secondary);text-align:left">' +
+        '<b style="color:var(--text-primary)">📊 结局仪表盘</b><br/>' +
+        '哥哥立场：' + escHtml(GS.endingMeters.brotherStance || '-') + ' · ' +
+        '情敌倾向：' + (GS.endingMeters.rivalAff || 0) + ' · ' +
+        '曝光风险：' + (GS.endingMeters.scandal || 0) + ' · ' +
+        '男主心境值：' + (GS.endingMeters.moodValue || 0) +
+      '</div>' : '') +
       '<button id="restartOneHeartBtn" style="margin-top:20px;padding:10px 24px;border:none;border-radius:10px;background:var(--accent-primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer">开始新的故事</button>' +
       '</div>';
   }
@@ -2319,7 +2334,59 @@ export async function enterTestMode() {
 }
 
 // ==================== 1v1 事件绑定 ====================
+
+// IMP-16：渲染娱乐圈今日行程条 + 探班按钮（仅娱乐圈世界观）
+function renderOneHeartScheduleStrip() {
+  var strip = document.getElementById('oneHeartScheduleStrip');
+  if (!strip) return;
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment' || !GS.oneHeartSchedule) {
+    strip.innerHTML = '';
+    return;
+  }
+  var order = ['main', 'related', 'rival'];
+  var labels = { main: '男主', related: '关系户', rival: '情敌' };
+  var html = '<div style="margin:8px 0;padding:8px 10px;background:var(--bg-card);border-radius:10px;font-size:12px">' +
+    '📋 <b>今日行程</b>（探班=偷会，时间锁：今天把时间给了谁就是谁）<br/>';
+  for (var i = 0; i < order.length; i++) {
+    var key = order[i];
+    var s = GS.oneHeartSchedule[key];
+    if (!s) continue;
+    var name = (MEMBERS.find(function(m) { return m.id === s.memberId; }) || {}).name || '?';
+    var locked = GS.oneHeartVisitLocked && GS.oneHeartVisitLocked !== key;
+    var disabled = s.visited || locked || !s.visitWindow;
+    var status = s.visited ? '✅已探' : (locked ? '🔒时间已过' : (!s.visitWindow ? '🚫封闭' : '🎬可探'));
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+      '<span>' + labels[key] + '·' + name + '：' + escHtml(s.task) + '（' + s.timeOfDay + '）</span>' +
+      (disabled
+        ? '<span style="color:#999">' + status + '</span>'
+        : '<button class="oneheart-visit-btn" data-visit-role="' + key + '" style="background:linear-gradient(135deg,#7c4dff,#651fff);color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer">' + status + '</button>') +
+      '</div>';
+  }
+  // IMP-17：哥哥立场指示（仅队友的妹妹设定，related=哥哥）
+  if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    var _bs = GS.brotherStance || 'consultant';
+    var _bsIcon = { consultant: '🤝', supportive: '💚', testing: '🔍', protective: '🛡️' }[_bs] || '🤝';
+    var _bsText = { consultant: '参谋', supportive: '支持', testing: '试探', protective: '提醒曝光' }[_bs] || '参谋';
+    var _bhome = GS.brotherAtHome ? '🏠在家' : '✈️不在家(空档)';
+    html += '<div style="margin-top:6px;border-top:1px dashed var(--border-color,#eee);padding-top:4px">' +
+      _bsIcon + ' 哥哥立场：<b>' + _bsText + '</b> · ' + _bhome + '</div>';
+  }
+  html += '</div>';
+  strip.innerHTML = html;
+  strip.querySelectorAll('.oneheart-visit-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var role = this.dataset.visitRole;
+      this.disabled = true;
+      this.textContent = '探班中…';
+      await doVisitMember(role);
+    });
+  });
+}
+
 function bindOneHeartEvents() {
+  // IMP-16：娱乐圈今日行程条渲染 + 探班按钮绑定
+  renderOneHeartScheduleStrip();
+
   // 操作区浮层 toggle（默认收起）
   var operationToggle = document.getElementById('operationToggle');
   var operationBody = document.getElementById('operationBody');

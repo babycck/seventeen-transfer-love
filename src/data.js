@@ -474,21 +474,15 @@ export var MEMBERS = [
 ];
 
 export var SECRET_MISSIONS = {
+  // 仅 Day2（常规上午）+ Day7（上午空闲，傍晚 questionBox 占用）可触发；
+  // Day5/10 为约会日、Day7 曾被强制任务日排除，原 8 个任务里仅 Day2 的 2 个能触发，其余为死数据，已删除。
   2: [
     { id: 'sm_d2_1', type: 'interaction', title: '破冰微笑', desc: '让某位成员在今天上午主动对你笑一次。', targetType: 'any', hint: '试着主动开启一个轻松的话题。' },
     { id: 'sm_d2_2', type: 'info', title: '职业探秘', desc: '在对话中套出金珉奎的第二职业，不能直问。', targetType: 'member', targetId: 'mingyu', hint: '聊聊大家最近都在忙什么。' }
   ],
-  5: [
-    { id: 'sm_d5_1', type: 'interaction', title: '独处时刻', desc: '创造机会与一位成员（非X）单独待在阳台至少5分钟。', targetType: 'nonX', hint: '阳台是私密对话的最佳地点。' },
-    { id: 'sm_d5_2', type: 'constraint', title: '专注倾听', desc: '今天的所有自由输入行动，必须包含对尹净汉的关心。', targetType: 'member', targetId: 'jeonghan', hint: '无论做什么，记得顾及他的感受。' }
-  ],
   7: [
     { id: 'sm_d7_1', type: 'exploration', title: '寻宝游戏', desc: '在集体外出时，找到「那个蓝色的马克杯」并提及它。', targetType: 'none', hint: '仔细观察周围环境中的小物件。' },
     { id: 'sm_d7_2', type: 'interaction', title: '意外助攻', desc: '在集体活动中，让崔胜澈主动为你做一件事（递水、拿东西等）。', targetType: 'member', targetId: 'scoups', hint: '制造一个需要被照顾的小契机。' }
-  ],
-  10: [
-    { id: 'sm_d10_1', type: 'constraint', title: '唯一指定', desc: '今天发出的短信必须发给文俊辉。', targetType: 'member', targetId: 'jun', hint: '把今晚的短信留给他。' },
-    { id: 'sm_d10_2', type: 'info', title: '旧伤探询', desc: '在约会中了解到你的X（前任）最近一个月过得怎么样。', targetType: 'x', hint: '委婉地了解他的近况。' }
   ]
 };
 
@@ -523,11 +517,13 @@ export var MISSION_CARDS = [
   { id: 'mc_10', name: '最终告白预演', desc: '写一张纸条，假设今天是最后一天，你会选择和谁一起离开？不用署名，放进信箱。制作组会在晚餐时匿名朗读。', dayMin: 8, dayMax: 11, phase: 'evening', type: 'input', inputLabel: '你在纸条上写的内容' }
 ];
 
-// ==================== 随机日常事件池（15个） ====================
+// ==================== 随机日常事件池（共 18 项） ====================
 export var RANDOM_EVENTS_POOL = [
-  // 日常暖色 8个
+  // 日常暖色（11项，re_2 空调坏了含四季变体）
   { id: 're_1', name: '快递到了', desc: '某成员收到包裹，是家人/朋友寄来的东西，引发关于家的闲聊', cond: 'day>=2', weight: 1 },
+  { id: 're_2_spring', name: '空调坏了', desc: '初春小屋空调时好时坏，忽冷忽热，全员裹着薄毯调试温度', cond: "season==spring", weight: 1 },
   { id: 're_2_summer', name: '空调坏了', desc: '盛夏小屋空调故障，全员被迫聚在客厅汗蒸', cond: "season==summer", weight: 1 },
+  { id: 're_2_autumn', name: '空调坏了', desc: '秋燥时节空调调试静电噼啪，全员围着取暖器闲聊', cond: "season==autumn", weight: 1 },
   { id: 're_2_winter', name: '空调坏了', desc: '寒冬小屋空调故障，全员被迫裹毯子聚在客厅', cond: "season==winter", weight: 1 },
   { id: 're_3', name: '停水了', desc: '傍晚停水，全员去便利店买水，路上自然聊天', cond: 'phase==evening', weight: 1 },
   { id: 're_4', name: '一只猫跑进来', desc: '流浪猫从窗户跳入，怕猫的成员躲到某人身后', cond: 'day>=3', weight: 1 },
@@ -535,15 +531,15 @@ export var RANDOM_EVENTS_POOL = [
   { id: 're_6', name: '拍立得时间', desc: '制作组拿出一台拍立得，让全员合影/自拍', cond: 'phase==afternoon', weight: 1 },
   { id: 're_7', name: '晨间广播放歌', desc: '某成员的歌/自作曲通过广播播放，全员反应', cond: 'phase==morning', weight: 1 },
   { id: 're_8', name: '晚霞特别美', desc: '所有人不约而同到阳台看日落，自动触发闲聊', cond: 'phase==evening&&weather==晴朗', weight: 1 },
-  // 情感冲击 6个
+  // 情感冲击 5项
   { id: 're_9', name: '前任的旧物', desc: '你发现自己带来的某件物品（以为是自己的）其实是 X 当年送的', cond: 'day>=3', weight: 1 },
-  { id: 're_10', name: '撞见旧伤', desc: '某成员注意到你身上的旧伤疤/痕迹，追问来历', cond: 'affection>=30', weight: 1 },
+  { id: 're_10', name: '撞见旧伤', desc: '某成员注意到你身上的旧伤疤/痕迹，追问来历', cond: 'day>=4', weight: 1 },
   { id: 're_11', name: '成员也失眠', desc: '深夜你发现另一位成员也没睡，在客厅/阳台相遇', cond: 'phase==night', weight: 1 },
   { id: 're_12', name: '电话打错了', desc: '某个成员误拨了你的电话', cond: 'day>=4', weight: 1 },
-  { id: 're_13', name: '酒后的坦白', desc: '某成员喝到微醺，对着你说出一段关于过去的话', cond: 'drinkCount>=1', weight: 1 },
-  // 戏剧冲突 2个
-  { id: 're_15', name: '公开的信', desc: '制作组误将一封私人信件当成 X 记忆物品公开，内容让全场沉默', cond: 'day>=4&&day<=6', weight: 1 },
-  { id: 're_16', name: '有人哭了', desc: '晚餐时某位成员突然情绪崩溃离席，全员沉默', cond: 'day>=5', weight: 1 }
+  { id: 're_13', name: '酒后的坦白', desc: '某成员喝到微醺，对着你说出一段关于过去的话', cond: 'memberDrinkCount>=1', weight: 1 },
+  // 戏剧冲突 2项
+  { id: 're_14', name: '公开的信', desc: '制作组误将一封私人信件当成 X 记忆物品公开，内容让全场沉默', cond: 'day>=4&&day<=6', weight: 1 },
+  { id: 're_15', name: '有人哭了', desc: '晚餐时某位成员突然情绪崩溃离席，全员沉默', cond: 'day>=5', weight: 1 }
 ];
 
 // [P0-3] Day 11 真心话问题卡（18张）
@@ -875,7 +871,7 @@ export var DATING_LOCATIONS = {
     { name: '湖边野餐', desc: '湖面波光粼粼，柳枝轻拂水面荡起涟漪', season: 'spring' }
   ],
   city: [
-    { name: '深夜便利店', desc: '荧光灯在货架间投下冷白光，关东煮的热气模糊了玻璃窗', season: 'any' },
+    { name: '深夜便利店', desc: '荧光灯在货架间投下冷白光，关东煮的热气模糊了玻璃窗', season: 'any', night: true },
     { name: '旧书店', desc: '泛黄书页散发旧纸气息，木质地板在脚下吱呀作响', season: 'any' },
     { name: '复古游戏厅', desc: '霓虹灯牌闪烁，投币声与8-bit音乐交织成怀旧背景音', season: 'any' },
     { name: '天台篮球场', desc: '城市天际线作背景框，夜风卷着橡胶地面的淡淡气味', season: 'any' }
@@ -1221,6 +1217,14 @@ export var LATE_NIGHT_EVENTS = [
   { scenario: '他深夜更新了一条社交动态——只有你们俩懂的暗语。底下的粉丝都在猜是什么意思。', options: ['在评论区回了一个同样的emoji', '私信他说「我看到了」', '截图存档什么都不说'] },
   { scenario: '他半夜发烧到39度，但死活不肯去医院，打电话给你说「你在就好了」。', options: ['赶过去照顾他到天亮', '打电话教他吃药量体温', '说「那我过去陪你去医院」'] }
 ];
+
+// ==================== 1v1 结局文案池（IMP-18：HE/NE/BE） ====================
+// 供结局生成时注入基调提示，让 AI 写出贴合档位的收束
+export var ONE_HEART_ENDING_TEMPLATES = {
+  HE: { label: '修成正果', desc: '曝光可控 + 男主表现好（哥哥给出祝福）+ 情敌未翻车 + 好感达标。公开被祝福的圆满结局。', tone: '温暖、笃定、有未来感。可写公开的一刻、哥哥的祝福、两人对未来的规划。' },
+  NE: { label: '相守于暗', desc: '仍在地下但稳定——中等所有 meter，未公开也未崩盘，平淡相守。', tone: '温柔、克制、余韵悠长。仍藏在公众视线之外，但彼此安心，不急着公开。' },
+  BE: { label: '分道扬镳', desc: '公众曝光翻车 / 情敌赢了 / 关系本身失败，任一爆表即触发。', tone: '遗憾或释然。可写曝光风波、误会难解、或男主选择放手，但保持人物尊严，不狗血。' }
+};
 
 // ==================== 1v1 情敌专属事件池 ====================
 export var RIVAL_EVENTS = [

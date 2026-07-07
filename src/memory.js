@@ -122,6 +122,10 @@ export async function compressTodayForInjection() {
     GS._todayCompressedSummary = '';
     return full;
   }
+  // BUG-07: 同天已压缩过则复用缓存，避免每次进入时段重复烧 token 且注入内容前后不一致
+  if (GS._todayCompressedSummary) {
+    return GS._todayCompressedSummary;
+  }
   if (!GS.aiEnabled) {
     GS._todayCompressedSummary = full.slice(0, 4000);
     return GS._todayCompressedSummary;

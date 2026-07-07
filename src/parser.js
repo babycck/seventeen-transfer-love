@@ -268,12 +268,12 @@ export function parseNarrative(rawText) {
         // 这类文本含"我们需要生成/我决定/先构思/blocks[0]/选项A"等推理关键词
         // 检测到时不塞入 narrative，保持 blocks 为空，让 validator 报 error 触发重试
         var reasoningKeywords = [
-          '我们需要生成', '我决定', '先构思', '现在构思', '我这样安排', '基于此',
-          '我需要确保', '我们被要求', '所以选项', '调整选项', '可以这样', '不如设定',
+          '我们需要生成', '先构思', '现在构思', '我这样安排', '基于此',
+          '我需要确保', '我们被要求', '所以选项', '调整选项', '可以这样',
           'blocks[0]', '选项A', '选项B', '选项C', 'affName', 'affDelta', 'affReason',
-          '生成JSON', '输出格式', '输出JSON', '构思具体内容', '先写具体', '这段剧情',
-          '我没想到', '不太合适', '或许可以', '为了简化', '按年龄顺序', 'riskMember'
-        ];
+          '生成JSON', '输出格式', '输出JSON', '构思具体内容', '先写具体',
+          '或许可以', '为了简化', '按年龄顺序', 'riskMember'
+        ]; // BUG-19: 移除易与正常叙事混淆的词（'我决定'/'这段剧情'/'我没想到'/'不太合适'），降低误判触发重试
         var isReasoningLeak = false;
         for (var ri = 0; ri < reasoningKeywords.length; ri++) {
           if (trimmedRaw.indexOf(reasoningKeywords[ri]) >= 0) {

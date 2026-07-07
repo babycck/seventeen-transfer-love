@@ -3,11 +3,13 @@
 // tier: cold(0-14) / calm(15-39) / care(40-59) / love(60-79) / passion(80+)
 
 export function getMemberPortrait(memberId, aff) {
+  if (!memberId) return ''; // BUG-15: 空值防御
   var tier = aff >= 80 ? 'passion' : aff >= 60 ? 'love' : aff >= 40 ? 'care' : aff >= 15 ? 'calm' : 'cold';
   return 'assets/members/' + memberId + '/' + tier + '.png';
 }
 
 export function getMemberAvatar(memberId) {
+  if (!memberId) return ''; // BUG-15: 空值防御
   return 'assets/members/' + memberId + '/avatar.png';
 }
 

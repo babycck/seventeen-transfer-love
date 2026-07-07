@@ -307,6 +307,7 @@ export function pickDatingLocation(season, weather) {
   // 雨天偏向室内
   var isRainy = (weather || '').indexOf('雨') >= 0;
   var candidates = allLocs.filter(function(loc) {
+    if (loc.night) return false; // 夜间地点（如深夜便利店）不用于白天约会
     if (isRainy) return loc.season === 'any' || loc.season === 'winter';
     return loc.season === season || loc.season === 'any';
   });

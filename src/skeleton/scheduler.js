@@ -33,9 +33,15 @@ export function resetDayState() {
   GS.dayCompleted = false;
   GS.affActionHistory = {};
   GS.affFatigue = {};
+  // 跨天重置：X记忆物品轮转索引 + 当天选项文本黑名单
+  // 注：xItemsRevealState 跨天保留（Day5 需将 Day4 写入的 'first' 升级为 'second'），不在此清空
+  GS.xItemsRevealRound = 0;
+  GS.todayOptionTexts = [];
 
   // 清理过期功能状态
   GS.drunkTrigger = null;
+  // BUG-21: drinkCounts 为「按天」计数（跨天清零），故 re_13(memberDrinkCount>=1) 仅当日本轮有人喝酒时触发；
+  // 跨天累计醉酒经历不体现，语义明确为「当日微醺」，非历史。如需累计应独立字段。
   GS.drinkCounts = {};
   GS.exMessage = null;
   GS.truthPunishment = null;

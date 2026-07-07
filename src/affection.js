@@ -4,10 +4,15 @@
 import { HEART_NOTE_TEMPLATES } from './data.js';
 import { triggerScreenEffect } from './screen-effect.js';
 // ==================== 好感度系统 ====================
+// [BUG-13] 统一好感度上下限常量：transfer 与 1v1 共用唯一 clamp 来源（updateAffection），
+// 避免 applyOneHeartOptionAffection 在外部二次 clamp 造成双标。
+export var AFFECTION_MIN = -100;
+export var AFFECTION_MAX = 100;
 export function updateAffection(memberId, delta) {
+  if (!Number.isFinite(delta)) { console.warn('[updateAffection] 收到非有限数值 delta，已忽略: ' + delta); return; } // BUG-17: 防御 NaN 污染存档
   if (!GS.affection[memberId]) GS.affection[memberId] = 0;
   var before = GS.affection[memberId];
-  var after = Math.max(-100, Math.min(100, before + delta));
+  var after = Math.max(AFFECTION_MIN, Math.min(AFFECTION_MAX, before + delta));
   GS.affection[memberId] = after;
 
   // 飘字动画：好感度变化时从 Header 飘出
