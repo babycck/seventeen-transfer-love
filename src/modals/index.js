@@ -5,8 +5,6 @@ export { showXItemsModal } from './x-items-modal.js';
 export { showSmsHistoryModal } from './sms-history-modal.js';
 export { showGiftPanel, sendGift, showRemakeGiftModal } from './gift-panel.js';
 export { showHistoryModal } from './history-modal.js';
-export { showHelpModal } from './help-modal.js';
-export { showHelpManual } from './help-manual.js';
 export { showAffectionPanel } from './affection-panel.js';
 export { showHeartNotesModal } from './heart-notes-modal.js';
 export { showApiSettingsModal } from './api-settings-modal.js';

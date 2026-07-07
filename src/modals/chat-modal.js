@@ -29,7 +29,7 @@ export function showChatModal() {
     }
   }
   if (messagesHtml === '') {
-    messagesHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">开始和 ' + memberName + ' 聊天吧 💬</div>';
+    messagesHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">开始和 ' + escHtml(memberName) + ' 聊天吧 💬</div>';
   }
 
   overlay.innerHTML = '<div class="modal-content" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +

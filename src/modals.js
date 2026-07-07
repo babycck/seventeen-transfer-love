@@ -9,8 +9,6 @@ export { showXItemsModal } from './modals/x-items-modal.js';
 export { showSmsHistoryModal } from './modals/sms-history-modal.js';
 export { showGiftPanel, sendGift, showRemakeGiftModal } from './modals/gift-panel.js';
 export { showHistoryModal } from './modals/history-modal.js';
-export { showHelpModal } from './modals/help-modal.js';
-export { showHelpManual } from './modals/help-manual.js';
 export { showAffectionPanel } from './modals/affection-panel.js';
 export { showHeartNotesModal } from './modals/heart-notes-modal.js';
 export { showApiSettingsModal } from './modals/api-settings-modal.js';

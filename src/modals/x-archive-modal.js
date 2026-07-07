@@ -1,15 +1,5 @@
-import { MEMBERS, GS, escHtml } from '../core.js';
+import { MEMBERS, GS, escHtml, showToast } from '../core.js';
 import { createModal } from './modal-factory.js';
-
-function filterItemsByReveal(memberId, items) {
-  if (!items) return '';
-  var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
-  if (!reveal) return '';
-  if (reveal === 'first') {
-    return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).map(function(l) { return escHtml(l); }).join('<br>');
-  }
-  return escHtml(items).replace(/\n/g, '<br>');
-}
 
 function formatXStory(text) {
   if (!text) return '';
@@ -27,6 +17,7 @@ function formatXStory(text) {
 }
 
 export function showXArchiveModal() {
+  if (GS.gameMode === 'oneHeart') { showToast('X 关系档案仅换乘模式可用'); return; }
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });

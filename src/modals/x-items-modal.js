@@ -1,8 +1,10 @@
-import { MEMBERS, GS, escHtml } from '../core.js';
+import { MEMBERS, GS, escHtml, showToast } from '../core.js';
 import { createModal } from './modal-factory.js';
 
 export function showXItemsModal() {
+  if (GS.gameMode === 'oneHeart') { showToast('X 记忆物品仅换乘模式可用'); return; }
   var xMember = MEMBERS.find(function(m) { return m.id === GS.secretX; });
+  if (!xMember) { showToast('尚未设定前任 X'); return; }
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
 

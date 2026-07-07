@@ -93,16 +93,6 @@ function buildXArchiveContent() {
   return html;
 }
 
-function filterItemsByReveal(memberId, items) {
-  if (!items) return '';
-  var reveal = GS.xItemsRevealState && GS.xItemsRevealState[memberId];
-  if (!reveal) return '';
-  if (reveal === 'first') {
-    return items.split('\n').filter(function(l) { return l.indexOf('故事：') !== 0; }).map(function(l) { return escHtml(l); }).join('<br>');
-  }
-  return escHtml(items).replace(/\n/g, '<br>');
-}
-
 function formatXStory(text) {
   if (!text) return '';
   var lines = text.split('\n').filter(function(l) { return l.trim(); });

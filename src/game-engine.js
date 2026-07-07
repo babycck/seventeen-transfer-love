@@ -668,6 +668,7 @@ export function triggerTruthPunishment(drunkerId) {
 }
 
 export async function handleOptionChoice(opt) {
+  if (GS.gameMode === 'oneHeart') return;
   // [P0-3] 真心话结束后进入深夜
   if (opt.text.indexOf('进入深夜') >= 0 || opt.text.indexOf('真心话结束') >= 0 || opt.text.indexOf('X已回房间') >= 0) {
     await advancePhase();
@@ -970,6 +971,7 @@ export async function handleFinalChoice(opt) {
 }
 
 export async function handleFreeAction(actionText) {
+  if (GS.gameMode === 'oneHeart') return;
   if (GS.smsSentToday && GS.phaseIndex === 3) {
     if (GS.stayCount >= MAX_STAY_COUNT) {
       showToast('⚠️ 今日继续次数已用完（' + MAX_STAY_COUNT + '/' + MAX_STAY_COUNT + '），请进入下一天。');
@@ -1318,6 +1320,7 @@ export function checkJealousyEvent(choiceText) {
 }
 
 export async function handleRegenerate() {
+  if (GS.gameMode === 'oneHeart') return;
   // 重置生成锁，允许重新尝试
   GS._isGenerating = false;
   GS._advancingPhase = false;  // 重置重入锁，避免卡死

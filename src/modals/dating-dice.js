@@ -55,13 +55,14 @@ export function showDatingDiceModal(onConfirm) {
         if (affs[0].id === result.partner) {
           showShura = true;
           var others = members.filter(function(m) { return m.id !== result.partner; });
+          var others1 = others.length > 1 ? others[1] : null;
           var protestHtml = '<div style="margin-top:12px;padding:10px;background:#fff3e0;border-radius:8px;font-size:13px;color:#5d3a3a">' +
-            '<p>👀 修罗场！' + escHtml(others[0].name) + '和' + escHtml(others[1].name) + '似乎对结果有些不满……</p>' +
+            '<p>👀 修罗场！' + escHtml(others[0].name) + (others1 ? '和' + escHtml(others1.name) : '') + '似乎对结果有些不满……</p>' +
             '<p style="font-size:12px;color:#8b6b6b;margin-top:6px">有人低声嘀咕，有人看向别处，空气突然变得微妙。</p>' +
             '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">' +
             '<button class="btn-confirm shura-btn" data-choice="keep" style="flex:1;min-width:80px;font-size:12px;padding:6px">维持原结果</button>' +
             '<button class="btn-confirm shura-btn" data-choice="' + others[0].id + '" style="flex:1;min-width:80px;font-size:12px;padding:6px">换成' + escHtml(others[0].name) + '</button>' +
-            '<button class="btn-confirm shura-btn" data-choice="' + others[1].id + '" style="flex:1;min-width:80px;font-size:12px;padding:6px">换成' + escHtml(others[1].name) + '</button>' +
+            (others1 ? '<button class="btn-confirm shura-btn" data-choice="' + others1.id + '" style="flex:1;min-width:80px;font-size:12px;padding:6px">换成' + escHtml(others1.name) + '</button>' : '') +
             '</div></div>';
           resultEl.insertAdjacentHTML('afterend', protestHtml);
 

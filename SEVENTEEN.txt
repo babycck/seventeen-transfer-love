@@ -1937,4 +1937,311 @@ Header 📂 按钮（隐藏 `<input type="file">`）→ `FileReader` 读取 → 
 
 ---
 
-**规则书 v3.2 终版 · 共三十四章 · 70 项变更（v3.0 36 项 + v3.1 17 项 + v3.2 新增 17 项）**
+## 三十五、1v1「只为你心动」模式
+
+与「换乘恋爱」共用同一套设置向导，但在 Step 1 选择模式后按 `GS.gameMode` 分叉。换乘恋爱分支维持原流程（女主人设 → 选 3 人 → 标 X → 游戏）；1v1 分支流程为：
+
+| 步骤 | 内容 |
+|------|------|
+| Step 1 | 模式选择（换乘恋爱 / 只为你心动） |
+| Step 2 | 选 1 位 SEVENTEEN 成员作为专属男主（`oneHeartMember`） |
+| Step 3 | 选世界观（`worldSetting`）+ 写作风格（`writingStyle`） |
+| Step 4 | 确认设定（含女主人格画像 `heroineProfile`） |
+| Step 5 | 进入 1v1 游戏 |
+
+⚠️ **安全分支原则**：`buildSystemPrompt()`、`buildUserMessage()`、`generatePhaseNarrative()`、`renderGameScreen()` 开头均加 `if (GS.gameMode === 'oneHeart') return oneHeartVersion()`。换乘恋爱代码路径完全不受影响，两套模式共享 `GS` 状态机但各走各的分支。
+
+### 35.1 核心状态字段（state.js）
+
+1v1 模式在 `defaultGameState()` 中新增以下字段（仅 `gameMode==='oneHeart'` 时启用）：
+
+| 字段 | 类型 | 用途 |
+|------|------|------|
+| `gameMode` | `string` | `'transfer'`=换乘恋爱，`'oneHeart'`=只为你心动 |
+| `oneHeartMember` | `string` | 选中的男主成员 ID |
+| `worldSetting` | `string` | 世界观 ID（见 35.3） |
+| `writingStyle` | `string` | 写作风格 ID（见 35.4） |
+| `oneHeartGenCount` | `number` | 已生成的剧情轮次（驱动阶段推进） |
+| `heroineProfile` | `object` | 女主人格画像（name/age/job/zodiac/birthday/appearance/personality/mbti/privateTraits） |
+| `oneHeartRelationCharacter` | `object` | 关系户（哥哥/师兄/闺蜜/上司等，由身份映射生成） |
+| `oneHeartRival` | `object` | 情敌设定 |
+| `oneHeartRivalAff` | `number` | 情敌倾向（>0 女主偏向情敌；<0 情敌线翻车，对正主有利） |
+| `oneHeartMainLine` | `string` | 玩家设定的主线方向（快捷指令「设定主线」写入） |
+| `oneHeartRomanceStage` | `number` | 感情进度阶段 0~3 |
+| `oneHeartSchedule` | `object` | 娱乐圈世界观当日三人行程（见 35.9） |
+| `oneHeartVisitLocked` | `string` | 探班时间锁（当天时间给了谁） |
+| `brotherStance` | `string` | 哥哥立场（仅「队友的妹妹」设定）：supportive/consultant/testing/protective |
+| `oneHeartBrotherAff` | `number` | 哥哥支持度（-100~100） |
+| `chatHistory` | `array` | 实时聊天记录 `[{role, content}]` |
+| `moments` | `array` | 朋友圈动态 `[{id, name, post, reply, ...}]` |
+| `theaterHistory` | `array` | 番外故事 `[{id, title, type, content, timestamp}]` |
+| `diaryEntries` | `array` | 双向日记 `[{date, day, round, heroineEntry, memberEntry}]` |
+| `oneHeartEventLog` | `array` | 事件卡片日志（去重 + 200 条软上限） |
+| `oneHeartScandalCount` | `number` | 公众曝光翻车次数（结局判定用） |
+
+### 35.2 女主人格画像与身份关系网
+
+女主设定（`heroineProfile`）由向导生成：姓名、年龄、职业（`job`）、星座、生日、外貌特征、性格、MBTI、私密体质（`privateTraits`）。
+
+⚠️ System Prompt 三处强制声明：**女主的外貌特征与私密体质均为女主专属，绝对禁止映射到任何成员（含男主）**；女主为女性角色，禁止称「哥/哥哥/형」（仅亲哥哥可用）；禁止编造恋爱纪念日。
+
+`IDENTITY_RELATION_MAP` 将每个公开身份（`heroineProfile.job`）映射为一名关系户 + 一名情敌，并约束兼容性与同住关系：
+
+| 公开身份 | 关系户角色 | 关系户性别 | 是否情敌 | 需额外情敌 |
+|----------|-----------|-----------|----------|-----------|
+| 队友的妹妹 | 哥哥 | 男 | 否 | 是（同住） |
+| 同公司师妹 | 师兄 | 男 | 是 | 否 |
+| 女团爱豆 | 队友 | 女 | 否 | 是 |
+| 站姐/大粉 | 前同事 | 女 | 否 | 是 |
+| 素人 | 闺蜜 | 女 | 否 | 是 |
+| 财阀千金 | 未婚夫 | 男 | 是 | 否 |
+| 品牌方助理 | 上司 | 男 | 是 | 否 |
+| 女演员 | 戏内搭档 | 男 | 是 | 否 |
+| 百万网红博主 | 经纪人 | 女 | 否 | 是 |
+| 超模/平面模特 | 摄影师 | 男 | 是 | 否 |
+| 带货女主播 | MCN老板 | 男 | 是 | 否 |
+| 独立音乐人 | 音乐制作人 | 男 | 是 | 否 |
+| 体育生/运动员 | 教练 | 男 | 是 | 否 |
+
+`WORLD_IDENTITY_COMPATIBILITY` 限制世界观与身份的组合（古风/末世/电竞仅兼容素人·体育生·独立音乐人；校园/邻居/旅途/办公室兼容多数身份；心动小屋/恋综/娱乐圈/自定义为 `all`）。
+
+### 35.3 世界观（ONE_HEART_WORLDS）
+
+共 11 个内置世界观 + 1 个自定义：
+
+| ID | 名称 | 一句话设定 |
+|----|------|-----------|
+| transfer_house | 心动小屋同居 | 《换乘恋爱》小屋仅两人入住，镜头前克制私下放松 |
+| college | 校园恋爱 | 同校学生，社团相识，青涩甜蜜 |
+| office | 办公室恋情 | 同公司同事，朝夕相处日久生情 |
+| neighbor | 邻居日常 | 隔壁邻居，阳台偶遇慢慢靠近 |
+| travel | 旅途中相遇 | 独自旅行偶遇，异国浪漫邂逅 |
+| variety_show | 恋综修罗场 | 综艺录制 + 多角感情线，镜头放大占有欲 |
+| ancient | 古风仙侠 | 仙门小师妹 × 威严大师兄，发乎情止乎礼 |
+| esports | 热血电竞圈 | 战队经理 × 王牌选手，训练基地同居 |
+| apocalypse | 末世废土求生 | 幸存者搭档，废墟中相互托付后背 |
+| entertainment | 娱乐圈地下恋 | 顶流偶像 × 圈内幕后，不能被发现的暧昧 |
+| custom | ✍️ 自定义世界 | 玩家手写世界观（`oneHeartCustomWorld`） |
+
+每个世界观含 `promptSuffix`（注入 System Prompt 的设定文案）。自定义世界观使用 `GS.oneHeartCustomWorld` 覆盖。
+
+### 35.4 写作风格（ONE_HEART_STYLES）
+
+| ID | 名称 | 描述 |
+|----|------|------|
+| sweet | 甜宠风 | 温暖甜蜜，互相宠溺，日常处处是糖 |
+| realistic | 现实风 | 真实细腻，有甜有苦，有起伏和矛盾 |
+| slowburn | 慢热风 | 从暧昧到确定，循序渐进 |
+| passionate | 热烈风 | 直球热烈，一见钟情，感情浓烈 |
+
+### 35.5 底部 Tab 栏与界面
+
+1v1 模式界面底部为 5 个 Tab + 上方自由输入框 + 快捷指令抽屉：
+
+| Tab | 标识 | 对应弹窗 / 函数 | 说明 |
+|-----|------|----------------|------|
+| 剧情 | `story` | `generateOneHeartRound()` | 主剧情区，含自由输入框「写下你想发生的一段剧情」 |
+| 日记 | `diary` | `showDiaryModal()` → `generateDiary()` | 生成女主 + 男主双向日记 |
+| 事件 | `event` | `showEventCardModal()` → 事件卡片系统 | 情敌事件池 + 独立短故事生成 |
+| 朋友圈 | `moments` | `showMomentsModal()` → `generateMoment()` | 生成女主与男主双方动态 |
+| 剧场 | `theater` | `showTheaterModal()` → `generateTheater()` | 番外剧情（婚后/校园 IF/男主视角/结局回忆录） |
+
+实时聊天为独立弹窗 `showChatModal()`（`sendChatMessage()`），支持正在输入动画与 15 条上下文窗口（历史上限 50 条）。
+
+### 35.6 快捷指令抽屉
+
+剧情区上方展开，含 6 个指令按钮：
+
+| 按钮 | `data-cmd` | 行为 |
+|------|-----------|------|
+| 🔄 重新生成 | `regenerate` | 重新生成上一段剧情（`isRegenerate`） |
+| 🔄 自由推演 | `rewind` | 顺其自然推进故事，无需特定方向（`isFreeDeduction`） |
+| 📌 设定主线 | `set_mainline` | 弹出 `showOneHeartMainlineModal()`，写入 `GS.oneHeartMainLine` |
+| 📌 拉回主线 | `mainline` | 按 `GS.oneHeartMainLine` 推进剧情（未设定则提示先设定） |
+| 🎲 随机事件 | `random` | `pickOneHeartRandomEvent()` 按关系阶段从对应分组抽取 |
+| 🏁 走向大结局 | `ending` | `showConfirmModal` 确认后 `rollEnding()` 生成结局（`isEnding`） |
+
+### 35.7 核心函数与生成流程
+
+- `generateOneHeartRound(extra)`：主剧情轮生成。`extra` 支持 `isEnding` / `isFreeDeduction` / `isRandom` / `isRegenerate` / `isVisit`。进入「新的一天」时先 `compressOneHeartYesterday()` 将昨日全文压缩为结构化摘要，更新 `oneHeartLastDayStartIdx`（仅压缩新一天内容）。
+- 场景一致性校验 `validateOneHeartNarrative()`：校验场景/人物/时段一致性，最多重试 1 次（重试后仍矛盾则记录警告不阻塞）。
+- 事件条目提取：从 `parsed.eventItems` 合并进 `oneHeartEventLog`，去重并设 200 条软上限（早期事件合并为单条摘要）。
+- Token 配置 `ONE_HEART_TOKEN_CONFIG`：phaseNarrative 4000 / chatReply 1000 / momentGen 800 / diaryGen 1200 / eventStoryGen 1500 / theaterGen 3000。
+
+### 35.8 关系阶段与结局判定
+
+**关系阶段**（由好感度推导 `getOneHeartRelationshipStage`）：
+
+| 阶段 | 好感度区间 |
+|------|-----------|
+| early（初识） | `< 20` |
+| crush（暧昧升温） | `20~39` |
+| love（情感冲击） | `40~59` |
+| deep（戏剧冲突/高潮） | `>= 60` |
+
+**感情进度阶段**（`updateOneHeartRomanceStage`，由回合数驱动，门控激进/告白类行为）：round<4 初识 / 4~7 暧昧 / 8~11 明确 / >=12 高潮。
+
+**结局判定**（`evaluateEnding()` / `rollEnding()`）：聚合仪表盘不新增独立数值，按以下公式评分：
+
+```
+score = clamp(aff - 40, -30, 40)            // 好感 40→0，80→40
+       + (brotherStance==='supportive' ? 20
+          : consultant ? 8
+          : protective ? 4 : 0)             // testing 不加不减
+       + (rivalAff > 0 ? -rivalAff*0.5
+          : min(10, -rivalAff*0.3))         // 情敌翻车略加分
+       - scandal * 5                          // 曝光翻车重罚
+       + moodValue * 5                        // 男主情绪基调
+```
+
+- 硬触发 BE：`scandal >= 3` 或 `rivalAff >= 50` 或 `aff < 20`
+- HE：`score >= 35` 且 `aff >= 60` 且 `brotherStance==='supportive'`
+- 否则按 `score` 落 NE / BE
+
+结局分三档（`ONE_HEART_ENDING_TEMPLATES`），`isEnding` 时按档位定调注入 System Prompt：
+
+| 档位 | 标签 | 含义 |
+|------|------|------|
+| HE | 修成正果 | 曝光可控 + 哥哥祝福 + 情敌未翻车 + 好感达标 |
+| NE | 相守于暗 | 未公开也未崩盘，平淡相守 |
+| BE | 分道扬镳 | 曝光翻车 / 情敌赢 / 关系失败，任一爆表即触发 |
+
+### 35.9 娱乐圈地下恋专属子系统（IMP-16/17/18）
+
+仅 `worldSetting === 'entertainment'` 启用：
+
+- **行程系统**：`ENT_SCHEDULE_POOL`（7 类偶像本职活动池，共 33 项：录音/舞蹈/综艺/拍摄/粉丝/跨界/行程）经 `generateOneHeartSchedule()` 生成男主/关系户/情敌三人窗口错开行程。
+- **探班**：`doVisitMember(roleKey)` 锁定到某成员工作时段生成探班场景；`oneHeartVisitLocked` 同日时间锁（今天时间给了谁就是谁，UI 灰化外函数层兜底）。
+- **哥哥考验**：仅「队友的妹妹」设定（关系户 role=`哥哥`）。`updateBrotherStance(delta)` 由 `oneHeartBrotherAff` 单一推导立场四档；中局（`genCount>=15`）哥哥把男主单独叫去「谈谈」试探诚意，强化兄妹信任。
+- **情敌事件**：`RIVAL_EVENTS` 事件池，事件卡片选择后 `generateEventStory()` 生成独立短故事（约 150~200 字）。
+
+### 35.10 聊天好感度规则（sendChatMessage）
+
+- 每 **5 条**聊天 +1 好感；每自然日最多 **3 次**加成（对应 15 条）。
+- 每日聊天上限 **20 条**，超出提示「今日聊天次数已用完」。
+- 上下文窗口 15 条（取最近对话），`chatHistory` 上限 50 条。
+- 支持 JSON 污染清洗与复述检测（AI 仅复述用户输入时回退取前一段）。
+
+### 35.11 生日与节日
+
+- `MEMBER_BIRTHDAYS`：13 位成员（含 12 成员 + 全名映射）的公历生日，用于生日特别剧情。
+- `HOLIDAYS_1V1`：情人节(2/14)、圣诞节(12/25)、跨年夜(12/31)、新年(1/1)，prompt 注入氛围。
+
+---
+
+## 三十六、好感度情绪引擎（mood-engine.js）
+
+好感度之外新增**离散情绪状态机**，让 AI 的反应与成员当前心境严格吻合，避免「无理由变脸」。
+
+### 36.1 数据结构
+
+```
+GS.mood = { memberId: { state, cause, since, intensity } }
+```
+
+- `state`：离散心境，取值见 36.2
+- `cause`：情绪原因（让 AI 反应具体不套路）
+- `since`：触发时的游戏天数
+- `intensity`：程度 1~3
+
+### 36.2 七种离散心境（MOOD_LABELS）
+
+| 状态 | 标签 | 含义 |
+|------|------|------|
+| calm | 平静 | 默认基线 |
+| happy | 开心 | 正向反馈 |
+| touched | 心动 | 被触动 |
+| jealous | 吃醋 | 看到女主与他人互动 |
+| cold | 冷淡 | 负向反馈/被冷落 |
+| angry | 生气 | 强烈负向 |
+| moved | 感动 | 深层情感触动 |
+
+### 36.3 核心函数
+
+| 函数 | 行为 |
+|------|------|
+| `setMood(mid, state, cause, intensity)` | 设置情绪。同态时强度累加封顶 3；切换时直接覆盖 |
+| `setMoodByEvent(mid, state, cause, intensity)` | 事件触发的情绪设置，额外调用 `syncRivalryFromMood()` |
+| `driftMood(mid, state, cause, intensity)` | 漂移：未被选中的在场成员轻微向 jealous/cold 漂移（程度 +1，不覆盖强情绪 angry/cold/intensity>=2） |
+| `decayMoodDaily()` | 每日衰减：intensity 每过一天 -1，归零回 calm |
+| `syncRivalryFromMood()` | 与修罗场联动：≥2 人处于 jealous/cold/angry 时 `rivalryIntensity + 1`（封顶 5） |
+| `updateMoodFromAffChange(mid, delta, reason)` | 由已结算好感变化更新情绪（在 `settlePendingAffChanges` 中逐笔调用）：delta>0→happy，delta<0→cold |
+| `buildMoodInstruction()` | 生成 prompt 注入块 |
+
+### 36.4 与修罗场联动
+
+`setMoodByEvent` 与 `updateMoodFromAffChange` 在情绪变化时触发 `syncRivalryFromMood()`：当 ≥2 位成员同时处于 `jealous`/`cold`/`angry`，`rivalryIntensity` 自然升温（与相对好感阈值 `rivalryIntensity` 机制互补）。该值上限 5，用于在 prompt 中递进注入成员暗中较劲 / 正面冲突。
+
+### 36.5 Prompt 注入
+
+`buildMoodInstruction()` 输出 `[INSTRUCTION] 当前心境(强制遵循)` 块，列出每位在场成员的心境与强度（含原因），并约束：
+
+```
+规则：reaction 必须与该心境吻合。情绪转变必须有铺垫，禁止无理由变脸。
+例：标"吃醋"者本时段应表现出试探/阴阳怪气/刻意靠近，而非突然热络；
+    标"冷淡/生气"者不会主动讨好，需后续被哄才缓解。
+```
+
+该块在每日剧情生成前注入 User Message，对换乘恋爱与 1v1 模式均生效。
+
+---
+
+## 三十七、世界观系统（worlds/）
+
+世界观设定从硬编码 prompt 拆分为独立配置模块 `src/worlds/`，目前 `entertainment.js` 实现完整 `WORLD_CONFIG`，其余世界观沿用 `ONE_HEART_WORLDS[].promptSuffix` 描述。
+
+### 37.1 WORLD_CONFIG 结构
+
+以 `entertainment.js` 为例，导出 `WORLD_CONFIG`：
+
+| 字段 | 说明 |
+|------|------|
+| `id` | 世界观 ID（如 `'entertainment'`） |
+| `memberRole` | 男主身份（如「顶流偶像（SEVENTEEN 成员）」） |
+| `memberDesc` | 男主世界观设定描述（身份张力、伪装需求等） |
+| `secondCareerNote` | 第二职业定位说明（如「音乐制作/编舞/演戏只是个人爱好，核心身份仍是顶流偶像」） |
+| `userRoles` | 按女主 `job` 索引的角色描述（11+ 种公开身份各有专属剧情背景） |
+| `userFallback` | 未匹配到具体身份时的默认角色描述 |
+| `coreTension` | 世界观核心张力（强制遵循，如娱乐圈地下恋的五条核心规则） |
+
+`buildOneHeartSystemPrompt()` 通过 `getWorldConfig(GS.worldSetting)` 取出配置，将 `memberRole`/`memberDesc`/`userRoles[hp.job]` 注入 `[WORLD]` 区块；自定义世界观（`custom`）改用 `GS.oneHeartCustomWorld`。
+
+### 37.2 娱乐圈地下恋专属配置
+
+- **完整 WORLD_CONFIG**：顶流偶像 + 地下恋核心张力（公开克制 / 独处热烈 / 被发现危险感 / 甜蜜代价 / 隐蔽日常场景），强制要求每段剧情体现该张力。
+- **`ENT_SCHEDULE_POOL`（偶像本职活动池）**：7 大类共 33 项活动，供 `generateOneHeartSchedule()` 生成三人错开行程：
+
+| 类别 | 内容示例 |
+|------|---------|
+| 录音 | 录新歌 demo / 主打歌 vocal 录制 / 编曲混音 / 配唱指导 / 自作曲试听会 |
+| 舞蹈 | 编舞排练 / 打歌舞台彩排 / 演唱会彩排 / 舞蹈教室授课 / 齐舞录制 |
+| 综艺 | 综艺录制 / 外景录制 / 电台 DJ / 深夜电台 / 访谈嘉宾 |
+| 拍摄 | 杂志画报 / 杂志封面 / 私服画报 / 品牌广告片 / MV 拍摄 |
+| 粉丝 | 粉丝见面会 / 签售会 / 生日粉丝会 / 应援视频 / 直播带货 |
+| 跨界 | 剧组客串 / 剧本围读 / 跨界合作会议 / 颁奖礼彩排 / 颁奖礼红毯 |
+| 行程 | 海外行程出发 / 海外打歌巡演 / 品牌活动出席 |
+
+⚠️ 该世界观下男主/关系户/情敌均为 SEVENTEEN 成员，无第二职业，故行程池统一为「偶像本职活动」，三人窗口按 `timeSlots`（上午/午后/傍晚/深夜）错开生成。
+
+---
+
+## 三十八、v3.3 变更清单
+
+本次文档补录了代码已实现、但 v3.2 规则书未记载的三大模块，全文由三十四章扩至三十八章。
+
+| 编号 | 类型 | 变更内容 | 对应章节 |
+|------|------|---------|---------|
+| 71 | 新增 | 1v1「只为你心动」模式完整规则（向导分叉、核心状态字段、女主人格画像、身份关系网、11 世界观、4 写作风格、5 Tab 界面、6 项快捷指令、结局三档判定、聊天好感度规则、娱乐圈专属子系统） | 三十五 |
+| 72 | 新增 | 好感度情绪引擎（7 种离散心境、设置/漂移/衰减机制、与修罗场联动、prompt 心境强制注入） | 三十六 |
+| 73 | 新增 | 世界观系统（WORLD_CONFIG 结构、娱乐圈地下恋专属配置、ENT_SCHEDULE_POOL 行程池） | 三十七 |
+| 74 | 修订 | 原有结尾签名「共三十四章 · 70 项变更」更新为「共三十八章 · 74 项变更」 | 三十八 |
+
+**新增/重点说明**：
+
+1. **模式分叉安全性**：换乘恋爱与 1v1 共用 `GS` 状态机，但 `buildSystemPrompt`/`buildUserMessage`/`generatePhaseNarrative`/`renderGameScreen` 均通过 `if (GS.gameMode === 'oneHeart')` 提前返回，换乘代码路径零影响。
+2. **情绪引擎跨模式生效**：`mood-engine.js` 的 `buildMoodInstruction()` 在每日剧情生成前注入，对两种模式均生效；其 `syncRivalryFromMood` 与 `rivalryIntensity` 修罗场机制互补。
+3. **世界观模块化**：`worlds/` 目录将世界观设定外置，当前仅 `entertainment` 实现完整 `WORLD_CONFIG`，其余世界观仍由 `ONE_HEART_WORLDS[].promptSuffix` 描述，后续可平滑迁移。
+
+---
+
+**规则书 v3.3 终版 · 共三十八章 · 74 项变更（v3.0 36 项 + v3.1 17 项 + v3.2 新增 17 项 + v3.3 新增 4 项）**

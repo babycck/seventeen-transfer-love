@@ -96,6 +96,9 @@ export function showSmsModal() {
 
   overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
+      if (this.disabled) return;
+      this.disabled = true;
+      overlay.querySelectorAll('.sms-target-btn').forEach(function(b) { b.disabled = true; });
       var customText = (document.getElementById('smsCustomInput') || {}).value || '';
       var finalText = customText.trim() || selectedDraft;
       if (!finalText) {

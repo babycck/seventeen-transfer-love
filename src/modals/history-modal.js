@@ -58,7 +58,7 @@ export function showHistoryModal() {
     var html = '';
     for (var i = 0; i < texts.length; i++) {
       var parsed = parseNarrative(texts[i]);
-      var paras = parsed.narrative.split('\n').filter(function(p) { return p.trim(); });
+      var paras = (parsed.narrative || '').split('\n').filter(function(p) { return p.trim(); });
       for (var p = 0; p < paras.length; p++) {
         html += '<p>' + escHtml(paras[p]) + '</p>';
       }
