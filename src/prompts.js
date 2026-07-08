@@ -1282,6 +1282,15 @@ export function buildOneHeartChatSystemPrompt() {
     var _sch = GS.oneHeartSchedule.main;
     lines.push('【你今天在忙】今天的本职行程：' + _sch.task + '（' + _sch.place + '）。如果提到"在忙/刚收工/累"，要基于这个行程回应，保持真实感。');
   }
+  // [FIX] 聊天场景脱节修复：把最新剧情正文注入聊天 system prompt，
+  // 让 AI 以"最新剧情里男主此刻所在位置/状态"为准，覆盖上面的通用行程/世界观假设。
+  if (GS.todayFullText && GS.todayFullText.length > 0) {
+    var _recentNarr = GS.todayFullText.join('\n').slice(-600);
+    if (_recentNarr.trim()) {
+      lines.push('【当前剧情场景】以下是你们最近正在经历的主线剧情（最新一段在最后）。当剧情已明确交代男主此刻在哪里、在做什么、是否与女主在一起时，聊天内容必须以这段剧情为准——它的优先级高于上面任何通用行程或"仍在海外/异地"的假设。例如：剧情里他因航班延误就站在女主身边，聊天里就不能写"我在海外/还在赶行程/刚落地"。只有在剧情未明确他所在位置时，才按【你今天在忙】的行程自然回应：');
+      lines.push(_recentNarr);
+    }
+  }
   lines.push('');
   lines.push('现在她发来一条消息，请以' + member.name + '的身份直接回复。只输出回复正文本身，不要任何前缀或引号。');
   return lines.join('\n');
