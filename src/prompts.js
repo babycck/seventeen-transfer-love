@@ -2,18 +2,63 @@
   MEMBERS, PHASES, PHASE_LABELS, PHASE_BOUNDARIES, PHASE_TONE,
   CONSEQUENCE_TAIL_CHARS, TOKEN_CONFIG, shouldTriggerRandomEvent,
   ONE_HEART_WORLDS, ONE_HEART_STYLES, ONE_HEART_TOKEN_CONFIG, GS,
-  SECOND_CAREER_MAP
+  SECOND_CAREER_MAP,
 } from './core.js';
 import { formatCorrections } from './validator.js';
 import { dedupeEventLog } from './memory.js';
 import { pickObserverGuest, getHeroineBehaviorText, getAddressRules, getMandatoryTask, getSeasonByMonth } from './formatters.js';
 import { getAffectionDesc } from './affection.js';
-import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory } from './memory.js';
+import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail, getLayeredHistory, getTodayHybridContext } from './memory.js';
 import { getWorldConfig } from './worlds/index.js';
-import { IDOL_PUBLIC_BEATS, IDOL_PRIVATE_BEATS, IDOL_FATIGUE_BEATS } from './worlds/entertainment.js';
+import { IDOL_PUBLIC_BEATS, IDOL_PRIVATE_BEATS } from './worlds/entertainment.js';
 import { IDENTITY_RELATION_MAP, getPlayerBirthYear, ONE_HEART_ENDING_TEMPLATES } from './data.js';
+import { isSisterSetting } from './utils.js';
 import { activeEventThisPhase } from './skeleton/event-triggers.js';
 import { buildMoodInstruction } from './skeleton/mood-engine.js';
+
+// ==================== 结构化事实记忆硬约束（A） ====================
+// 读取 GS.memoryFacts（按 角色→类别 存储），生成紧凑 bullet 注入 prompt。
+function buildMemoryFactsBullet() {
+  var mf = GS.memoryFacts || {};
+  var lines = [];
+  function _push(owner, label) {
+    var o = mf[owner];
+    if (!o) return;
+    var cats = [['preferences', '偏好'], ['taboos', '禁忌'], ['allergens', '过敏原']];
+    for (var ci = 0; ci < cats.length; ci++) {
+      var arr = o[cats[ci][0]] || [];
+      for (var i = 0; i < arr.length; i++) {
+        lines.push('- ' + label + '·' + cats[ci][1] + '：' + arr[i]);
+      }
+    }
+  }
+  _push('heroine', '女主');
+  for (var k in mf) {
+    if (!mf.hasOwnProperty(k) || k === 'heroine') continue;
+    var m = MEMBERS.find(function(mm) { return mm.id === k; });
+    _push(k, m ? m.name : k);
+  }
+  if (lines.length === 0) return '';
+  return '[已知信息·硬约束·请勿违反] 以下为已揭示的角色偏好/禁忌/过敏原，剧情中必须严格遵守，不可让角色做出与之矛盾的行为（如给过敏原吃东西、无视禁忌）：\n' + lines.join('\n') + '\n\n';
+}
+
+// 仅针对女主实际拥有的特征输出固定位置说明（私密体质"选了什么就是什么"）
+function buildFeaturePosNote(hp) {
+  var notes = [];
+  if (hp.appearance.indexOf('泪痣') >= 0 || hp.appearance.indexOf('狐狸眼泪痣') >= 0) {
+    notes.push('「泪痣」「狐狸眼泪痣」是眼角的痣');
+  }
+  if (hp.appearance.indexOf('锁骨精灵骨') >= 0) {
+    notes.push('「锁骨精灵骨」是锁骨线条');
+  }
+  if (hp.privateTraits.indexOf('敏感带在耳后') >= 0) {
+    notes.push('「敏感带在耳后」是耳后区域');
+  }
+  if (notes.length === 0) return '';
+  return '- 注意：' + notes.join('，') + '，每个特征在各自固定位置，不可混淆。\n';
+}
+
+// [F] getOneHeartMealHint 已移除：1v1 不再锚定具体时段，午饭描写不再受时钟约束
 
 // ===== System Prompt 缓存 =====
 var _systemPromptCache = null;
@@ -134,7 +179,7 @@ export function buildSystemPrompt() {
     '- 性格：' + hp.personality.join('、') + '，MBTI：' + hp.mbti + '\n' +
     (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') +
       '——⚠️ 在相关场景中自然触发。如"怕黑"→深夜场景中下意识开灯或靠近他人；"泪失禁"→情绪激动时控制不住流泪；"易醉体质"→喝酒后容易醉。⚠️ 私密体质是女主专属设定，绝对禁止映射到任何成员身上。\n' : '') +
-    '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
+    buildFeaturePosNote(hp) +
     '\n' + getHeroineBehaviorText() + '\n\n' +
 
     '## SYSTEM ## ⚠️ 女主对X的情感状态（强制执行）\n' +
@@ -646,9 +691,9 @@ export function buildUserMessage(type, extra) {
     }
   }
 
-  // 待兑现约定
+  // 待兑现约定（[B] 跨天累积，必须在后续合适时机自然推进或收尾，不得凭空遗忘）
   if (GS.pendingPromises && GS.pendingPromises.length > 0) {
-    msg += '[INSTRUCTION] ⚠️ 待兑现约定（必须在后续剧情中实现·不可遗忘）\n';
+    msg += '[INSTRUCTION] ⚠️ 待兑现约定（跨天持续追踪·不可遗忘）\n这些约定会一直保留直到被自然兑现，请在后续合适的剧情时机主动推进或收尾每一条，绝不允许凭空遗忘或让约定无声蒸发：\n';
     for (var pp = 0; pp < GS.pendingPromises.length; pp++) {
       msg += '- ' + GS.pendingPromises[pp] + '\n';
     }
@@ -664,13 +709,15 @@ export function buildUserMessage(type, extra) {
     if (GS.todayRevealedInfo) {
       msg += '[INSTRUCTION] 📋 今日已揭示信息（请勿违反）：' + GS.todayRevealedInfo + '\n\n';
     }
+    // [A] 结构化事实记忆硬约束（跨天持久累积）
+    msg += buildMemoryFactsBullet();
     if (GS.smsHistory.length > 0) {
       var lastSms = GS.smsHistory[GS.smsHistory.length - 1];
       if (lastSms.day === GS.day - 1) {
         msg += '[INSTRUCTION] 📨 昨晚短信回顾：女主昨晚发给了' + lastSms.name + '「' + lastSms.content + '」\n这会影响今天' + lastSms.name + '对女主的态度。\n\n';
       }
     }
-    var todayText = getTodayFullTextCapped();
+    var todayText = getTodayHybridContext();
     if (todayText && todayText.trim().length > 0) {
       msg += '[INSTRUCTION] ⚠️ 当前剧情已进展到 Day ' + GS.day + ' ' + phaseLabel + '。以下为今天已发生的全部剧情：\n' + todayText + '\n\n' +
         '⚠️ 用一句话自然锚定当前位置（如"你放下手里的杯子……"），然后紧接着写新内容。不要复述、回顾已发生的场景。\n' +
@@ -686,6 +733,8 @@ export function buildUserMessage(type, extra) {
     var keyEvents2 = getTodayKeyEventsSummary();
     if (keyEvents2) msg += '[INSTRUCTION] 今日关键事件（仅供了解·禁止复述）：' + keyEvents2 + '\n\n';
     if (GS.todayRevealedInfo) msg += '[INSTRUCTION] 📋 今日已揭示信息（请勿违反）：' + GS.todayRevealedInfo + '\n\n';
+    // [A] 结构化事实记忆硬约束（跨天持久累积）
+    msg += buildMemoryFactsBullet();
     var tailText2 = getTodayNarrativeTail(CONSEQUENCE_TAIL_CHARS);
     if (tailText2 && tailText2.trim().length > 0) {
       msg += '[INSTRUCTION] ⚠️ 上一段结尾（纯正文·你必须从这里紧接着写）：' + tailText2 + '\n\n';
@@ -738,7 +787,7 @@ export function buildUserMessage(type, extra) {
     }
   } else {
     msg += '[INSTRUCTION] 今日全部剧情原文（仅供上下文参考·不要复述）：\n以下是今天已经发生的所有剧情。请基于这些内容延续，不要复述或总结。\n\n' +
-      getTodayFullTextCapped() + '\n\n';
+      getTodayHybridContext() + '\n\n';
   }
 
   // 好感度
@@ -925,10 +974,31 @@ export function buildUserMessage(type, extra) {
 export function buildOneHeartSystemPrompt() {
   var hp = GS.heroineProfile;
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
-  if (!member) return buildSystemPrompt();
+  if (!member) {
+    console.error('[buildOneHeartSystemPrompt] 配置错误：1v1 模式未设定心动对象（GS.oneHeartMember 为空），绝不回退到 transfer 系统提示。');
+    return '【配置错误】1v1 模式未设定心动对象（oneHeartMember 为空），请返回设置重新选择成员后再开始游戏。';
+  }
 
   var world = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
   var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
+
+  // 统一称呼规则（欧巴解锁闸门 = 感情进度阶段 oneHeartRomanceStage >= 1；与 validator 硬兜底一致）
+  // 妹妹线：默认称"前辈"，stage<1 禁止欧巴/直呼名字/称哥；stage>=1 改口欧巴。
+  function getOneHeartAddressRule() {
+    var allowObba = (GS.oneHeartRomanceStage || 0) >= 1;
+    var member = (GS.oneHeartMember && MEMBERS.find(function(m){ return m.id === GS.oneHeartMember; })) ? MEMBERS.find(function(m){ return m.id === GS.oneHeartMember; }) : null;
+    var name = member ? member.name : '他';
+    if (!isSisterSetting()) {
+      return '称呼规则（强制）：你称呼男主「' + name + '」默认直呼名字；进入暧昧期（romanceStage>=1）后可自然改口称"欧巴"，初识期（romanceStage<1）禁止称"欧巴"。绝对禁止"哥/哥哥/형""前辈""后辈""-xi"。';
+    }
+    var base = '称呼规则（强制·代码闸门）：你是队友的妹妹，比全团都小，对男主「' + name + '」默认称「前辈」（如「' + name + '前辈」），绝对禁止直呼名字。';
+    if (allowObba) {
+      base += '当前感情已进入暧昧期（romanceStage>=1），可自然改口称「欧巴」；亲哥哥与男主的称呼不可互相套用。';
+    } else {
+      base += '当前仍是初识期（romanceStage<1），禁止称「欧巴」、禁止称「哥/哥哥/형」，只能称「前辈」。';
+    }
+    return base + '⚠️ 本段生成后有代码后校验：违反称呼/进度门控将被强制重写。';
+  }
 
   var result = '你是「只为你心动」——一款1v1沉浸式恋爱文字游戏的剧情生成AI。你必须只输出 JSON 对象，禁止输出 markdown 代码块或任何解释文字。\n\n' +
 
@@ -977,7 +1047,7 @@ export function buildOneHeartSystemPrompt() {
     '- ⚠️ 女主的全部外貌特征、私密体质均为女主专属设定，绝对禁止映射到任何成员身上（包括男主）。\n' +
     '- ⚠️ 女主是女性角色，绝对禁止被称为「哥/哥哥/형」。只有她的亲哥哥可以用「哥」称呼。\n' +
     '- ⚠️ 禁止编造恋爱纪念日（如"一个月纪念""100天纪念""周年纪念"），除非剧情中明确提到。\n' +
-    '- 注意：「泪痣」「狐狸眼泪痣」是眼角的痣，「锁骨精灵骨」是锁骨线条，「敏感带在耳后」是耳后区域，每个特征在各自固定位置，不可混淆。\n' +
+    buildFeaturePosNote(hp) +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
 
     getHeroineBehaviorText() + '\n\n' +
@@ -1022,7 +1092,15 @@ export function buildOneHeartSystemPrompt() {
         if (rel.behaviorLogic) parts += '行为逻辑：' + rel.behaviorLogic + '\n';
         parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n';
         if (rel.role === '哥哥') {
-          parts += '⚠️ 他是你的亲哥哥，不是他的哥哥。只能从你的视角称「我哥」或直呼名字「' + rel.name + '」，不可从他的视角称「他哥」「你哥」。\n';
+          parts += '⚠️ 他是你的亲哥哥，名字固定为「' + rel.name + '」，是男主（' + member.name + '）的队友，不是男主的哥哥。\n';
+          parts += '⚠️ 男主（他）在对话或独白中绝对禁止说「我哥」「我哥哥」——本故事里男主没有兄弟，"我哥"是错误指代，会让你（玩家）不知道指谁。\n';
+          parts += '⚠️ 男主若要提及你（女主）的哥哥，只能直呼其名「' + rel.name + '」或称「你哥」（意为"你的哥哥"），绝不可用「我哥」。\n';
+          parts += '⚠️ 你（女主）称亲哥哥可用「我哥」或「' + rel.name + '」，这是被允许的。\n';
+          if (isSisterSetting()) {
+            parts += '⚠️ ' + getOneHeartAddressRule() + '\n';
+          } else {
+            parts += '⚠️ 称呼规则（强制执行）：你称呼亲哥哥「' + rel.name + '」时可用「我哥」「' + rel.name + '」；你称呼男主「' + member.name + '」时禁止用「哥/哥哥/형」，只能直呼名字或好感度高时称「欧巴」。绝对禁止把男主和亲哥哥的称呼互相套用。\n';
+          }
         }
         var _relCfg = IDENTITY_RELATION_MAP[GS.heroineProfile.job];
         if (_relCfg && _relCfg.livesTogether) {
@@ -1040,7 +1118,15 @@ export function buildOneHeartSystemPrompt() {
         parts += '⚠️ 情敌是独立角色，不可与男主混淆。他的名字固定为「' + rival.name + '」。\n';
         parts += '⚠️ 情敌的角色身份（如未婚夫/上司/教练等）决定了他和你的关系，不可因队内年龄差异称其为「弟弟」。\n';
         parts += '⚠️ 情敌和关系网角色（哥哥/师兄/闺蜜/前同事等）是不同的人，不可混淆为一。\n';
-        parts += '⚠️ 情敌的出现应制造张力，但也是让你们的感情更深的机会。\n\n';
+        parts += '⚠️ 情敌的出现应制造张力，但也是让你们的感情更深的机会。\n';
+        if (isSisterSetting()) {
+          // 项4：情敌 framing 重写——贴合"哥哥把关 + 被拍曝光"主题，与哥哥立场呼应，不稀释焦点
+          parts += '\n[情敌·主题契合·队友的妹妹] 在「队友的妹妹」设定下，情敌必须紧扣"哥哥把关 + 被拍曝光"的核心张力，不可写成单纯的抢人工具人：\n';
+          parts += '- 他可以是哥哥/公司格外留意、甚至暗中考察你的人，或是被媒体拿来和你们"炒CP"的对手；他的存在会放大"被拍风险"。\n';
+          parts += '- 让情敌成为你和男主之间"地下恋曝光危机"的具体化身：每次他靠近，哥哥的态度（试探/掩护/劝你别公开）就会被牵动，使哥哥立场随情敌线起伏。\n';
+          parts += '- 情敌线推进时，优先制造"曝光博弈"而非"争宠打脸"——你要在哥哥的视线与媒体的镜头之间周旋。\n';
+        }
+        parts += '\n';
       }
       return parts;
     })() +
@@ -1115,7 +1201,7 @@ export function buildOneHeartSystemPrompt() {
 
     '[RULE] 全局写作规则\n' +
     '1. 正文用第二人称"你"。\n' +
-    '2. 称呼规则：直呼名字。好感度高时可称"欧巴"。\n' +
+    '2. 称呼规则：' + getOneHeartAddressRule() + '\n' +
     '3. 沉浸式恋爱小说氛围。文艺但不拗口，口语但不随意。\n' +
     '4. 描写比例：环境~20%、对话~32%、女主心理~20%、肢体细节~28%。\n' +
     '5. 禁止AI味、言情小说式夸张比喻、替玩家做情感判断。\n' +
@@ -1174,11 +1260,8 @@ export function buildOneHeartChatSystemPrompt() {
     : (_aff >= 40 ? '暧昧期（放松但还带试探，可以聊心情和吐槽）'
     : (_aff >= 15 ? '普通朋友（自然有问有答，答完可反问但不深聊）'
     : '初识阶段（克制礼貌简短，只答核心不主动展开）')));
-  var _tod = GS.oneHeartTimeOfDay || '上午';
-  var _activity = '上午，一天刚开始，可能在去练习室/公司的路上或刚开始热身';
-  if (_tod.indexOf('深夜') >= 0) _activity = '深夜，你在宿舍休息/刷手机，最放松的时候，可以说白天不会说的私房话';
-  else if (_tod.indexOf('傍晚') >= 0) _activity = '傍晚，行程基本结束，可能在回去的路上或休息，话可以多些';
-  else if (_tod.indexOf('下午') >= 0) _activity = '下午，可能在练习室或跑行程中，忙碌间隙回消息';
+  // [F] 时间/时段概念已移除：聊天不锚定具体时段，随时可聊
+  var _activity = '你们随时可以用手机聊天，语气随当下心情自然流动';
   var lines = [];
   lines.push('你是「' + member.name + '」本人，正在用手机和' + (hp ? hp.name : '她') + '聊天。你看到她发的消息后，直接打字回复。');
   lines.push('【绝对规则】');
@@ -1227,7 +1310,6 @@ export function buildOneHeartUserMessage(type, extra) {
     var _seasonInfo = getSeasonByMonth(GS.currentDate.month);
     if (_seasonInfo) msg += ' · ' + _seasonInfo.label;
     if (GS.weather) msg += ' · ' + GS.weather;
-    if (GS.gameMode === 'oneHeart') msg += ' · ' + (GS.oneHeartTimeOfDay || '上午');
     msg += '\n';
     GS.season = _seasonInfo ? _seasonInfo.season : GS.season;
   } else {
@@ -1276,10 +1358,12 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '[近期剧情]\n' + recentJoined + '\n\n';
     }
     // 注入上一次选择
-    if (GS.pendingChoiceText === '📅 新的一天') {
-      msg += '[INSTRUCTION] ⚠️ 现在是新的一天的清晨，时段强制为"上午"。必须从早晨场景重新开始（如醒来、晨光、早餐等），禁止延续昨晚的剧情场景。sceneContext.timeOfDay 必须返回"上午"。自然衔接昨日的余韵但不重复昨日已发生的事。\n\n';
+    if (GS.justEnteredNewDay || GS.pendingChoiceText === '📅 新的一天') {
+      msg += '[INSTRUCTION] ⚠️ 现在是新的一天的清晨。必须从早晨场景重新开始（如醒来、晨光、早餐等），禁止延续昨晚的剧情场景。自然衔接昨日的余韵但不重复昨日已发生的事。\n\n';
     } else if (GS.pendingChoiceText && GS.pendingChoiceText.indexOf('🎂') === 0) {
       msg += '[INSTRUCTION] 今天是他的生日。以庆祝、惊喜、温馨的氛围展开剧情——可以是他为你准备的惊喜，或你们一起过的特别一天。\n\n';
+    } else if (GS.todayHoliday && GS.todayHoliday.name) {
+      msg += '[INSTRUCTION] 今天是' + GS.todayHoliday.name + '（' + (GS.todayHoliday.emoji || '') + '）。以节日氛围展开剧情——可以是他陪你过节，或者你们一起庆祝。自然融入节日元素。\n\n';
     } else if (GS.pendingChoiceText && (GS.pendingChoiceText.indexOf('💝')>=0 || GS.pendingChoiceText.indexOf('🎄')>=0 || GS.pendingChoiceText.indexOf('🎆')>=0 || GS.pendingChoiceText.indexOf('🎉')>=0)) {
       var _holidayName = GS.pendingChoiceText.replace(/^[^\s]+\s/, '').replace('今天是', '');
       msg += '[INSTRUCTION] 今天' + _holidayName + '。以节日氛围展开剧情——可以是他陪你过节，或者你们一起庆祝。自然融入节日元素。\n\n';
@@ -1331,7 +1415,7 @@ export function buildOneHeartUserMessage(type, extra) {
       var _rs = GS.oneHeartRomanceStage || 0;
       var _rsRound = GS.oneHeartGenCount || 0;
       if (_rs === 0) {
-        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n\n';
+        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n⚠️ 严禁过度肢体接触与越界亲近：未建立明确亲密关系前，不得描写把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、下巴抵在你肩等超出当前关系的亲近动作。\n\n';
       } else if (_rs === 1) {
         msg += '[INSTRUCTION] 感情进度门控（当前：暧昧期·round ' + _rsRound + '）\n感情明确但不能一步到位——互动升温、可有些小甜蜜，但仍需克制。情敌开始正面竞争（争宠/较劲），但还不是告白时刻。禁止过早摊牌。\n\n';
       } else if (_rs === 2) {
@@ -1390,12 +1474,12 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     if (_weatherH) msg += '🌤 [天气氛围] ' + _weatherH + '\n\n';
 
-    // 注入代码追踪的场景状态（告知AI当前时段和位置）
-    var _curTimeLabel = GS.oneHeartTimeOfDay || '上午';
-    msg += '[场景状态] 当前时段：' + _curTimeLabel + '。你可以根据剧情节奏自然推进时段（如从上午发展到下午），但不要倒退。请在本段剧情结束时的 sceneContext.timeOfDay 中返回当前的时段（上午/下午/傍晚/深夜之一）。\n';
-    if (_curTimeLabel === '深夜') {
-      msg += '当前已是深夜，本段剧情应为今天画上句号、自然收尾。不要在深夜时段开启新的外出活动，而是以休息、夜话、内心独白等收束当日。如需推进到第二天，引导玩家选择"新的一天"。\n';
+    // [F] 时间/时段概念已移除：不再约束具体时段，剧情自然流动
+    msg += '[场景状态] 你们随时可以相处，剧情随时间自然流动，无需声明具体时段（如"上午/深夜"），直接写当下的场景与互动即可。\n';
+    if (GS.oneHeartRival && !GS._rivalSwitched && GS.oneHeartRival.name) {
+      msg += '[情敌选项规则] 若本段选项涉及对情敌『' + GS.oneHeartRival.name + '』的取向变化，请用 rivalAffDelta 字段表达（正数=心动倾向增加，负数=疏离），切勿把该增减混入 affDelta——affDelta 永远表示对男主『' + member.name + '』的好感。\n';
     }
+    // [F] 时段提示已移除（时间概念整体删除）
     var _sceneCtx = GS.oneHeartSceneContext || { location: '', present: [] };
     if (_sceneCtx.location) {
       msg += '目前你们在「' + _sceneCtx.location + '」';
@@ -1404,19 +1488,15 @@ export function buildOneHeartUserMessage(type, extra) {
       }
       msg += '。所有剧情动作必须延续这个场景，人物不可凭空出现或消失。\n';
     }
-    msg += '请输出 JSON 时包含 sceneContext 字段（描述本段剧情结束时的位置和在场人物），格式：{"location":"位置","present":["人物1","人物2"],"timeOfDay":"上午"}\n';
+    msg += '请输出 JSON 时包含 sceneContext 字段（描述本段剧情结束时的位置和在场人物），格式：{"location":"位置","present":["人物1","人物2"]}\n';
     msg += '场景规则：非"新的一天"时必须延续当前场景。仅当选项明确涉及移动（如"去咖啡馆""送她回家"）才允许切换场景，且需描写移动过渡。如不涉及移动，sceneContext.location 必须与当前位置一致或为其子地点（如"咖啡馆"→"咖啡馆二楼"可接受）。\n\n';
 
-    // IMP-ENT-DATE：男主当日行程约束（仅娱乐圈世界观，让约会不违背男主工作）
+    // [F/J] 男主当日行程约束（仅娱乐圈世界观；[J] 改用 team/solo 类型，不再含 busySlot/freeWindows 时段）
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
       var _sch = GS.oneHeartSchedule.main;
-      msg += '[男主当日行程] 他今天的本职行程：' + _sch.task + '（地点：' + _sch.place + '，工作时段：' + _sch.busySlot + '）。\n';
-      if (_sch.freeWindows && _sch.freeWindows.length > 0) {
-        msg += '他当天能偷偷溜出来见你的空档时段：' + _sch.freeWindows.join('、') + '。\n';
-        msg += '【弹性约会规则】若本段剧情涉及与他约会/私下见面，优先安排在上述空档时段；如情节必须落在他工作时段（' + _sch.busySlot + '），必须写成他偷偷溜出来 / 翘班赶场，并体现被拍风险与时间紧迫的地下恋张力（如频频看表、经纪人来电、压低帽檐避开镜头）。\n';
-      } else {
-        msg += '他当天行程在首尔之外（无空档），本段不应安排你们当面私下见面；若必须有情感交集，只可写「他抽空秒回消息」式的远程互动。\n';
-      }
+      var _schType = _sch.type === 'solo' ? '单人工作/录影·相对私密' : '团体/公开场合·周围人多·曝光高';
+      msg += '[男主当日行程] 他今天的本职行程：' + _sch.task + '（地点：' + _sch.place + '，' + _schType + '）。\n';
+      msg += '约会/私下见面请贴合他这天的工作节奏自然展开，体现地下恋张力即可，无需锚定具体时段或空档。\n';
       msg += '\n';
     }
 
@@ -1451,6 +1531,8 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += '\n';
       }
     }
+    // [A] 结构化事实记忆硬约束（跨天持久累积）
+    msg += buildMemoryFactsBullet();
     // 注入上一回合触发的事件选择结果（支持多条）
     if (GS._pendingEventResults && GS._pendingEventResults.length > 0) {
       for (var _eri = 0; _eri < GS._pendingEventResults.length; _eri++) {
@@ -1570,30 +1652,33 @@ export function buildOneHeartUserMessage(type, extra) {
   if (extra && extra.isVisit && extra.visitRoleKey && GS.oneHeartSchedule && GS.oneHeartSchedule[extra.visitRoleKey]) {
     var _vs = GS.oneHeartSchedule[extra.visitRoleKey];
     var _vsName = (MEMBERS.find(function(m) { return m.id === _vs.memberId; }) || {}).name || '他';
-    msg += '[INSTRUCTION] 探班场景（visitSet）\n你偷偷来到 ' + _vsName + ' 的工作现场——' + _vs.place + '，他正在：' + _vs.task + '（时段：' + _vs.timeOfDay + '）。\n';
+    msg += '[INSTRUCTION] 探班场景（visitSet）\n你偷偷来到 ' + _vsName + ' 的工作现场——' + _vs.place + '，他正在：' + _vs.task + '。\n';
     if (extra.visitRoleKey === 'main') {
       msg += '场景基调：职场反差（冷脸专注工作→看到你出现偷偷展露喜色）× 地下恋风险（怕被工作人员/狗仔撞见）。描写他表面专业、私下因你到来的慌乱与甜蜜，可自然送咖啡/带饭、聊天。\n';
     } else if (extra.visitRoleKey === 'related') {
-      msg += '场景基调：关系张力（该关系户与你的特殊关系，如「队友的妹妹」下即亲哥，他在意会误会）。描写你出现的微妙与他的反应，可自然送咖啡/带饭、聊天。\n';
+      msg += '场景基调：兄妹温情（你借"来找哥哥"的名义来探他班的）——亲哥看到你出现先是习惯性调侃"又来探班"，随后默契地给你俩腾出独处空间。描写兄妹间的自然打闹、他替你打掩护的小动作，以及你顺带私会男友的甜意。可自然送咖啡/带饭、聊天，哥哥在场但绝不拆穿。\n';
     } else if (extra.visitRoleKey === 'rival') {
       msg += '场景基调：修罗场直球——你主动探情敌，男主后续会吃醋（情敌倾向上升）。描写情敌对你的态度与你心里的盘算，可自然送咖啡/带饭、聊天。\n';
     }
-    msg += '结局停在探班结束的温情或张力一刻，不要写后续约会推进。\n\n';
+    msg += '结局停在探班结束的温情或张力一刻，不要写后续约会推进。\n';
+    // [J] 强制场景切换：本段场景必须切换到探班地点，不复用上一段主线场景
+    msg += '[强制场景切换] 本段剧情必须切换到「' + _vsName + ' 的工作现场（' + _vs.place + '）」，sceneContext.location 设为该地点、present 仅限在场人物；不要续写上一段主线的场景与人物。\n\n';
   }
 
   // IMP-17：哥哥＝信任圈内人（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+  // [J] 探班场景已单独描述哥哥，主流程/通用哥哥立场块在探班时跳过，避免「上午哥哥说没事、下午探班又写哥哥」重复
+  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isVisit && !GS._brotherShownThisDay) {
     var _bs = GS.brotherStance || 'consultant';
     var _bsMap = {
       consultant: '参谋（默认：你告诉他一切、他给意见）',
       supportive: '支持（认可男主、主动掩护你）',
       testing: '试探（想看男主是否真心对你好）',
-      protective: '提醒（担心公众曝光风险，提醒"别被拍"——反对的是被拍，不是这段关系）'
+      protective: '忧虑（在意被家人/公司察觉这段关系，会劝你慎重、别公开/别让家里知道——反对的是关系被公开，不是反对男主本人）'
     };
     var _bsInstr = '';
     if (_bs === 'supportive') _bsInstr = '哥哥已是你的头号参谋与掩护，会主动替你打圆场、在家庭群替你圆话、甚至故意留你俩独处。';
     else if (_bs === 'testing') _bsInstr = '哥哥正暗中试探男主诚意，可能故意把两人凑一起观察，或对男主说些"考校"的话——善意但较真。';
-    else if (_bs === 'protective') _bsInstr = '哥哥更在意曝光风险，会反复提醒"别被拍/别留痕迹"，但不反对这段关系本身。';
+    else if (_bs === 'protective') _bsInstr = '哥哥在意被家人或公司发现这段关系，会反复劝你慎重、别公开、先别让家里知道；本质上对这段地下恋持保留态度——他不是反派，是替你权衡利弊的亲哥。';
     else _bsInstr = '哥哥是你无话不谈的参谋，你乐意把进展告诉他，他给建议、调侃你、偶尔提醒。';
     var _bhome = GS.brotherAtHome;
     var _bhomeText = _bhome
@@ -1604,16 +1689,16 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '- 哥哥立场：' + (_bsMap[_bs] || _bsMap.consultant) + '。' + _bsInstr + '\n';
       msg += '- 哥哥是否在家：' + _bhomeText + '\n';
       msg += '- 设定铁律：哥哥是你最信任的参谋与掩护，你对他无话不谈。偷偷摸摸的张力来自公众/粉丝/公司/行业视线，而非自家客厅。哥哥若知情会调侃或掩护，绝不拆穿。\n';
-      msg += '- 参谋指令：女主向哥哥汇报进展/寻求意见时，哥哥按当前立场自然回应（建议/调侃/提醒"别被拍"），并可轻微影响男主情绪（哥哥支持→男主放松）。\n';
+      msg += '- 参谋指令：女主向哥哥汇报进展/寻求意见时，哥哥按当前立场自然回应（建议/调侃/劝你别急着公开），并可轻微影响男主情绪（哥哥支持→男主放松）。\n';
       // IMP-ENT-DATE：哥哥空档门控（约会只能发生在正当空档）
       msg += '- 【约会空档约束】哥哥在家时，男主不能登门，你与男主的私下见面只能安排在外部、低调匆匆见（楼梯间/车里/街角）；哥哥不在家（出差/录节目）才是正当空档，男主才可名正言顺来住处。\n';
       // IMP-ENT-DATE(B2)：哥哥门控告白——关系进阶软门槛（代码护栏：enforceBrotherStop 命中时改为强制指令）
       var _rsB2 = GS.oneHeartRomanceStage || 0;
       if (_rsB2 >= 2 && (_bs === 'testing' || _bs === 'protective')) {
         if (extra && extra.enforceBrotherStop) {
-          msg += '- 【哥哥拦门·强制】你们的关系已到「' + (_rsB2 >= 3 ? '高潮' : '明确') + '」阶段，但哥哥立场仍是「' + (_bs === 'testing' ? '试探' : '提醒曝光风险') + '」。【强制指令】本段剧情必须出现哥哥旁敲侧击拦你摊牌、或提醒"现在公开太危险"的桥段——这是关系进阶的硬门槛，不可省略（他不是反派，是担心被拍的亲哥）。\n';
+          msg += '- 【哥哥拦门·强制】你们的关系已到「' + (_rsB2 >= 3 ? '高潮' : '明确') + '」阶段，但哥哥立场仍是「' + (_bs === 'testing' ? '试探' : '忧关系被家人公司察觉') + '」。【强制指令】本段剧情必须出现哥哥旁敲侧击拦你摊牌、或劝你"现在公开太危险/别让家里知道"的桥段——这是关系进阶的硬门槛，不可省略（他不是反派，是担心关系被家人公司察觉的亲哥）。\n';
         } else {
-          msg += '- 【哥哥拦门】你们的关系已到「' + (_rsB2 >= 3 ? '高潮' : '明确') + '」阶段，但哥哥立场仍是「' + (_bs === 'testing' ? '试探' : '提醒曝光风险') + '」。本段可自然体现哥哥旁敲侧击拦你摊牌、或提醒"现在公开太危险"，让哥哥成为关系进阶的软门槛（他不是反派，是担心被拍的亲哥）。\n';
+          msg += '- 【哥哥拦门】你们的关系已到「' + (_rsB2 >= 3 ? '高潮' : '明确') + '」阶段，但哥哥立场仍是「' + (_bs === 'testing' ? '试探' : '忧关系被家人公司察觉') + '」。本段可自然体现哥哥旁敲侧击拦你摊牌、或劝你"现在公开太危险/别让家里知道"，让哥哥成为关系进阶的软门槛（他不是反派，是担心关系被家人公司察觉的亲哥）。\n';
         }
       }
       // IMP-ENT-DATE(B3)：妹妹正当接近权·降曝光
@@ -1625,7 +1710,7 @@ export function buildOneHeartUserMessage(type, extra) {
         if (extra && extra.brotherAssist) {
           _b5txt += '哥哥立场是 supportive，他不会拦你靠近情敌、会主动助攻、甚至帮你打掩护。\n';
         } else {
-          _b5txt += '若哥哥立场是 supportive，他不会拦你靠近情敌、甚至可能助攻；若是 protective，他会更警惕并试探你。\n';
+          _b5txt += '若哥哥立场是 supportive，他不会拦你靠近情敌、甚至可能助攻；若是 protective，他更警惕这段关系被家里/公司察觉，会试探你的真心。\n';
         }
         msg += _b5txt;
       }
@@ -1640,7 +1725,7 @@ export function buildOneHeartUserMessage(type, extra) {
   if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && type === 'phase') {
     var _idolMode = (extra && extra.isVisit) ? 'public' : 'private';
     var _idolPool = (_idolMode === 'public') ? IDOL_PUBLIC_BEATS
-      : (GS.idolFatigue >= 60 ? IDOL_FATIGUE_BEATS : IDOL_PRIVATE_BEATS);
+      : IDOL_PRIVATE_BEATS;
     if (_idolPool && _idolPool.length) {
       var _idolBeat = _idolPool[Math.floor(Math.random() * _idolPool.length)];
       msg += '[偶像此刻] 本幕让他自然做出这一处真实反应（代码指定，请织入剧情动作/对话，不要写成旁白说明）：' + _idolBeat + '\n';

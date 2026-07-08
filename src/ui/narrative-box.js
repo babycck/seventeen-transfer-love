@@ -1,5 +1,20 @@
 import { escHtml, showToast, saveGame } from '../core.js';
 import { GS } from '../state.js';
+import { isSisterSetting } from '../utils.js';
+
+// 渲染前硬禁词后处理（避免整段重生成）
+function sanitizeHardWords(text) {
+  if (!text) return text;
+  // 删除韩式敬语后缀 -xi / -시 / 씨
+  text = text.replace(/\s*-xi\b/gi, '').replace(/\s*-시\b/g, '');
+  // 删除辈分词（妹妹设定下保留"前辈/后辈"：她本就该称成员"前辈"）
+  if (!isSisterSetting()) {
+    text = text.replace(/前辈/g, '').replace(/后辈/g, '');
+  }
+  // 删除明确抽烟动作（避免误伤"烟雨"等词）
+  text = text.replace(/(?:他|她|你|某人)\s*(?:点燃|抽了口|叼着|夹起|深吸一口)\s*(?:烟|香烟|电子烟)/g, '');
+  return text;
+}
 
 // 中文自动断句：按句末标点断，不依赖 AI 的 \n，引号内不断
 function splitChineseSentences(text) {
@@ -39,7 +54,7 @@ export function renderParsedNarrative(parsed) {
   if (parsed.blocks && parsed.blocks.length > 0) {
     for (var i = 0; i < parsed.blocks.length; i++) {
       var b = parsed.blocks[i];
-      var content = (b.content || '').trim();
+      var content = sanitizeHardWords((b.content || '').trim());
       if (!content) continue;
 
       if (b.type === 'narrative') {
@@ -77,7 +92,7 @@ export function renderParsedNarrative(parsed) {
 
   // 旧格式兼容
   if (parsed.narrative) {
-    var paras2 = splitChineseSentences(parsed.narrative);
+    var paras2 = splitChineseSentences(sanitizeHardWords(parsed.narrative));
     for (var ii = 0; ii < paras2.length; ii++) {
       var line = paras2[ii];
       if (line.indexOf('❥ 你的选择：') === 0) {
@@ -89,27 +104,27 @@ export function renderParsedNarrative(parsed) {
   }
   if (parsed.interviews && parsed.interviews.length > 0) {
     for (var j = 0; j < parsed.interviews.length; j++) {
-      html += '<div class="interview">🎙 <strong>【采访间】</strong> ' + escHtml(parsed.interviews[j]) + '</div>';
+      html += '<div class="interview">🎙 <strong>【采访间】</strong> ' + escHtml(sanitizeHardWords(parsed.interviews[j])) + '</div>';
     }
   }
   if (parsed.xInterviews && parsed.xInterviews.length > 0) {
     for (var k = 0; k < parsed.xInterviews.length; k++) {
-      html += '<div class="x-interview">🎙️💔 <strong>【X采访间】</strong> ' + escHtml(parsed.xInterviews[k]) + '</div>';
+      html += '<div class="x-interview">🎙️💔 <strong>【X采访间】</strong> ' + escHtml(sanitizeHardWords(parsed.xInterviews[k])) + '</div>';
     }
   }
   if (parsed.memberInterviews && parsed.memberInterviews.length > 0) {
     for (var l = 0; l < parsed.memberInterviews.length; l++) {
-      html += '<div class="member-interview">🎤 ' + escHtml(parsed.memberInterviews[l]) + '</div>';
+      html += '<div class="member-interview">🎤 ' + escHtml(sanitizeHardWords(parsed.memberInterviews[l])) + '</div>';
     }
   }
   if (parsed.directorOS) {
-    var dlines2 = parsed.directorOS.split('\n').filter(function(l) { return l.trim(); });
+    var dlines2 = sanitizeHardWords(parsed.directorOS).split('\n').filter(function(l) { return l.trim(); });
     for (var mm = 0; mm < dlines2.length; mm++) {
       html += '<div class="director-os">🎬 <strong>【导演OS】</strong> ' + escHtml(dlines2[mm]) + '</div>';
     }
   }
   if (parsed.observerOS) {
-    var olines2 = parsed.observerOS.split('\n').filter(function(l) { return l.trim(); });
+    var olines2 = sanitizeHardWords(parsed.observerOS).split('\n').filter(function(l) { return l.trim(); });
     for (var nn = 0; nn < olines2.length; nn++) {
       var formatted2 = olines2[nn].replace(
         /^(李龙真|金叡园|郑基锡|[\u4e00-\u9fa5]+)[：:](.*)$/,

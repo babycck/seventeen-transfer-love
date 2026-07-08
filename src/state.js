@@ -46,10 +46,12 @@ export function defaultGameState() {
     oneHeartCelebrityPool: [],
     oneHeartScandalPool: [], // 媒体风波事件缓存池（仅模板缓存，非曝光计数）
     oneHeartScandalCount: 0, // IMP-18：玩家实际经历的公众曝光翻车次数（scandal 事件入队时 +1）
+    exposureRisk: 0, // 曝光风险值（0~100，娱乐圈·队友的妹妹：公开约会/翘班/深夜见面等行为累加；>=60 触发绯闻事件并与哥哥 protective 立场联动）
     oneHeartSickPool: [],
     oneHeartExJealousPool: [],
     oneHeartLateNightPool: [],
     oneHeartRandomUsed: [], // IMP-05：随机事件用去重环形缓冲（存最近抽过的 id）
+    randomEventsUsed: [], // [G] 换乘模式随机事件去重（存已触发 id）
     heroinePersona: { scores: {}, current: '' }, // IMP-09：女主人格画像（暗藏，由选项/自由输入推断）
     oneHeartSchedule: null, // IMP-16：今日行程（娱乐圈世界观：{main,related,rival}）
     oneHeartVisitLog: [], // IMP-16：探班记录 [{roleKey,day,task}]
@@ -60,13 +62,12 @@ export function defaultGameState() {
     oneHeartRivalTriggeredActions: [],
     oneHeartRomanceStage: 0, // IMP-19：感情进度阶段（0初识/1暧昧/2明确/3高潮），由回合数推进，门控激进/告白类行为
     // IMP-17：哥哥＝信任圈内人（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
-    brotherStance: 'consultant', // 哥哥立场：consultant(默认参谋)/supportive(认可掩护)/testing(试探)/protective(提醒曝光风险)
+    brotherStance: 'consultant', // 哥哥立场：consultant(默认参谋)/supportive(认可掩护)/testing(试探)/protective(忧关系被家人/公司察觉，反对公开)
     oneHeartBrotherAff: 0, // 哥哥支持度数值（驱动 brotherStance 推导，范围 -100~100）
     oneHeartBrotherLog: [], // 哥哥立场变化日志 [{round, change, reason, total}]
     oneHeartBrotherPool: [], // 哥哥专属事件缓冲（参谋/掩护/调侃/考验，运行期填充）
     brotherTestNudged: false, // IMP-17：本局「哥哥的考验」是否已触发（仅一次）
     brotherAtHome: true, // 哥哥是否在家（由 IMP-16 行程派生；不在家=正当空档，可放男主进门且哥哥知情）
-    idolFatigue: 25, // 偶像疲劳值（0~100）：按每日行程累积、每日恢复；>=60 触发疲惫失态 beat（娱乐圈世界观）
     brotherAffMilestone: 0, // 哥哥随感情深化而放心的里程碑（0/40/60/80，仅「队友的妹妹」）
     // IMP-ENT-DATE：日程约束 / 主动约会相关
     oneHeartDateToday: false, // 当日是否已主动发起约会
@@ -83,15 +84,17 @@ export function defaultGameState() {
     oneHeartColdWar: { active: false, startRound: 0, consecutiveDrops: 0 },
     oneHeartAffHistory: [],
     oneHeartDateIdx: 0,
+    oneHeartLetterEvery: 5, // 1v1 秘密信件触发间隔（回合数），默认每 5 回合触发一次，上限 6 封
     oneHeartPromises: [],
     _relCharIntroduced: false,
     _rivalIntroduced: false,
     _newMoments: false,
     _newDiary: false,
     _newEvents: false,
-    oneHeartTimeOfDay: '上午', // AI 自主判断的当前时段，由 sceneContext.timeOfDay 同步
+    _brotherShownThisDay: false, // [F/J] 当天主流程是否已出现哥哥桥段（防「上午哥哥说没事、下午探班又写哥哥」重复）
     oneHeartTimeProgress: 0, // [已废弃] 保留向后兼容，不再使用
-    oneHeartSceneContext: { location: '', present: [], timeOfDay: '上午' }, // 代码追踪场景位置、在场人物、时段
+    oneHeartSceneContext: { location: '', present: [] }, // 代码追踪场景位置、在场人物（时段概念已移除·F）
+
     oneHeartPromiseLog: [], // [{ text, createdAtRound }] 约定创建日志，用于延迟兑现控制
     oneHeartLastEventRound: 0,
     _newChat: false,
@@ -178,6 +181,7 @@ export function defaultGameState() {
     observerGuestPrevious: '',
     day10ChosenDate: null,
     pendingPromises: [],
+    memoryFacts: {}, // [A] 结构化事实记忆（按 角色→类别 存储：preferences/taboos/allergens），跨天持久累积
     todayRevealedInfo: '',
     pendingMemoryReview: null,
     drunkTrigger: null,
@@ -321,6 +325,7 @@ export function saveGame() {
     delete stateToSave._advancingPhase;
     delete stateToSave.pendingChoiceText;
     delete stateToSave._pendingSource;
+    delete stateToSave._pendingOneHeartGen; // 协作式重入排队标记，纯运行时，不持久化
     var json = JSON.stringify(stateToSave);
     if (json.length > SAVE_SIZE_WARN) {
       console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');
@@ -382,6 +387,7 @@ export function migrateSave() {
     if (GS.observerGuestPrevious === undefined) GS.observerGuestPrevious = '';
     if (GS.day10ChosenDate === undefined) GS.day10ChosenDate = null;
     if (GS.pendingPromises === undefined) GS.pendingPromises = [];
+    if (GS.memoryFacts === undefined || typeof GS.memoryFacts !== 'object') GS.memoryFacts = {};
     if (GS.todayRevealedInfo === undefined) GS.todayRevealedInfo = '';
     if (!GS.affectionLog) GS.affectionLog = {};
     if (!GS.dailyFullTexts) GS.dailyFullTexts = [];
@@ -486,6 +492,7 @@ export function migrateSave() {
     if (GS.endingMeters === undefined) GS.endingMeters = null;
     GS._isGenerating = false;
     GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
+    GS._pendingOneHeartGen = null; // 重置协作式重入排队标记
     // [diary] 日记系统
     if (!Array.isArray(GS.diaryEntries)) GS.diaryEntries = [];
     if (GS.oneHeartDiaryCounter === undefined) GS.oneHeartDiaryCounter = 0;
@@ -522,9 +529,11 @@ export function migrateSave() {
     if (!GS.oneHeartColdWar) GS.oneHeartColdWar = { active: false, startRound: 0, consecutiveDrops: 0 };
     if (!Array.isArray(GS.oneHeartAffHistory)) GS.oneHeartAffHistory = [];
     if (GS.oneHeartDateIdx === undefined) GS.oneHeartDateIdx = 0;
-    if (GS.oneHeartTimeOfDay === undefined) GS.oneHeartTimeOfDay = '上午';
+    if (GS.oneHeartLetterEvery === undefined) GS.oneHeartLetterEvery = 5;
+    if (GS._brotherShownThisDay === undefined) GS._brotherShownThisDay = false;
     if (GS.oneHeartTimeProgress === undefined) GS.oneHeartTimeProgress = 0;
     if (GS.oneHeartSceneContext === undefined) GS.oneHeartSceneContext = { location: '', present: [] };
+
     if (!Array.isArray(GS.oneHeartPromiseLog)) GS.oneHeartPromiseLog = [];
     if (GS._relCharIntroduced === undefined) GS._relCharIntroduced = false;
     if (GS._rivalIntroduced === undefined) GS._rivalIntroduced = false;
@@ -546,6 +555,7 @@ export function migrateSave() {
     if (GS.oneHeartRomanceStage === undefined) GS.oneHeartRomanceStage = 0;
     if (!Array.isArray(GS.oneHeartEventLog)) GS.oneHeartEventLog = [];
     if (!Array.isArray(GS.oneHeartRandomUsed)) GS.oneHeartRandomUsed = [];
+    if (!Array.isArray(GS.randomEventsUsed)) GS.randomEventsUsed = [];
     if (GS.oneHeartSchedule === undefined) GS.oneHeartSchedule = null;
     if (!Array.isArray(GS.oneHeartVisitLog)) GS.oneHeartVisitLog = [];
     if (GS.oneHeartVisitLocked === undefined) GS.oneHeartVisitLocked = '';
@@ -556,8 +566,8 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartBrotherPool)) GS.oneHeartBrotherPool = [];
     if (GS.brotherTestNudged === undefined) GS.brotherTestNudged = false;
     if (GS.oneHeartScandalCount === undefined) GS.oneHeartScandalCount = 0;
+    if (GS.exposureRisk === undefined) GS.exposureRisk = 0;
     if (GS.brotherAtHome === undefined) GS.brotherAtHome = true;
-    if (GS.idolFatigue === undefined) GS.idolFatigue = 25;
     if (GS.brotherAffMilestone === undefined) GS.brotherAffMilestone = 0;
     // IMP-ENT-DATE：新字段兜底
     if (GS.oneHeartDateToday === undefined) GS.oneHeartDateToday = false;

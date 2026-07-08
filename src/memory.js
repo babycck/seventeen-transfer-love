@@ -1,5 +1,5 @@
 ﻿import {
-  TODAY_TEXT_CAP, TOKEN_CONFIG, GS, callDeepSeek
+  TODAY_TEXT_CAP, TOKEN_CONFIG, GS, callDeepSeek, HYBRID_TAIL_CHARS
 } from './core.js';
 import { parseNarrative } from './parser.js';
 
@@ -50,14 +50,16 @@ export function getTodayFullTextCapped() {
   return '[当日上下文过长，已压缩为摘要]\n' + (GS._todayCompressedSummary || full.slice(0, 4000));
 }
 
-export function getTodayNarrativeTail(charCount) {
-  // [改造] 从 JSON blocks 提取纯正文，而不是从 emoji 标记过滤
-  var full = getTodayFullText();
+// ==================== 连贯降级：抽取任意文本的近期叙事 tail（D） ====================
+// 由 getTodayNarrativeTail 内部逻辑重构为可接收任意文本（含 '\n\n---\n\n' 分隔段）。
+// 抽取纯 narrative 正文，按引号边界对齐切口，避免断句或丢掉引用的约定。
+export function extractNarrativeTail(text, charCount) {
+  if (!text) return '';
+  charCount = charCount || 3000;
   var cleanText = '';
-  var segments = full.split('\n\n---\n\n');
+  var segments = String(text).split('\n\n---\n\n');
   for (var si = 0; si < segments.length; si++) {
-    var seg = segments[si];
-    var narrText = extractNarrativeFromSegment(seg);
+    var narrText = extractNarrativeFromSegment(segments[si]);
     if (narrText) cleanText += (cleanText ? '\n' : '') + narrText;
   }
   if (cleanText.length <= charCount) return cleanText;
@@ -71,9 +73,9 @@ export function getTodayNarrativeTail(charCount) {
   }
   if (openQuote) {
     var before = cleanText.slice(0, cleanText.length - charCount);
-    for (var i = before.length - 1; i >= 0; i--) {
-      if (before[i] === '"' || before[i] === '\u201c' || before[i] === '\u201d' || before[i] === '\u300c' || before[i] === '\u300d') {
-        var extended = before.slice(i) + tail;
+    for (var j = before.length - 1; j >= 0; j--) {
+      if (before[j] === '"' || before[j] === '\u201c' || before[j] === '\u201d' || before[j] === '\u300c' || before[j] === '\u300d') {
+        var extended = before.slice(j) + tail;
         if (extended.length <= charCount + 300) {
           return '...（前略）...\n\n' + extended;
         }
@@ -83,6 +85,24 @@ export function getTodayNarrativeTail(charCount) {
   }
 
   return '...（前略）...\n\n' + tail;
+}
+
+export function getTodayNarrativeTail(charCount) {
+  // [改造] 复用共享 extractNarrativeTail（D）
+  return extractNarrativeTail(getTodayFullText(), charCount);
+}
+
+// ==================== 混合当日注入（C） ====================
+// 注入 = 压缩早期摘要 + 近期 narrative tail，避免缓存抹平后段细节。
+export function getTodayHybridContext() {
+  var full = getTodayFullText();
+  if (full.length <= TODAY_TEXT_CAP) return full;
+  var summary = GS._todayCompressedSummary || '';
+  if (summary) {
+    return summary + '\n\n[近期剧情原文]\n' + extractNarrativeTail(full, HYBRID_TAIL_CHARS || 3000);
+  }
+  // 超长但尚未生成压缩摘要：退回全量（压缩流程随后会补摘要）
+  return full;
 }
 
 export function getTodayKeyEventsSummary() {
@@ -127,7 +147,7 @@ export async function compressTodayForInjection() {
     return GS._todayCompressedSummary;
   }
   if (!GS.aiEnabled) {
-    GS._todayCompressedSummary = full.slice(0, 4000);
+    GS._todayCompressedSummary = extractNarrativeTail(full, 4000);
     return GS._todayCompressedSummary;
   }
   try {
@@ -141,7 +161,7 @@ export async function compressTodayForInjection() {
     GS._todayCompressedSummary = result.trim();
     return GS._todayCompressedSummary;
   } catch (e) {
-    GS._todayCompressedSummary = full.slice(0, 4000);
+    GS._todayCompressedSummary = extractNarrativeTail(full, 4000);
     return GS._todayCompressedSummary;
   }
 }
@@ -191,7 +211,7 @@ export async function compressOneHeartYesterday() {
   var yJoined = yTexts.join('\n\n---\n\n');
   if (yJoined.length < 200) return '';
   if (!GS.aiEnabled) {
-    var _fallback = yJoined.slice(0, 1000);
+    var _fallback = extractNarrativeTail(yJoined, 1000);
     GS.oneHeartYesterdaySummary = _fallback;
     if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
     GS.oneHeartDailySummaries.push(_fallback);
@@ -218,7 +238,7 @@ export async function compressOneHeartYesterday() {
     if (parsed && (parsed.events || parsed.dialogues || parsed.promises || parsed.revealedInfo)) {
       summary = JSON.stringify(parsed);
     } else {
-      summary = yJoined.slice(0, 1000);
+      summary = extractNarrativeTail(yJoined, 1000);
     }
     GS.oneHeartYesterdaySummary = summary;
     if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
@@ -226,13 +246,57 @@ export async function compressOneHeartYesterday() {
     if (GS.oneHeartDailySummaries.length > 7) GS.oneHeartDailySummaries.shift();
     return summary;
   } catch (e) {
-    var fallback = yJoined.slice(0, 1000);
+    var fallback = extractNarrativeTail(yJoined, 1000);
     GS.oneHeartYesterdaySummary = fallback;
     if (!Array.isArray(GS.oneHeartDailySummaries)) GS.oneHeartDailySummaries = [];
     GS.oneHeartDailySummaries.push(fallback);
     if (GS.oneHeartDailySummaries.length > 7) GS.oneHeartDailySummaries.shift();
     return fallback;
   }
+}
+
+// ==================== 结构化事实记忆合并（A/B） ====================
+// 按「角色+类别」用指纹（前8+后8字）去重合并，复用 dedupeEventLog 思路。
+export function mergeMemoryFacts(existing, incoming) {
+  existing = existing || {};
+  incoming = incoming || {};
+  var owners = {};
+  // 角色键集合：已有 + 新来
+  var keys = {};
+  for (var k in existing) { if (existing.hasOwnProperty(k)) keys[k] = true; }
+  for (var k2 in incoming) { if (incoming.hasOwnProperty(k2)) keys[k2] = true; }
+  for (var owner in keys) {
+    if (!keys.hasOwnProperty(owner)) continue;
+    var _e = existing[owner] || { preferences: [], taboos: [], allergens: [] };
+    var _i = incoming[owner] || { preferences: [], taboos: [], allergens: [] };
+    owners[owner] = {
+      preferences: dedupeEventLog((_e.preferences || []).concat(_i.preferences || [])),
+      taboos: dedupeEventLog((_e.taboos || []).concat(_i.taboos || [])),
+      allergens: dedupeEventLog((_e.allergens || []).concat(_i.allergens || []))
+    };
+  }
+  return owners;
+}
+
+// 约定跨天累积去重（B）：保留既有，新增不重复。
+export function mergePromises(oldArr, newArr) {
+  oldArr = oldArr || [];
+  newArr = newArr || [];
+  var seen = {};
+  var result = [];
+  for (var i = 0; i < oldArr.length; i++) {
+    var s = String(oldArr[i] || '');
+    if (!s || seen[s]) continue;
+    seen[s] = true;
+    result.push(oldArr[i]);
+  }
+  for (var j = 0; j < newArr.length; j++) {
+    var s2 = String(newArr[j] || '');
+    if (!s2 || seen[s2]) continue;
+    seen[s2] = true;
+    result.push(newArr[j]);
+  }
+  return result;
 }
 
 // ==================== 事件日志去重（计划B问题6） ====================

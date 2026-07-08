@@ -55,8 +55,10 @@ export function showSmsModal() {
     '<div style="display:flex;gap:5px;justify-content:center;margin-top:8px;flex-wrap:wrap;">';
   for (var k = 0; k < availableMembers.length; k++) {
     var m = availableMembers[k];
-    inner += '<button class="sms-target-btn" data-id="' + m.id + '" style="padding:6px 10px;border-radius:14px;border:1.5px solid #e8c8c8;background:#fff5f5;cursor:pointer;font-size:12px;font-weight:600;color:#5d3a3a;transition:all .2s;">' +
-      m.emoji + ' ' + m.name + '</button>';
+    var _aff = GS.affection[m.id] || 0;
+    var _affDisabled = _aff < 40;
+    inner += '<button class="sms-target-btn" data-id="' + m.id + '" ' + (_affDisabled ? 'disabled' : '') + ' style="padding:6px 10px;border-radius:14px;border:1.5px solid ' + (_affDisabled ? '#ddd' : '#e8c8c8') + ';background:' + (_affDisabled ? '#f0f0f0' : '#fff5f5') + ';cursor:' + (_affDisabled ? 'not-allowed' : 'pointer') + ';font-size:12px;font-weight:600;color:' + (_affDisabled ? '#999' : '#5d3a3a') + ';transition:all .2s;" title="' + (_affDisabled ? '好感度低于 40，不能发短信给' + m.name : '发送给' + m.name) + '">' +
+      m.emoji + ' ' + m.name + (_affDisabled ? ' 🔒' : '') + '</button>';
   }
   inner += '</div>' +
     '</div></div></div>';
@@ -96,7 +98,12 @@ export function showSmsModal() {
 
   overlay.querySelectorAll('.sms-target-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
-      if (this.disabled) return;
+      if (this.disabled) {
+        var _targetId = this.dataset.id;
+        var _targetName = (MEMBERS.find(function(m) { return m.id === _targetId; }) || {}).name || '他';
+        showToast('🔒 对' + _targetName + '的好感度不足 40，暂不能发短信');
+        return;
+      }
       this.disabled = true;
       overlay.querySelectorAll('.sms-target-btn').forEach(function(b) { b.disabled = true; });
       var customText = (document.getElementById('smsCustomInput') || {}).value || '';

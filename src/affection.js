@@ -144,7 +144,7 @@ export function updateRivalTendency(delta, reason) {
     var _rivalName = GS.oneHeartRival.name;
     var _sign = delta > 0 ? '+' : '';
     var _label = delta > 0 ? '💘 对' + _rivalName + '的心动倾向 ' : '🛡️ 对' + _rivalName + '的疏离 ';
-    showToast(_label + _sign + delta);
+    showToast('【情敌倾向】' + _label + _sign + delta, 'bottom');
   }
 }
 

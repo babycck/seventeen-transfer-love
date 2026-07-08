@@ -25,15 +25,30 @@ export function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// ==================== 身份判定 ====================
+// 是否处于「队友的妹妹」设定：1v1 模式 + 娱乐圈世界观 + 关系户=亲哥哥（role==='哥哥'）。
+// 此设定下女主比全团 13 人都小，对成员应称"前辈"/对男主亲密时称"欧巴"，禁止直呼名字。
+export function isSisterSetting() {
+  return GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment'
+    && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥';
+}
+
+// ==================== 1v1 时间概念已移除（F） ====================
+// 原 24h 时钟 / 时段工具（ONE_HEART_TIME_PERIODS / ONE_HEART_DAY_CLOCK_SCHEDULE /
+// getOneHeartTimePeriod / getOneHeartPeriodEndHour / getOneHeartPeriodIndex /
+// getOneHeartPeriodStartHour）已删除：剧情不再锚定具体时段，玩家与男主随时可相处。
+
 export function escHtml(s) {
-  if (!s) return '';
+  if (s === undefined || s === null) return '';
+  if (typeof s !== 'string') return String(s);
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // [P1-4] 非阻塞 Toast 提示
-export function showToast(message) {
+export function showToast(message, pos) {
   var toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+  var _vPos = (pos === 'bottom') ? 'bottom:20px;' : 'top:20px;';
+  toast.style.cssText = 'position:fixed;' + _vPos + 'left:50%;transform:translateX(-50%);' +
     'background:#333;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;' +
     'z-index:3000;opacity:0;transition:opacity .3s;box-shadow:0 2px 8px rgba(0,0,0,.2);';
   toast.textContent = message;
@@ -123,18 +138,28 @@ export function shouldTriggerRandomEvent() {
     return evaluateCond(e.cond, GS.day, phaseStr, GS.season || '', GS.weather || '', GS.affection || {});
   });
   if (eligible.length === 0) return null;
+  // [G] 去重：剔除本局已触发过的事件 id；候选池空则本轮不触发（宁可少事件也不重复）
+  if (!Array.isArray(GS.randomEventsUsed)) GS.randomEventsUsed = [];
+  var avail = eligible.filter(function(e) { return GS.randomEventsUsed.indexOf(e.id) < 0; });
+  if (avail.length === 0) return null;
   var totalWeight = 0;
-  for (var i = 0; i < eligible.length; i++) totalWeight += (eligible[i].weight || 1);
+  for (var i = 0; i < avail.length; i++) totalWeight += (avail[i].weight || 1);
   var r = Math.random() * totalWeight;
-  for (var j = 0; j < eligible.length; j++) {
-    r -= (eligible[j].weight || 1);
+  for (var j = 0; j < avail.length; j++) {
+    r -= (avail[j].weight || 1);
     if (r <= 0) {
+      var _picked = avail[j];
       GS.todayRandomEventTriggered = true;
-      return eligible[j].desc;
+      GS.randomEventsUsed.push(_picked.id);
+      // 环形缓冲：超过池大小则丢弃最早一个，避免无限增长
+      if (GS.randomEventsUsed.length > RANDOM_EVENTS_POOL.length) GS.randomEventsUsed.shift();
+      return _picked.desc;
     }
   }
-  var fallback = eligible[Math.floor(Math.random() * eligible.length)];
+  var fallback = avail[Math.floor(Math.random() * avail.length)];
   GS.todayRandomEventTriggered = true;
+  GS.randomEventsUsed.push(fallback.id);
+  if (GS.randomEventsUsed.length > RANDOM_EVENTS_POOL.length) GS.randomEventsUsed.shift();
   return fallback.desc;
 }
 

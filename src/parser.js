@@ -4,6 +4,7 @@
 } from './core.js';
 import { updateAffection, addAffectionLog } from './affection.js';
 import { sanitizeScene } from './schema.js';
+import { checkOneHeartPacing, checkOneHeartAddressing } from './validator.js';
 
 // ==================== 叙事解析器（JSON 输入版） ====================
 // AI 现在只输出 JSON，本地用 schema 做兜底 + 字段拆分。
@@ -549,44 +550,109 @@ export function completeSecretMission() {
 }
 
 // ==================== 1v1 叙事解析 ====================
+
+// 归一化 1v1 选项：兼容纯字符串数组 / {text} / {label,content} 形式，
+// 保证每个选项都有 text 字段（避免渲染出 undefined），并补齐好感度相关字段。
+function normalizeOneHeartOptions(rawOpts) {
+  if (!Array.isArray(rawOpts)) return [];
+  var out = [];
+  for (var i = 0; i < rawOpts.length; i++) {
+    var o = rawOpts[i];
+    if (o == null) continue;
+    if (typeof o === 'string') {
+      var st = o.trim();
+      if (st) out.push({ text: st, affDelta: 0, affReason: '', affName: '' });
+      continue;
+    }
+    if (typeof o === 'object') {
+      var text = (o.text != null) ? o.text : (o.label != null ? o.label : (o.content != null ? o.content : ''));
+      text = (typeof text === 'string') ? text.trim() : '';
+      if (!text) continue; // 跳过无文本选项，避免显示 undefined
+      out.push({
+        text: text,
+        affDelta: (typeof o.affDelta === 'number') ? o.affDelta : 0,
+        affReason: (typeof o.affReason === 'string') ? o.affReason : '',
+        affName: (typeof o.affName === 'string') ? o.affName : ''
+      });
+    }
+  }
+  return out;
+}
+
 export function parseOneHeartNarrative(rawText) {
-  try {
-    // 尝试 JSON 解析（1v1 AI 应输出 JSON）
-    var parsed = JSON.parse(rawText);
-    var options = parsed.options || [];
-    var blocks = parsed.blocks || [{ type: 'narrative', content: (parsed.narrative || rawText).trim() }];
-    // 优先使用顶层 narrative；否则拼接 blocks 中 narrative 类型的 content
+  var raw = (rawText && typeof rawText === 'string') ? rawText.trim() : '';
+  if (!raw) {
+    return { narrative: '', options: [], blocks: [], sceneContext: null, eventItems: [], malformed: true };
+  }
+
+  // 1) 稳健解析：复用 safeParseJson（剥离 ```json 代码块/前导文字 + 平衡括号 + repairJson 兜底）
+  var obj = safeParseJson(raw);
+
+  // 2) 兼容：若仍失败但整体裹在 markdown 代码块，手动剥离后再试
+  if (!obj || typeof obj !== 'object') {
+    var stripped = raw.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/```[\s\S]*$/, '').trim();
+    if (stripped && stripped !== raw) {
+      obj = safeParseJson(stripped);
+    }
+  }
+
+  if (obj && typeof obj === 'object') {
+    var options = normalizeOneHeartOptions(obj.options || []);
+    var blocks = Array.isArray(obj.blocks) ? obj.blocks : null;
     var narrative = '';
-    if (parsed.narrative && typeof parsed.narrative === 'string') {
-      narrative = parsed.narrative.trim();
+    if (typeof obj.narrative === 'string' && obj.narrative.trim()) {
+      narrative = obj.narrative.trim();
     } else if (blocks && blocks.length > 0) {
       var narrBlocks = blocks.filter(function(b) { return b && b.type === 'narrative' && typeof b.content === 'string'; });
       narrative = narrBlocks.map(function(b) { return b.content.trim(); }).join('\n\n');
     }
-    if (!narrative) narrative = rawText.trim();
     // 提取 sceneContext（可选字段）
     var sceneContext = null;
-    if (parsed.sceneContext && typeof parsed.sceneContext === 'object') {
+    if (obj.sceneContext && typeof obj.sceneContext === 'object') {
       sceneContext = {
-        location: typeof parsed.sceneContext.location === 'string' ? parsed.sceneContext.location : '',
-        present: Array.isArray(parsed.sceneContext.present) ? parsed.sceneContext.present : [],
-        timeOfDay: typeof parsed.sceneContext.timeOfDay === 'string' ? parsed.sceneContext.timeOfDay : ''
+        location: typeof obj.sceneContext.location === 'string' ? obj.sceneContext.location : '',
+        present: Array.isArray(obj.sceneContext.present) ? obj.sceneContext.present : [],
+        timeOfDay: typeof obj.sceneContext.timeOfDay === 'string' ? obj.sceneContext.timeOfDay : ''
       };
     }
     // 提取 eventItems（1v1 事件条目，可选字段）
     var eventItems = [];
-    if (Array.isArray(parsed.eventItems)) {
-      for (var ei = 0; ei < parsed.eventItems.length; ei++) {
-        if (typeof parsed.eventItems[ei] === 'string' && parsed.eventItems[ei].trim()) {
-          eventItems.push(parsed.eventItems[ei].trim());
+    if (Array.isArray(obj.eventItems)) {
+      for (var ei = 0; ei < obj.eventItems.length; ei++) {
+        if (typeof obj.eventItems[ei] === 'string' && obj.eventItems[ei].trim()) {
+          eventItems.push(obj.eventItems[ei].trim());
         }
       }
     }
-    return { narrative: narrative, options: options, blocks: blocks, sceneContext: sceneContext, eventItems: eventItems };
-  } catch (e) {
-    // 纯文本 fallback
-    return { narrative: rawText.trim(), options: [], blocks: [{ type: 'narrative', content: rawText.trim() }], sceneContext: null, eventItems: [] };
+    // 提取 AI 声明的时段：顶层 sceneTime 优先，回退 sceneContext.timeOfDay
+    var sceneTime = '';
+    if (typeof obj.sceneTime === 'string' && obj.sceneTime.trim()) {
+      sceneTime = obj.sceneTime.trim();
+    } else if (obj.sceneContext && typeof obj.sceneContext.timeOfDay === 'string') {
+      sceneTime = obj.sceneContext.timeOfDay.trim();
+    }
+    if (!narrative) {
+      // 解析出对象但无正文：视为异常（可能是纯 options 的脏数据），交由调用方提示重试
+      return { narrative: '', options: [], blocks: [], sceneContext: null, eventItems: [], sceneTime: '', malformed: true };
+    }
+    return {
+      narrative: narrative,
+      options: options,
+      blocks: blocks || [{ type: 'narrative', content: narrative }],
+      sceneContext: sceneContext,
+      eventItems: eventItems,
+      sceneTime: sceneTime,
+      malformed: false
+    };
   }
+
+  // 3) 完全非 JSON：若文本不含任何 JSON 特征，作为纯剧情文本保留（避免把脏数据塞进正文造成乱码）
+  if (raw.indexOf('{') < 0 && raw.indexOf('"') < 0) {
+    return { narrative: raw, options: [], blocks: [{ type: 'narrative', content: raw }], sceneContext: null, eventItems: [], sceneTime: '', malformed: false };
+  }
+
+  // 4) 解析失败：返回空，由 generateOneHeartRound 提示重试（不再把原始 JSON 塞进正文造成乱码）
+  return { narrative: '', options: [], blocks: [], sceneContext: null, eventItems: [], sceneTime: '', malformed: true };
 }
 
 /**
@@ -601,7 +667,7 @@ export function validateOneHeartNarrative(parsed, GS) {
   var oldCtx = GS.oneHeartSceneContext || { location: '', present: [] };
   // 判断是否为新的一天/生日/节日（这些场景允许重新开始）
   var _pct = GS.pendingChoiceText || '';
-  var isNewDay = _pct.indexOf('新的一天') >= 0 || _pct.indexOf('生日') >= 0 || _pct.indexOf('今天是') >= 0;
+  var isNewDay = GS.justEnteredNewDay || _pct.indexOf('新的一天') >= 0 || _pct.indexOf('生日') >= 0 || _pct.indexOf('今天是') >= 0;
 
   // 检测是否为合法场景切换（玩家选择了涉及移动的选项）
   var _isSceneChange = _pct && (
@@ -610,22 +676,25 @@ export function validateOneHeartNarrative(parsed, GS) {
     _pct.indexOf('搬') >= 0 || _pct.indexOf('出发') >= 0
   );
 
-  // 3. 时段合法性校验（AI 在 sceneContext.timeOfDay 中自主判断时段，仅校验合法性）
-  var _validTimes = ['上午', '下午', '傍晚', '深夜'];
-  if (parsed.sceneContext && parsed.sceneContext.timeOfDay) {
-    var _aiTime = parsed.sceneContext.timeOfDay;
-    if (_validTimes.indexOf(_aiTime) < 0) {
-      corrections.push('时段格式错误：sceneContext.timeOfDay 必须是「上午」「下午」「傍晚」「深夜」之一，当前值是「' + _aiTime + '」');
+  // 3. 时段合法性校验（AI 在 sceneTime 声明时段；[F] 时间概念已移除，非法值直接清空，不再回退到代码时段）
+  var _validTimes = ['凌晨', '清晨', '上午', '下午', '傍晚', '深夜'];
+  if (parsed.sceneTime) {
+    if (_validTimes.indexOf(parsed.sceneTime) < 0) {
+      // [F] 非法时段直接清空，不再映射为具体时段
+      parsed.sceneTime = '';
     }
   }
 
-  // 4. 选项有效性校验
+  // 4. 选项有效性校验（代码硬修正，不返回 correction 重生成）
   if (parsed.options && Array.isArray(parsed.options)) {
-    // 选项数量应在 2-4 个
-    if (parsed.options.length > 0 && (parsed.options.length < 2 || parsed.options.length > 4)) {
-      corrections.push('选项数量异常：应提供 2-4 个选项，当前有 ' + parsed.options.length + ' 个');
+    // 选项数量硬修正：少于 2 个补兜底，多于 4 个截断尾部
+    if (parsed.options.length > 0 && parsed.options.length < 2) {
+      parsed.options = parsed.options.concat(_oneHeartFallbackOptions(parsed.options.length));
     }
-    // affDelta 范围校验（-5 ~ 5，超范围修正到边界）
+    if (parsed.options.length > 4) {
+      parsed.options = parsed.options.slice(0, 4);
+    }
+    // affDelta 范围硬修正（-5 ~ 5）
     for (var oi = 0; oi < parsed.options.length; oi++) {
       var _opt = parsed.options[oi];
       if (_opt && typeof _opt.affDelta === 'number') {
@@ -678,7 +747,38 @@ export function validateOneHeartNarrative(parsed, GS) {
     }
   }
 
+  // [计划·项6/8] 1v1 确定性代码门控：初识期男主过度热情 + 妹妹线称呼/欧巴硬兜底
+  // 命中即返回 correction，由 generateOneHeartRound 触发一次重写（最多重试不污染 userMsg）。
+  if (GS.gameMode === 'oneHeart') {
+    var _paceText = (parsed.narrative || '');
+    var _optTextAll = '';
+    if (parsed.options && parsed.options.length > 0) {
+      for (var _pi = 0; _pi < parsed.options.length; _pi++) {
+        if (parsed.options[_pi] && parsed.options[_pi].text) _optTextAll += parsed.options[_pi].text + '\n';
+      }
+    }
+    var _gateText = _paceText + '\n' + _optTextAll;
+    var _gateCorr = checkOneHeartPacing(_gateText).concat(checkOneHeartAddressing(_gateText));
+    for (var _gi = 0; _gi < _gateCorr.length; _gi++) corrections.push(_gateCorr[_gi]);
+  }
+
   return corrections.length > 0 ? corrections.join(' | ') : null;
+}
+
+// 1v1 选项兜底生成（代码硬修正用，避免整段重生成）
+function _oneHeartFallbackOptions(needCount) {
+  var member = (GS && GS.oneHeartMember && typeof MEMBERS !== 'undefined') ? MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }) : null;
+  var name = member ? member.name : '他';
+  var pool = [
+    { text: '静静地看着他，等他先开口', affDelta: 1, affReason: '安静的陪伴让对方放松' },
+    { text: '主动找话题，想多了解他一点', affDelta: 2, affReason: '主动靠近' },
+    { text: '装作不经意地移开视线', affDelta: 0, affReason: '克制自己的在意' },
+    { text: '轻声问他今天累不累', affDelta: 2, affReason: '关心对方' },
+    { text: '低头整理衣角，掩饰心跳', affDelta: 1, affReason: '害羞的反应让他心动' }
+  ];
+  var res = [];
+  for (var i = 0; i < needCount && i < pool.length; i++) res.push(pool[i]);
+  return res;
 }
 
 // [计划B问题4] Jaccard 相似度辅助函数（1v1 剧情重复检测）

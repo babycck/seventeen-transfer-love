@@ -1,5 +1,6 @@
 import { GS } from './state.js';
-import { MEMBERS, PLAYER_BIRTH_YEAR, getPlayerBirthYear } from './data.js';
+import { MEMBERS, PLAYER_BIRTH_YEAR, getPlayerBirthYear, PRIVATE_TRAITS } from './data.js';
+import { isSisterSetting } from './utils.js';
 
 // ==================== AI 一致性校验器（JSON 输出版） ====================
 //
@@ -8,6 +9,111 @@ import { MEMBERS, PLAYER_BIRTH_YEAR, getPlayerBirthYear } from './data.js';
 //    这些由 schema.js + parser.js 的字段完整性校验兜底。
 // 2. 仍保留的是基于内容的检查：人设偏离、X 身份提前泄露、称呼违规、时间线、抽烟、情感浓度。
 //    这些检查在 blocks[*].content 字符串中做正则。
+
+// 未选私密体质不得出现在剧情（选了什么就是什么）
+function checkPrivateTraitViolation(content) {
+  var corrections = [];
+  var selected = (GS.heroineProfile && GS.heroineProfile.privateTraits) || [];
+  for (var i = 0; i < PRIVATE_TRAITS.length; i++) {
+    var t = PRIVATE_TRAITS[i];
+    if (selected.indexOf(t) >= 0) continue;
+    if (content.indexOf(t) >= 0) {
+      corrections.push({ type: 'privateTrait', message: '剧情中出现了未选择的私密体质「' + t + '」，女主并未设定该体质，请删除或改写为与已选体质（' + (selected.length ? selected.join('、') : '无') + '）相关的描写。' });
+    }
+  }
+  return corrections;
+}
+
+// ==================== 1v1 初识期男主过度热情·确定性代码门控 ====================
+// 仅在 oneHeartRomanceStage < 1（初识期）生效；命中即返回 correction 强制重写。
+// 不依赖 AI 遵守 prompt：即便 prompt 被遗忘也会被代码纠正。
+// 返回 string[]（与 validateOneHeartNarrative 的 corrections 数组同构）。
+// [E] 1v1 感情进度门控（确定性代码兜底，不依赖 AI 遵守 prompt）
+// 三档硬门槛：好感<40 全禁 / 40<=好感<60 且未到明确期(stage<2) 仅禁强越界 / 好感>=60 且明确期(stage>=2) 放开。
+// 命中即返回 correction 字符串数组，由 generateOneHeartRound 触发一次重写。
+export function checkOneHeartPacing(content) {
+  var corrections = [];
+  if (GS.gameMode !== 'oneHeart') return corrections;
+  var _aff = GS.affection[GS.oneHeartMember] || 0;
+  var _stage = GS.oneHeartRomanceStage || 0;
+  // 强烈越界行为（表白/强拉/强吻/同床/深夜上门等）——任何未到明确期都禁
+  var hotKw = ['发视频', '视频通话', '视频给你', '深夜来你房间', '来你住处', '来你房间', '表白', '我喜欢你', '我爱你', '抱住你', '抱紧你', '亲吻', '脱掉', '同床', '强吻', '把你拉进'];
+  // 软亲密（超出当前关系的肢体亲近动作）
+  var softKw = ['埋进肩窝', '埋进颈窝', '埋进你怀里', '蹭颈窝', '鼻尖蹭', '鼻尖抵', '靠在你肩', '赖在你身上', '贴着你', '下巴抵', '下巴靠', '搂住腰', '搂腰', '腰被', '公主抱', '环住你', '贴上来'];
+  function _hit(list) {
+    for (var i = 0; i < list.length; i++) {
+      if (content.indexOf(list[i]) >= 0) return list[i];
+    }
+    return '';
+  }
+  // 阶段 < 1（初识期）：全套门控
+  if (_stage < 1) {
+    var _h = _hit(hotKw);
+    if (_h) corrections.push('[初识期门控] 当前仍是初识期（romanceStage<1），男主不应过度热情——命中「' + _h + '」。禁止主动发视频/深夜上门/表白/过度肢体接触/强拉进私密空间，请将互动改写为克制、保留距离感的试探与暧昧。');
+    var _s = _hit(softKw);
+    if (_s) corrections.push('[初识期门控] 初识期不得有超出关系的肢体亲近——命中「' + _s + '」。未明确亲密前禁止把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、搂腰、下巴抵肩等亲近动作，请改为眼神/言语层面的暧昧。');
+    return corrections;
+  }
+  // 好感 / 阶段 双门槛
+  if (_aff < 40) {
+    // 好感不足：禁强烈越界 + 软亲密
+    var _h2 = _hit(hotKw);
+    if (_h2) corrections.push('[进度门控] 当前好感仅 ' + _aff + '（<40），关系未到可越界——命中「' + _h2 + '」。请改为更克制的互动。');
+    var _s2 = _hit(softKw);
+    if (_s2) corrections.push('[进度门控] 当前好感 ' + _aff + '（<40），尚不宜有亲密肢体接触——命中「' + _s2 + '」。请保持距离感。');
+  } else if (_aff < 60 && _stage < 2) {
+    // 中等：仅禁强烈越界（强吻/同床/强拉/深夜上门），允许轻依赖/轻暧昧
+    var heavyKw = ['强吻', '同床', '脱掉', '把你拉进', '深夜来你房间', '来你房间', '来你住处'];
+    var _hh = _hit(heavyKw);
+    if (_hh) corrections.push('[进度门控] 好感 ' + _aff + ' 且未到明确期（stage<2），禁止强烈越界行为——命中「' + _hh + '」。可写轻依赖/轻暧昧，但暂不宜发生亲密肢体或私密空间推进。');
+  }
+  // _aff>=60 && _stage>=2：放开，不追加 correction
+  return corrections;
+}
+
+// ==================== 1v1 妹妹线称呼/欧巴·代码硬兜底 ====================
+// 欧巴解锁统一为 oneHeartRomanceStage >= 1 的代码闸门；stage<1 禁止欧巴/直呼男主名、禁止称哥/哥哥/형。
+export function checkOneHeartAddressing(content) {
+  var corrections = [];
+  if (GS.gameMode !== 'oneHeart' || !isSisterSetting()) return corrections;
+  var member = (GS.oneHeartMember && MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; })) ? MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }) : null;
+  var memberName = member ? member.name : '';
+  var allowObba = (GS.oneHeartRomanceStage || 0) >= 1;
+  if (!allowObba && content.indexOf('欧巴') >= 0) {
+    corrections.push('[称呼门控] 感情未到暧昧期（romanceStage<1），不得称男主"欧巴"，应称"' + memberName + '前辈"。');
+  }
+  // 妹妹线：男主是前辈不是亲哥。仅当男主被叫成"X哥/X형"（如"全圆佑哥""圆佑哥""Wonwoo哥"）才拦截；
+  // 女主对亲哥哥称"哥哥"是允许的（亲哥是另一个人），绝不改成男主名。
+  if (member) {
+    var _fn = member.name.charAt(0);
+    var _patterns = [_fn + '哥', member.name + '哥'];
+    if (member.stageName) {
+      _patterns.push(member.stageName + '哥');
+      _patterns.push(member.stageName + '형');
+    }
+    _patterns.push(member.name + '형');
+    for (var _pi = 0; _pi < _patterns.length; _pi++) {
+      if (content.indexOf(_patterns[_pi]) >= 0) {
+        corrections.push('[称呼门控] 禁止称男主"' + _patterns[_pi] + '"，男主是前辈不是亲哥。请改为"' + memberName + '前辈"或直接描写动作。');
+        break;
+      }
+    }
+  }
+  // 妹妹线初识期（stage<1）禁止直呼男主名（须带"前辈"）
+  if (memberName && (GS.oneHeartRomanceStage || 0) < 1) {
+    var _idx = content.indexOf(memberName);
+    while (_idx >= 0) {
+      var _before = content.substring(Math.max(0, _idx - 3), _idx);
+      var _after = content.substring(_idx + memberName.length, _idx + memberName.length + 3);
+      if (_before.indexOf('前辈') < 0 && _after.indexOf('前辈') < 0 && _after.indexOf('欧巴') < 0) {
+        corrections.push('[称呼门控] 队友的妹妹设定下初识期须称男主"' + memberName + '前辈"，禁止直呼名字。请补上"前辈"。');
+        break;
+      }
+      _idx = content.indexOf(memberName, _idx + 1);
+    }
+  }
+  return corrections;
+}
 
 export function validateNarrative(rawText, parsed) {
   var corrections = [];
@@ -40,6 +146,8 @@ export function validateNarrative(rawText, parsed) {
   corrections = corrections.concat(addSeverity(checkFormatViolation(parsed), 'warning'));
   corrections = corrections.concat(addSeverity(checkEmotionalIntensity(content), 'warning'));
   corrections = corrections.concat(addSeverity(checkSmokingViolation(content), 'warning'));
+  corrections = corrections.concat(addSeverity(checkPrivateTraitViolation(content), 'warning'));
+  // [F] checkTimeMealMismatch 已移除：1v1 不再锚定具体时段，午饭描写不再受时钟约束
 
   // 结构化校验（severity: error）
   // 注：blocks 为空的检测已在前置空剧情检测中处理，此处不再重复
@@ -214,7 +322,7 @@ function checkAddressViolation(blocks, observers) {
   if (/[가-힣a-zA-Z]+시\b/.test(allText) || /-xi\b/.test(allText) || /xi\b/.test(allText)) {
     violations.push('检测到韩式敬语后缀"-xi"或"-시"');
   }
-  if (/前辈/.test(allText) || /后辈/.test(allText)) {
+  if (!isSisterSetting() && (/前辈/.test(allText) || /后辈/.test(allText))) {
     violations.push('检测到"前辈"或"后辈"称呼');
   }
   // 2. 按 block 精确检测（已知 speaker 的 interview 类型）
@@ -253,11 +361,27 @@ function checkAddressViolation(blocks, observers) {
       for (var p = 0; p < patterns.length; p++) {
         if (content.indexOf(patterns[p]) >= 0) {
           if (speaker.isPlayer) {
-            violations.push('女主对' + target.name + '称"' + patterns[p] + '"——女主禁止称"哥"，应称"欧巴"（好感度>60）或直呼名字');
+            // [妹妹人设亲哥豁免] 女主称呼关系网角色中的亲哥哥为"哥"是允许的
+            var _rel = GS.oneHeartRelationCharacter;
+            var _isBrother = _rel && _rel.role === '哥哥' && _rel.name === target.name;
+            if (!_isBrother) {
+              if (isSisterSetting()) {
+                violations.push('女主对' + target.name + '称"' + patterns[p] + '"——妹妹设定下女主禁止称"哥"，应称"前辈"或"欧巴"');
+              } else {
+                violations.push('女主对' + target.name + '称"' + patterns[p] + '"——女主禁止称"哥"，应称"欧巴"（好感度>60）或直呼名字');
+              }
+            }
           } else if ((speaker.birthYear || speaker.age) <= (target.birthYear || target.age)) {
             violations.push(speaker.name + '（' + (speaker.birthYear || speaker.age) + '年生）对' + target.name + '（' + (target.birthYear || target.age) + '年生）称"' + patterns[p] + '"——年长者/同龄对年幼者禁止称"哥"');
           }
         }
+      }
+    }
+    // [妹妹设定·男主禁说"我哥"] 男主在本故事中无兄弟，说出"我哥/我哥哥"是错误指代，强制纠错走重写管线
+    if (block.type === 'memberInterview' && block.member === GS.oneHeartMember) {
+      if (/我哥\b|我哥哥/.test(content)) {
+        var _bname = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) ? GS.oneHeartRelationCharacter.name : '哥哥本名';
+        violations.push('男主（' + memberName + '）说出"我哥/我哥哥"——本故事里男主没有兄弟，请改用哥哥本名「' + _bname + '」或"你哥"指代。');
       }
     }
   }
@@ -306,7 +430,9 @@ function checkAddressViolation(blocks, observers) {
   if (violations.length > 0) {
     corrections.push({
       type: 'address',
-      message: violations.join('；') + '。称呼规则：年幼者可对年长者称"哥"，年长者/同龄对年幼者/同龄禁止称"哥"；女主禁止称"哥"（应称"欧巴"或名字）；禁止"前辈""后辈""-xi"。'
+      message: violations.join('；') + '。称呼规则：' + (isSisterSetting()
+        ? '妹妹设定下女主对成员默认称"前辈"、亲密时称"欧巴"，禁止直呼名字；年幼者可对年长者称"哥"；禁止"-xi"。'
+        : '年幼者可对年长者称"哥"，年长者/同龄对年幼者/同龄禁止称"哥"；女主禁止称"哥"（应称"欧巴"或名字）；禁止"前辈""后辈""-xi"。')
     });
   }
   return corrections;

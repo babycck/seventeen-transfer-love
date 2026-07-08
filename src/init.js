@@ -99,7 +99,7 @@ async function initGame() {
 
     // 如果已在游戏中且当前没有剧情，自动生成
     var hasContent = !!(GS.phaseNarrative || (GS.consequenceNarratives && GS.consequenceNarratives.length > 0));
-    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent) {
+    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent && !GS._isGenerating) {
       await generatePhaseNarrative();
     }
   } catch (e) {

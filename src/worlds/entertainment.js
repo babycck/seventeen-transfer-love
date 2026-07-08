@@ -73,14 +73,14 @@ export var ENT_SCHEDULE_POOL = [
 ];
 
 // IMP-ENT-DATE：cat → 可约（空闲）时段映射，供 generateOneHeartSchedule 派生男主当日空档。
-// timeSlots 顺序约定：['上午','午后','傍晚','深夜']；男主 busySlot 为其 role 分配到的 timeOfDay，
+// timeSlots 顺序约定：['凌晨','清晨','上午','下午','傍晚','深夜']；男主 busySlot 为其 role 分配到的 timeOfDay，
 // freeWindows 为「非工作时段中、按工作强度推断可溜出来见你的时段」。
 // 行程类（海外/品牌公开）为空：意味着他当天不在首尔，无空档。
 export var ENT_DATEABLE_WINDOWS = {
-  '录音': ['傍晚', '深夜'],
-  '舞蹈': ['傍晚', '深夜'],
+  '录音': ['下午', '傍晚', '深夜'],
+  '舞蹈': ['下午', '傍晚', '深夜'],
   '综艺': ['深夜'],
-  '拍摄': ['深夜'],
+  '拍摄': ['傍晚', '深夜'],
   '粉丝': ['深夜'],
   '跨界': ['深夜'],
   '行程': []
@@ -109,18 +109,15 @@ export var IDOL_PRIVATE_BEATS = [
   '刷到自己的直拍还嫌弃地咂嘴"这段表情管理怎么崩了"，完全忘了你正看着'
 ];
 
-// 疲惫失态：仅 idolFatigue>=60 启用，巡演/连轴转后的真实失态（活人感的另一面）
-export var IDOL_FATIGUE_BEATS = [
-  '练到脱力，靠在你肩上没说两句话就睡着了，呼吸很轻',
-  '卸了妆素颜，抱怨行程太满、想念能睡整觉的日子，语气里是没有粉丝见过的倦',
-  '说着话忽然走神，嘟囔了句梦话似的台词，又猛地回过神来',
-  '难得放下手机，发着呆让你随便揉他头发，眼睛半阖着不肯睁'
-];
+// [F] IDOL_FATIGUE_BEATS 已移除（偶像疲劳系统整体删除，时间/状态概念去除）
 
 // ===== 哥哥专属事件池（仅「队友的妹妹」· role==='哥哥'） =====
 // 代码按「回合 + 概率」抽选，经 oneHeartBrotherPool 去重缓冲稳定触发哥哥戏份。
 // stanceDelta 可正可负：正向推高 brotherStance（→supportive/HE），负向激活 testing/protective 死分支。
 export var BROTHER_EVENTS = [
+  // —— 早期强制登场（round<=2，建立"无话不谈的参谋"基础，仅触发一次）——
+  { id: 'bro_intro', name: '哥哥登场', stanceDelta: 0, minRound: 1, prob: 1,
+    desc: '哥哥出现在本段剧情里——也许是一句随口的调侃、一个递过来的宵夜、或顺势替你挡了句追问。他不是反派，是你最信任的参谋与掩护，从一开始就站在你这边、门儿清却绝不拆穿。', forcedIntro: true },
   // —— 正向（掩护 / 亲近 / 认可）——
   { id: 'bro_help', name: '哥哥打掩护', stanceDelta: 2, minRound: 3, prob: 0.16,
     desc: '哥哥无意中替你打了个圆场——你慌张藏东西时他自然地挡住视线，或随口替你向父母/队友圆了句谎。他其实门儿清，只是笑着不拆穿。' },
@@ -130,16 +127,16 @@ export var BROTHER_EVENTS = [
     desc: '哥哥拿你最近总走神、手机不离手打趣，嘴上调侃"恋爱脑晚期"，眼神里却是放心和宠。' },
   { id: 'bro_cover', name: '家庭群掩护', stanceDelta: 2, minRound: 8, prob: 0.15,
     desc: '父母在家庭群问起你近况，哥哥替你打圆场、把话题岔开，顺势半试探半护着你，没把你的事抖出去。' },
-  { id: 'bro_bless', name: '哥哥半认可', stanceDelta: 3, minRound: 11, prob: 0.16,
+  { id: 'bro_bless', name: '哥哥半认可', stanceDelta: 5, minRound: 11, prob: 0.16,
     desc: '哥哥难得说了句软话——"他对你确实不错，你开心就行"，像是半官方地认可了这段关系，气氛微妙又暖。' },
   // —— 负向（试探 / 担忧 / 起疑，激活 testing/protective）——
   { id: 'bro_check', name: '哥哥突击查岗', stanceDelta: -2, minRound: 6, prob: 0.18,
     desc: '哥哥临时改了行程提前回家，你慌忙让男主躲进衣柜或阳台，哥哥在门外调侃"你那位还在吗"——紧张变笑点，但他其实知情，是在故意考校。' },
-  { id: 'bro_warn', name: '哥哥提醒别被拍', stanceDelta: -2, minRound: 7, prob: 0.16,
-    desc: '哥哥正色提醒你最近风声紧、别在公开场合露太多痕迹——他担心的不是这段关系，而是被拍。语气里是哥哥式的保护。' },
+  { id: 'bro_warn', name: '哥哥劝你别公开', stanceDelta: -2, minRound: 7, prob: 0.16,
+    desc: '哥哥正色提醒你最近风声紧、别在公开场合露太多痕迹——他担心的不是男主本人，而是这段关系被家人/公司察觉。语气里是哥哥式的保护，不是拆台。' },
   { id: 'bro_doubt', name: '情敌挑拨起疑', stanceDelta: -1, minRound: 9, prob: 0.15,
     desc: '有人（队友或情敌）半开玩笑地跟哥哥提了句"你妹最近跟谁走得近"，哥哥嘴上打哈哈，私下却多了几分留意和试探。' },
   // —— 男主主动示好（推高哥哥好感，补足只靠妹妹推高的缺口）——
-  { id: 'bro_meet', name: '男主请哥哥吃饭', stanceDelta: 2, minRound: 4, prob: 0.15,
+  { id: 'bro_meet', name: '男主请哥哥吃饭', stanceDelta: 3, minRound: 4, prob: 0.15,
     desc: '男主主动约哥哥单独吃饭/敬酒，真诚地说"哥，以后多关照"，还细心帮哥哥挡酒、递甜点。哥哥表面淡定，心里却对这个小子多了几分认可——原来他不是只会跟妹妹黏糊，是真心想讨好这门亲戚。' }
 ];

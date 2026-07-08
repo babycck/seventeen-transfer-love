@@ -139,3 +139,30 @@ a.click();
 ```js
 localStorage.removeItem('svt_error_log');
 ```
+
+---
+
+## 2026-07-08
+
+### 6. `vite build` 报 `Could not resolve entry module ";/index.html"`（命令执行环境干扰，非代码问题）
+
+**现象：**
+- 在部分命令执行环境里运行 `npm run build`（即 `vite build`）时立即报错：
+  ```
+  Could not resolve entry module ";/index.html"
+  ```
+- 但 `index.html` 实际存在且 `/src/main.js` 引用正常；`vite.config.js` 的 `root` 配置也正常（`D:/SEVENTEEN`）。
+
+**根因：**
+- 报错路径里的 `;` 是关键：`D:/SEVENTEEN;` 被当成 root → 拼出 `D:/SEVENTEEN;/index.html`（文件不存在）。
+- 该 `;` 不是 Vite 或 `vite.config.js` 产生的——它在 PowerShell 错误回显里也出现（`\SEVENTEEN; node ./node_modules/...build`），说明是命令执行层注入/转义的残留字符污染了 `vite build` 的 CLI 调用。
+- **绕过 CLI 二进制即可正常构建**：
+  - `vite build --debug` → 79 模块转换成功，产出 `dist/` ✅
+  - 直接用 Vite JS API（`vite.build({root:'D:/SEVENTEEN', configFile:'.../vite.config.js'})`）→ 79 模块，完整产出 ✅
+  - esbuild 整图打包 `src/main.js` → 1.2mb，0 错误 ✅
+
+**修复 / 规避：**
+- 无需改动 `vite.config.js` 或源码（改了反而会影响正常终端环境）。
+- 新增 `npm run build:api` 脚本（`scripts/build-api.mjs`），用 Vite JS API 显式传 `root` 构建，彻底规避 CLI 干扰字符。在受影响的环境里改用这条命令验证构建。
+- **用户自己的终端里 `npm run build` 是正常的**——该 `;` 只来自特定 agent 执行环境，不影响真实构建与部署。
+```

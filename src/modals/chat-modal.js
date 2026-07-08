@@ -22,10 +22,14 @@ export function showChatModal() {
   var chatHistory = GS.chatHistory || [];
   for (var i = 0; i < chatHistory.length; i++) {
     var c = chatHistory[i];
+    var cContent = c.content;
+    if (typeof cContent !== 'string') {
+      cContent = (cContent && cContent.text) ? cContent.text : (cContent ? String(cContent) : '');
+    }
     if (c.role === 'user') {
-      messagesHtml += '<div class="oneheart-chat-msg user">' + escHtml(c.content) + '</div>';
+      messagesHtml += '<div class="oneheart-chat-msg user">' + escHtml(cContent) + '</div>';
     } else {
-      messagesHtml += '<div class="oneheart-chat-msg ai">' + escHtml(c.content) + '</div>';
+      messagesHtml += '<div class="oneheart-chat-msg ai">' + escHtml(cContent) + '</div>';
     }
   }
   if (messagesHtml === '') {

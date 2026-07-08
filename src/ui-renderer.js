@@ -1061,7 +1061,8 @@ export function bindSetupEvents() {
         GS.weathers = [];
         GS._pendingEventResults = [];
         GS.oneHeartDateIdx = 0;
-        GS.oneHeartTimeOfDay = '上午';
+        // [F] 时间/时段/回合计数已移除（1v1 不再锚定具体时段）
+
 
         // 生成关系网角色 + 情敌
         var hp = GS.heroineProfile;
@@ -1182,6 +1183,10 @@ export function bindSetupEvents() {
         if (GS.aiEnabled) {
           hideLoading();
           await generatePhaseNarrative();
+          // 首段空结果自动重试，与 transfer 模式对齐，避免偶发空返回留下死空白
+          if (!GS.phaseNarrative) {
+            await generatePhaseNarrative();
+          }
         }
       });
       document.getElementById('step4Back').addEventListener('click', function() {
@@ -2341,115 +2346,47 @@ export async function enterTestMode() {
 // ==================== 1v1 事件绑定 ====================
 
 // IMP-16：渲染娱乐圈今日行程条 + 探班按钮（仅娱乐圈世界观）
-function renderOneHeartScheduleStrip() {
-  var strip = document.getElementById('oneHeartScheduleStrip');
-  if (!strip) return;
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment' || !GS.oneHeartSchedule) {
-    strip.innerHTML = '';
+function renderOneHeartActions() {
+  // [F] 移除 24h 行程条：探班/约会改为独立按钮（与时钟/空档/疲劳概念脱钩）
+  var box = document.getElementById('oneHeartScheduleStrip');
+  if (!box) return;
+  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') {
+    box.innerHTML = '';
     return;
   }
-  var order = ['main', 'related', 'rival'];
-  var labels = { main: '男主', related: '关系户', rival: '情敌' };
-  var html = '<div style="margin:8px 0;padding:8px 10px;background:var(--bg-card);border-radius:10px;font-size:12px">' +
-    '📋 <b>今日行程</b>（探班=偷会，时间锁：今天把时间给了谁就是谁）<br/>';
-  for (var i = 0; i < order.length; i++) {
-    var key = order[i];
-    var s = GS.oneHeartSchedule[key];
-    if (!s) continue;
-    var name = (MEMBERS.find(function(m) { return m.id === s.memberId; }) || {}).name || '?';
-    var locked = GS.oneHeartVisitLocked && GS.oneHeartVisitLocked !== key;
-    var disabled = s.visited || GS.oneHeartDateToday || locked || !s.visitWindow;
-    var status = s.visited ? '✅已探' : (GS.oneHeartDateToday ? '🔒已约会' : (locked ? '🔒时间已过' : (!s.visitWindow ? '🚫封闭' : '🎬可探')));
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
-      '<span>' + labels[key] + '·' + name + '：' + escHtml(s.task) + '（' + s.timeOfDay + '）</span>' +
-      (disabled
-        ? '<span style="color:#999">' + status + '</span>'
-        : '<button class="oneheart-visit-btn" data-visit-role="' + key + '" style="background:linear-gradient(135deg,#7c4dff,#651fff);color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer">' + status + '</button>') +
-      '</div>';
-  }
-  // IMP-ENT-DATE：男主可约时段 chips（高亮空档 / 灰色在忙）
-  var _mainSch = GS.oneHeartSchedule.main;
-  if (_mainSch) {
-    var _allSlots = ['上午', '午后', '傍晚', '深夜'];
-    var _free = _mainSch.freeWindows || [];
-    var _busy = _mainSch.busySlot;
-    // IMP-ENT-DATE：约会轻量门槛（代码级）。普通空档约需 阶段≥1 或 好感≥20；翘班约需 阶段≥2 或 好感≥40。
-    var _affNow = GS.affection[GS.oneHeartMember] || 0;
-    var _stageNow = GS.oneHeartRomanceStage || 0;
-    var _dated = GS.oneHeartDateToday;
-    var _canNormal = _dated ? false : (_stageNow >= 1 || _affNow >= 20);
-    var _canSneak = _dated ? false : (_stageNow >= 2 || _affNow >= 40);
-    var _canLateNight = _dated ? false : (_stageNow >= 2 || _affNow >= 40);
-    var _chipHtml = '';
-    for (var _si = 0; _si < _allSlots.length; _si++) {
-      var _slot = _allSlots[_si];
-      if (_free.indexOf(_slot) >= 0) {
-        if (_slot === '深夜') {
-          if (_canLateNight) {
-            _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="约在' + _slot + '" style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💞' + _slot + '</button>';
-          } else {
-            _chipHtml += '<button class="oneheart-date-slot" disabled title="深夜见面需要更深的感情（好感≥40 或明确期）" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '·需好感≥40</button>';
-          }
-        } else if (_canNormal) {
-          _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="约在' + _slot + '" style="background:linear-gradient(135deg,#4caf50,#2e7d32);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💞' + _slot + '</button>';
-        } else {
-          _chipHtml += '<button class="oneheart-date-slot" disabled title="先多相处（好感≥20 或进入暧昧期）才能约会哦~" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '</button>';
-        }
-      } else if (_slot === _busy) {
-        if (_canSneak) {
-          _chipHtml += '<button class="oneheart-date-slot" data-date-slot="' + _slot + '" title="他当天在忙，约这须翘班赶场（曝光风险）" style="background:linear-gradient(135deg,#ff5252,#c62828);color:#fff;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px">💢' + _slot + '·翘班</button>';
-        } else {
-          _chipHtml += '<button class="oneheart-date-slot" disabled title="好感还不够，暂不能约他翘班溜出来（需好感≥40 或明确期）" style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;margin-left:4px;cursor:not-allowed">🔒' + _slot + '·翘班</button>';
-        }
-      } else {
-        _chipHtml += '<span style="color:#888;font-size:11px;margin-left:4px">' + _slot + '</span>';
-      }
-    }
-    html += '<div style="margin-top:6px;border-top:1px dashed var(--border-color,#eee);padding-top:4px">🕒 可约时段：' + (_free.length ? _chipHtml : '<button class="oneheart-date-slot" disabled style="background:#999;color:#eee;border:none;border-radius:8px;padding:2px 8px;font-size:11px;cursor:not-allowed">💞 今天他不在首尔，无法约会</button>') + '</div>';
-    if (_free.length) {
-      var _dateHint = (GS.brotherAtHome ? '🏠哥哥在家→只能外面匆匆见' : '✈️哥哥不在家=正当空档，可来住处');
-      if (GS.oneHeartDateToday) _dateHint = '✅ 今天已经约过啦，先进入新的一天吧';
-      else if (!_canNormal) _dateHint = '🔒 先多相处（好感≥20 或进入暧昧期）才能发起约会哦~';
-      else if (!_canSneak && _busy) _dateHint += ' · 🔒 翘班约需好感≥40 或明确期';
-      if (!GS.oneHeartDateToday && !_canLateNight && _free.indexOf('深夜') >= 0) _dateHint += ' · 🔒 深夜见面需好感≥40 或明确期';
-      html += '<div style="margin-top:3px;color:#b9aee0;font-size:11px">' + _dateHint + '</div>';
-    }
-  }
-  // IMP-17：哥哥立场指示（仅队友的妹妹设定，related=哥哥）
+  var _aff = GS.affection[GS.oneHeartMember] || 0;
+  var _stage = GS.oneHeartRomanceStage || 0;
+  var _canDate = (_stage >= 1 || _aff >= 20); // [F] 好感≥20 或暧昧期
+  var _visitLocked = GS.oneHeartVisitLocked === 'done' || !!GS.oneHeartDateToday; // 与约会互斥、每天一次
+  var html = '<div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  html += '<button id="btnOneHeartDate" class="oneheart-action-btn"' + (_canDate ? '' : ' disabled style="opacity:.5;cursor:not-allowed"') + '>💞 发起约会' + (_canDate ? '' : '（好感≥20或暧昧期）') + '</button>';
+  html += '<button id="btnOneHeartVisit" class="oneheart-action-btn"' + (_visitLocked ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>🎬 探班' + (_visitLocked ? '（今日已约/已探）' : '') + '</button>';
+  // 哥哥立场 + 曝光风险指示（保留信息可视化，去掉时段/行程条）
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     var _bs = GS.brotherStance || 'consultant';
-    var _bsIcon = { consultant: '🤝', supportive: '💚', testing: '🔍', protective: '🛡️' }[_bs] || '🤝';
-    var _bsText = { consultant: '参谋', supportive: '支持', testing: '试探', protective: '提醒曝光' }[_bs] || '参谋';
-    var _relSch = GS.oneHeartSchedule.related;
-    var _awayReason = (_relSch && _relSch.awayReason) ? '（今天' + escHtml(_relSch.awayReason) + '，不在家）' : '';
-    var _bhome = GS.brotherAtHome ? '🏠在家' : ('✈️不在家(空档)' + _awayReason);
-    html += '<div style="margin-top:6px;border-top:1px dashed var(--border-color,#eee);padding-top:4px">' +
-      _bsIcon + ' 哥哥立场：<b>' + _bsText + '</b> · ' + _bhome + '</div>';
+    var _bsText = { consultant: '参谋', supportive: '支持', testing: '试探', protective: '忧被察觉' }[_bs] || '参谋';
+    var _bhome = GS.brotherAtHome ? '🏠在家' : '✈️不在家(空档)';
+    var _risk = GS.exposureRisk || 0;
+    var _riskColor = _risk >= 60 ? '#ff6b6b' : (_risk >= 30 ? '#ffb84d' : '#9ad0a0');
+    html += '<span style="font-size:11px;color:#b9aee0">🤝哥哥立场：' + _bsText + ' · ' + _bhome + ' · 📸曝光 ' + _risk + '/100</span>';
   }
   html += '</div>';
-  strip.innerHTML = html;
-  strip.querySelectorAll('.oneheart-visit-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var role = this.dataset.visitRole;
-      this.disabled = true;
-      this.textContent = '探班中…';
-      await doVisitMember(role);
+  box.innerHTML = html;
+  var dateBtn = document.getElementById('btnOneHeartDate');
+  if (dateBtn && _canDate && !GS.oneHeartDateToday) {
+    dateBtn.addEventListener('click', function() {
+      if (window.initiateOneHeartDate) window.initiateOneHeartDate({});
     });
-  });
-  strip.querySelectorAll('.oneheart-date-slot').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      if (GS.oneHeartDateToday) { showToast('✅ 今天已经约过啦，先进入新的一天吧'); return; }
-      var slot = this.dataset.dateSlot;
-      this.disabled = true;
-      this.textContent = '约会中…';
-      if (window.initiateOneHeartDate) await window.initiateOneHeartDate({ timeOfDay: slot });
-    });
-  });
+  }
+  var visitBtn = document.getElementById('btnOneHeartVisit');
+  if (visitBtn && !_visitLocked) {
+    visitBtn.addEventListener('click', function() { doVisitMember(); });
+  }
 }
 
 function bindOneHeartEvents() {
-  // IMP-16：娱乐圈今日行程条渲染 + 探班按钮绑定
-  renderOneHeartScheduleStrip();
+  // [F] 1v1 探班/约会独立按钮渲染（替代原 24h 行程条）
+  renderOneHeartActions();
 
   // 操作区浮层 toggle（默认收起）
   var operationToggle = document.getElementById('operationToggle');
@@ -2489,14 +2426,16 @@ function bindOneHeartEvents() {
       switch (cmd) {
         case 'regenerate':
           this.disabled = true;
-          // 删除当前回合内容（替换而非追加）
+          // 删除当前回合内容（替换而非追加）；先暂存被移除的条目以便失败时恢复
           var prevChoiceText = '';
+          var _poppedCn = null;
+          var _poppedFull = null;
           if (GS.consequenceNarratives.length > 0) {
-            var popped = GS.consequenceNarratives.pop();
-            prevChoiceText = popped.choiceText || '';
+            _poppedCn = GS.consequenceNarratives.pop();
+            prevChoiceText = _poppedCn.choiceText || '';
           }
           if (GS.todayFullText.length > 0) {
-            GS.todayFullText.pop();
+            _poppedFull = GS.todayFullText.pop();
           }
           // 自由输入框文字作为 freeInput 传递
           var freeText = ((document.getElementById('freeInput') || {}).value || '').trim();
@@ -2507,7 +2446,16 @@ function bindOneHeartEvents() {
           GS._isGenerating = false;
           saveGame();
           var _ob1 = document.getElementById('operationBody'); if (_ob1) _ob1.style.display = 'none';
+          var _cnLenBefore = GS.consequenceNarratives.length;
           await generateOneHeartRound({ isRegenerate: true });
+          // 失败兜底：若重新生成未产生新内容（多为 AI 返回格式异常），恢复被移除的段落，避免丢进度
+          if (GS.consequenceNarratives.length === _cnLenBefore && !GS.phaseNarrative && _poppedCn) {
+            GS.consequenceNarratives.push(_poppedCn);
+            if (_poppedFull != null) GS.todayFullText.push(_poppedFull);
+            showToast('⚠️ 重新生成失败，已恢复上一段内容，可重试或换指令');
+            saveGame();
+            if (window.__renderAll) window.__renderAll();
+          }
           this.disabled = false;
           break;
         case 'rewind':
@@ -2650,9 +2598,9 @@ function bindOneHeartEvents() {
       if (!confirmed) return;
       GS.oneHeartDateIdx = nextIdx;
       GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
-      GS.oneHeartTimeOfDay = '上午';
+      // [F] 时间/时段/回合计数已移除
       GS.oneHeartTimeProgress = 0;
-      GS.oneHeartSceneContext = { location: '', present: [], timeOfDay: '上午' };
+      GS.oneHeartSceneContext = { location: '', present: [] };
       GS.weather = generateDailyWeather(GS.weather, GS.season);
       // 根据月份动态更新季节
       var _newSeason = getSeasonByMonth(GS.currentDate.month);
@@ -2671,9 +2619,11 @@ function bindOneHeartEvents() {
           GS.pendingChoiceText = _holiday.emoji + ' 今天是' + _holiday.name;
         } else {
           GS.pendingChoiceText = '📅 新的一天';
+          GS.justEnteredNewDay = true;
         }
       } else {
         GS.pendingChoiceText = '📅 新的一天';
+        GS.justEnteredNewDay = true;
       }
       var _ob7 = document.getElementById('operationBody'); if (_ob7) _ob7.style.display = 'none';
       await generateOneHeartRound();

@@ -316,6 +316,7 @@ export async function sendGift(memberId, giftIdx) {
       GS.pendingChoiceText = '🎁 送礼给 ' + member.name + '：' + gift.name;
       saveGame();
       window.scheduleReturnGift(memberId);
+      // 不再冻结时间：送礼按普通回合在后台推进时钟（"时间约束只针对探班"）
       await window.generateOneHeartRound();
     } catch (e) {
       console.error('[sendGift] 1v1 送礼失败:', e);
