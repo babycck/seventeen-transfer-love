@@ -491,6 +491,9 @@ export function renderSetupWizard() {
         '</div>' +
         '<div style="margin-top:12px"><label>情敌选择（影响剧情发展方向）</label>' +
         '<select id="rivalSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px">' + _rivalHtml + '</select></div>' +
+        '<div style="margin-top:12px"><label>专属昵称（他叫你的爱称，留空让他自己定一个并固定）</label>' +
+        '<input id="petNameInput" type="text" maxlength="12" placeholder="如：小柚子 / 小笨蛋 / 留空随机" value="' + escHtml(GS.oneHeartPetName || '') + '" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px" />' +
+        '</div>' +
         '<button class="btn-primary" id="step4Start" style="margin-top:12px">🎮 开始故事！</button>' +
         '<button class="btn-secondary" id="step4Back">← 返回修改</button></div>';
     } else {
@@ -1037,6 +1040,24 @@ export function bindSetupEvents() {
         GS.selectedMembers = [GS.oneHeartMember];
         GS.affection = {};
         GS.affection[GS.oneHeartMember] = randInt(10, 25);
+        // [fix] 锁定专属昵称：读取确认页输入；留空则开局由 AI 生成唯一一个并固定（全程保持统一）
+        var _petInput = document.getElementById('petNameInput');
+        GS.oneHeartPetName = _petInput && _petInput.value ? _petInput.value.trim().slice(0, 12) : '';
+        if (!GS.oneHeartPetName && GS.aiEnabled) {
+          try {
+            var _pnRes = await callDeepSeek(
+              '恋爱手游里，男主会给女主起一个专属爱称（如「小柚子」「小笨蛋」「小哭包」这类「小+字」或叠字昵称）。女主名字叫「' + (GS.heroineProfile ? GS.heroineProfile.name : '你') + '」。请只返回一个最贴合的 2-4 字中文昵称，不要解释、不要标点。',
+              '生成专属昵称', 50, false, 0.9
+            );
+            var _pn = (_pnRes || '').replace(/[^\u4e00-\u9fa5]/g, '').trim();
+            if (_pn.length >= 2 && _pn.length <= 6) GS.oneHeartPetName = _pn;
+          } catch (e) { /* 失败走兜底 */ }
+        }
+        if (!GS.oneHeartPetName) {
+          // 兜底：取女主名首字，保证至少稳定（不依赖 AI）
+          var _firstChar = (GS.heroineProfile && GS.heroineProfile.name) ? GS.heroineProfile.name.charAt(0) : '宝';
+          GS.oneHeartPetName = '小' + _firstChar;
+        }
         GS.step = 5;
         GS.day = 0;
         GS.phaseIndex = 0;
@@ -2354,12 +2375,9 @@ function renderOneHeartActions() {
     box.innerHTML = '';
     return;
   }
-  var _aff = GS.affection[GS.oneHeartMember] || 0;
-  var _stage = GS.oneHeartRomanceStage || 0;
-  var _canDate = (_stage >= 1 || _aff >= 20); // [F] 好感≥20 或暧昧期
+  // [约会按钮已移除] 约会功能保留（window.initiateOneHeartDate 仍可调用），仅不再显示按钮
   var _visitLocked = GS.oneHeartVisitLocked === 'done' || !!GS.oneHeartDateToday; // 与约会互斥、每天一次
   var html = '<div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  html += '<button id="btnOneHeartDate" class="oneheart-action-btn"' + (_canDate ? '' : ' disabled style="opacity:.5;cursor:not-allowed"') + '>💞 发起约会' + (_canDate ? '' : '（好感≥20或暧昧期）') + '</button>';
   html += '<button id="btnOneHeartVisit" class="oneheart-action-btn"' + (_visitLocked ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>🎬 探班' + (_visitLocked ? '（今日已约/已探）' : '') + '</button>';
   // 哥哥立场 + 曝光风险指示（保留信息可视化，去掉时段/行程条）
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
@@ -2372,12 +2390,6 @@ function renderOneHeartActions() {
   }
   html += '</div>';
   box.innerHTML = html;
-  var dateBtn = document.getElementById('btnOneHeartDate');
-  if (dateBtn && _canDate && !GS.oneHeartDateToday) {
-    dateBtn.addEventListener('click', function() {
-      if (window.initiateOneHeartDate) window.initiateOneHeartDate({});
-    });
-  }
   var visitBtn = document.getElementById('btnOneHeartVisit');
   if (visitBtn && !_visitLocked) {
     visitBtn.addEventListener('click', function() { doVisitMember(); });

@@ -51,6 +51,7 @@ export function defaultGameState() {
     oneHeartExJealousPool: [],
     oneHeartLateNightPool: [],
     oneHeartRandomUsed: [], // IMP-05：随机事件用去重环形缓冲（存最近抽过的 id）
+    oneHeartPoolUsed: [], // [fix] 意外事件池去重环形缓冲（按 scenario 文本去重，避免同一意外事件重复出现）
     randomEventsUsed: [], // [G] 换乘模式随机事件去重（存已触发 id）
     heroinePersona: { scores: {}, current: '' }, // IMP-09：女主人格画像（暗藏，由选项/自由输入推断）
     oneHeartSchedule: null, // IMP-16：今日行程（娱乐圈世界观：{main,related,rival}）
@@ -74,6 +75,7 @@ export function defaultGameState() {
     oneHeartBrotherChatToday: false, // 当日是否已「找哥哥聊聊」（每日限一次，防刷哥哥好感）
     oneHeartDateWindowAvailable: false, // 当日是否存在有效空档（哥哥不在家 + 男主有空档），供跨天错过判定
     oneHeartBrotherTempChange: false, // B4：哥哥行程临时变更（中段翻转）待生效标记
+    oneHeartPetName: '', // [fix] 男主对女主的固定专属昵称（设置时锁定，全程统一，避免每轮换外号）
     _pendingEvents: [],
     _pendingEventResults: [],
     _usedEventScenarios: [],

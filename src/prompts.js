@@ -1046,6 +1046,10 @@ export function buildOneHeartSystemPrompt() {
          (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
     '- ⚠️ 女主的全部外貌特征、私密体质均为女主专属设定，绝对禁止映射到任何成员身上（包括男主）。\n' +
     '- ⚠️ 女主是女性角色，绝对禁止被称为「哥/哥哥/형」。只有她的亲哥哥可以用「哥」称呼。\n' +
+    (GS.oneHeartPetName ?
+      ('[SYSTEM] 昵称锁定（强制）：男主对女主的固定专属昵称是「' + GS.oneHeartPetName + '」，全文统一使用这一个称呼，禁止更换、禁止新增其他外号或「小XX」式爱称。\n') :
+      '[SYSTEM] 昵称（强制）：男主对女主使用一个固定且贯穿整局游戏的专属爱称（例如「小名/小XX」式昵称），确定后整局保持统一，禁止中途更换、禁止同时混用多个外号。\n'
+    ) +
     '- ⚠️ 禁止编造恋爱纪念日（如"一个月纪念""100天纪念""周年纪念"），除非剧情中明确提到。\n' +
     buildFeaturePosNote(hp) +
     '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +

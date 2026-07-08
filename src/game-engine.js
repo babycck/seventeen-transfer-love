@@ -2211,21 +2211,30 @@ export async function doVisitMember() {
   var _ok = await showActionInfoModal('🎬 今天去探班', _info, '确认去探班', '再想想');
   if (!_ok) return;
   GS.pendingChoiceText = '🎬 探班·' + vname + (sch ? '（' + sch.task + '）' : '');
-  GS.oneHeartVisitLocked = 'done'; // 每天一次（与约会互斥）
-  GS._brotherShownThisDay = true; // [J] 探班即哥哥/男主到场，消费当天哥哥桥段标志，避免重复
-  if (sch) sch.visited = true;
-  if (!GS.oneHeartVisitLog) GS.oneHeartVisitLog = [];
-  GS.oneHeartVisitLog.push({ roleKey: roleKey, day: GS.day, task: sch ? sch.task : '' });
-  // IMP-17：探哥哥（related，且为「队友的妹妹」设定）强化兄妹信任，推高 brotherStance（K: +3→+5）
-  if (roleKey === 'related' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
-    updateBrotherStance(5, '探班哥哥，兄妹更亲近');
-  } else if (roleKey === 'rival') {
-    // 你老往情敌那儿跑，哥哥起疑（仅队友的妹妹：updateBrotherStance 自带 role 守卫，其他身份无副作用）
-    updateBrotherStance(-2, '你探情敌，哥哥起疑');
-  }
   saveGame();
   if (window.__renderAll) window.__renderAll();
+  // [fix] 先记录后果列表长度，仅当探班剧情真正生成成功后才消费当天名额与副作用，
+  // 避免 AI 返回错误时白扣一次探班次数（且底部「你的选择」标签不会卡在旧文本）
+  var _visitBeforeLen = GS.consequenceNarratives.length;
   await generateOneHeartRound({ isVisit: true, visitRoleKey: roleKey, noTimeAdvance: true });
+  if (GS.consequenceNarratives.length > _visitBeforeLen) {
+    GS.oneHeartVisitLocked = 'done'; // 每天一次（与约会互斥）
+    GS._brotherShownThisDay = true; // [J] 探班即哥哥/男主到场，消费当天哥哥桥段标志，避免重复
+    if (sch) sch.visited = true;
+    if (!GS.oneHeartVisitLog) GS.oneHeartVisitLog = [];
+    GS.oneHeartVisitLog.push({ roleKey: roleKey, day: GS.day, task: sch ? sch.task : '' });
+    // IMP-17：探哥哥强化兄妹信任 / 探情敌让哥哥起疑（仅队友的妹妹设定生效）
+    if (roleKey === 'related' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+      updateBrotherStance(5, '探班哥哥，兄妹更亲近');
+    } else if (roleKey === 'rival') {
+      updateBrotherStance(-2, '你探情敌，哥哥起疑');
+    }
+  } else {
+    // 生成失败：回滚 choiceText，避免底部标签停留在探班文案（让玩家可立即重试）
+    GS.pendingChoiceText = '';
+    showToast('🔄 探班剧情生成失败，名额未消耗，可重试');
+  }
+  saveGame();
   if (window.__renderAll) window.__renderAll();
 }
 
@@ -2256,18 +2265,27 @@ export async function initiateOneHeartDate(opts) {
     '<span style="color:#b9aee0">点「确认发起」即生成约会剧情。</span>';
   var _ok = await showActionInfoModal('💞 发起约会', _info, '确认发起', '再想想');
   if (!_ok) return;
-  // IMP-ENT-DATE：哥哥是地下恋把关人，男主借约会契机向哥哥示好推高好感（K: +1→+2）
-  if (brotherHome) {
-    updateBrotherStance(2, '男主借约会向哥哥示好（哥哥是地下恋把关人）');
-  }
-  GS.oneHeartDateToday = true;
+  // [fix] pendingChoiceText 必须在生成前设置（用于给后果打「你的选择」标签），
+  // 但约会名额 / 曝光风险 / 哥哥示好等副作用延后到生成成功后再提交，避免 AI 出错白扣一次约会
   GS.pendingChoiceText = '💞 发起约会' + (brotherHome ? '·哥哥在家只能外面见' : '·哥哥不在家=正当空档');
   GS._pendingSource = 'date';
-  // [H] 约会仍累加曝光风险（已无时段区分，统一按一次约会计）
-  accumulateExposureRisk(10, '约会');
   saveGame();
   if (window.__renderAll) window.__renderAll();
+  var _dateBeforeLen = GS.consequenceNarratives.length;
   await generateOneHeartRound({ isDate: true, brotherHome: brotherHome, noTimeAdvance: true });
+  if (GS.consequenceNarratives.length > _dateBeforeLen) {
+    // IMP-ENT-DATE：哥哥是地下恋把关人，男主借约会契机向哥哥示好推高好感（K: +1→+2）
+    if (brotherHome) {
+      updateBrotherStance(2, '男主借约会向哥哥示好（哥哥是地下恋把关人）');
+    }
+    GS.oneHeartDateToday = true;
+    // [H] 约会仍累加曝光风险（已无时段区分，统一按一次约会计）
+    accumulateExposureRisk(10, '约会');
+  } else {
+    GS.pendingChoiceText = '';
+    showToast('🔄 约会剧情生成失败，名额未消耗，可重试');
+  }
+  saveGame();
   if (window.__renderAll) window.__renderAll();
 }
 window.initiateOneHeartDate = initiateOneHeartDate;
@@ -3124,9 +3142,21 @@ async function tryPoolEvent() {
   var scenario = '';
   var opts = ['跟着直觉走', '冷静观察', '大胆行动'];
   if (usePool) {
-    var poolItem = GS.oneHeartEventPool[Math.floor(Math.random() * GS.oneHeartEventPool.length)];
+    // [fix] 意外事件池去重：用「近期不重复」环形缓冲（按 scenario 文本去重），
+    // 避免同一意外场景跨回合反复出现（此前为纯随机有放回，导致意外事件老重复）
+    if (!Array.isArray(GS.oneHeartPoolUsed)) GS.oneHeartPoolUsed = [];
+    var _availPool = GS.oneHeartEventPool.filter(function(it) {
+      return GS.oneHeartPoolUsed.indexOf(it.scenario) < 0;
+    });
+    if (_availPool.length === 0) {
+      GS.oneHeartPoolUsed = [];
+      _availPool = GS.oneHeartEventPool.slice();
+    }
+    var poolItem = _availPool[Math.floor(Math.random() * _availPool.length)];
     scenario = poolItem.scenario;
     if (poolItem.options && poolItem.options.length >= 3) opts = poolItem.options;
+    GS.oneHeartPoolUsed.push(poolItem.scenario);
+    if (GS.oneHeartPoolUsed.length > 10) GS.oneHeartPoolUsed.shift();
   } else {
     try {
       var _wcPool = getWorldConfig(GS.worldSetting);
