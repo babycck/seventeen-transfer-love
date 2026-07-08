@@ -21,6 +21,7 @@ import { generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
 import { showXItemsModal } from './modals.js';
 import { showActionInfoModal } from './modals/confirm-modal.js';
+import { showVisitChoiceModal } from './modals/visit-choice-modal.js';
 import { createModal } from './modals/modal-factory.js';
 import { validateNarrative } from './validator.js';
 import { checkMissionInteract, shouldTriggerSecretMission } from './utils.js';
@@ -2169,13 +2170,31 @@ export async function doVisitMember() {
     showToast('🔒 今天已经约过啦，先进入新的一天吧');
     return;
   }
-  // [F/J] 队友的妹妹：探班 = 去哥哥（队友）工作现场；其余：探班 = 去男主工作现场
-  var roleKey = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') ? 'related' : 'main';
-  var sch = GS.oneHeartSchedule && GS.oneHeartSchedule[roleKey];
-  if (sch && sch.visited) {
-    showToast('🔒 今天已经探过啦，先进入新的一天吧');
+  // [F/J] 探班 3 选 1：列出今天可探的成员行程（过滤空行程 & 已探过的），玩家选其一
+  var _roleLabels = { main: '男主', related: '哥哥', rival: '情敌' };
+  var _choices = [];
+  if (GS.oneHeartSchedule) {
+    ['main', 'related', 'rival'].forEach(function(rk) {
+      var s = GS.oneHeartSchedule[rk];
+      if (!s || s.visited) return;
+      var m = MEMBERS.find(function(mm) { return mm.id === s.memberId; }) || { name: (rk === 'main' ? '他' : '未知') };
+      var _note = '';
+      if (rk === 'related' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+        _note = '探哥哥会强化兄妹信任';
+      } else if (rk === 'rival') {
+        _note = '探情敌会让哥哥起疑';
+      }
+      _choices.push({ roleKey: rk, label: _roleLabels[rk] || rk, name: m.name, task: s.task, place: s.place, type: s.type, note: _note });
+    });
+  }
+  if (!_choices.length) {
+    showToast('今天没有可探的对象');
     return;
   }
+  var _picked = await showVisitChoiceModal(_choices);
+  if (!_picked) return; // 玩家取消选择
+  var roleKey = _picked;
+  var sch = GS.oneHeartSchedule[roleKey];
   var _vid = (sch && sch.memberId) || GS.oneHeartMember;
   var vname = (MEMBERS.find(function(m) { return m.id === _vid; }) || {}).name || '他';
   // [弹窗] 探班前展示今天探谁、在做什么（仅信息，确认后走原流程）
@@ -3002,8 +3021,8 @@ async function checkOneHeartEvents() {
       var _dirDesc = _direction === 'up' ? '升级攻势' : '卷土重来（他觉得你们关系出了问题，机会来了）';
       var _rivalName = GS.oneHeartRival.name || '他';
 
-      // 阶段3触发告白
-      var _isConfession = _rs.stage === 3;
+      // 阶段4触发告白（男主好感 >= 60，与男主本人告白门控对齐；原 stage===3 对应好感>=40 过早）
+      var _isConfession = _rs.stage === 4;
 
       var _rivScenario = '';
       var _rivOpts = ['靠近他', '保持距离', '装作没发现'];

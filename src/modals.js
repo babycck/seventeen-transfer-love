@@ -13,6 +13,7 @@ export { showAffectionPanel } from './modals/affection-panel.js';
 export { showHeartNotesModal } from './modals/heart-notes-modal.js';
 export { showApiSettingsModal } from './modals/api-settings-modal.js';
 export { showConfirmModal } from './modals/confirm-modal.js';
+export { showVisitChoiceModal } from './modals/visit-choice-modal.js';
 
 // NEW 聚合弹窗（Header 按钮整合）
 export { showHelpMergedModal } from './modals/help-merged-modal.js';
