@@ -20,3 +20,4 @@ export { showMomentsModal } from './moments-modal.js';
 export { showTheaterModal } from './theater-modal.js';
 export { showEventCardModal } from './event-card.js';
 export { showJealousyEvent, showSurpriseEvent, showPoolEvent } from './event-modal.js';
+export { showNewsModal, setSwitchOneHeartTab } from './news-modal.js';

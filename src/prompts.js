@@ -1006,7 +1006,7 @@ export function buildOneHeartSystemPrompt() {
     '{\n' +
     '  "blocks": [ { "type": "narrative", "content": "段落正文" } ],\n' +
     '  "options": [\n' +
-    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述" }\n' +
+    '    { "text": "行动描述", "affDelta": 好感变化值(-5~5), "affReason": "变化原因简述", "sceneType": "(可选)date-约会场景/public-高调行为" }\n' +
     '  ],\n' +
     '  "eventItems": ["一句话事件1", "一句话事件2"]\n' +
     '}\n' +
@@ -1063,7 +1063,7 @@ export function buildOneHeartSystemPrompt() {
       if (_aff < 20) return '好感度仅' + _aff + '，两人处于初识阶段，几乎没有任何共同经历。';
       if (_aff < 40) return '好感度' + _aff + '，两人处于互相了解阶段。';
       if (_aff < 60) return '好感度' + _aff + '，两人处于暧昧期。';
-      if (_aff < 80) return '好感度' + _aff + '，两人感情在升温。';
+      if (_aff < 80) return '好感度' + _aff + '，两人处于关系逐渐明确期。';
       return '好感度' + _aff + '，两人处于热恋期。';
     })() + '\n' +
     '⚠️ 禁止编造超出当前时间线的回忆或背景（如"三个月前""很久以前""从小一起长大""高中时""大学时代"等）。\n' +
@@ -1419,14 +1419,17 @@ export function buildOneHeartUserMessage(type, extra) {
         _mood = '💞 [当前关系氛围：热恋期] 你们正处于最甜蜜的阶段。互动自然亲密，充满了爱意。\n';
         _mood += '【剧情方向·深度线】适合：未来规划、深度承诺、见家长、共同生活愿景、信任危机后的重建。不要快速推进到分手/误会的虐心剧情。\n\n';
       } else if (_aff >= 60) {
-        _mood = '💗 [当前关系氛围：暧昧升温] 感情在稳步加深，互相信任。\n';
-        _mood += '【剧情方向·甜宠线】适合：正式表白、约会、日常甜蜜互动、小惊喜、互相吃醋但能化解。可以有小摩擦但不要升级到冷战。\n\n';
+        _mood = '💗 [当前关系氛围：关系确认期] 感情已明确升温，彼此信任稳固。\n';
+        _mood += '【剧情方向·确认线】适合：正式确定关系、深度对话、日常甜蜜、见朋友/家人铺垫、互相融入生活。可以有小摩擦但不要升级到冷战。\n\n';
       } else if (_aff >= 40) {
         _mood = '💛 [当前关系氛围：暧昧期] 你们之间似有若无的情愫在流动。\n';
         _mood += '【剧情方向·试探线】适合：暧昧试探、吃醋拉扯、小心思、未说出口的话、第三方介入制造张力。不要快速确认关系。\n\n';
       } else if (_aff >= 20) {
         _mood = '💙 [当前关系氛围：普通期] 还在互相了解，说话客气但有心动的苗头。\n';
         _mood += '【剧情方向·试探线】适合：日常互动中的小心动、试探性的靠近、偶尔的误会、情敌初现。保持克制。\n\n';
+      } else if (_aff >= 0) {
+        _mood = '💜 [当前关系氛围：初识期] 你们刚刚认识不久，一切都在试探中。\n';
+        _mood += '【剧情方向·初识线】适合：初次互动中的小心动、尴尬却可爱的瞬间、试探性的靠近、建立最初的好感。保持克制的叙事节奏。\n\n';
       } else {
         _mood = '💔 [当前关系氛围：虐心期] 关系处于低谷，互动冷淡或紧张。\n';
         _mood += '【剧情方向·虐心线】适合：误会、冷战、分手边缘、信任崩塌、情敌趁虚而入。不要出现表白/甜蜜剧情。\n\n';
@@ -1446,6 +1449,20 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += '[INSTRUCTION] 感情进度门控（当前：明确期·round ' + _rsRound + '）\n两人关系已明确，可铺垫告白与更深的承诺，但正式的告白/摊牌高潮建议留到更高潮阶段（round>=12）。情敌竞争上升但结构完整。\n\n';
       } else {
         msg += '[INSTRUCTION] 感情进度门控（当前：高潮期·round ' + _rsRound + '）\n感情已充分铺垫，此刻允许告白/摊牌类高潮事件（需好感达标：男主>=60、情敌>=50）。可写情感爆发、关系确认或重大转折。\n\n';
+      }
+    }
+
+    // 约会选项自然生成（好感达标时 AI 可融入约会类选项）
+    var _affDate = GS.affection[GS.oneHeartMember] || 0;
+    if ((GS.oneHeartRomanceStage || 0) >= 1 || _affDate >= 20) {
+      if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+        if (GS.brotherAtHome) {
+          msg += '💡 [约会提示] 好感已达阶段，可在选项中自然融入外出约会机会（哥哥在家，需在外面见面，高调）。若生成约会选项，请在该选项加入 "sceneType": "date" 标记，并将 sceneType 字段同时赋值给约会主选项。\n\n';
+        } else {
+          msg += '💡 [约会提示] 好感已达阶段，可在选项中自然融入约会机会（哥哥不在家，男主可来住处，低调）。若生成约会选项，请在该选项加入 "sceneType": "date" 标记。\n\n';
+        }
+      } else {
+        msg += '💡 [约会提示] 好感已达阶段，可在选项中自然融入见面/约会机会。若生成约会选项，请在该选项加入 "sceneType": "date" 标记。\n\n';
       }
     }
 

@@ -715,13 +715,11 @@ export var ONE_HEART_RANDOM_EVENTS = [
   { id: 'ohr_13', name: '他叫了很多次你的名字', desc: '他今天叫了你的名字很多次，每一次的语气都不太一样' },
   { id: 'ohr_14', name: '醉酒靠在你肩上', desc: '他喝得微醺，无意中靠在你肩上睡着了，你没有动' },
   { id: 'ohr_15', name: '他看到就想到你', desc: '他送你一份小礼物，说"看到这个就想到你"' },
-  { id: 'ohr_16', name: '散步时牵手了', desc: '你们的手在散步时不小心碰到几次后，他牵住了你' },
   { id: 'ohr_17', name: '他在你难过时陪着', desc: '你情绪低落时他什么都没问，只是静静坐在你身边' },
   { id: 'ohr_18', name: '他挡在你前面', desc: '遇到突发状况（冲过来的狗/拥挤的人群），他本能地挡在你前面' },
   { id: 'ohr_19', name: '练习约会', desc: '他假装正经地说需要练习约会，一脸认真地问你要不要当搭档' },
   { id: 'ohr_20', name: '为他系领带', desc: '他穿了正装，领带怎么也系不好，站在那里让你帮忙' },
   { id: 'ohr_21', name: '他模仿你说话', desc: '他学你说话的语气和口头禅，学得很像但你假装生气' },
-  { id: 'ohr_22', name: '你身上有他的味道', desc: '你穿了他的外套或用了他的东西，身上全是他的气息' },
   // ☀️ 日常甜暖 23-38
   { id: 'ohr_23', name: '一起逛超市', desc: '你们一起去超市采购，他自然地接过你手里的购物袋' },
   { id: 'ohr_24', name: '他递外套给你', desc: '他注意到你有点冷，默默把外套递给你' },
@@ -739,12 +737,13 @@ export var ONE_HEART_RANDOM_EVENTS = [
   { id: 'ohr_36', name: '他送你到家门口', desc: '天色晚了，他坚持送你到门口，站在路灯下欲言又止' },
   { id: 'ohr_37', name: '一起听歌分耳机', desc: '他分给你一只耳机，歌单里的歌暴露了他此刻的心情' },
   { id: 'ohr_38', name: '比谁能逗对方笑', desc: '他突发奇想要和你比赛——谁先逗对方笑谁赢，结果两个人都输了' },
+  { id: 'ohr_16', name: '散步时牵手了', desc: '你们的手在散步时不小心碰到几次后，他牵住了你' },
+  { id: 'ohr_22', name: '你身上有他的味道', desc: '你穿了他的外套或用了他的东西，身上全是他的气息' },
   // 🌧 情感冲击 39-50
   { id: 'ohr_39', name: '他提起过去的感情', desc: '他无意中提到了一段过去的感情经历，语气里有未愈合的痕迹' },
   { id: 'ohr_40', name: '看到他的另一面', desc: '你撞见他独自发呆/情绪低落的样子，和平时判若两人' },
   { id: 'ohr_41', name: '他以为你生气了', desc: '因为一个误会，他小心翼翼地来哄你，笨拙却真诚' },
   { id: 'ohr_42', name: '深夜来电', desc: '他深夜打来电话，声音有点不一样，只说"想听听你的声音"' },
-  { id: 'ohr_43', name: '他问你你们的关系', desc: '他突然很认真地问你"你觉得我们算是什么关系"' },
   { id: 'ohr_44', name: '发现他在偷看你', desc: '你发现他其实一直在默默注视你，被撞破后慌乱地移开视线' },
   { id: 'ohr_45', name: '他手机里有很多你的照片', desc: '你无意中看到他手机里存了很多你的照片/截图，不知道是什么时候拍的' },
   { id: 'ohr_46', name: '他坦白他变了', desc: '他说"我以前不太相信感情，但你让我改变了"' },
@@ -752,6 +751,7 @@ export var ONE_HEART_RANDOM_EVENTS = [
   { id: 'ohr_48', name: '他突然沉默了', desc: '他沉默了很长时间，然后说了一句让你整晚都睡不着的话' },
   { id: 'ohr_49', name: '如果先遇到的是你', desc: '他问你"如果你先遇到的是我，结果会不会不一样"' },
   { id: 'ohr_50', name: '他总是不由自主想起你', desc: '他告诉你他最近总是莫名其妙地想起你，吃饭的时候、睡觉之前' },
+  { id: 'ohr_43', name: '他问你你们的关系', desc: '他突然很认真地问你"你觉得我们算是什么关系"' },
   // ⚡ 戏剧冲突 51-60
   { id: 'ohr_51', name: '意想不到的人来找他', desc: '一个意想不到的人突然来找他（前任/朋友/家人），气氛瞬间微妙' },
   { id: 'ohr_52', name: '他受伤了', desc: '他受了点小伤（切到手/扭到脚），你帮他处理伤口' },
@@ -1116,109 +1116,104 @@ export var SECOND_CAREER_MAP = {
 
 // ==================== 1v1 吃醋事件池 ====================
 export var JEALOUSY_EVENTS = [
-  { minAff: 60, scenario: '你和同事在咖啡厅聊了半小时项目，他隔着玻璃看到了你们笑得很开心。', options: ['走过去大方介绍你们在聊什么', '假装没看见继续聊天', '发消息说「你要不要一起喝一杯？」'] },
-  { minAff: 60, scenario: '你的朋友圈发了一张和异性朋友的合影，他留言「这个谁啊」下面还跟了个不笑的 emoji。', options: ['私聊回复「吃醋了？」', '公开回复「从小一起长大的哥们儿」', '不回复，看他会不会憋不住来找你'] },
-  { minAff: 60, scenario: '他看到你手机上弹出一条异性消息：「在吗？上次的事谢谢你啦～」', options: ['主动把手机递给他看：「你自己翻」', '轻描淡写说「工作上的事」', '反问他「你这么紧张干嘛」'] },
-  { minAff: 70, scenario: '你等他收工的时候，他被女粉丝拉去合影，那个女生搂着他的腰比了个心。', options: ['等他拍完走过去牵他的手', '在旁边笑着看，等他主动走过来', '转身去角落给他发消息「拍够了吗」'] },
-  { minAff: 70, scenario: '你哥/朋友当面跟他说：「你到底对我妹什么态度？不喜欢别耽误她。」', options: ['帮你男友解围：「你别乱说」', '沉默，等他回答', '拉着他走：「我们的事我们自己说」'] },
-  { minAff: 70, scenario: '他在你包里发现了一张别人写的小纸条——虽然是三年前的旧物，但上面写着「我喜欢你」。', options: ['实话实说：「很久以前的了」', '逗他：「你猜是谁写的」', '直接扔掉：「没意义的人」'] },
-  { minAff: 80, scenario: '他无意翻到你的旧微博，里面写着对另一个男生的崇拜——那个人是他认识的人。', options: ['承认：「那都是过去的事了」', '解释：「那时候还不认识你」', '反撩他：「现在眼里只有你」'] },
-  { minAff: 80, scenario: '练习室门口，他看到你和一个男同事有说有笑地走出来，没说一句话掉头走了。', options: ['追上去拉住他手：「听我解释」', '让他走，等消气了再说', '给他打电话：「你再走一步晚上不给你做饭」'] },
-  { minAff: 80, scenario: '你整理旧手机相册，被他瞄到一张和前任的合影——虽然只有半张脸。', options: ['迅速划过：「没什么好看的」', '坦白：「那都是过去式了」', '递给他：「你想看吗？这是他」'] },
-  { minAff: 85, scenario: '他跟别人聊天时听到：「她说过你其实不是她第一眼喜欢的那种类型。」', options: ['承认：「但你是我最后喜欢的那个人」', '否认：「他听错了吧」', '抱住他：「第一眼不重要，现在最重要」'] },
-  { minAff: 85, scenario: '大合照的站位里，他发现你的座位紧贴着另一个男生，中间隔着两个人的距离。', options: ['解释：「拍照时被推过去的」', '调侃他：「观察得挺仔细啊」', '内疚：「下次我站你旁边」'] },
-  { minAff: 85, scenario: '你们在阳台聊天，你哥走过来说「我跟他说了你小时候的糗事」。他听完后笑得不自然。', options: ['追问他：「我哥到底说了什么」', '假装生气：「不许听我哥乱讲」', '转移话题：「那天天气真好」'] }
+  { minAff: 60, affDeltas: [3, -1, 1], scenario: '你和同事在咖啡厅聊了半小时项目，他隔着玻璃看到了你们笑得很开心。', options: ['走过去大方介绍你们在聊什么', '假装没看见继续聊天', '发消息说「你要不要一起喝一杯？」'] },
+  { minAff: 60, affDeltas: [2, 1, -1], scenario: '你的朋友圈发了一张和异性朋友的合影，他留言「这个谁啊」下面还跟了个不笑的 emoji。', options: ['私聊回复「吃醋了？」', '公开回复「从小一起长大的哥们儿」', '不回复，看他会不会憋不住来找你'] },
+  { minAff: 60, affDeltas: [3, 0, -2], scenario: '他看到你手机上弹出一条异性消息：「在吗？上次的事谢谢你啦～」', options: ['主动把手机递给他看：「你自己翻」', '轻描淡写说「工作上的事」', '反问他「你这么紧张干嘛」'] },
+  { minAff: 70, affDeltas: [3, 1, -1], scenario: '你等他收工的时候，他被女粉丝拉去合影，那个女生搂着他的腰比了个心。', options: ['等他拍完走过去牵他的手', '在旁边笑着看，等他主动走过来', '转身去角落给他发消息「拍够了吗」'] },
+  { minAff: 70, affDeltas: [2, 0, 3], scenario: '你哥/朋友当面跟他说：「你到底对我妹什么态度？不喜欢别耽误她。」', options: ['帮你男友解围：「你别乱说」', '沉默，等他回答', '拉着他走：「我们的事我们自己说」'] },
+  { minAff: 70, affDeltas: [2, -1, -2], scenario: '他在你包里发现了一张别人写的小纸条——虽然是三年前的旧物，但上面写着「我喜欢你」。', options: ['实话实说：「很久以前的了」', '逗他：「你猜是谁写的」', '直接扔掉：「没意义的人」'] },
+  { minAff: 80, affDeltas: [2, 1, 3], scenario: '他无意翻到你的旧微博，里面写着对另一个男生的崇拜——那个人是他认识的人。', options: ['承认：「那都是过去的事了」', '解释：「那时候还不认识你」', '反撩他：「现在眼里只有你」'] },
+  { minAff: 80, affDeltas: [3, -2, 1], scenario: '练习室门口，他看到你和一个男同事有说有笑地走出来，没说一句话掉头走了。', options: ['追上去拉住他手：「听我解释」', '让他走，等消气了再说', '给他打电话：「你再走一步晚上不给你做饭」'] },
+  { minAff: 80, affDeltas: [1, 2, 3], scenario: '你整理旧手机相册，被他瞄到一张和前任的合影——虽然只有半张脸。', options: ['迅速划过：「没什么好看的」', '坦白：「那都是过去式了」', '递给他：「你想看吗？这是他」'] },
+  { minAff: 85, affDeltas: [3, -3, 2], scenario: '他跟别人聊天时听到：「她说过你其实不是她第一眼喜欢的那种类型。」', options: ['承认：「但你是我最后喜欢的那个人」', '否认：「他听错了吧」', '抱住他：「第一眼不重要，现在最重要」'] },
+  { minAff: 85, affDeltas: [1, -1, 2], scenario: '大合照的站位里，他发现你的座位紧贴着另一个男生，中间隔着两个人的距离。', options: ['解释：「拍照时被推过去的」', '调侃他：「观察得挺仔细啊」', '内疚：「下次我站你旁边」'] },
+  { minAff: 85, affDeltas: [1, 2, -2], scenario: '你们在阳台聊天，你哥走过来说「我跟他说了你小时候的糗事」。他听完后笑得不自然。', options: ['追问他：「我哥到底说了什么」', '假装生气：「不许听我哥乱讲」', '转移话题：「那天天气真好」'] }
 ];
 
 // ==================== 1v1 惊喜事件池 ====================
 export var SURPRISE_EVENTS = [
-  { minAff: 50, scenario: '你加完班走出公司，发现他在楼下等你——手里提着热乎乎的宵夜。', options: ['冲过去抱住他：「你怎么来了」', '接过来笑着说：「等很久了吧」', '拉他去旁边的长椅坐着一起吃'] },
-  { minAff: 50, scenario: '半夜收到他发来的语音——他弹了一小段钢琴曲，说「刚写的，还没取名字」。', options: ['回他：「这是写给我的吗」', '认真听完+发语音评价', '第二天当面问他：「那首歌叫什么」'] },
-  { minAff: 50, scenario: '你随口说了一句想吃什么，第二天桌上就出现了。附了一张便签：「路过顺便买的」。', options: ['拍照发给他：「谢谢顺便先生」', '问他地址说要回请', '吃掉并留着那张便签'] },
-  { minAff: 60, scenario: '下雨了你没带伞，他撑着伞突然出现在你面前——头发还是湿的。', options: ['躲进伞下：「你怎么知道我在这儿」', '接过伞：「我帮你擦擦头发」', '拉着他一起在雨里跑回家'] },
-  { minAff: 60, scenario: '你在忙的时候他说「别动」，然后帮你系好松开的鞋带。抬头若无其事地继续看手机。', options: ['低头看他说了声「谢谢」', '等他走了跟朋友说「他刚刚……！」', '偷偷给他发了句「你刚超帅」'] },
-  { minAff: 60, scenario: '你感冒了，他戴着口罩出现在你家门口，手里提着药和一碗热粥。', options: ['让他进屋：「你也别被传染了」', '隔着门说谢谢让他回去', '喝粥后给他发照片：「喝完了」'] },
-  { minAff: 70, scenario: '你在他口袋里发现了一张手写的便签——上面是你的名字和他的字迹：「今天也想见你」。', options: ['等他发现时假装不知道', '拍下来设成聊天背景', '走到他面前摊开纸条看着他笑'] },
-  { minAff: 70, scenario: '他提前结束了行程，发消息说「十分钟后你家楼下」。你下楼看到他靠在车上，手里拿着一束花。', options: ['笑他：「这么正式？」', '接过来问「今天什么日子」', '把花举到脸前说「好看还是花好看」'] },
-  { minAff: 70, scenario: '凌晨三点你还没睡，收到他的消息：「醒着吗？」接着电话就响了。', options: ['接起来：「你怎么也没睡」', '挂掉打视频过去', '回他：「睡了」然后等他打来再接'] },
-  { minAff: 80, scenario: '他说要给你看个东西，然后拿出一张画——不专业但很认真，画的是你的侧脸。', options: ['问他什么时候画的','要拍照收藏','说你画得不像让你现场教你'] },
-  { minAff: 80, scenario: '他给你发了一段录音——是他唱的一整首歌，你说过喜欢的那首。最后加了句「晚安」', options: ['回他：「我循环了一天」','录一段自己唱的回赠','第二天当面问他嗓子疼不疼'] },
-  { minAff: 80, scenario: '你累到在沙发上睡着，醒来时身上盖着他的外套，他在旁边安静地打游戏——声音关到了最小。', options: ['假装没醒继续躺着','坐起来说「你怎么不叫我」','反过来把头靠在他腿上'] }
+  { minAff: 50, affDeltas: [3, 2, 1], scenario: '你加完班走出公司，发现他在楼下等你——手里提着热乎乎的宵夜。', options: ['冲过去抱住他：「你怎么来了」', '接过来笑着说：「等很久了吧」', '拉他去旁边的长椅坐着一起吃'] },
+  { minAff: 50, affDeltas: [2, 1, 1], scenario: '半夜收到他发来的语音——他弹了一小段钢琴曲，说「刚写的，还没取名字」。', options: ['回他：「这是写给我的吗」', '认真听完+发语音评价', '第二天当面问他：「那首歌叫什么」'] },
+  { minAff: 50, affDeltas: [2, 1, 1], scenario: '你随口说了一句想吃什么，第二天桌上就出现了。附了一张便签：「路过顺便买的」。', options: ['拍照发给他：「谢谢顺便先生」', '问他地址说要回请', '吃掉并留着那张便签'] },
+  { minAff: 60, affDeltas: [2, 2, 3], scenario: '下雨了你没带伞，他撑着伞突然出现在你面前——头发还是湿的。', options: ['躲进伞下：「你怎么知道我在这儿」', '接过伞：「我帮你擦擦头发」', '拉着他一起在雨里跑回家'] },
+  { minAff: 60, affDeltas: [1, 0, 2], scenario: '你在忙的时候他说「别动」，然后帮你系好松开的鞋带。抬头若无其事地继续看手机。', options: ['低头看他说了声「谢谢」', '等他走了跟朋友说「他刚刚……！」', '偷偷给他发了句「你刚超帅」'] },
+  { minAff: 60, affDeltas: [3, -1, 1], scenario: '你感冒了，他戴着口罩出现在你家门口，手里提着药和一碗热粥。', options: ['让他进屋：「你也别被传染了」', '隔着门说谢谢让他回去', '喝粥后给他发照片：「喝完了」'] },
+  { minAff: 70, affDeltas: [1, 2, 3], scenario: '你在他口袋里发现了一张手写的便签——上面是你的名字和他的字迹：「今天也想见你」。', options: ['等他发现时假装不知道', '拍下来设成聊天背景', '走到他面前摊开纸条看着他笑'] },
+  { minAff: 70, affDeltas: [1, 2, 1], scenario: '他提前结束了行程，发消息说「十分钟后你家楼下」。你下楼看到他靠在车上，手里拿着一束花。', options: ['笑他：「这么正式？」', '接过来问「今天什么日子」', '把花举到脸前说「好看还是花好看」'] },
+  { minAff: 70, affDeltas: [2, 2, 1], scenario: '凌晨三点你还没睡，收到他的消息：「醒着吗？」接着电话就响了。', options: ['接起来：「你怎么也没睡」', '挂掉打视频过去', '回他：「睡了」然后等他打来再接'] },
+  { minAff: 80, affDeltas: [1, 2, 1], scenario: '他说要给你看个东西，然后拿出一张画——不专业但很认真，画的是你的侧脸。', options: ['问他什么时候画的','要拍照收藏','说你画得不像让你现场教你'] },
+  { minAff: 80, affDeltas: [3, 2, 1], scenario: '他给你发了一段录音——是他唱的一整首歌，你说过喜欢的那首。最后加了句「晚安」', options: ['回他：「我循环了一天」','录一段自己唱的回赠','第二天当面问他嗓子疼不疼'] },
+  { minAff: 80, affDeltas: [1, -1, 2], scenario: '你累到在沙发上睡着，醒来时身上盖着他的外套，他在旁边安静地打游戏——声音关到了最小。', options: ['假装没醒继续躺着','坐起来说「你怎么不叫我」','反过来把头靠在他腿上'] }
 ];
 
 // ==================== 1v1 路人围观事件池 ====================
 export var CELEBRITY_EVENTS = [
-  { scenario: '你们在商场吃饭，隔壁桌的女生开始偷拍。他注意到你的表情变了。', options: ['假装没发现继续吃', '看向镜头笑了一下', '拉着他换桌'] },
-  { scenario: '机场到达大厅，有粉丝举着应援牌冲过来。你被挤到了一边。', options: ['退到旁边等他自己处理', '站在他身边帮他挡一下', '开玩笑说「你粉丝比我想的还多」'] },
-  { scenario: '你们在公园散步被路人认出，有人开始拍照窃窃私语。', options: ['拉着他快走离开', '大方打招呼然后继续散步', '问他「会介意吗」'] },
-  { scenario: '他在直播时你从他身后走过，弹幕瞬间刷屏问「那是谁」。', options: ['悄悄退出去不打扰', '走到镜头前打个招呼', '等他下播后调侃他」'] },
-  // 新增
-  { scenario: '签售会上你混在粉丝队伍里，轮到你的那一秒他愣住了。', options: ['忍着笑签完说「谢谢」', '悄悄眨了眨眼', '小声说「惊喜吗」'] },
-  { scenario: '你们在餐厅吃饭被隔壁桌要合影，他下意识看向你等你点头。', options: ['大方答应一起拍', '说「我们在约会呢不太方便」', '让他自己去拍你等着'] },
-  { scenario: '你在他颁奖礼后台等他，工作人员拦住你说「无关人员不能进」。', options: ['退到外面给他发消息', '说「我是他家属」', '等他出来时故意装作生气了'] },
-  { scenario: '有私生饭跟到你家楼下，拍了你进单元门的照片发在网上。他看到后脸色变了。', options: ['安慰他说「没事我小心点」', '问他要不要搬家', '发消息说「你别担心啦」'] },
-  { scenario: '你在超市买菜时被他的粉丝认出来了，对方激动地问「你是不是那个……」。', options: ['否认：「你认错人了」', '微笑点头后快步离开', '承认后请她保密'] },
-  { scenario: '他的综艺节目里被MC问到「最近有在谈的人吗」。他的回答让你心跳漏了一拍。', options: ['等他下播后问他怎么回答的', '发消息说「我在看」', '装作没看等他主动说'] }
+  { minAff: 15, affDeltas: [1, 2, 1], scenario: '你们在商场吃饭，隔壁桌的女生开始偷拍。他注意到你的表情变了。', options: ['假装没发现继续吃', '看向镜头笑了一下', '拉着他换桌'] },
+  { minAff: 15, affDeltas: [0, 2, 1], scenario: '机场到达大厅，有粉丝举着应援牌冲过来。你被挤到了一边。', options: ['退到旁边等他自己处理', '站在他身边帮他挡一下', '开玩笑说「你粉丝比我想的还多」'] },
+  { minAff: 20, affDeltas: [1, 2, 1], scenario: '你们在公园散步被路人认出，有人开始拍照窃窃私语。', options: ['拉着他快走离开', '大方打招呼然后继续散步', '问他「会介意吗」'] },
+  { minAff: 20, affDeltas: [1, 2, 1], scenario: '他在直播时你从他身后走过，弹幕瞬间刷屏问「那是谁」。', options: ['悄悄退出去不打扰', '走到镜头前打个招呼', '等他下播后调侃他'] },
+  { minAff: 25, affDeltas: [1, 2, 1], scenario: '签售会上你混在粉丝队伍里，轮到你的那一秒他愣住了。', options: ['忍着笑签完说「谢谢」', '悄悄眨了眨眼', '小声说「惊喜吗」'] },
+  { minAff: 15, affDeltas: [2, 1, 0], scenario: '你们在餐厅吃饭被隔壁桌要合影，他下意识看向你等你点头。', options: ['大方答应一起拍', '说「我们在约会呢不太方便」', '让他自己去拍你等着'] },
+  { minAff: 20, affDeltas: [1, 2, 0], scenario: '你在他颁奖礼后台等他，工作人员拦住你说「无关人员不能进」。', options: ['退到外面给他发消息', '说「我是他家属」', '等他出来时故意装作生气了'] },
+  { minAff: 30, affDeltas: [2, 1, 1], scenario: '有私生饭跟到你家楼下，拍了你进单元门的照片发在网上。他看到后脸色变了。', options: ['安慰他说「没事我小心点」', '问他要不要搬家', '发消息说「你别担心啦」'] },
+  { minAff: 15, affDeltas: [1, 2, 1], scenario: '你在超市买菜时被他的粉丝认出来了，对方激动地问「你是不是那个……」。', options: ['否认：「你认错人了」', '微笑点头后快步离开', '承认后请她保密'] },
+  { minAff: 30, affDeltas: [2, 1, 0], scenario: '他的综艺节目里被MC问到「最近有在谈的人吗」。他的回答让你心跳漏了一拍。', options: ['等他下播后问他怎么回答的', '发消息说「我在看」', '装作没看等他主动说'] }
 ];
 
 // ==================== 1v1 社交媒体风波事件池 ====================
 export var SCANDAL_EVENTS = [
-  { scenario: '一张你和情敌在咖啡店的合照被传到了网上。他的手机一直在响。', options: ['第一时间联系他解释', '等他来找你再说', '发条朋友圈澄清'] },
-  { scenario: '有人在论坛发帖讨论他的恋情，帖子里有你的照片。转发在发酵。', options: ['告诉他自己来处理', '问他「你公司那边怎么说」', '暂时不出门等热度过去'] },
-  { scenario: '私生跟了你们一整天，你发现时已经晚了——他们拍了你们的合照。', options: ['拉着他快步离开', '直接报警处理', '让他先走你来解决'] },
-  { scenario: '你在他的直播弹幕里被粉丝认出来了。弹幕在刷你的名字。', options: ['假装没看到继续看直播', '发一条弹幕说「你们认错人了」', '给他发消息说「好像被发现了」'] },
-  // 新增
-  { scenario: '狗仔拍到你们在车里靠得很近的照片，标题写着「疑似恋情曝光」。', options: ['问他公司那边怎么说', '让他别回应冷处理', '开玩笑说「拍得好看吗」'] },
-  { scenario: '他的前队友在节目上开玩笑说「他最近总是对着手机傻笑」。你收到了他无奈的表情。', options: ['回他「你确实在傻笑」', '问他「前队友知道我的事吗」', '装作没发现心情很好'] },
-  { scenario: '有人在粉丝群里扒出了你的社交账号，翻出了你和他同款衣服的ins截图。', options: ['把账号设成私密', '发一条模棱两可的动态', '跟他说「好像被发现了怎么办」'] },
-  { scenario: '你们在练习室单独待着时，窗户外面好像有人在举着手机拍。', options: ['拉上窗帘继续', '出去看看是谁', '说「我们换个地方吧」'] },
-  { scenario: '你的社交账号被营销号搬运了，标题写「疑似SEVENTEEN成员女友账号曝光」。评论区炸了。', options: ['暂时关掉评论区', '跟他说「对不起给你添麻烦了」', '卸载社交软件冷静几天'] },
-  { scenario: '经纪公司打来电话，说「这段时间先不要公开露面」。他握着你的手说「等我」。', options: ['点头说「我等你」', '问他「要多久」', '说「不如公开吧我不想躲了」'] }
+  { minAff: 35, affDeltas: [2, -2, 1], scenario: '一张你和情敌在咖啡店的合照被传到了网上。他的手机一直在响。', options: ['第一时间联系他解释', '等他来找你再说', '发条朋友圈澄清'] },
+  { minAff: 35, affDeltas: [2, 1, 0], scenario: '有人在论坛发帖讨论他的恋情，帖子里有你的照片。转发在发酵。', options: ['告诉他自己来处理', '问他「你公司那边怎么说」', '暂时不出门等热度过去'] },
+  { minAff: 40, affDeltas: [2, 0, 1], scenario: '私生跟了你们一整天，你发现时已经晚了——他们拍了你们的合照。', options: ['拉着他快步离开', '直接报警处理', '让他先走你来解决'] },
+  { minAff: 30, affDeltas: [0, 1, 2], scenario: '你在他的直播弹幕里被粉丝认出来了。弹幕在刷你的名字。', options: ['假装没看到继续看直播', '发一条弹幕说「你们认错人了」', '给他发消息说「好像被发现了」'] },
+  { minAff: 40, affDeltas: [1, 1, 2], scenario: '狗仔拍到你们在车里靠得很近的照片，标题写着「疑似恋情曝光」。', options: ['问他公司那边怎么说', '让他别回应冷处理', '开玩笑说「拍得好看吗」'] },
+  { minAff: 25, affDeltas: [2, 1, 0], scenario: '他的前队友在节目上开玩笑说「他最近总是对着手机傻笑」。你收到了他无奈的表情。', options: ['回他「你确实在傻笑」', '问他「前队友知道我的事吗」', '装作没发现心情很好'] },
+  { minAff: 35, affDeltas: [1, 0, 2], scenario: '有人在粉丝群里扒出了你的社交账号，翻出了你和他同款衣服的ins截图。', options: ['把账号设成私密', '发一条模棱两可的动态', '跟他说「好像被发现了怎么办」'] },
+  { minAff: 30, affDeltas: [1, 0, 2], scenario: '你们在练习室单独待着时，窗户外面好像有人在举着手机拍。', options: ['拉上窗帘继续', '出去看看是谁', '说「我们换个地方吧」'] },
+  { minAff: 40, affDeltas: [1, 2, -1], scenario: '你的社交账号被营销号搬运了，标题写「疑似SEVENTEEN成员女友账号曝光」。评论区炸了。', options: ['暂时关掉评论区', '跟他说「对不起给你添麻烦了」', '卸载社交软件冷静几天'] },
+  { minAff: 50, affDeltas: [2, -1, 3], scenario: '经纪公司打来电话，说「这段时间先不要公开露面」。他握着你的手说「等我」。', options: ['点头说「我等你」', '问他「要多久」', '说「不如公开吧我不想躲了」'] }
 ];
 
 // ==================== 1v1 生病事件池 ====================
 export var SICK_EVENTS = [
-  { scenario: '他发烧38.5度，拒绝去医院说「睡一觉就好」。你看着他烧红的脸。', options: ['强行拉他去医院', '在家照顾他一整晚', '煮粥给他吃然后守着他睡'] },
-  { scenario: '连续行程太多他嗓子哑了，明天还有签售会。他看着你苦笑。', options: ['帮他煮润喉茶', '让他少说话你来替他接电话', '开玩笑说「那明天我替你去签售」'] },
-  { scenario: '他背伤复发疼到站不直，但坚持说要去练习室。', options: ['拦着他逼他休息', '说「那我陪你在家练」', '打电话叫经纪人帮忙劝'] },
-  { scenario: '他食物中毒半夜给你打电话，声音虚弱。你赶去他家。', options: ['马上送他去急诊', '照顾他吐了一整晚', '骂他「让你乱吃」但手在发抖'] },
-  // 新增
-  { scenario: '他练习时膝盖旧伤复发，坐在角落说「不用管我」。额头全是汗。', options: ['蹲下来帮他冰敷', '打电话叫经纪人来', '坐在他旁边说「我陪你歇会儿」'] },
-  { scenario: '连轴转了好几天，他在你面前突然眼前一黑差点倒下。你扶住他时他还在说「没事」。', options: ['强行让他坐下塞了颗糖', '凶他「你再这样我生气了」', '给他请假让他休息一天'] },
-  { scenario: '他眼睛发炎红得像兔子，但坚持说「明天还有行程」。你看着他倔强的脸。', options: ['翻出眼药水给他滴', '说「丑成这样还去」实际很心疼', '陪着去医院开药'] },
-  { scenario: '他扭伤了脚踝，你一急直接在他面前蹲下说「上来我背你」。他笑了。', options: ['坚持背他到了车上', '改成扶着他走', '说「笑什么我很认真的」'] },
-  { scenario: '他过敏发作身上起了红疹，痒得一直抓但又嘴硬说「很快就好了」。', options: ['翻箱倒柜找抗过敏药', '按住他的手「别抓了会留疤」', '催着去医院打针'] },
-  { scenario: '他压力性失眠好几天了，凌晨四点在客厅发呆。听到你开门的声音回头挤出一个笑。', options: ['走过去坐在他旁边不说话', '给他泡了杯热牛奶', '说「我陪你聊到睡着」'] }
+  { minAff: 20, affDeltas: [2, 3, 2], scenario: '他发烧38.5度，拒绝去医院说「睡一觉就好」。你看着他烧红的脸。', options: ['强行拉他去医院', '在家照顾他一整晚', '煮粥给他吃然后守着他睡'] },
+  { minAff: 15, affDeltas: [1, 2, 1], scenario: '连续行程太多他嗓子哑了，明天还有签售会。他看着你苦笑。', options: ['帮他煮润喉茶', '让他少说话你来替他接电话', '开玩笑说「那明天我替你去签售」'] },
+  { minAff: 20, affDeltas: [1, 3, 2], scenario: '他背伤复发疼到站不直，但坚持说要去练习室。', options: ['拦着他逼他休息', '说「那我陪你在家练」', '打电话叫经纪人帮忙劝'] },
+  { minAff: 25, affDeltas: [3, 3, -1], scenario: '他食物中毒半夜给你打电话，声音虚弱。你赶去他家。', options: ['马上送他去急诊', '照顾他吐了一整晚', '骂他「让你乱吃」但手在发抖'] },
+  { minAff: 20, affDeltas: [2, 1, 3], scenario: '他练习时膝盖旧伤复发，坐在角落说「不用管我」。额头全是汗。', options: ['蹲下来帮他冰敷', '打电话叫经纪人来', '坐在他旁边说「我陪你歇会儿」'] },
+  { minAff: 20, affDeltas: [2, 1, 3], scenario: '连轴转了好几天，他在你面前突然眼前一黑差点倒下。你扶住他时他还在说「没事」。', options: ['强行让他坐下塞了颗糖', '凶他「你再这样我生气了」', '给他请假让他休息一天'] },
+  { minAff: 15, affDeltas: [1, 0, 2], scenario: '他眼睛发炎红得像兔子，但坚持说「明天还有行程」。你看着他倔强的脸。', options: ['翻出眼药水给他滴', '说「丑成这样还去」实际很心疼', '陪着去医院开药'] },
+  { minAff: 20, affDeltas: [3, 1, 2], scenario: '他扭伤了脚踝，你一急直接在他面前蹲下说「上来我背你」。他笑了。', options: ['坚持背他到了车上', '改成扶着他走', '说「笑什么我很认真的」'] },
+  { minAff: 20, affDeltas: [2, 1, 3], scenario: '他过敏发作身上起了红疹，痒得一直抓但又嘴硬说「很快就好了」。', options: ['翻箱倒柜找抗过敏药', '按住他的手「别抓了会留疤」', '催着去医院打针'] },
+  { minAff: 25, affDeltas: [3, 2, 2], scenario: '他压力性失眠好几天了，凌晨四点在客厅发呆。听到你开门的声音回头挤出一个笑。', options: ['走过去坐在他旁边不说话', '给他泡了杯热牛奶', '说「我陪你聊到睡着」'] }
 ];
 
 // ==================== 1v1 前任吃醋事件池 ====================
 export var EX_JEALOUSY_EVENTS = [
-  { scenario: '他在帮你搬家时发现了一个盒子——里面是你和前任的东西。他看了很久没说话。', options: ['说「留着是因为懒得扔」', '当着他的面直接扔掉', '坦白说「那是我的一部分，但已经过去了」'] },
-  { scenario: '前任突然发来一条消息：「最近还好吗？」他刚好看到通知栏。', options: ['当着他的面回复「挺好的，别联系了」', '解释说是好久没联系的人', '没回复但把聊天记录给他看'] },
-  { scenario: '共同朋友聚会上，有人提起了你和前任的往事。他说笑的表情停了一瞬。', options: ['在桌下握住他的手', '转移话题聊别的', '结束后主动解释那段往事'] },
-  { scenario: '他无意中听到你朋友说「她以前很喜欢那个人」。他装作没听到。', options: ['找机会主动告诉他「那是过去的事了」', '装作不知道给他更多关心', '等他自己开口问'] },
-  // 新增
-  { scenario: '你的手机壁纸还是和前任的合照——忘记换了。他拿起你手机时停了一下。', options: ['当场换掉：「忘了换」', '解释「那是很久以前的」', '说「现在换还来得及吗」'] },
-  { scenario: '你的日历弹出了一个提醒：今天是前任的生日。不小心被他看到了。', options: ['直接关掉当没发生过', '跟他说「我早就不过了」', '自嘲说「忘了删」'] },
-  { scenario: '你收到了一个快递，打开是前任寄回来的东西——上面还有他写的小纸条。', options: ['当着他的面扔掉', '看完放一边说「没意义了」', '让他帮你也写一张新的】'] },
-  { scenario: '你们逛街时迎面走来一个人——你下意识松开了他的手。那是你前任。', options: ['重新牵紧他继续走', '等他问了你才解释', '小声说「我们走吧」'] },
-  { scenario: '你的社交媒体突然推送「你们可能认识的人」——是前任的头像。他刚好在旁边。', options: ['划过不看：「不认识」', '跟他说「算法真烦人」', '笑了一下没当回事'] },
-  { scenario: '他在你车里随手播歌，你的歌单里还有前任推荐给你的歌。前奏响起时他看向你。', options: ['切歌：「好久没听了」', '跟他讲这首歌的故事', '说「现在这首歌是我们的了」'] }
+  { minAff: 35, affDeltas: [0, 2, 3], scenario: '他在帮你搬家时发现了一个盒子——里面是你和前任的东西。他看了很久没说话。', options: ['说「留着是因为懒得扔」', '当着他的面直接扔掉', '坦白说「那是我的一部分，但已经过去了」'] },
+  { minAff: 40, affDeltas: [3, 0, 2], scenario: '前任突然发来一条消息：「最近还好吗？」他刚好看到通知栏。', options: ['当着他的面回复「挺好的，别联系了」', '解释说是好久没联系的人', '没回复但把聊天记录给他看'] },
+  { minAff: 35, affDeltas: [3, 1, 2], scenario: '共同朋友聚会上，有人提起了你和前任的往事。他说笑的表情停了一瞬。', options: ['在桌下握住他的手', '转移话题聊别的', '结束后主动解释那段往事'] },
+  { minAff: 40, affDeltas: [2, 1, -1], scenario: '他无意中听到你朋友说「她以前很喜欢那个人」。他装作没听到。', options: ['找机会主动告诉他「那是过去的事了」', '装作不知道给他更多关心', '等他自己开口问'] },
+  { minAff: 35, affDeltas: [2, 1, 1], scenario: '你的手机壁纸还是和前任的合照——忘记换了。他拿起你手机时停了一下。', options: ['当场换掉：「忘了换」', '解释「那是很久以前的」', '说「现在换还来得及吗」'] },
+  { minAff: 35, affDeltas: [-1, 2, 1], scenario: '你的日历弹出了一个提醒：今天是前任的生日。不小心被他看到了。', options: ['直接关掉当没发生过', '跟他说「我早就不过了」', '自嘲说「忘了删」'] },
+  { minAff: 40, affDeltas: [2, 1, 0], scenario: '你收到了一个快递，打开是前任寄回来的东西——上面还有他写的小纸条。', options: ['当着他的面扔掉', '看完放一边说「没意义了」', '让他帮你也写一张新的'] },
+  { minAff: 45, affDeltas: [3, -2, 0], scenario: '你们逛街时迎面走来一个人——你下意识松开了他的手。那是你前任。', options: ['重新牵紧他继续走', '等他问了你才解释', '小声说「我们走吧」'] },
+  { minAff: 35, affDeltas: [1, 1, 0], scenario: '你的社交媒体突然推送「你们可能认识的人」——是前任的头像。他刚好在旁边。', options: ['划过不看：「不认识」', '跟他说「算法真烦人」', '笑了一下没当回事'] },
+  { minAff: 40, affDeltas: [0, 2, 3], scenario: '他在你车里随手播歌，你的歌单里还有前任推荐给你的歌。前奏响起时他看向你。', options: ['切歌：「好久没听了」', '跟他讲这首歌的故事', '说「现在这首歌是我们的了」'] }
 ];
 
 // ==================== 1v1 深夜脆弱事件池 ====================
 export var LATE_NIGHT_EVENTS = [
-  { scenario: '凌晨三点他发来消息：「你睡了吗？」「其实有好多想跟你说……」「算了就当没看见。」', options: ['回他「我一直在，你说」', '直接打电话过去', '明天见面时问他昨晚想说什么'] },
-  { scenario: '他打电话给你，接起来他不说话——你听到他在练习室里弹钢琴。', options: ['安静听着不挂断', '问他「你怎么了」', '说「弹得很好听」打破沉默'] },
-  { scenario: '他发了一首歌曲的链接，什么都没说。你点开发现是第一次约会时车里放的。', options: ['回他「你记得啊」', '也回一首歌给他', '已读明天再说但心里很开心'] },
-  { scenario: '你半夜醒来发现手机亮着——他凌晨两点发了条朋友圈又秒删了，但你看到了。', options: ['截图了但假装没看到', '发消息问他「睡不着吗」', '明天见面时装作不经意地问'] },
-  // 新增
-  { scenario: '半夜收到他发来的自拍——在录音室闭着眼靠着话筒，配文「还在」。', options: ['回他「我等你」', '打电话过去听他说说话', '说「早点休息明天我来看你」'] },
-  { scenario: '他发来一张窗外的月亮的照片：「今晚的月亮很好看，你也看到了吗。」', options: ['也拍一张月亮回过去', '回他「你那边月亮更圆」', '说「你在哪我过去找你」'] },
-  { scenario: '凌晨三点你听到门口有动静——他靠在墙上坐在地上睡着了，手机屏幕亮着你们的聊天框。', options: ['蹲下来轻声叫醒他', '拿件外套盖在他身上', '把他拉进屋说「进来睡」'] },
-  { scenario: '他喝多了发来一条语音，你点开听到他说「我好想你啊……」。然后是一条撤回提示。', options: ['当没看到明天再说', '回他「我也想你」然后撤回', '打电话过去听他说醉话'] },
-  { scenario: '他深夜更新了一条社交动态——只有你们俩懂的暗语。底下的粉丝都在猜是什么意思。', options: ['在评论区回了一个同样的emoji', '私信他说「我看到了」', '截图存档什么都不说'] },
-  { scenario: '他半夜发烧到39度，但死活不肯去医院，打电话给你说「你在就好了」。', options: ['赶过去照顾他到天亮', '打电话教他吃药量体温', '说「那我过去陪你去医院」'] }
+  { minAff: 40, affDeltas: [3, 2, 1], scenario: '凌晨三点他发来消息：「你睡了吗？」「其实有好多想跟你说……」「算了就当没看见。」', options: ['回他「我一直在，你说」', '直接打电话过去', '明天见面时问他昨晚想说什么'] },
+  { minAff: 40, affDeltas: [2, 1, 1], scenario: '他打电话给你，接起来他不说话——你听到他在练习室里弹钢琴。', options: ['安静听着不挂断', '问他「你怎么了」', '说「弹得很好听」打破沉默'] },
+  { minAff: 35, affDeltas: [3, 2, 1], scenario: '他发了一首歌曲的链接，什么都没说。你点开发现是第一次约会时车里放的。', options: ['回他「你记得啊」', '也回一首歌给他', '已读明天再说但心里很开心'] },
+  { minAff: 35, affDeltas: [1, 2, 1], scenario: '你半夜醒来发现手机亮着——他凌晨两点发了条朋友圈又秒删了，但你看到了。', options: ['截图了但假装没看到', '发消息问他「睡不着吗」', '明天见面时装作不经意地问'] },
+  { minAff: 40, affDeltas: [2, 1, 2], scenario: '半夜收到他发来的自拍——在录音室闭着眼靠着话筒，配文「还在」。', options: ['回他「我等你」', '打电话过去听他说说话', '说「早点休息明天我来看你」'] },
+  { minAff: 30, affDeltas: [2, 1, 3], scenario: '他发来一张窗外的月亮的照片：「今晚的月亮很好看，你也看到了吗。」', options: ['也拍一张月亮回过去', '回他「你那边月亮更圆」', '说「你在哪我过去找你」'] },
+  { minAff: 50, affDeltas: [2, 1, 3], scenario: '凌晨三点你听到门口有动静——他靠在墙上坐在地上睡着了，手机屏幕亮着你们的聊天框。', options: ['蹲下来轻声叫醒他', '拿件外套盖在他身上', '把他拉进屋说「进来睡」'] },
+  { minAff: 50, affDeltas: [1, 2, 3], scenario: '他喝多了发来一条语音，你点开听到他说「我好想你啊……」。然后是一条撤回提示。', options: ['当没看到明天再说', '回他「我也想你」然后撤回', '打电话过去听他说醉话'] },
+  { minAff: 35, affDeltas: [2, 0, 1], scenario: '他深夜更新了一条社交动态——只有你们俩懂的暗语。底下的粉丝都在猜是什么意思。', options: ['在评论区回了一个同样的emoji', '私信他说「我看到了」', '截图存档什么都不说'] },
+  { minAff: 45, affDeltas: [3, 1, 2], scenario: '他半夜发烧到39度，但死活不肯去医院，打电话给你说「你在就好了」。', options: ['赶过去照顾他到天亮', '打电话教他吃药量体温', '说「那我过去陪你去医院」'] }
 ];
 
 // ==================== 1v1 结局文案池（IMP-18：HE/NE/BE） ====================
@@ -1231,16 +1226,16 @@ export var ONE_HEART_ENDING_TEMPLATES = {
 
 // ==================== 1v1 情敌专属事件池 ====================
 export var RIVAL_EVENTS = [
-  { scenario: '他路过你公司楼下说"顺路"——但你公司和他公司完全不顺路。', options: ['客气道谢：「辛苦了」', '拆穿他：「你公司不在这边吧」', '心里有点动摇但没戳破'] },
-  { scenario: '你随口说过喜欢的东西，第二天他就买来给你了。他说「刚好看到」。', options: ['收下并道谢', '拒绝：「太贵了不能收」', '收下了但心里有些复杂'] },
-  { scenario: '下雨天他把伞塞给你，自己淋雨跑了。你喊都喊不住。', options: ['追上去一起撑', '站在原地看他跑远', '第二天把伞洗干净还他'] },
-  { scenario: '深夜他发来一条消息：「我知道不该找你，但我还是想问——你今天过得好吗。」', options: ['回他：「挺好的，你呢」', '装作没看到明天再说', '回他：「你找我……不太好吧」'] },
-  { scenario: '你加班到很晚走出公司，发现他在门口——说"刚好路过"。', options: ['一起走一段路', '说「太晚了快回去吧」', '请他喝杯咖啡当感谢'] },
-  { scenario: '共同朋友组局，他坐在你对面，全程眼神躲闪。你们一整晚没说上一句话。', options: ['主动找他喝一杯', '当作没发现继续玩', '提前离场回避尴尬'] },
-  { scenario: '他帮你解决了一个工作上的大难题，却说「举手之劳」。你知道没那么简单。', options: ['认真请他吃饭道谢', '发消息说「真的很感谢」', '心里记下了但没多说'] },
-  { scenario: '他在朋友圈发了你提过想去的地方的照片——配文只写了一个词：下次？', options: ['评论：「去！」', '点赞但没留言', '截图发给朋友说"他什么意思"'] },
-  { scenario: '你们单独相处时他突然很安静，你看向他——他正看着你，眼神来不及躲开。', options: ['假装没发现继续聊', '问他「怎么了」', '也看着他，等他说什么'] },
-  { scenario: '他喝多了给你打电话，说了很多话。第二天发消息：「昨晚我没说什么不该说的吧？」', options: ['说「没有啊」', '回他「你说了很多」', '没有回复让他自己猜'] }
+  { minAff: 20, affDeltas: [-1, 1, -2], scenario: '他路过你公司楼下说"顺路"——但你公司和他公司完全不顺路。', options: ['客气道谢：「辛苦了」', '拆穿他：「你公司不在这边吧」', '心里有点动摇但没戳破'] },
+  { minAff: 20, affDeltas: [-2, 1, -1], scenario: '你随口说过喜欢的东西，第二天他就买来给你了。他说「刚好看到」。', options: ['收下并道谢', '拒绝：「太贵了不能收」', '收下了但心里有些复杂'] },
+  { minAff: 30, affDeltas: [-2, 1, 1], scenario: '下雨天他把伞塞给你，自己淋雨跑了。你喊都喊不住。', options: ['追上去一起撑', '站在原地看他跑远', '第二天把伞洗干净还他'] },
+  { minAff: 30, affDeltas: [-2, 1, 2], scenario: '深夜他发来一条消息：「我知道不该找你，但我还是想问——你今天过得好吗。」', options: ['回他：「挺好的，你呢」', '装作没看到明天再说', '回他：「你找我……不太好吧」'] },
+  { minAff: 20, affDeltas: [-2, 1, -1], scenario: '你加班到很晚走出公司，发现他在门口——说"刚好路过"。', options: ['一起走一段路', '说「太晚了快回去吧」', '请他喝杯咖啡当感谢'] },
+  { minAff: 20, affDeltas: [-2, 0, 1], scenario: '共同朋友组局，他坐在你对面，全程眼神躲闪。你们一整晚没说上一句话。', options: ['主动找他喝一杯', '当作没发现继续玩', '提前离场回避尴尬'] },
+  { minAff: 25, affDeltas: [-1, 1, 0], scenario: '他帮你解决了一个工作上的大难题，却说「举手之劳」。你知道没那么简单。', options: ['认真请他吃饭道谢', '发消息说「真的很感谢」', '心里记下了但没多说'] },
+  { minAff: 25, affDeltas: [-2, 0, -1], scenario: '他在朋友圈发了你提过想去的地方的照片——配文只写了一个词：下次？', options: ['评论：「去！」', '点赞但没留言', '截图发给朋友说"他什么意思"'] },
+  { minAff: 30, affDeltas: [0, 1, -2], scenario: '你们单独相处时他突然很安静，你看向他——他正看着你，眼神来不及躲开。', options: ['假装没发现继续聊', '问他「怎么了」', '也看着他，等他说什么'] },
+  { minAff: 30, affDeltas: [1, -1, 0], scenario: '他喝多了给你打电话，说了很多话。第二天发消息：「昨晚我没说什么不该说的吧？」', options: ['说「没有啊」', '回他「你说了很多」', '没有回复让他自己猜'] }
 ];
 
 // ==================== 身份关系网映射 ====================
@@ -1274,3 +1269,148 @@ export var WORLD_IDENTITY_COMPATIBILITY = {
   entertainment: 'all',
   custom: 'all'
 };
+
+// ==================== 娱乐圈新闻模板（1v1）====================
+export var NEWS_TEMPLATES = [
+  // 🎵 作品/舞台 30
+  { id: 'nw_01', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 新曲音中初舞台，直拍破百万', source: '热搜榜' },
+  { id: 'nw_02', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 最新自作曲公开，制作人好评', source: 'OSEN' },
+  { id: 'nw_03', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 回归预告照公开，概念感拉满', source: '官方' },
+  { id: 'nw_04', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 主打曲 MV 播放量破千万', source: '热搜榜' },
+  { id: 'nw_05', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 演唱会饭拍出圈，被赞舞台王者', source: '粉丝站' },
+  { id: 'nw_06', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 参与专辑制作，收录曲获好评', source: '体育京乡' },
+  { id: 'nw_07', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 舞蹈挑战视频爆红，翻跳热潮', source: '热搜榜' },
+  { id: 'nw_08', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 打歌舞台直拍连续四周破百万', source: '粉丝站' },
+  { id: 'nw_09', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 为 OST 献声，音源空降榜单', source: 'OSEN' },
+  { id: 'nw_10', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 演唱会安可舞台感动全场', source: '官方' },
+  { id: 'nw_11', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 编舞视频公开，展现创作才华', source: '官方' },
+  { id: 'nw_12', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 合作舞台破圈，被前辈盛赞', source: 'OSEN' },
+  { id: 'nw_13', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 回归预告照风格大变，引发热议', source: '热搜榜' },
+  { id: 'nw_14', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 音乐节现场圈粉无数', source: '路透社' },
+  { id: 'nw_15', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 合作曲成绩亮眼，榜单逆袭', source: '体育京乡' },
+  { id: 'nw_16', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 自作曲被选为电视剧 OST', source: 'OSEN' },
+  { id: 'nw_17', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 年末舞台特别编排，期待值拉满', source: '官方' },
+  { id: 'nw_18', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 练习室视频公开，全新编舞引关注', source: '官方' },
+  { id: 'nw_19', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 巡演门票秒罄，加场呼声高', source: '热搜榜' },
+  { id: 'nw_20', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 庆功宴上即兴表演被偷拍曝光', source: '路透社' },
+  { id: 'nw_21', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 录音室花絮公开，素颜状态超好', source: '粉丝站' },
+  { id: 'nw_22', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 海外粉丝应援牌被本人认证', source: '粉丝站' },
+  { id: 'nw_23', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 新歌编曲细节被扒，全员创作型', source: '粉丝站' },
+  { id: 'nw_24', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 中场休息花絮流出，私下可爱反差', source: '热搜榜' },
+  { id: 'nw_25', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 年末颁奖礼表演被评最佳舞台', source: 'OSEN' },
+  { id: 'nw_26', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 特别舞台合作达成，粉丝狂喜', source: '热搜榜' },
+  { id: 'nw_27', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 连续作战仍坚持自拍营业', source: '粉丝站' },
+  { id: 'nw_28', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 新曲舞蹈版 MV 公开，质量炸裂', source: '官方' },
+  { id: 'nw_29', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 翻唱视频登上热趋，嗓音获好评', source: '热搜榜' },
+  { id: 'nw_30', type: 'work', emoji: '🎵', sentiment: 'positive', title: '{memberName} 练习到深夜被拍，敬业态度感动粉丝', source: '路透社' },
+
+  // 📺 综艺/活动 22
+  { id: 'nw_31', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺反应慢半拍，可爱出圈', source: '热搜榜' },
+  { id: 'nw_32', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺上模仿队友，笑翻全场', source: '热搜榜' },
+  { id: 'nw_33', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 成为品牌代言人，广告大片公开', source: '官方' },
+  { id: 'nw_34', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 杂志画报公开，氛围感拉满', source: '官方' },
+  { id: 'nw_35', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 时尚活动造型出圈，被赞行走衣架', source: '热搜榜' },
+  { id: 'nw_36', type: 'variety', emoji: '📺', sentiment: 'neutral', title: '{memberName} 担任特别 MC 主持，表现自然', source: 'OSEN' },
+  { id: 'nw_37', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 电台节目展现反转魅力', source: '官方' },
+  { id: 'nw_38', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺上被队友爆料日常糗事', source: '热搜榜' },
+  { id: 'nw_39', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 品牌活动生图出圈，状态满分', source: '粉丝站' },
+  { id: 'nw_40', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺游戏环节意外摔倒但反应超快', source: '热搜榜' },
+  { id: 'nw_41', type: 'variety', emoji: '📺', sentiment: 'neutral', title: '{memberName} 直播中不小心剧透回归内容', source: '粉丝站' },
+  { id: 'nw_42', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 粉丝签售会暖心语录刷屏', source: '粉丝站' },
+  { id: 'nw_43', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 被拍到在待机室认真记笔记', source: '路透社' },
+  { id: 'nw_44', type: 'variety', emoji: '📺', sentiment: 'neutral', title: '{memberName} 综艺上被问到理想型，回答引热议', source: '热搜榜' },
+  { id: 'nw_45', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 粉丝见面会上弹唱自作曲', source: '粉丝站' },
+  { id: 'nw_46', type: 'variety', emoji: '📺', sentiment: 'neutral', title: '{memberName} 参加品牌站台活动，现场人山人海', source: '热搜榜' },
+  { id: 'nw_47', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺感爆发，被 PD 夸有艺能感', source: 'OSEN' },
+  { id: 'nw_48', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 机场穿搭被粉丝称为男友风教科书', source: '粉丝站' },
+  { id: 'nw_49', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 综艺上表演拿手料理，被赞厨艺', source: '热搜榜' },
+  { id: 'nw_50', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 采访中提及童年梦想，坦诚圈粉', source: 'OSEN' },
+  { id: 'nw_51', type: 'variety', emoji: '📺', sentiment: 'neutral', title: '{memberName} 直播时被粉丝刷屏提问谈恋爱', source: '热搜榜' },
+  { id: 'nw_52', type: 'variety', emoji: '📺', sentiment: 'positive', title: '{memberName} 海外签售会上说中文宠粉', source: '粉丝站' },
+
+  // 💔 绯闻传闻 24
+  { id: 'nw_53', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 被拍到与神秘女性深夜同行', source: 'D社' },
+  { id: 'nw_54', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '疑似 {memberName} 恋情曝光，女方身份引猜测', source: '热搜榜' },
+  { id: 'nw_55', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 同款手链引发恋爱传闻', source: '粉丝站' },
+  { id: 'nw_56', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 被曝深夜出入某公寓', source: 'D社' },
+  { id: 'nw_57', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '网传 {memberName} 与某女爱豆关系密切', source: '热搜榜' },
+  { id: 'nw_58', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 手机壳被发现疑似情侣款', source: '粉丝站' },
+  { id: 'nw_59', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{rivalName} 在采访中坦言最近有心动的感觉', source: 'OSEN' },
+  { id: 'nw_60', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '粉丝扒出 {memberName} 近期行踪反常', source: '粉丝站' },
+  { id: 'nw_61', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 和某女性同款背景被扒同游', source: '热搜榜' },
+  { id: 'nw_62', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '狗仔拍到 {memberName} 车内与神秘人交谈', source: 'D社' },
+  { id: 'nw_63', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 粉丝站关站，疑似因恋情', source: '粉丝站' },
+  { id: 'nw_64', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 经纪公司拒绝回应恋情传闻', source: '热搜榜' },
+  { id: 'nw_65', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 被拍到与友人聚餐，女方身份成谜', source: '路透社' },
+  { id: 'nw_66', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '论坛热帖：扒一扒 {memberName} 最近的异常', source: '热搜榜' },
+  { id: 'nw_67', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 品牌活动上被记者问到恋爱问题', source: 'OSEN' },
+  { id: 'nw_68', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '疑似 {memberName} 社交账号小号被挖', source: '粉丝站' },
+  { id: 'nw_69', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '营销号爆料 {memberName} 正在秘密恋爱', source: '热搜榜' },
+  { id: 'nw_70', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 直播时背景出现疑似女性物品', source: '粉丝站' },
+  { id: 'nw_71', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{rivalName} 被拍到在 {memberName} 家楼下徘徊', source: '路透社' },
+  { id: 'nw_72', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 取消关注引猜测，粉丝追问真相', source: '热搜榜' },
+  { id: 'nw_73', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{brotherName} 被问及 {memberName} 感情状况时沉默', source: 'OSEN' },
+  { id: 'nw_74', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '私生拍到 {memberName} 与神秘女性并肩走路', source: 'D社' },
+  { id: 'nw_75', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 网综里说漏嘴，疑似已有对象', source: '热搜榜' },
+  { id: 'nw_76', type: 'scandal', emoji: '💔', sentiment: 'negative', title: '{memberName} 手机屏保被拍到角落在场粉丝炸锅', source: '粉丝站' },
+
+  // 🚨 争议/翻车 16
+  { id: 'nw_77', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 私生跟车事件引发安保争议', source: '热搜榜' },
+  { id: 'nw_78', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 线上直播遭遇恶评攻击', source: '粉丝站' },
+  { id: 'nw_79', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 机场被围堵，安保升级', source: '路透社' },
+  { id: 'nw_80', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '粉丝抗议公司对 {memberName} 行程安排', source: '粉丝站' },
+  { id: 'nw_81', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 被恶意剪辑引发争议', source: '热搜榜' },
+  { id: 'nw_82', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '私生饭潜入 {memberName} 休息室被曝光', source: '热搜榜' },
+  { id: 'nw_83', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 粉丝之间爆发网络骂战', source: '热搜榜' },
+  { id: 'nw_84', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 未公开行程被泄露，公司追责', source: 'OSEN' },
+  { id: 'nw_85', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 旧照被翻出，被人恶意解读', source: '热搜榜' },
+  { id: 'nw_86', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '代拍扰乱 {memberName} 机场秩序被制止', source: '路透社' },
+  { id: 'nw_87', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '网络黑帖造谣 {memberName} 人品争议', source: '粉丝站' },
+  { id: 'nw_88', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 被恶意 AI 换脸视频困扰', source: '热搜榜' },
+  { id: 'nw_89', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 演出行程过密引粉丝担忧健康', source: '粉丝站' },
+  { id: 'nw_90', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 回归造型被批背离风格', source: '热搜榜' },
+  { id: 'nw_91', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 商演现场音响故障导致表演中断', source: '路透社' },
+  { id: 'nw_92', type: 'controversy', emoji: '🚨', sentiment: 'negative', title: '{memberName} 被拍到私下冷脸，黑粉拿来做文章', source: '热搜榜' },
+
+  // 👥 团队动态 24
+  { id: 'nw_93', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团体综艺定档，预告片公开', source: '官方' },
+  { id: 'nw_94', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 新专辑预售开启，配置公开', source: '官方' },
+  { id: 'nw_95', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 团体舞台完整版公开被赞刀群舞', source: '热搜榜' },
+  { id: 'nw_96', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 海外巡演日程公开', source: '官方' },
+  { id: 'nw_97', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 回归发布会媒体采访全文公开', source: 'OSEN' },
+  { id: 'nw_98', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 团体综艺幕后花絮暖心', source: '粉丝站' },
+  { id: 'nw_99', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团体代言新品牌，广告将在下月释出', source: '官方' },
+  { id: 'nw_100', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 出道周年纪念周边发售', source: '官方' },
+  { id: 'nw_101', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 线上粉丝见面会时间确定', source: '官方' },
+  { id: 'nw_102', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 团体票房纪录刷新，海外人气认证', source: '体育京乡' },
+  { id: 'nw_103', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 全员参与公益项目获好评', source: 'OSEN' },
+  { id: 'nw_104', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团综拍摄路透曝光', source: '路透社' },
+  { id: 'nw_105', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团体画报拍摄花絮公开', source: '官方' },
+  { id: 'nw_106', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 年末颁奖礼表演舞台公开', source: '官方' },
+  { id: 'nw_107', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团体休假照流出，氛围温馨', source: '粉丝站' },
+  { id: 'nw_108', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 成员互相应援团魂满满', source: '粉丝站' },
+  { id: 'nw_109', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 官方会员招募开放', source: '官方' },
+  { id: 'nw_110', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团体直播聊本周近况', source: '官方' },
+  { id: 'nw_111', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 红毯造型全员登场，各具风格', source: '热搜榜' },
+  { id: 'nw_112', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 练习室群舞整齐划一获盛赞', source: '粉丝站' },
+  { id: 'nw_113', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 粉丝见面会互动环节设计曝光', source: '粉丝站' },
+  { id: 'nw_114', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 被拍到集体聚餐，氛围融洽', source: '路透社' },
+  { id: 'nw_115', type: 'team', emoji: '👥', sentiment: 'neutral', title: '{team} 团队综艺最新一集收视率出炉', source: 'OSEN' },
+  { id: 'nw_116', type: 'team', emoji: '👥', sentiment: 'positive', title: '{team} 海外粉丝应援项目达成新纪录', source: '粉丝站' },
+
+  // 🎂 个人/生日 14
+  { id: 'nw_117', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '今天是 {memberName} 的生日，粉丝应援破纪录', source: '粉丝站' },
+  { id: 'nw_118', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 生日直播感谢粉丝支持', source: '官方' },
+  { id: 'nw_119', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 个人杂志创刊号开售秒空', source: '官方' },
+  { id: 'nw_120', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 个人行程花絮公开，私下真实模样', source: '粉丝站' },
+  { id: 'nw_121', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 被选为全球品牌大使', source: '官方' },
+  { id: 'nw_122', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 个人 YouTube 频道订阅破百万', source: '热搜榜' },
+  { id: 'nw_123', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 捐赠善款被媒体报道，人帅心善', source: 'OSEN' },
+  { id: 'nw_124', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 最新直播截图被赞颜值绝了', source: '粉丝站' },
+  { id: 'nw_125', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 被拍到逛书店，文艺气质拉满', source: '路透社' },
+  { id: 'nw_126', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 综艺中提及个人爱好撞脸同款', source: '热搜榜' },
+  { id: 'nw_127', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 社交平台更新日常照引粉丝狂欢', source: '粉丝站' },
+  { id: 'nw_128', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 被偶遇在便利店的可爱瞬间', source: '路透社' },
+  { id: 'nw_129', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 自拍营业频率上升，粉丝幸福', source: '粉丝站' },
+  { id: 'nw_130', type: 'personal', emoji: '🎂', sentiment: 'positive', title: '{memberName} 休假日照曝光，私下穿搭休闲', source: '路透社' }
+];

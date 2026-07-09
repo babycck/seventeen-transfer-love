@@ -13,7 +13,7 @@ import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, g
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
-import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel } from './modals.js';
+import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel, showNewsModal, setSwitchOneHeartTab } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
 // 模态弹窗（Phase 5 模块化）
 import { showMidnightCallModal } from './modals/midnight-call.js';
@@ -1475,6 +1475,22 @@ function renderOneHeartGameScreen() {
         celebrity: '📸 路人围观', scandal: '📱 媒体风波', sick: '🤒 他生病了',
         exjealous: '📦 他吃醋了', latenight: '🌙 深夜心事'
       }[_ev.type] || '📌 事件';
+      var _evMem = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+      var _evMemName = _evMem ? _evMem.name : '男主';
+      var _evRivalName = (GS.oneHeartRival && GS.oneHeartRival.name) || '情敌';
+      var _evTargetLabel = {
+        jealousy: '涉及：' + _evMemName + '、' + (_evRivalName !== '情敌' ? _evRivalName : '情敌'),
+        surprise: '与' + _evMemName + '的甜蜜时刻',
+        pool: '与' + _evMemName + '之间',
+        rival: '涉及：情敌 ' + _evRivalName,
+        confrontation: '与' + _evMemName + '的争吵',
+        confession: _evRivalName + '向女主表白',
+        celebrity: _evMemName + '被路人围观',
+        scandal: '你们的恋情被传播',
+        sick: '照顾' + _evMemName,
+        exjealous: _evMemName + '吃醋了',
+        latenight: '与' + _evMemName + '的深夜对话'
+      }[_ev.type] || '';
       var _evScenario = _ev.scenario || _ev.rivalName ? ('「' + _ev.rivalName + '」站在你面前，认真地看着你：他知道他没有立场说这些话——但你在他这里，从来不是路过。他表白了。') : '';
       if (_ev.type === 'confession' && !_ev.scenario) {
         _evScenario = '「' + (_ev.rivalName || '他') + '」站在你面前，认真地看着你：他知道他没有立场说这些话——但你在他这里，从来不是路过。他表白了。';
@@ -1482,7 +1498,8 @@ function renderOneHeartGameScreen() {
         _evScenario = _ev.scenario || '';
       }
       html += '<div style="background:var(--bg-secondary);border-radius:12px;padding:12px;margin-bottom:10px;border-left:3px solid var(--accent-primary)">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--accent-primary);margin-bottom:6px">' + _evTypeLabel + '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--accent-primary);margin-bottom:2px">' + _evTypeLabel + '</div>' +
+        (_evTargetLabel ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">' + _evTargetLabel + '</div>' : '') +
         '<div style="font-size:14px;color:var(--text-primary);line-height:1.7">' + escHtml(_evScenario) + '</div>' +
         '</div>';
       // 事件选项
@@ -1529,11 +1546,13 @@ function renderOneHeartGameScreen() {
   var _diaryDot = GS._newDiary ? '<span class="tab-notification-dot"></span>' : '';
   var _eventDot = GS._newEvents ? '<span class="tab-notification-dot"></span>' : '';
   var _momentDot = GS._newMoments ? '<span class="tab-notification-dot"></span>' : '';
+  var _newsDot = GS._newNews ? '<span class="tab-notification-dot"></span>' : '';
   html += '<div class="oneheart-bottom-bar" id="oneHeartTabs">' +
     '<button class="oneheart-tab active" data-tab="story"><span class="tab-emoji">📖</span>剧情</button>' +
     '<button class="oneheart-tab" data-tab="diary" style="position:relative"><span class="tab-emoji">📝</span>日记' + _diaryDot + '</button>' +
     '<button class="oneheart-tab" data-tab="event" style="position:relative"><span class="tab-emoji">⚡</span>事件' + _eventDot + '</button>' +
     '<button class="oneheart-tab" data-tab="moments" style="position:relative"><span class="tab-emoji">📸</span>朋友圈' + _momentDot + '</button>' +
+    '<button class="oneheart-tab" data-tab="news" style="position:relative"><span class="tab-emoji">📰</span>新闻' + _newsDot + '</button>' +
     '<button class="oneheart-tab" data-tab="chat" style="position:relative"><span class="tab-emoji">💬</span>聊天' + (GS._newChat ? '<span class="tab-notification-dot"></span>' : '') + '</button>' +
     '<button class="oneheart-tab" data-tab="theater"><span class="tab-emoji">🎭</span>剧场</button></div>';
 
@@ -2375,10 +2394,10 @@ function renderOneHeartActions() {
     box.innerHTML = '';
     return;
   }
-  // [约会按钮已移除] 约会功能保留（window.initiateOneHeartDate 仍可调用），仅不再显示按钮
+  // [约会按钮已移除] 约会已融入叙事选项（sceneType===date），由 applyDateEffects 取代
   var _visitLocked = GS.oneHeartVisitLocked === 'done' || !!GS.oneHeartDateToday; // 与约会互斥、每天一次
   var html = '<div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  html += '<button id="btnOneHeartVisit" class="oneheart-action-btn"' + (_visitLocked ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>🎬 探班' + (_visitLocked ? '（今日已约/已探）' : '') + '</button>';
+  html += '<button id="btnOneHeartVisit" class="oneheart-action-btn"' + (_visitLocked ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>🎬 探班' + (GS.oneHeartDateToday ? '（今日已约）' : (_visitLocked ? '（今日已探）' : '')) + '</button>';
   // 哥哥立场 + 曝光风险指示（保留信息可视化，去掉时段/行程条）
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     var _bs = GS.brotherStance || 'consultant';
@@ -2386,7 +2405,7 @@ function renderOneHeartActions() {
     var _bhome = GS.brotherAtHome ? '🏠在家' : '✈️不在家(空档)';
     var _risk = GS.exposureRisk || 0;
     var _riskColor = _risk >= 60 ? '#ff6b6b' : (_risk >= 30 ? '#ffb84d' : '#9ad0a0');
-    html += '<span style="font-size:11px;color:#b9aee0">🤝哥哥立场：' + _bsText + ' · ' + _bhome + ' · 📸曝光 ' + _risk + '/100</span>';
+    html += '<span style="font-size:11px;color:#b9aee0">🤝哥哥立场：' + _bsText + ' · ' + _bhome + ' · 🔥绯闻热度 ' + _risk + '/100</span>';
   }
   html += '</div>';
   box.innerHTML = html;
@@ -2396,8 +2415,17 @@ function renderOneHeartActions() {
   }
 }
 
+function switchOneHeartTab(tab) {
+  var target = document.querySelector('.oneheart-tab[data-tab="' + tab + '"]');
+  if (target) target.click();
+}
+
 function bindOneHeartEvents() {
-  // [F] 1v1 探班/约会独立按钮渲染（替代原 24h 行程条）
+  // 注册新闻 modal 的 tab 切换回调
+  if (typeof setSwitchOneHeartTab === 'function') setSwitchOneHeartTab(switchOneHeartTab);
+  // 更新约会/探班按钮锁定文案
+  var _visitBtn = document.getElementById('btnOneHeartVisit');
+  if (_visitBtn && GS.oneHeartDateToday) _visitBtn.innerHTML = '🎬 探班（今日已约）';
   renderOneHeartActions();
 
   // 操作区浮层 toggle（默认收起）
@@ -2557,6 +2585,9 @@ function bindOneHeartEvents() {
         case 'chat':
           showChatModal();
           break;
+        case 'news':
+          showNewsModal();
+          break;
       }
     });
   });
@@ -2662,18 +2693,24 @@ function bindOneHeartEvents() {
 
       var chosenIdx = eventIdx;
       // 处理好感度变化（走正规路径 updateAffection + addAffectionLog）
+      // 优先使用 ev.affDeltas（来自 data.js 事件定义），否则 fallback 硬编码
       var _memId = GS.oneHeartMember;
-      if (ev.type === 'jealousy') {
+      var _deltaVal = (ev.affDeltas && ev.affDeltas.length > chosenIdx) ? ev.affDeltas[chosenIdx] : null;
+      if (_deltaVal !== null && _memId && _deltaVal !== 0) {
+        updateAffection(_memId, _deltaVal);
+        addAffectionLog(_memId, _deltaVal, ev.type + '事件');
+      }
+      if (ev.type === 'jealousy' && _deltaVal === null) {
         if (chosenIdx === 0) { if (_memId) { updateAffection(_memId, 2); addAffectionLog(_memId, 2, '吃醋事件：你选择了靠近他'); } }
         else if (chosenIdx === 1) { /* 中立选项，不变 */ }
         else if (chosenIdx === 2) { if (_memId) { updateAffection(_memId, -1); addAffectionLog(_memId, -1, '吃醋事件：你选择了靠近情敌'); } updateRivalTendency(1, '吃醋事件：靠近情敌'); }
-      } else if (ev.type === 'confrontation') {
+      } else if (ev.type === 'confrontation' && _deltaVal === null) {
         var _deltas = [2, -2, -3];
         var _d = _deltas[chosenIdx] || 0;
         if (_memId && _d !== 0) { updateAffection(_memId, _d); addAffectionLog(_memId, _d, '争吵事件选项'); }
       } else if (ev.type === 'rival') {
-        if (chosenIdx === 0) { if (_memId) { updateAffection(_memId, -2); addAffectionLog(_memId, -2, '情敌事件：你选择了靠近情敌'); } updateRivalTendency(2, '情敌事件：主动靠近情敌'); }
-        else if (chosenIdx === 1) { if (_memId) { updateAffection(_memId, 1); addAffectionLog(_memId, 1, '情敌事件：保持距离'); } updateRivalTendency(-1, '情敌事件：保持距离'); }
+        if (chosenIdx === 0) { updateRivalTendency(2, '情敌事件：主动靠近情敌'); }
+        else if (chosenIdx === 1) { updateRivalTendency(-1, '情敌事件：保持距离'); }
         else if (chosenIdx === 2) { showToast('🤫 你装作没发现，但心里有些在意'); updateRivalTendency(1, '情敌事件：装作没发现'); }
       } else if (ev.type === 'confession') {
         if (chosenIdx === 0) {
@@ -2706,13 +2743,16 @@ function bindOneHeartEvents() {
       // [事件卡片系统] 生成独立短故事并存入事件卡片（不再注入主线 prompt）
       var _memberName_ = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
       var _mName = _memberName_ ? _memberName_.name : '';
-      // 估算好感度变化（与上方结算逻辑一致）
-      var _affDelta = 0;
+      // 估算好感度变化（优先使用 ev.affDeltas）
+      var _affDelta = (ev.affDeltas && ev.affDeltas.length > chosenIdx) ? (ev.affDeltas[chosenIdx] || 0) : 0;
       var _rivDelta = 0;
-      if (ev.type === 'jealousy') { _affDelta = chosenIdx === 0 ? 2 : (chosenIdx === 2 ? -1 : 0); _rivDelta = chosenIdx === 2 ? 1 : 0; }
-      else if (ev.type === 'confrontation') { _affDelta = [2, -2, -3][chosenIdx] || 0; }
-      else if (ev.type === 'rival') { _affDelta = chosenIdx === 0 ? -2 : (chosenIdx === 1 ? 1 : 0); _rivDelta = chosenIdx === 0 ? 2 : (chosenIdx === 1 ? -1 : (chosenIdx === 2 ? 1 : 0)); }
-      else if (ev.type === 'confession' && chosenIdx === 0) { _affDelta = 40; }
+      if (_affDelta === 0) {
+        if (ev.type === 'jealousy') { _affDelta = chosenIdx === 0 ? 2 : (chosenIdx === 2 ? -1 : 0); _rivDelta = chosenIdx === 2 ? 1 : 0; }
+        else if (ev.type === 'confrontation') { _affDelta = [2, -2, -3][chosenIdx] || 0; }
+        else if (ev.type === 'rival') { _affDelta = chosenIdx === 0 ? -2 : (chosenIdx === 1 ? 1 : 0); _rivDelta = chosenIdx === 0 ? 2 : (chosenIdx === 1 ? -1 : (chosenIdx === 2 ? 1 : 0)); }
+        else if (ev.type === 'confession' && chosenIdx === 0) { _affDelta = 40; }
+      }
+      if (ev.type === 'rival' && _rivDelta === 0 && chosenIdx === 2) _rivDelta = 1;
       // 生成事件短故事（遮罩 loading 防卡住感）
       showLoading('正在生成事件故事...');
       var _evCopy = { type: ev.type, scenario: ev.scenario || '', chosenOption: (ev.options || [])[chosenIdx] || '', options: ev.options };

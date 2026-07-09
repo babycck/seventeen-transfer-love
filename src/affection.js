@@ -49,7 +49,7 @@ export function getAffectionDesc(aff) {
   if (aff >= 80) return '❤️🔥';
   if (aff >= 60) return '❤️';
   if (aff >= 40) return '💚';
-  if (aff >= 15) return '😐';
+  if (aff >= 20) return '😐';
   if (aff >= 0) return '💙';
   return '💔';
 }

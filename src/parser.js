@@ -468,7 +468,8 @@ export function parseNarrative(rawText) {
       affDelta: o.affDelta || 0,
       affReason: o.affReason || '',
       riskMember: o.riskMember || '',
-      riskDelta: o.riskDelta || 0
+      riskDelta: o.riskDelta || 0,
+      sceneType: o.sceneType || ''
     };
   });
 
@@ -704,14 +705,17 @@ export function validateOneHeartNarrative(parsed, GS) {
     }
   }
 
-  // [计划B问题4] 剧情重复检测：新剧情与最近3天摘要做 Jaccard 相似度，>25% 返回 correction
-  if (!isNewDay && parsed.blocks && GS.oneHeartDailySummaries && GS.oneHeartDailySummaries.length > 0) {
-    var _narrText = '';
+  // [BUGFIX] 将 _narrText 初始化移出 if 块，防止 var 提升为 undefined 导致 line 741 崩溃
+  var _narrText = '';
+  if (parsed.blocks) {
     for (var _bi = 0; _bi < parsed.blocks.length; _bi++) {
       if (parsed.blocks[_bi] && parsed.blocks[_bi].type === 'narrative' && parsed.blocks[_bi].content) {
         _narrText += parsed.blocks[_bi].content;
       }
     }
+  }
+  // [计划B问题4] 剧情重复检测：新剧情与最近3天摘要做 Jaccard 相似度，>25% 返回 correction
+  if (!isNewDay && parsed.blocks && GS.oneHeartDailySummaries && GS.oneHeartDailySummaries.length > 0) {
     if (_narrText.length > 50) {
       var _recent3 = GS.oneHeartDailySummaries.slice(-3);
       for (var _si = 0; _si < _recent3.length; _si++) {

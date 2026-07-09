@@ -106,6 +106,9 @@ export function defaultGameState() {
     _confessionAccepted: false,
   _confessionCooldown: 0,
   oneHeartEventCards: [], // 事件卡片列表 [{type, scenario, chosenOption, story, affChange, rivalChange, memberName, timestamp}]
+  newsFeed: [], // 娱乐圈新闻列表 [{id, type, emoji, sentiment, title, content, source, related, timestamp, shared}]
+  newsDay: 0, // 上次生成新闻的 day（每天只生成一次）
+  _newNews: false, // 是否有新新闻（红点提示）
   _affMilestones: {},
     _dateDayNotified: 0,
     profileLocked: false,
@@ -580,6 +583,10 @@ export function migrateSave() {
     if (GS.oneHeartBrotherChatToday === undefined) GS.oneHeartBrotherChatToday = false;
     if (GS.oneHeartDateWindowAvailable === undefined) GS.oneHeartDateWindowAvailable = false;
     if (GS.oneHeartBrotherTempChange === undefined) GS.oneHeartBrotherTempChange = false;
+    // 新闻系统
+    if (!Array.isArray(GS.newsFeed)) GS.newsFeed = [];
+    if (GS.newsDay === undefined) GS.newsDay = 0;
+    if (GS._newNews === undefined) GS._newNews = false;
     if (!GS.heroinePersona || typeof GS.heroinePersona !== 'object') GS.heroinePersona = { scores: {}, current: '' };
     if (!GS.heroinePersona.scores) GS.heroinePersona.scores = {};
     if (!GS.heroinePersona.current && GS.heroinePersona.current !== '') GS.heroinePersona.current = '';
