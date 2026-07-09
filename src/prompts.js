@@ -1061,10 +1061,9 @@ export function buildOneHeartSystemPrompt() {
     '当前故事进度：第' + (GS.day || 1) + '天，已发生约' + (GS.oneHeartGenCount || 0) + '次互动。男女主已认识' + (GS.day || 1) + '天。\n' +
     (function() {
       var _aff = GS.affection[member.id] || 0;
-      if (_aff < 20) return '好感度仅' + _aff + '，两人处于初识阶段，几乎没有任何共同经历。';
-      if (_aff < 40) return '好感度' + _aff + '，两人处于互相了解阶段。';
+      if (_aff < 20) return '好感度仅' + _aff + '，两人处于初识期。';
       if (_aff < 60) return '好感度' + _aff + '，两人处于暧昧期。';
-      if (_aff < 80) return '好感度' + _aff + '，两人处于关系逐渐明确期。';
+      if (_aff < 80) return '好感度' + _aff + '，两人处于明确期。';
       return '好感度' + _aff + '，两人处于热恋期。';
     })() + '\n' +
     '⚠️ 禁止编造超出当前时间线的回忆或背景（如"三个月前""很久以前""从小一起长大""高中时""大学时代"等）。\n' +
@@ -1105,7 +1104,7 @@ export function buildOneHeartSystemPrompt() {
           if (isSisterSetting()) {
             parts += '⚠️ ' + getOneHeartAddressRule() + '\n';
           } else {
-            parts += '⚠️ 称呼规则（强制执行）：你称呼亲哥哥「' + rel.name + '」时可用「我哥」「' + rel.name + '」；你称呼男主「' + member.name + '」时禁止用「哥/哥哥/형」，只能直呼名字或好感度高时称「欧巴」。绝对禁止把男主和亲哥哥的称呼互相套用。\n';
+            parts += '⚠️ 称呼规则（强制执行）：你称呼亲哥哥「' + rel.name + '」时可用「我哥」「' + rel.name + '」；你称呼男主「' + member.name + '」时默认直呼名字，进入暧昧期（romanceStage>=1）后可自然改口称「欧巴」，初识期（romanceStage<1）禁止称「欧巴」。绝对禁止把男主和亲哥哥的称呼互相套用。\n';
           }
           // D2: 双重身份转换指引
           parts += '\n[哥哥·双重身份转换]\n';
@@ -1452,19 +1451,16 @@ export function buildOneHeartUserMessage(type, extra) {
         _mood = '💞 [当前关系氛围：热恋期] 你们正处于最甜蜜的阶段。互动自然亲密，充满了爱意。\n';
         _mood += '【剧情方向·深度线】适合：未来规划、深度承诺、见家长、共同生活愿景、信任危机后的重建。不要快速推进到分手/误会的虐心剧情。\n\n';
       } else if (_aff >= 60) {
-        _mood = '💗 [当前关系氛围：关系确认期] 感情已明确升温，彼此信任稳固。\n';
+        _mood = '💗 [当前关系氛围：明确期] 感情已明确升温，彼此信任稳固。\n';
         _mood += '【剧情方向·确认线】适合：正式确定关系、深度对话、日常甜蜜、见朋友/家人铺垫、互相融入生活。可以有小摩擦但不要升级到冷战。\n\n';
-      } else if (_aff >= 40) {
+      } else if (_aff >= 20) {
         _mood = '💛 [当前关系氛围：暧昧期] 你们之间似有若无的情愫在流动。\n';
         _mood += '【剧情方向·试探线】适合：暧昧试探、吃醋拉扯、小心思、未说出口的话、第三方介入制造张力。不要快速确认关系。\n\n';
-      } else if (_aff >= 20) {
-        _mood = '💙 [当前关系氛围：普通期] 还在互相了解，说话客气但有心动的苗头。\n';
-        _mood += '【剧情方向·试探线】适合：日常互动中的小心动、试探性的靠近、偶尔的误会、情敌初现。保持克制。\n\n';
       } else if (_aff >= 0) {
         _mood = '💜 [当前关系氛围：初识期] 你们刚刚认识不久，一切都在试探中。\n';
         _mood += '【剧情方向·初识线】适合：初次互动中的小心动、尴尬却可爱的瞬间、试探性的靠近、建立最初的好感。保持克制的叙事节奏。\n\n';
       } else {
-        _mood = '💔 [当前关系氛围：虐心期] 关系处于低谷，互动冷淡或紧张。\n';
+        _mood = '💔 [当前关系氛围：低谷期] 关系处于低谷，互动冷淡或紧张。\n';
         _mood += '【剧情方向·虐心线】适合：误会、冷战、分手边缘、信任崩塌、情敌趁虚而入。不要出现表白/甜蜜剧情。\n\n';
       }
     }
@@ -1475,7 +1471,7 @@ export function buildOneHeartUserMessage(type, extra) {
       var _rs = GS.oneHeartRomanceStage || 0;
       var _rsRound = GS.oneHeartGenCount || 0;
       if (_rs === 0) {
-        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n⚠️ 严禁过度肢体接触与越界亲近：未建立明确亲密关系前，不得描写把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、下巴抵在你肩等超出当前关系的亲近动作。\n\n';
+        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n⚠️ 此时段（初识期）严禁过度肢体接触与越界亲近：不得描写把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、下巴抵在你肩等超出当前关系的亲近动作。\n\n';
       } else if (_rs === 1) {
         msg += '[INSTRUCTION] 感情进度门控（当前：暧昧期·round ' + _rsRound + '）\n感情明确但不能一步到位——互动升温、可有些小甜蜜，但仍需克制。情敌开始正面竞争（争宠/较劲），但还不是告白时刻。禁止过早摊牌。\n\n';
       } else if (_rs === 2) {
@@ -1500,7 +1496,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
 
     // 约会日提示
-    if (GS.oneHeartDiaryCounter > 0 && GS.oneHeartDiaryCounter % 5 === 0) {
+    if ((GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % 5 === 0) {
       msg += '💞 今天是一个特别的日子——适合约会！请在剧情中自然地融入约会氛围，可以是他主动邀约，也可以是你们一起做一件特别的事。\n\n';
     }
 
@@ -1537,9 +1533,9 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
 
-    // 争吵氛围注入
-    if (GS.oneHeartArgueCooldown && GS.oneHeartArgueCooldown > 0) {
-      msg += '⚠️ [争吵氛围] 你们正在冷战中。互动冷淡克制，保持这个氛围' + GS.oneHeartArgueCooldown + '回合。\n\n';
+    // 争吵氛围注入（oneHeartColdWar 已生效时跳过，避免双重冷战指令）
+    if (!(GS.oneHeartColdWar && GS.oneHeartColdWar.active) && GS.oneHeartArgueCooldown && GS.oneHeartArgueCooldown > 0) {
+      msg += '⚠️ [争吵氛围] 你们之间有些紧张，互动冷淡克制，保持这个氛围' + GS.oneHeartArgueCooldown + '回合。\n\n';
     }
 
     // 天气氛围提示
@@ -1642,7 +1638,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     var _isFirstRound = (GS.oneHeartGenCount || 0) === 0 && (!GS.todayFullText || GS.todayFullText.length === 0);
     if (_isFirstRound) {
-      msg += '[INSTRUCTION] 这是故事的开局第一段剧情。请必须写出 1200-1800 字的完整开场：交代世界观背景、女主登场状态、男主初次出场的氛围与互动、环境描写、女主心理活动。不要快速收尾，要让玩家充分沉浸。\n';
+      msg += '[INSTRUCTION] 这是故事的开局第一段剧情。请必须写出 1200-1500 字的完整开场：交代世界观背景、女主登场状态、男主初次出场的氛围与互动、环境描写、女主心理活动。不要快速收尾，要让玩家充分沉浸。\n';
     }
     msg += '请生成下一段剧情（必须 1000-1500 字 JSON）。包含 1段 narrative + options（3个选项）。正文不要低于 1000 字。\n\n';
   } else if (type === 'chat') {
