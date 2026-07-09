@@ -294,7 +294,11 @@ export function defaultGameState() {
     // [v22] 记忆闪回已触发记录
     flashbackShown: {},
     // [fix] 当天已使用过的选项文本（用于多样性约束）
-    todayOptionTexts: []
+    todayOptionTexts: [],
+    // [v23-fix] 话题频率追踪（1v1 模式，用于强制话题轮替）
+    dailyTopicFrequency: {},
+    // [v23-fix] 当天已用话题列表（1v1 模式，最高频话题注入黑名单）
+    todayUsedTopics: []
   };
 }
 
@@ -581,6 +585,9 @@ export function migrateSave() {
     if (!GS.heroinePersona.current && GS.heroinePersona.current !== '') GS.heroinePersona.current = '';
     // [fix] 选项历史黑名单
     if (!Array.isArray(GS.todayOptionTexts)) GS.todayOptionTexts = [];
+    // [v23-fix] 话题频率追踪 + 当天已用话题
+    if (!GS.dailyTopicFrequency || typeof GS.dailyTopicFrequency !== 'object') GS.dailyTopicFrequency = {};
+    if (!Array.isArray(GS.todayUsedTopics)) GS.todayUsedTopics = [];
     // 约会礼物池与去重缓存
     if (!GS.datingGiftPools) GS.datingGiftPools = {};
     if (!Array.isArray(GS.datingGiftsUsed)) GS.datingGiftsUsed = [];

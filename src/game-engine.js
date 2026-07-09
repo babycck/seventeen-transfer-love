@@ -2306,6 +2306,15 @@ export async function generateOneHeartRound(extra) {
   var _missedWindow = false; // IMP-ENT-DATE：昨日有有效空档却没约会 → 跨天错过叙事
   try {
     // [计划B问题1] 新的一天时压缩昨日全文为结构化摘要（在 prompt 构建前完成，确保 AI 能看到昨日记忆）
+    if (_lockMorning) {
+      // [v23-fix] 新的一天重置话题频率计数值（跨天衰减，只保留过去3天的高频话题）
+      if (GS.dailyTopicFrequency && typeof GS.dailyTopicFrequency === 'object') {
+        for (var _tfk in GS.dailyTopicFrequency) {
+          GS.dailyTopicFrequency[_tfk] = Math.max(0, (GS.dailyTopicFrequency[_tfk] || 0) - 2); // 每天减2，3天后归零
+        }
+      }
+      GS.todayUsedTopics = [];
+    }
     if (_lockMorning && GS.todayFullText && GS.todayFullText.length > 0) {
       try {
         await compressOneHeartYesterday();
@@ -2476,6 +2485,26 @@ export async function generateOneHeartRound(extra) {
         var _merged = '[早期事件] ' + _earlyItems.join('；');
         GS.oneHeartEventLog = [_merged].concat(_recentItems);
       }
+    }
+
+    // [v23-fix] 话题频率追踪：提取 narrative 中的主题关键词，累加至 dailyTopicFrequency
+    if (GS.gameMode === 'oneHeart' && parsed.narrative) {
+      if (!GS.dailyTopicFrequency) GS.dailyTopicFrequency = {};
+      var _topicKeywords = ['直拍', '舞台', '练习室', '视频', '编舞', '录音', '拍摄', '综艺', '直播', '打歌', '演唱会', '彩排', '签售', '杂志', '广告', 'MV', '歌曲', '专辑', '回归', '采访', '节目', '记者', '粉丝', '相机', '镜头', '热搜', '曝光', '礼物', '约会', '做饭', '吃饭', '散步', '电影', '逛街', '旅行', '生病', '医院', '吵架', '冷战', '误会', '吃醋', '表白', '告白', '牵手', '拥抱', '接吻', '礼物', '惊喜', '生日'];
+      var _narrForTopics = parsed.narrative;
+      for (var _tki = 0; _tki < _topicKeywords.length; _tki++) {
+        var _kw = _topicKeywords[_tki];
+        if (_narrForTopics.indexOf(_kw) >= 0 || (parsed.eventItems && parsed.eventItems.some(function(e) { return e.indexOf(_kw) >= 0; }))) {
+          if (!GS.dailyTopicFrequency[_kw]) GS.dailyTopicFrequency[_kw] = 0;
+          GS.dailyTopicFrequency[_kw]++;
+        }
+      }
+      // 清理低频噪音段：低于2次的周期间清空，保持对象干净
+      var _toDel = [];
+      for (var _fk in GS.dailyTopicFrequency) {
+        if (GS.dailyTopicFrequency[_fk] < 0) _toDel.push(_fk);
+      }
+      for (var _di = 0; _di < _toDel.length; _di++) delete GS.dailyTopicFrequency[_toDel[_di]];
     }
 
     if (GS.pendingChoiceText) {

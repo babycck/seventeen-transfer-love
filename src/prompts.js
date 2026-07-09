@@ -1215,7 +1215,7 @@ export function buildOneHeartSystemPrompt() {
     '9. 遵守饮食禁忌。\n' +
     '10. 每句话独立成段，content 中用 \\n 分隔段落。不空行。\n' +
     '11. 禁止在正文中提及字数、回复长度（如「回了N个字」「只说了两个字」），直接写对话内容本身。\n' +
-    '12. [长度强制] 每段 phase 剧情正文总长度必须达到 1500-2000 字（约等于 1500-2000 个汉字）。这是硬性要求，禁止只输出 300-500 字的简短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n' +
+    '12. [长度强制] 每段 phase 剧情正文总长度必须达到 1000-1500 字（约等于 1000-1500 个汉字）。这是硬性要求，禁止只输出 300-500 字的简短段落。如果内容偏短，必须扩展环境描写、对话、心理活动和肢体细节，直到满足字数。\n' +
     '13. [场景连贯·最高优先级] 剧情必须严格延续上一段的场景、地点、人物位置和时间。除非玩家明确选择"新的一天"或"去某地"，否则不可无故切换场景。常见错误：上段说"下周聚餐"，这段就写"你已经在聚餐"——错误！时间未到就该停在当时，等"新的一天"推进。上段两人在车里，这段不能突然变成在家里。人物位置必须连贯：他在A处就在A处，不能凭空瞬移。\n' +
     '14. [物品连续性] 剧情中涉及的物品（耳机/水杯/手机/钥匙等）必须在之前的剧情中出现过或自然存在于当前场景中，禁止凭空让角色拿出一个从未提过的物品。如果需要新物品，先通过对话或描写引入它。\n' +
     '15. [人物知识隔离] 每个角色只能知道他们亲眼看到或亲耳听到的信息。禁止"读心"——不要写他知道她在想什么。禁止透露未公开的私密信息（如私密体质、内心独白）。只有女主自己和AI知道的事，其他角色不能知道。\n' +
@@ -1395,6 +1395,17 @@ export function buildOneHeartUserMessage(type, extra) {
       msg += '[女主希望] ' + GS.freeInput.trim() + '\n请根据这个方向展开剧情。\n\n';
       GS.freeInput = '';
     }
+    // [v23-fix] 话题频率黑名单：向 AI 注入近期高频话题，强制回避
+    if (GS.dailyTopicFrequency && typeof GS.dailyTopicFrequency === 'object') {
+      var _highFreq = [];
+      for (var _tf in GS.dailyTopicFrequency) {
+        if (GS.dailyTopicFrequency[_tf] >= 3) _highFreq.push(_tf);
+      }
+      if (_highFreq.length > 0) {
+        msg += '⚠️ [话题回避·强制] 以下话题在近期剧情中已反复出现超过3次，本段剧情绝对禁止再次涉及：' + _highFreq.join('、') + '。\n请完全切换到与以上话题无关的全新事件、场景或互动，例如日常琐事、社交互动、意外状况、情感交流等（如果以上列表为空则没有约束）。\n\n';
+      }
+    }
+
     // 注入关系氛围（冷战/热恋/普通）
     var _mood = '';
     if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) {
@@ -1577,9 +1588,9 @@ export function buildOneHeartUserMessage(type, extra) {
     }
     var _isFirstRound = (GS.oneHeartGenCount || 0) === 0 && (!GS.todayFullText || GS.todayFullText.length === 0);
     if (_isFirstRound) {
-      msg += '[INSTRUCTION] 这是故事的开局第一段剧情。请必须写出 1500-2000 字的完整开场：交代世界观背景、女主登场状态、男主初次出场的氛围与互动、环境描写、女主心理活动。不要快速收尾，要让玩家充分沉浸。\n';
+      msg += '[INSTRUCTION] 这是故事的开局第一段剧情。请必须写出 1200-1800 字的完整开场：交代世界观背景、女主登场状态、男主初次出场的氛围与互动、环境描写、女主心理活动。不要快速收尾，要让玩家充分沉浸。\n';
     }
-    msg += '请生成下一段剧情（必须 1500-2000 字 JSON）。包含 1段 narrative + options（3个选项）。正文不要低于 1500 字。\n\n';
+    msg += '请生成下一段剧情（必须 1000-1500 字 JSON）。包含 1段 narrative + options（3个选项）。正文不要低于 1000 字。\n\n';
   } else if (type === 'chat') {
     // 角色扮演硬约束已固化在 buildOneHeartChatSystemPrompt（system 层）。
     // 此处 user-message 仅携带最近对话上下文 + 当前消息，避免覆盖 system 约束、保证多轮连贯。

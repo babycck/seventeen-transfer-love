@@ -704,7 +704,7 @@ export function validateOneHeartNarrative(parsed, GS) {
     }
   }
 
-  // [计划B问题4] 剧情重复检测：新剧情与最近3天摘要做 Jaccard 相似度，>40% 返回 correction
+  // [计划B问题4] 剧情重复检测：新剧情与最近3天摘要做 Jaccard 相似度，>25% 返回 correction
   if (!isNewDay && parsed.blocks && GS.oneHeartDailySummaries && GS.oneHeartDailySummaries.length > 0) {
     var _narrText = '';
     for (var _bi = 0; _bi < parsed.blocks.length; _bi++) {
@@ -720,10 +720,31 @@ export function validateOneHeartNarrative(parsed, GS) {
         try { _simParsed = JSON.parse(_simSummary); } catch (e) {}
         var _simText = _simParsed ? (_simParsed.events || []).join('') + (_simParsed.dialogues || []).join('') : _simSummary;
         var _jaccard = _oneHeartJaccard(_narrText, _simText);
-        if (_jaccard > 0.4) {
+        if (_jaccard > 0.25) {
           corrections.push('剧情重复检测：本段剧情与近期记忆的关键词重叠度达' + Math.round(_jaccard * 100) + '%，请换一个切入角度或新的事件展开');
           break;
         }
+      }
+    }
+  }
+
+  // [v23-fix] 话题层面去重检测：提取 narriative 中的核心关键词，与 dailyTopicFrequency 高频话题比对
+  if (!isNewDay && GS.dailyTopicFrequency && typeof GS.dailyTopicFrequency === 'object') {
+    var _topicKeywords = ['直拍', '舞台', '练习室', '视频', '编舞', '录音', '拍摄', '综艺', '直播', '打歌', '演唱会', '彩排', '签售', '杂志', '广告', 'MV', '歌曲', '专辑', '回归', '采访', '节目', '记者', '粉丝', '相机', '镜头', '热搜', '曝光'];
+    var _highFreqTopics = [];
+    for (var _t in GS.dailyTopicFrequency) {
+      if (GS.dailyTopicFrequency[_t] >= 3) _highFreqTopics.push(_t);
+    }
+    if (_highFreqTopics.length > 0) {
+      var _foundHighFreq = false;
+      for (var _ti = 0; _ti < _topicKeywords.length; _ti++) {
+        if (_narrText.indexOf(_topicKeywords[_ti]) >= 0 && _highFreqTopics.indexOf(_topicKeywords[_ti]) >= 0) {
+          _foundHighFreq = true;
+          break;
+        }
+      }
+      if (_foundHighFreq) {
+        corrections.push('话题重复检测：近期已多次出现「' + _highFreqTopics.join('、') + '」相关话题，请完全切换到不相关的全新事件或场景（如日常琐事、社交互动、意外状况），严禁再次涉及以上高频话题');
       }
     }
   }
