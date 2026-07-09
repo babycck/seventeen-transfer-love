@@ -247,3 +247,11 @@ export function checkMissionInteract(text) {
   }
 }
 
+// 归一化文本用于去重比较（去掉标点、语气词、通用动词，提取核心内容）
+export function normalizePromiseText(str) {
+  if (!str) return '';
+  return str
+    .replace(/[的了吧着过在与和来去一个是就也都还会能可以一起一个一下把被从对到给让上出些看没很那这啊呀呢吗哈]|[\s，。！？、；：""''【】《》（）/·…—~\-\.\,\!\?\[\]\{\}]/g, '')
+    .trim();
+}
+

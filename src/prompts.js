@@ -12,7 +12,7 @@ import { getTodayKeyEventsSummary, getTodayFullTextCapped, getTodayNarrativeTail
 import { getWorldConfig } from './worlds/index.js';
 import { IDOL_PUBLIC_BEATS, IDOL_PRIVATE_BEATS } from './worlds/entertainment.js';
 import { IDENTITY_RELATION_MAP, getPlayerBirthYear, ONE_HEART_ENDING_TEMPLATES } from './data.js';
-import { isSisterSetting } from './utils.js';
+import { isSisterSetting, normalizePromiseText } from './utils.js';
 import { activeEventThisPhase } from './skeleton/event-triggers.js';
 import { buildMoodInstruction } from './skeleton/mood-engine.js';
 
@@ -1598,7 +1598,7 @@ export function buildOneHeartUserMessage(type, extra) {
         for (var _pi = 0; _pi < _unfulfilled.length; _pi++) {
           var _p = _unfulfilled[_pi];
           // 检查约定创建时间：未经过3回合的约定标"尚未到时机"
-          var _log = GS.oneHeartPromiseLog ? GS.oneHeartPromiseLog.find(function(l) { return l.text === _p.text; }) : null;
+          var _log = GS.oneHeartPromiseLog ? GS.oneHeartPromiseLog.find(function(l) { return normalizePromiseText(l.text) === normalizePromiseText(_p.text); }) : null;
           var _sinceRound = _log ? (_currentRound - _log.createdAtRound) : 99;
           if (_sinceRound < 3) {
             msg += '- ⏳ ' + _p.text + '（尚未到时机，不要立刻兑现）\n';

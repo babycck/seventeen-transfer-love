@@ -24,7 +24,7 @@ import { showActionInfoModal } from './modals/confirm-modal.js';
 import { showVisitChoiceModal } from './modals/visit-choice-modal.js';
 import { createModal } from './modals/modal-factory.js';
 import { validateNarrative } from './validator.js';
-import { checkMissionInteract, shouldTriggerSecretMission } from './utils.js';
+import { checkMissionInteract, shouldTriggerSecretMission, normalizePromiseText } from './utils.js';
 // 骨架模块（Phase 4 渐进式接管）
 import { settlePendingAffChanges as skeletonSettleAff } from './skeleton/affection-engine.js';
 import { applyDrinksFromParsed as skeletonApplyDrinks } from './skeleton/drink-engine.js';
@@ -1265,6 +1265,27 @@ export var RIVAL_ACTIONS = {
   ]
 };
 
+// 情敌场景兜底模板（AI 生成失败时使用，{rival} 会被替换为情敌名字）
+export var RIVAL_SCENARIO_FALLBACKS = {
+  's1_meet': '{rival}在附近出现，假装偶遇般地走过来打了招呼。',
+  's1_greet': '{rival}发来一条消息，语气轻松地聊了几句日常。',
+  's1_like': '{rival}点赞了你的社交动态，还评论了一句。',
+  's1_chat': '{rival}找了个话题过来搭话，明显想多聊几句。',
+  's2_gift': '{rival}递过来一个小礼物，说是"顺手买的"。',
+  's2_meal': '{rival}约你一起吃饭，说刚好有空。',
+  's2_alone': '其他人都不在，{rival}和你单独相处了一段时间。',
+  's3_contact': '{rival}最近联系得很频繁，每次都有看似合理的理由。',
+  's3_hint': '{rival}说话间流露出对你的好感，眼神有些意味深长。',
+  's3_care': '{rival}过问了一件你的私事，关心得有些越界。',
+  's4_bigift': '{rival}送了一份贵重礼物，你有点不知所措。',
+  's4_misunderstand': '{rival}说了一句微妙的话，似乎在暗示什么。',
+  's4_compete': '{rival}提到了"有些人配不上你"之类的话。',
+  's5_presence': '{rival}出现在你附近，没有主动靠近但你能感觉到他的视线。',
+  's5_reminisce': '{rival}提起了你们之间的某个共同回忆。',
+  's5_retreat': '{rival}欲言又止，好像在试探你的态度。',
+  'confession': '{rival}站在你面前，表情认真地看着你，似乎有重要的话要说。'
+};
+
 // 从当前阶段选取未触发过的攻势
 export function pickRivalAction(stage, triggeredActions) {
   var actions = RIVAL_ACTIONS[stage] || RIVAL_ACTIONS[1];
@@ -1993,7 +2014,7 @@ export function updateBrotherStance(delta, reason) {
 function applyDateEffects(isPublic) {
   if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
   if (GS.oneHeartDateToday) return;
-  var _delta = isPublic ? 10 : 5;
+  var _delta = isPublic ? 10 : 1;
   GS.exposureRisk = Math.max(0, Math.min(100, (GS.exposureRisk || 0) + _delta));
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     if (GS.brotherAtHome) {
@@ -2024,7 +2045,7 @@ export function applyBrotherStanceDailyDecay() {
   if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   if (!GS.oneHeartBrotherAff) GS.oneHeartBrotherAff = 0;
-  GS.oneHeartBrotherAff = Math.round(GS.oneHeartBrotherAff * 0.9); // 每新一天向 0 衰减 10%
+  GS.oneHeartBrotherAff = Math.trunc(GS.oneHeartBrotherAff * 0.9); // 每新一天向 0 衰减 10%
   GS.brotherStance = GS.oneHeartBrotherAff >= 15 ? 'supportive' : (GS.oneHeartBrotherAff >= 0 ? 'consultant' : (GS.oneHeartBrotherAff >= -20 ? 'testing' : 'protective'));
   saveGame();
 }
@@ -2717,9 +2738,8 @@ export async function generateOneHeartRound(extra) {
         }
       }
 
-      // 约会日检测：每 5 回合触发约会提示
-      GS.oneHeartDiaryCounter = (GS.oneHeartDiaryCounter || 0);
-      if (GS.oneHeartDiaryCounter > 0 && GS.oneHeartDiaryCounter % 5 === 0) {
+      // 约会日检测：每 5 回合触发约会提示（用独立回合计数器，不与日记周期冲突）
+      if ((GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % 5 === 0) {
         if (!GS._dateDayNotified) {
           GS._dateDayNotified = true;
           showToast('💞 又到了约会的日子……');
@@ -3162,8 +3182,10 @@ async function checkOneHeartEvents() {
       } catch (e) {}
 
       if (!_rivScenario) {
-        // 兜底：基于攻势类型生成场景
-        _rivScenario = _action.detail + '。' + _rivalName + '出现了。';
+        // 兜底：使用场景模板（含 confession 专用模板）
+        var _tmplKey = _isConfession ? 'confession' : _action.id;
+        var _tmpl = RIVAL_SCENARIO_FALLBACKS[_tmplKey] || _action.detail + '。' + _rivalName + '出现了。';
+        _rivScenario = _tmpl.replace(/\{rival\}/g, _rivalName);
       }
 
       GS.oneHeartLastEventRound = GS.oneHeartGenCount || 0;
@@ -3326,7 +3348,7 @@ async function detectOneHeartPromises(text) {
         // 去掉时间标记（明天/后天/下周等）
         pt = pt.replace(/^(明天|后天|下周|下个月|今晚|今天晚上|明天早上|明天下午|明天晚上|周一|周二|周三|周四|周五|周六|周日|这个周末|下周末|这个星期|下个星期)\s*/g, '').trim();
         if (!pt || pt.length < 3) continue;
-        var exists = GS.oneHeartPromises.some(function(p) { return p.text === pt; });
+        var exists = GS.oneHeartPromises.some(function(p) { return normalizePromiseText(p.text) === normalizePromiseText(pt); });
         if (!exists) {
           if (!GS.oneHeartPromises) GS.oneHeartPromises = [];
           GS.oneHeartPromises.push({
