@@ -3284,7 +3284,7 @@ export async function sendChatMessage(userMessage) {
   GS.chatHistory.push({ role: 'user', content: userMessage.trim() });
 
   // 聊天好感度：每5条+1，每天最多3次
-  var _today = GS.day;
+  var _today = GS.gameMode === 'oneHeart' ? (GS.oneHeartDateIdx || 0) : GS.day;
   if (GS._chatAffDay !== _today) { GS._chatAffCount = 0; GS._chatAffDay = _today; }
   GS._chatAffCount++;
   // 每天最多3次好感度加成（对应15条）
