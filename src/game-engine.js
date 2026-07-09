@@ -2294,6 +2294,8 @@ export async function generateOneHeartRound(extra) {
     GS.pendingChoiceText.indexOf('今天是') >= 0
   ));
   try {
+    // [v23-fix] 1v1 也需压缩当日上下文（换乘模式一直调用，1v1 漏调导致测试文本泄漏）
+    await compressTodayForInjection();
     // [计划B问题1] 新的一天时压缩昨日全文为结构化摘要（在 prompt 构建前完成，确保 AI 能看到昨日记忆）
     if (_lockMorning) {
       // [v23-fix] 新的一天重置话题频率计数值（跨天衰减，只保留过去3天的高频话题）
@@ -2443,7 +2445,40 @@ export async function generateOneHeartRound(extra) {
             // 二次校验：如果仍有矛盾，记录警告但不阻塞（避免无限重试）
             var _retryCorrections = validateOneHeartNarrative(_retryParsed, GS);
             if (_retryCorrections) {
-              console.warn('[1v1] 重试后仍有校验矛盾，采用重试结果：', _retryCorrections);
+              if (_retryCorrections.indexOf('[哥哥身份]') >= 0 && GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+                // 硬替换：从 correction 中提取错误名称，替换为合法哥哥名
+                var _legalBro = GS.oneHeartRelationCharacter.name || '';
+                var _broMatch = _retryCorrections.match(/「([^」]+)」对女主说"我妹/);
+                var _wrongName = (_broMatch && _broMatch[1]) ? _broMatch[1] : '';
+                if (_wrongName && _legalBro && _wrongName !== _legalBro) {
+                  var _regExp = new RegExp(_wrongName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                  // 替换 narrative
+                  if (_retryParsed.narrative) _retryParsed.narrative = _retryParsed.narrative.replace(_regExp, _legalBro);
+                  // 替换 blocks
+                  if (_retryParsed.blocks) {
+                    for (var _biB = 0; _biB < _retryParsed.blocks.length; _biB++) {
+                      if (_retryParsed.blocks[_biB] && _retryParsed.blocks[_biB].content) {
+                        _retryParsed.blocks[_biB].content = _retryParsed.blocks[_biB].content.replace(_regExp, _legalBro);
+                      }
+                    }
+                  }
+                  // 替换 eventItems
+                  if (_retryParsed.eventItems) {
+                    for (var _eiB = 0; _eiB < _retryParsed.eventItems.length; _eiB++) {
+                      if (_retryParsed.eventItems[_eiB]) _retryParsed.eventItems[_eiB] = _retryParsed.eventItems[_eiB].replace(_regExp, _legalBro);
+                    }
+                  }
+                  // 替换 sceneContext.present
+                  if (_retryParsed.sceneContext && _retryParsed.sceneContext.present) {
+                    for (var _piB = 0; _piB < _retryParsed.sceneContext.present.length; _piB++) {
+                      if (_retryParsed.sceneContext.present[_piB]) _retryParsed.sceneContext.present[_piB] = _retryParsed.sceneContext.present[_piB].replace(_regExp, _legalBro);
+                    }
+                  }
+                  showToast('已自动修正哥哥角色：将「' + _wrongName + '」替换为「' + _legalBro + '」');
+                }
+              } else {
+                console.warn('[1v1] 重试后仍有校验矛盾，采用重试结果：', _retryCorrections);
+              }
             }
             parsed = _retryParsed;
           }
@@ -2559,6 +2594,22 @@ export async function generateOneHeartRound(extra) {
       location: (_declaredCtx && _declaredCtx.location) ? _declaredCtx.location : (_ctx.location || ''),
       present: (_declaredCtx && Array.isArray(_declaredCtx.present)) ? _declaredCtx.present : (Array.isArray(_ctx.present) ? _ctx.present : [])
     };
+    // 存储前修正 present 中可能存在的错误哥哥名
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+      var _legalBroName = GS.oneHeartRelationCharacter.name || '';
+      for (var _piC = 0; _piC < GS.oneHeartSceneContext.present.length; _piC++) {
+        var _pName = GS.oneHeartSceneContext.present[_piC];
+        if (_pName && _pName !== _legalBroName && MEMBERS.some(function(m){ return m.id !== GS.oneHeartMember && m.name === _pName && m.id !== (GS.oneHeartRival ? GS.oneHeartRival.memberId : ''); })) {
+          if (GS.oneHeartGenCount >= 3 && _declaredCtx && Array.isArray(_declaredCtx.present)) {
+            // 如果 AI 传回了非哥哥成员在 present 中且之前剧情有过哥哥，将其替换为合法哥哥名
+            var _prevNarr = (parsed && parsed.narrative) || '';
+            if (_prevNarr.indexOf(_pName) >= 0 && (_prevNarr.indexOf('哥哥') >= 0 || _prevNarr.indexOf('我哥') >= 0 || _prevNarr.indexOf('我妹') >= 0)) {
+              GS.oneHeartSceneContext.present[_piC] = _legalBroName;
+            }
+          }
+        }
+      }
+    }
     saveGame();
   }
 

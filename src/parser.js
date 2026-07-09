@@ -4,7 +4,7 @@
 } from './core.js';
 import { updateAffection, addAffectionLog } from './affection.js';
 import { sanitizeScene } from './schema.js';
-import { checkOneHeartPacing, checkOneHeartAddressing } from './validator.js';
+import { checkOneHeartPacing, checkOneHeartAddressing, checkOneHeartBrotherImpersonation, checkSeasonConsistency, checkProfanity, checkNarrativeAgeHonorific } from './validator.js';
 
 // ==================== 叙事解析器（JSON 输入版） ====================
 // AI 现在只输出 JSON，本地用 schema 做兜底 + 字段拆分。
@@ -783,7 +783,12 @@ export function validateOneHeartNarrative(parsed, GS) {
       }
     }
     var _gateText = _paceText + '\n' + _optTextAll;
-    var _gateCorr = checkOneHeartPacing(_gateText).concat(checkOneHeartAddressing(_gateText));
+    var _gateCorr = checkOneHeartPacing(_gateText)
+      .concat(checkOneHeartAddressing(_gateText))
+      .concat(checkOneHeartBrotherImpersonation(_gateText))
+      .concat(checkSeasonConsistency(_gateText))
+      .concat(checkProfanity(_gateText))
+      .concat(checkNarrativeAgeHonorific(_gateText));
     for (var _gi = 0; _gi < _gateCorr.length; _gi++) corrections.push(_gateCorr[_gi]);
   }
 

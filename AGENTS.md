@@ -556,4 +556,13 @@ src/
 | 选项多样性不足（4 合 1） | 已完成 | prompts.js, ai-generator.js, state.js, game-engine.js | P0: todayOptionTexts 黑名单注入 prompt; P0: prevSummary 移除 type 限制; P1: temperature 0.7→0.85; P1: noRepeatNote 强化 |
 | 飘字动画说明 | 已更新 | AGENTS.md | spawnAffFloat 防抖说明 300ms→队列累积 |
 | 1v1「只为你心动」模式 | ✅ 已完成 | 全模块 | 9 阶段实施，详见上方 1v1 模式文档 |
+| 哥哥身份·双重身份+年龄辈分 | ✅ 已完成 | ui-renderer.js, prompts.js | D1: 补 interactionStyle+birthYear; D2: 团内队友面/私下哥哥面双重转换; D3: 哥哥/男主/情敌三人辈分注入 |
+| 哥哥身份·代码校验+硬替换 | ✅ 已完成 | validator.js, parser.js, game-engine.js | D4: 检测其他成员充当哥哥→重试→仍错则硬替换; 防 present 错误传播 |
+| 季节一致性校验 | ✅ 已完成 | validator.js, parser.js, prompts.js | 检测剧情描写与当前月份的季节矛盾，重写触发 |
+| 禁止脏话校验 | ✅ 已完成 | validator.js, parser.js, prompts.js | 脏话词表+代码检测+重写，不含误判 |
+| 称呼/年龄辈分逻辑反转 | ✅ 已完成 | prompts.js, validator.js, parser.js | D3 年龄比较反转(>`小 / <`大)+ 名字而非姓氏+ 校验扩展至 narrative 文本 |
+| 测试模式文本泄漏+1v1压缩缺失 | ✅ 已完成 | memory.js, game-engine.js | cache 检测测试关键词+ generateOneHeartRound 追加压缩调用 |
+| 新闻红点不消失 | ✅ 已完成 | news-modal.js | 追加 saveGame+renderAll |
+| 1v1 横幅残留 | ✅ 已完成 | narrative-box.js, ui-renderer.js | 1v1 渲染守卫+初始化清零 |
+| Day1 情敌过于激进 | ✅ 已完成 | ui-renderer.js | 初始好感 randInt(10,25)→(10,19) 保证 stage<2 |
 

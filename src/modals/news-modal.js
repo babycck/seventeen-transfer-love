@@ -20,13 +20,16 @@ export function showNewsModal() {
     return;
   }
   GS._newNews = false;
-  var html = '<div style="max-height:65vh;overflow-y:auto;padding:4px 0">';
+  saveGame();
+  if (window.__renderAll) window.__renderAll();
+  var inner = '<div class="modal-content"><h3>📰 娱乐圈今日新闻</h3>';
+  inner += '<div style="max-height:65vh;overflow-y:auto;padding:4px 0">';
   for (var i = feed.length - 1; i >= 0; i--) {
     var n = feed[i];
     var isRelated = n.related && (n.related.indexOf('heroine') >= 0 || n.related.indexOf('main') >= 0);
     var sourceEmoji = getSourceEmoji(n.source);
     var timeStr = n.timestamp ? formatTimeAgo(n.timestamp) : '';
-    html += '<div style="background:var(--bg-card);border-radius:10px;padding:12px;margin-bottom:8px;' +
+    inner += '<div style="background:var(--bg-card);border-radius:10px;padding:12px;margin-bottom:8px;' +
       (isRelated ? 'border-left:3px solid var(--accent-primary)' : 'border-left:3px solid transparent') + '">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
       '<span style="font-size:18px">' + n.emoji + '</span>' +
@@ -42,11 +45,13 @@ export function showNewsModal() {
       (n.shared ? '<span style="font-size:11px;color:#888">✓ 已分享</span>' : '') +
       '</div></div></div>';
   }
-  html += '</div>';
-  var modal = createModal({ title: '📰 娱乐圈今日新闻' });
-  modal.setBody(html);
-  modal.show();
-  modal.element.querySelectorAll('.news-share-btn').forEach(function(btn) {
+  inner += '</div>';
+  inner += '<button class="modal-close-x" id="newsClose">✕</button></div>';
+  var overlay = createModal(inner);
+  overlay.querySelector('#newsClose').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation(); overlay.remove();
+  });
+  overlay.querySelectorAll('.news-share-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var idx = parseInt(this.dataset.newsIdx);
       var action = this.dataset.action;
@@ -55,7 +60,7 @@ export function showNewsModal() {
       news.shared = true;
       if (action === 'chat') {
         saveGame();
-        modal.hide();
+        overlay.remove();
         switchOneHeartTab('chat');
         setTimeout(function() {
           var chatInput = document.getElementById('chatInput');
@@ -67,7 +72,7 @@ export function showNewsModal() {
         showToast('💬 新闻已填充到聊天输入框');
       } else if (action === 'action') {
         saveGame();
-        modal.hide();
+        overlay.remove();
         switchOneHeartTab('story');
         setTimeout(function() {
           var freeInput = document.getElementById('freeInput');

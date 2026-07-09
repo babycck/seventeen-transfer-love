@@ -1001,6 +1001,7 @@ export function buildOneHeartSystemPrompt() {
   }
 
   var result = '你是「只为你心动」——一款1v1沉浸式恋爱文字游戏的剧情生成AI。你必须只输出 JSON 对象，禁止输出 markdown 代码块或任何解释文字。\n\n' +
+    '⚠️ 禁止脏话/粗口：角色对话中不得出现"操/他妈/妈的/卧槽/特么/我靠"等脏字，即使角色情绪激动也用"该死/可恶/真是的/服了"等替代。\n\n' +
 
     '[SYSTEM] 输出结构（强制 JSON · 字段须严格匹配）\n' +
     '{\n' +
@@ -1094,6 +1095,7 @@ export function buildOneHeartSystemPrompt() {
         parts += '你的生活中有一个重要的人：「' + rel.name + '」（你的' + (rel.role === '哥哥' ? '亲' : '') + '' + rel.role + '）。\n';
         if (rel.personality) parts += '性格：' + rel.personality + '\n';
         if (rel.behaviorLogic) parts += '行为逻辑：' + rel.behaviorLogic + '\n';
+        if (rel.interactionStyle) parts += '互动风格：' + rel.interactionStyle + '\n';
         parts += '⚠️ 此角色名字在剧情中固定为「' + rel.name + '」，不可写错或变换。\n';
         if (rel.role === '哥哥') {
           parts += '⚠️ 他是你的亲哥哥，名字固定为「' + rel.name + '」，是男主（' + member.name + '）的队友，不是男主的哥哥。\n';
@@ -1105,6 +1107,37 @@ export function buildOneHeartSystemPrompt() {
           } else {
             parts += '⚠️ 称呼规则（强制执行）：你称呼亲哥哥「' + rel.name + '」时可用「我哥」「' + rel.name + '」；你称呼男主「' + member.name + '」时禁止用「哥/哥哥/형」，只能直呼名字或好感度高时称「欧巴」。绝对禁止把男主和亲哥哥的称呼互相套用。\n';
           }
+          // D2: 双重身份转换指引
+          parts += '\n[哥哥·双重身份转换]\n';
+          parts += '「' + rel.name + '」既是女主的亲哥哥，又是男主「' + member.name + '」的队友。剧情中需区分两种场合：\n';
+          parts += '- 团内/工作场合（练习室、录制、行程）：他表现"队友一面"——专业、默契、遵循队内辈分礼仪，和男主是同事关系。\n';
+          parts += '- 私下/家中场合：他表现"哥哥一面"——护妹、调侃、当参谋、帮忙掩护，是女主最信任的内应。\n';
+          parts += '- 切换边界：被团内人看到时偏队友面，独处时偏哥哥面；不因是哥哥就在工作场合对男主特殊对待。\n';
+          // D3: 年龄辈分逻辑
+          var _broYear = rel.birthYear || (MEMBERS.find(function(m){return m.id===rel.memberId;}) ? MEMBERS.find(function(m){return m.id===rel.memberId;}).birthYear : 0);
+          var _memYear = member ? member.birthYear : 0;
+          var _diff = _memYear - _broYear;
+          parts += '\n[哥哥·年龄辈分]\n';
+          parts += '哥哥「' + rel.name + '」出生年：' + _broYear + '，男主「' + member.name + '」出生年：' + _memYear + '。';
+          if (_diff > 0) {
+            parts += '男主比哥哥小' + _diff + '岁，男主年幼，可按队内辈分称「' + rel.name.substring(1) + '哥」或「' + (rel.stageName||rel.name) + '哥」；日常也可直呼「' + rel.name.substring(1) + '」或「' + (rel.stageName||rel.name) + '」。\n';
+          } else if (_diff < 0) {
+            parts += '男主比哥哥大' + Math.abs(_diff) + '岁，男主年长，禁止称"哥"，直呼「' + rel.name.substring(1) + '」或「' + (rel.stageName||rel.name) + '」。\n';
+          } else {
+            parts += '男主与哥哥同龄，互相直呼名字（' + rel.name.substring(1) + '/' + (rel.stageName||rel.name) + '）。\n';
+          }
+          // 情敌辈分（如果在队内）
+          if (rival && rival.memberId) {
+            var _rivalYear = rival.birthYear || (MEMBERS.find(function(m){return m.id===rival.memberId;}) ? MEMBERS.find(function(m){return m.id===rival.memberId;}).birthYear : 0);
+            if (_rivalYear) {
+              parts += '情敌「' + rival.name + '」出生年：' + _rivalYear + '。';
+              if (_rivalYear < _broYear) parts += '情敌比哥哥年长，哥哥私下可称情敌"哥"。';
+              else if (_rivalYear > _broYear) parts += '情敌比哥哥年幼，情敌可称哥哥"' + rel.name.substring(1) + '哥"或直呼其名。';
+              else parts += '情敌与哥哥同龄。';
+              parts += '\n';
+            }
+          }
+          parts += '⚠️ 无论年龄关系如何，「' + rel.name + '」对女主始终是哥哥身份，女主称他"我哥/哥哥"是允许的。\n';
         }
         var _relCfg = IDENTITY_RELATION_MAP[GS.heroineProfile.job];
         if (_relCfg && _relCfg.livesTogether) {

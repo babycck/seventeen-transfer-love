@@ -590,3 +590,104 @@ function _transferJaccard(a, b) {
   if (_union === 0) return 0;
   return _inter / _union;
 }
+
+// ==================== 8. 哥哥身份一致性校验（1v1 妹妹设定） ====================
+// 检测其他成员被 AI 误写成女主哥哥（说"我妹/我姐"等亲缘称谓）
+export function checkOneHeartBrotherImpersonation(content) {
+  var corrections = [];
+  if (!isSisterSetting()) return corrections;
+  var _rel = GS.oneHeartRelationCharacter;
+  if (!_rel || !_rel.name) return corrections;
+  var _legalName = _rel.name;
+  var _legalId = _rel.memberId;
+  var _rivalId = (GS.oneHeartRival && GS.oneHeartRival.memberId) ? GS.oneHeartRival.memberId : '';
+  for (var i = 0; i < MEMBERS.length; i++) {
+    var m = MEMBERS[i];
+    if (m.id === _legalId) continue;
+    if (m.id === GS.oneHeartMember) continue;
+    if (_rivalId && m.id === _rivalId) continue;
+    var _idx = content.indexOf(m.name);
+    while (_idx >= 0) {
+      var _after = content.substring(_idx + m.name.length, _idx + m.name.length + 4);
+      if (/我妹|我姐|我妹妹|我弟弟/.test(_after)) {
+        corrections.push('[哥哥身份] 「' + m.name + '」对女主说"我妹/我姐"充当了哥哥角色，但本局哥哥是「' + _legalName + '」。请改写为队友互动或改用「' + _legalName + '」出场。');
+        break;
+      }
+      _idx = content.indexOf(m.name, _idx + 1);
+    }
+  }
+  return corrections;
+}
+
+// ==================== 9. 季节一致性校验 ====================
+// 检测剧情描写与当前月份/季节的矛盾
+export function checkSeasonConsistency(content) {
+  var corrections = [];
+  var _month = (GS.currentDate && GS.currentDate.month) || 0;
+  var _season = '';
+  if (_month >= 3 && _month <= 5) _season = 'spring';
+  else if (_month >= 6 && _month <= 8) _season = 'summer';
+  else if (_month >= 9 && _month <= 11) _season = 'autumn';
+  else _season = 'winter';
+  var _labels = { spring: '春季', summer: '夏季', autumn: '秋季', winter: '冬季' };
+  var _bad = [];
+  if (_season === 'summer') {
+    _bad = ['冬日', '寒冬', '寒气', '寒风', '羽绒服', '围巾', '暖气', '结冰', '雪花', '哈气成霜', '冻得', '凛冽', '呵出的白气'];
+  } else if (_season === 'winter') {
+    _bad = ['闷热', '汗蒸', '短袖', '凉席', '蝉鸣', '酷暑', '烈日', '冰美式降温'];
+  } else if (_season === 'spring') {
+    _bad = ['酷暑', '严寒', '暴雪', '台风', '凛冽'];
+  } else if (_season === 'autumn') {
+    _bad = ['酷暑', '严寒', '暴雪', '台风', '闷热'];
+  }
+  for (var i = 0; i < _bad.length; i++) {
+    if (content.indexOf(_bad[i]) >= 0) {
+      corrections.push('[季节一致性] 当前是' + (_labels[_season] || _season) + '，出现"' + _bad[i] + '"与季节矛盾，请改为符合季节的描写。');
+      break;
+    }
+  }
+  return corrections;
+}
+
+// ==================== 10. 脏话检测 ====================
+// 检测角色对话中的脏话粗口
+export function checkProfanity(content) {
+  var corrections = [];
+  var _bad = ['他妈', '妈的', '我操', '卧槽', '特么', '扯淡', '草泥马', '日你', '你妈'];
+  for (var i = 0; i < _bad.length; i++) {
+    if (content.indexOf(_bad[i]) >= 0) {
+      corrections.push('[禁止脏话] 剧情中出现"' + _bad[i] + '"，角色对话禁止脏话/粗口，请用"该死/可恶/真是的/服了"等替代。');
+      break;
+    }
+  }
+  // "操" 单独成字（后跟他/了/的/标点/换行，排除"操作/操心/操练/操持/操守"）
+  if (/操[他了，。！？\n]/.test(content)) {
+    corrections.push('[禁止脏话] 剧情中"操"字用作脏话，角色对话禁止脏话，请用"该死/可恶/真是的"等替代。');
+  }
+  // "我靠" 或 "靠！"
+  if (/我靠|靠[！!]/.test(content)) {
+    corrections.push('[禁止脏话] 剧情中出现"靠"脏话，角色对话禁止脏话，请用"哎呀/完了/不是吧"等替代。');
+  }
+  return corrections;
+}
+
+// [v23-fix] 扫描 narrative 文本检测年龄辈分错误的"X哥"称呼（妹妹设定·男主比哥哥年长时）
+export function checkNarrativeAgeHonorific(content) {
+  var corrections = [];
+  if (!isSisterSetting() || !GS.oneHeartRelationCharacter || !GS.oneHeartRelationCharacter.memberId) return corrections;
+  var _broMem = MEMBERS.find(function(mm) { return mm.id === GS.oneHeartRelationCharacter.memberId; });
+  if (!_broMem || !_broMem.birthYear) return corrections;
+  var _mainMem = MEMBERS.find(function(mm) { return mm.id === GS.oneHeartMember; });
+  if (!_mainMem || !_mainMem.birthYear) return corrections;
+  // 仅当男主比哥哥年长时检测（男主年幼时称哥哥"哥"是合理的）
+  if (_mainMem.birthYear >= _broMem.birthYear) return corrections;
+  var _surname = _broMem.name.charAt(0);
+  var _given = _broMem.name.substring(1);
+  var _patterns = [_surname + '哥', _given + '哥'];
+  for (var _ip = 0; _ip < _patterns.length; _ip++) {
+    if (content.indexOf(_patterns[_ip]) >= 0) {
+      corrections.push('[哥哥身份] 叙事文本中出现「' + _patterns[_ip] + '」——男主「' + _mainMem.name + '」（' + _mainMem.birthYear + '年生）比哥哥「' + _broMem.name + '」（' + _broMem.birthYear + '年生）年长，禁止称"哥"，请改用直呼名字「' + _given + '」或英文名「' + (_broMem.stageName || '') + '」');
+    }
+  }
+  return corrections;
+}

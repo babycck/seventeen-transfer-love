@@ -144,7 +144,12 @@ export async function compressTodayForInjection() {
   }
   // BUG-07: 同天已压缩过则复用缓存，避免每次进入时段重复烧 token 且注入内容前后不一致
   if (GS._todayCompressedSummary) {
-    return GS._todayCompressedSummary;
+    // [v23-fix] 若缓存是测试模式占位文本或 fallback 关键词，清空重压
+    if (GS._todayCompressedSummary.indexOf('测试模式') >= 0 || GS._todayCompressedSummary.indexOf('fallback') >= 0) {
+      GS._todayCompressedSummary = '';
+    } else {
+      return GS._todayCompressedSummary;
+    }
   }
   if (!GS.aiEnabled) {
     GS._todayCompressedSummary = extractNarrativeTail(full, 4000);

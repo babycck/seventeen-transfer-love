@@ -35,7 +35,7 @@ export function defaultGameState() {
     oneHeartYesterdaySummary: '', // 昨日事件摘要（新的一天时注入 prompt，防止角色失忆）
     oneHeartEventLog: [], // 1v1 事件条目（每篇剧情生成时 AI 顺带提取，替代旧 dailySummaries 批量压缩）
     oneHeartDailySummaries: [], // 1v1 每日结构化摘要（新一天时压缩昨日全文，注入最近3天）
-    oneHeartRelationCharacter: { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', isRival: false },
+    oneHeartRelationCharacter: { name: '', role: '', gender: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', birthYear: 0, isRival: false },
     oneHeartRival: { name: '', memberId: '', personality: '', behaviorLogic: '', interactionStyle: '', loveStyle: '' },
     oneHeartStartYear: 2025,
     oneHeartPendingEvent: null,

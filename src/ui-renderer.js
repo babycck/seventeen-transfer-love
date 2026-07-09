@@ -1039,7 +1039,7 @@ export function bindSetupEvents() {
         }
         GS.selectedMembers = [GS.oneHeartMember];
         GS.affection = {};
-        GS.affection[GS.oneHeartMember] = randInt(10, 25);
+        GS.affection[GS.oneHeartMember] = randInt(10, 19);
         // [fix] 锁定专属昵称：读取确认页输入；留空则开局由 AI 生成唯一一个并固定（全程保持统一）
         var _petInput = document.getElementById('petNameInput');
         GS.oneHeartPetName = _petInput && _petInput.value ? _petInput.value.trim().slice(0, 12) : '';
@@ -1059,7 +1059,8 @@ export function bindSetupEvents() {
           GS.oneHeartPetName = '小' + _firstChar;
         }
         GS.step = 5;
-        GS.day = 0;
+        GS.day = 1;
+        GS.currentDatingLocation = null;
         GS.phaseIndex = 0;
         GS.stayCount = 0;
         GS.phaseOptionCount = 0; GS.phaseFreeCount = 0;
@@ -1103,6 +1104,8 @@ export function bindSetupEvents() {
               memberId: picked.id,
               personality: picked.personality || '',
               behaviorLogic: picked.behaviorLogic || '',
+              interactionStyle: picked.interactionStyle || '',
+              birthYear: picked.birthYear || 0,
               isRival: relConfig.isRival
             };
             // 从池中移除已选的关系角色
@@ -2640,6 +2643,7 @@ function bindOneHeartEvents() {
       var confirmed = await showConfirmModal('确定进入新的一天吗？\n' + nextDate.month + '月' + nextDate.day + '日 → 新的一天开始');
       if (!confirmed) return;
       GS.oneHeartDateIdx = nextIdx;
+      GS.day++;
       GS.currentDate = GS.gameDates[GS.oneHeartDateIdx];
       // [F] 时间/时段/回合计数已移除
       GS.oneHeartTimeProgress = 0;
