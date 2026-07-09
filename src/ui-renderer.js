@@ -2745,8 +2745,15 @@ function bindOneHeartEvents() {
       if (ev.scenario && window.markEventUsed) window.markEventUsed(ev.scenario);
 
       // [事件卡片系统] 生成独立短故事并存入事件卡片（不再注入主线 prompt）
-      var _memberName_ = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
-      var _mName = _memberName_ ? _memberName_.name : '';
+      // 情敌事件的 memberName 使用情敌名而非男主名
+      var _mName = '';
+      if (ev.type === 'rival' || ev.type === 'confession') {
+        _mName = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '';
+      }
+      if (!_mName) {
+        var _memberName_ = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+        _mName = _memberName_ ? _memberName_.name : '';
+      }
       // 估算好感度变化（优先使用 ev.affDeltas）
       var _affDelta = (ev.affDeltas && ev.affDeltas.length > chosenIdx) ? (ev.affDeltas[chosenIdx] || 0) : 0;
       var _rivDelta = 0;

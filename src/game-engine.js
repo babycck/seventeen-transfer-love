@@ -1948,6 +1948,7 @@ function pickOneHeartBrotherEvent() {
     var e = BROTHER_EVENTS[i];
     if (used.indexOf(e.id) >= 0) continue;            // 已触发过，跳过
     if (round < (e.minRound || 0)) continue;          // 未到节奏，跳过
+    if (e.id === 'bro_check' && GS.brotherAtHome) continue;  // 哥哥在家时跳过突击查岗（矛盾）
     if (Math.random() < (e.prob || 0.15)) candidates.push(e);  // 独立概率命中
   }
   if (!candidates.length) {
@@ -3134,6 +3135,7 @@ async function checkOneHeartEvents() {
         var _wcRi2 = getWorldConfig(GS.worldSetting);
         var _wcRi2Info = _wcRi2 ? (_wcRi2.coreTension || '') : '';
         var _rivPrompt = '生成一个情敌事件场景（100字以内）+ 3个选项（每个30字以内）。场景发生在女主和「' + _rivalName + '」之间。\n' +
+          '⚠️ 场景描述中必须使用情敌的名字「' + _rivalName + '」，不要用"他"代指。\n' +
           '攻势类型必须是：' + _action.desc + '（' + _action.detail + '）。\n' +
           '方向：' + _dirDesc + '。\n' +
           '世界观背景：' + GS.worldSetting + (_wcRi2Info ? ' ' + _wcRi2Info : '') + '\n' +

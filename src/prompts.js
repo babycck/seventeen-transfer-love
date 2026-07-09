@@ -1520,7 +1520,11 @@ export function buildOneHeartUserMessage(type, extra) {
         msg += '[情敌出场] 请在本段剧情中自然地引入「' + GS.oneHeartRival.name + '」。他是你的情感阻碍者——第一次出现在故事中，可以是偶遇、来电、或者你没想到的场合。\n\n';
         GS._rivalIntroduced = true;
       } else if (_genCount > 0 && _genCount % 10 === 0) {
-        msg += '[情敌出场] 「' + GS.oneHeartRival.name + '」在近期剧情中再次出现，制造一些情感张力。\n\n';
+        // 冷却检查：距上次情敌事件不足 4 回合则跳过，避免反复提及
+        var _lastRivalRound = GS.oneHeartLastEventRound || 0;
+        if ((_genCount - _lastRivalRound) >= 4) {
+          msg += '[情敌出场] 「' + GS.oneHeartRival.name + '」在近期剧情中再次出现，制造一些情感张力。\n\n';
+        }
       }
     }
 
@@ -1589,7 +1593,7 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS.oneHeartPromises && GS.oneHeartPromises.length > 0) {
       var _unfulfilled = GS.oneHeartPromises.filter(function(p) { return !p.fulfilled; });
       if (_unfulfilled.length > 0) {
-        msg += '💡 [待兑现约定] 以下约定等待自然实现：\n';
+        msg += '💡 [待兑现约定] 以下约定等待自然实现（不要每段剧情都提及约定，只在剧情自然涉及时兑现，平时可完全不提）：\n';
         var _currentRound = GS.oneHeartGenCount || 0;
         for (var _pi = 0; _pi < _unfulfilled.length; _pi++) {
           var _p = _unfulfilled[_pi];
@@ -1801,7 +1805,19 @@ export function buildOneHeartUserMessage(type, extra) {
     var _idolPool = (_idolMode === 'public') ? IDOL_PUBLIC_BEATS
       : IDOL_PRIVATE_BEATS;
     if (_idolPool && _idolPool.length) {
-      var _idolBeat = _idolPool[Math.floor(Math.random() * _idolPool.length)];
+      // 去重：已用过的 beat 索引不重复抽，全部用完后重置
+      if (!Array.isArray(GS._idolBeatsUsed)) GS._idolBeatsUsed = [];
+      var _availBeats = [];
+      for (var _ib = 0; _ib < _idolPool.length; _ib++) {
+        if (GS._idolBeatsUsed.indexOf(_ib) < 0) _availBeats.push(_ib);
+      }
+      if (_availBeats.length === 0) {
+        GS._idolBeatsUsed = [];
+        for (var _ib2 = 0; _ib2 < _idolPool.length; _ib2++) _availBeats.push(_ib2);
+      }
+      var _beatIdx = _availBeats[Math.floor(Math.random() * _availBeats.length)];
+      GS._idolBeatsUsed.push(_beatIdx);
+      var _idolBeat = _idolPool[_beatIdx];
       msg += '[偶像此刻] 本幕让他自然做出这一处真实反应（代码指定，请织入剧情动作/对话，不要写成旁白说明）：' + _idolBeat + '\n';
     }
   }
@@ -1830,17 +1846,19 @@ export function buildOneHeartEventStoryPrompt(ev) {
   if (_worldCfg && _worldCfg.title) _worldLabel = _worldCfg.title;
   else if (GS.worldSetting) _worldLabel = GS.worldSetting;
 
-  var promptText = '你是' + hpName + '（我）和' + memberName + '的恋爱故事AI。\n\n';
+  var _isRivalEvent = (ev.type === 'rival' || ev.type === 'confession');
+  var _focusName = _isRivalEvent ? _rivalName : memberName;
+  var promptText = '你是' + hpName + '（我）和' + (_isRivalEvent ? _rivalName + '（情敌）' : memberName + '（恋人）') + '的恋爱故事AI。\n\n';
   promptText += '请根据以下场景，写一段150-200字的小故事：\n\n';
   promptText += '场景：' + (ev.scenario || '') + '\n';
   promptText += '我的选择：' + (ev.chosenOption || '') + '\n';
-  if (_rivalName) promptText += '（注意：' + _rivalName + '是情敌，不是正主）\n';
+  if (_rivalName && !_isRivalEvent) promptText += '（注意：' + _rivalName + '是情敌，不是正主）\n';
   if (_worldLabel) promptText += '世界观：' + _worldLabel + '\n';
   promptText += '\n要求：\n';
   promptText += '1. 以第一人称（"我"）写这段故事，' + hpName + '就是我\n';
   promptText += '2. 写150-200字，像一段简短的小说片段，有画面感、有细节、有内心感受\n';
   promptText += '3. 这段故事是独立的"事件小剧场"，不需要与主线剧情衔接\n';
-  promptText += '4. 必须自然写出' + memberName + '的反应和互动\n';
+  promptText += '4. 必须自然写出' + _focusName + '的反应和互动\n';
   promptText += '5. ⚠️ 禁止写出"好感度""修罗场""情敌""游戏机制"等游戏术语\n';
   promptText += '6. ⚠️ 禁止评价或总结这个选择的结果，只需要描写当时发生了什么\n';
   promptText += '只输出故事正文，不要标题、不要标签、不要引号包裹。';
@@ -1861,7 +1879,7 @@ export function buildOneHeartEventStorySystemPrompt() {
   p += '- 以第一人称"我"叙述。\n';
   p += '- 严格 150-200 字，不要超过这个字数。\n';
   p += '- 有画面感、有细节、有内心感受。\n';
-  p += '- 必须包含' + member.name + '的反应和互动。\n';
+  p += '- 必须包含' + member.name + '的反应和互动（如为情敌事件，则写情敌的反应和互动）。\n';
   p += '- 禁止出现"好感度""修罗场""情敌"等游戏术语。\n';
   p += '- 禁止评价或总结选择的结果。\n\n';
 

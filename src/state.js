@@ -93,6 +93,7 @@ export function defaultGameState() {
     _newMoments: false,
     _newDiary: false,
     _newEvents: false,
+    _idolBeatsUsed: [], // 已用过的 IDOL_PRIVATE_BEATS 索引（跨回合去重）
     _brotherShownThisDay: false, // [F/J] 当天主流程是否已出现哥哥桥段（防「上午哥哥说没事、下午探班又写哥哥」重复）
     oneHeartTimeProgress: 0, // [已废弃] 保留向后兼容，不再使用
     oneHeartSceneContext: { location: '', present: [] }, // 代码追踪场景位置、在场人物（时段概念已移除·F）
