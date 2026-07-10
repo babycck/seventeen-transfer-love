@@ -500,9 +500,6 @@ export function migrateSave() {
     if (!GS.endingArchive) GS.endingArchive = [];
     if (GS.oneHeartEnding === undefined) GS.oneHeartEnding = '';
     if (GS.endingMeters === undefined) GS.endingMeters = null;
-    GS._isGenerating = false;
-    GS._advancingPhase = false;  // 重置重入锁，防止旧存档卡死
-    GS._pendingOneHeartGen = null; // 重置协作式重入排队标记
     // [diary] 日记系统
     if (!Array.isArray(GS.diaryEntries)) GS.diaryEntries = [];
     if (GS.oneHeartDiaryCounter === undefined) GS.oneHeartDiaryCounter = 0;
@@ -618,6 +615,10 @@ export function migrateSave() {
       GS[_dk] = _defState[_dk];
     }
   }
+  // 运行时锁重置（必须写在整个兜底的最后，且不在版本分支内，确保任何存档都能解卡）
+  GS._isGenerating = false;
+  GS._advancingPhase = false;
+  GS._pendingOneHeartGen = null;
 }
 
 export async function resetGame() {

@@ -9,7 +9,7 @@ import { generateWithRetry, formatAIError } from './ai-generator.js';
 import { callDeepSeek } from './api.js';
 import { parseNarrative, completeSecretMission, parseOneHeartNarrative, validateOneHeartNarrative, safeParseJson } from './parser.js';
 import { compressTodayForInjection, getTodayNarrativeTail, getTodayKeyEventsSummary, popTodayFullText, compressTodayToSummary, getTodayFullText, getTodayFullTextCapped, compressOneHeartYesterday, dedupeEventLog, mergePromises, mergeMemoryFacts, getTodayHybridContext } from './memory.js';
-import { rollDatingDice, pickDatingLocation } from './formatters.js';
+import { rollDatingDice, pickDatingLocation, generateDailyWeather } from './formatters.js';
 import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOneHeartUserMessage, buildOneHeartEventStoryPrompt, buildOneHeartEventStorySystemPrompt, buildOneHeartChatSystemPrompt } from './prompts.js';
 import { ENT_SCHEDULE_POOL, BROTHER_EVENTS } from './worlds/entertainment.js';
 import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency, AFFECTION_MIN } from './affection.js';
@@ -2346,6 +2346,8 @@ export async function generateOneHeartRound(extra) {
       applyScandalHeatDailyDecay(_prevDated);
       // [J] 重置当天哥哥桥段标志
       GS._brotherShownThisDay = false;
+      // 新的一天更新天气
+      GS.weather = generateDailyWeather(GS.weather, GS.season);
     }
     // 首轮或新的一天都生成今日新闻（已有 GS.newsDay===GS.day 去重保护）
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
@@ -3468,6 +3470,11 @@ export async function generateDiary() {
     };
 
     if (!GS.diaryEntries) GS.diaryEntries = [];
+    // 日记双字段都为空时视为生成失败，不推入
+    if (!entry.heroineEntry && !entry.memberEntry) {
+      console.warn('[1v1] diary entry empty, skipped');
+      return null;
+    }
     GS.diaryEntries.push(entry);
     GS._newDiary = true;
     saveGame();

@@ -79,7 +79,14 @@ function exportStoryTxt() {
 }
 
 function saveExportJson() {
-  var json = JSON.stringify(GS, null, 2);
+  var _export = JSON.parse(JSON.stringify(GS));
+  // 剥离运行时锁和临时标记，防止导出存档包含卡死状态
+  delete _export._isGenerating;
+  delete _export._advancingPhase;
+  delete _export._pendingOneHeartGen;
+  delete _export.pendingChoiceText;
+  delete _export._pendingSource;
+  var json = JSON.stringify(_export, null, 2);
   var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -107,6 +114,9 @@ function saveImportJson(overlay, file) {
       );
       if (!confirmed) { return; }
       setGS(parsed);
+      GS._isGenerating = false;
+      GS._advancingPhase = false;
+      GS._pendingOneHeartGen = null;
       saveGame();
       overlay.remove();
       if (window.__renderAll) window.__renderAll();

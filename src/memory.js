@@ -153,20 +153,23 @@ export async function compressTodayForInjection() {
   }
   if (!GS.aiEnabled) {
     GS._todayCompressedSummary = extractNarrativeTail(full, 4000);
+    GS.oneHeartLastCompressedIdx = GS.consequenceNarratives ? GS.consequenceNarratives.length : 0;
     return GS._todayCompressedSummary;
   }
   try {
     var result = await callDeepSeek(
-      '你是记忆压缩助手。将以下一天的恋爱综艺全部剧情压缩为约4000字的详细摘要。保留关键对话（含重要发言原文）、情感转折、重要事件、待兑现的约定、角色已揭示的偏好/禁忌/习惯。去掉冗余的环境描写和心理活动。只输出压缩后的文本。',
+      '你是记忆压缩助手。将以下一天的恋爱综艺全部剧情压缩为约4000字的详细摘要。保留关键对话（含重要发言原文）、情感转折、重要事件、待兑现的约定、角色已揭示的偏好/禁忌/习惯。去掉冗余的环境描写和心理活动。严格只输出给定文本的压缩——不得添加任何原文没有的新情节、对话、心理活动、回忆或评价。只输出压缩后的文本。',
       '请将以下内容压缩为约4000字的摘要：\n\n' + full,
       TOKEN_CONFIG.todayCompress,
       false,
       0.2
     );
     GS._todayCompressedSummary = result.trim();
+    GS.oneHeartLastCompressedIdx = GS.consequenceNarratives ? GS.consequenceNarratives.length : 0;
     return GS._todayCompressedSummary;
   } catch (e) {
     GS._todayCompressedSummary = extractNarrativeTail(full, 4000);
+    GS.oneHeartLastCompressedIdx = GS.consequenceNarratives ? GS.consequenceNarratives.length : 0;
     return GS._todayCompressedSummary;
   }
 }
