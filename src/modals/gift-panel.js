@@ -331,7 +331,7 @@ export async function sendGift(memberId, giftIdx) {
   try {
     var hp = GS.heroineProfile;
     var sysPrompt = '你是《换乘恋爱》的短篇剧情生成AI。请根据以下信息，写一段约300字的送礼反应剧情。' +
-      '女主姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + hp.job + '，外貌：' + hp.appearance.join('、') + '。' +
+      '女主姓名：' + hp.name + '，年龄：' + hp.age + '岁，职业：' + (hp.job === '队友的妹妹' && hp.profession ? hp.profession : hp.job) + '，外貌：' + hp.appearance.join('、') + '。' +
       '女主把「' + gift.name + '」送给了' + member.name + '。' +
       '写出他的即时反应、对话、以及女主的感受。' +
       '注意礼物质感分级：如果礼物恰好是对方的偏好类型（偏好类型有handcraft/food/emotion三种）则反应更强烈；如果礼物与当前场景和对方人设契合则好感度更高；如果礼物敷衍则反应平淡。' +

@@ -2680,7 +2680,8 @@ export async function generateOneHeartRound(extra) {
     // [exposure] 营业CP假戏真做被拍 + 彻底曝光抉择（仅娱乐圈·队友的妹妹）
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
       var _job = (GS.heroineProfile && GS.heroineProfile.job) || '';
-      var _isIdol = (_job.indexOf('爱豆') >= 0 || _job.indexOf('女团') >= 0 || _job.indexOf('idol') >= 0 || _job.indexOf('女演员') >= 0 || _job.indexOf('演员') >= 0);
+      var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '';
+      var _isIdol = (_job.indexOf('爱豆') >= 0 || _job.indexOf('女团') >= 0 || _job.indexOf('idol') >= 0 || _job.indexOf('偶像') >= 0 || _job.indexOf('女演员') >= 0 || _job.indexOf('演员') >= 0 || _job.indexOf('练习生') >= 0 || _job.indexOf('trainee') >= 0 || _prof.indexOf('爱豆') >= 0 || _prof.indexOf('女团') >= 0 || _prof.indexOf('idol') >= 0 || _prof.indexOf('偶像') >= 0 || _prof.indexOf('女演员') >= 0 || _prof.indexOf('演员') >= 0 || _prof.indexOf('练习生') >= 0 || _prof.indexOf('trainee') >= 0);
       var _rivalC = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '情敌';
       // 固定1次（stage>=3）
       if (!GS.oneHeartCpScandalDone && (GS.oneHeartRomanceStage || 0) >= 3) {

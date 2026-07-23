@@ -2,7 +2,7 @@
   MAX_STAY_COUNT, PHASE_ACTION_LIMIT, ZODIAC_SIGNS,
   MEMBERS, PHASES, PHASE_LABELS,
   APPEARANCE_TRAITS, PERSONALITY_TRAITS, MBTI_TYPES, PRIVATE_TRAITS,
-  HEROINE_PUBLIC_IDENTITIES, HEROINE_TEMPLATES,
+  HEROINE_PUBLIC_IDENTITIES, HEROINE_TEMPLATES, SISTER_PROFESSIONS,
   API_PROVIDERS, ONE_HEART_WORLDS, ONE_HEART_STYLES,
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection, fetchModels,
   showLoading, hideLoading, showToast, callDeepSeek
@@ -53,6 +53,23 @@ export function initTheme() {
 
 
 // ==================== UI 渲染 ====================
+
+// 队友的妹妹设定：身份固定为「哥哥的妹妹」，额外显示职业子下拉（纯职业池，可圈内互动）
+// 两种模式（换乘 / 1v1）共用。locked 为 true 时只读（换乘模式设定后）。
+function buildSisterProfHtml(hp, locked, ro) {
+  if (hp.job !== '队友的妹妹') return '';
+  var _profVal = hp.profession || '女团爱豆';
+  if (!hp.profession) hp.profession = _profVal;
+  if (locked) {
+    return '<label>职业</label><input type="text" id="hpProfession" value="' + escHtml(_profVal) + '"' + ro + '>';
+  }
+  return '<label>你的职业（圈内·可互动）</label>' +
+    '<select id="hpProfession" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:10px">' +
+    SISTER_PROFESSIONS.map(function(p) {
+      return '<option value="' + p + '"' + (_profVal === p ? ' selected' : '') + '>' + p + '</option>';
+    }).join('') + '</select>';
+}
+
 export function renderAll() {
   var app = document.getElementById('app');
   // 1v1 模式标识，供 CSS 做差异化布局
@@ -326,6 +343,7 @@ export function renderSetupWizard() {
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
         (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') +
+        buildSisterProfHtml(hp, false, '') +
         '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
         '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit">' +
@@ -360,22 +378,6 @@ export function renderSetupWizard() {
       var locked = GS.profileLocked;
       var ro = locked ? ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"' : '';
       var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
-      // 队友的妹妹设定：身份固定为「哥哥的妹妹」，额外显示职业子下拉（纯职业池，可圈内互动）
-      var isSisterId = hp.job === '队友的妹妹';
-      var sisterProfHtml = '';
-      if (GS.gameMode === 'oneHeart' && isSisterId) {
-        var _profVal = hp.profession || '女团爱豆';
-        if (!hp.profession) hp.profession = _profVal;
-        if (locked) {
-          sisterProfHtml = '<label>职业</label><input type="text" id="hpProfession" value="' + escHtml(_profVal) + '"' + ro + '>';
-        } else {
-          sisterProfHtml = '<label>你的职业（圈内·可互动）</label>' +
-            '<select id="hpProfession" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:10px">' +
-            SISTER_PROFESSIONS.map(function(p) {
-              return '<option value="' + p + '"' + (_profVal === p ? ' selected' : '') + '>' + p + '</option>';
-            }).join('') + '</select>';
-        }
-      }
       html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
         '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
         (!locked ? '<div style="display:flex;gap:6px;margin-bottom:10px">' +
@@ -394,7 +396,7 @@ export function renderSetupWizard() {
           return '<option value="' + id + '"' + (hp.job === id ? ' selected' : '') + '>' + id + '</option>';
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
-        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') + sisterProfHtml +
+        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') + buildSisterProfHtml(hp, locked, ro) +
         '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
         '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit"' + ro + '>' +
