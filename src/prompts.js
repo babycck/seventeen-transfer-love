@@ -1035,7 +1035,13 @@ export function buildOneHeartSystemPrompt() {
       if (wc.secondCareerNote) worldLines.push('- 他的第二职业定位：' + wc.secondCareerNote);
       var userRoleDesc = (wc.userRoles && wc.userRoles[hp.job]) ? wc.userRoles[hp.job] : wc.userFallback;
       if (isSisterSetting() && hp.profession) {
-        userRoleDesc += '\n（补充·职业）女主本职职业为「' + hp.profession + '」，与男主同为娱乐圈圈内人，练习室/打歌/综艺/后台/行程等圈内场景可自然展开；对外关系上她始终是队友的妹妹。';
+        var _roleDesc = '\n（补充·职业）女主本职职业为「' + hp.profession + '」，与男主同为娱乐圈圈内人，练习室/打歌/综艺/后台/行程等圈内场景可自然展开；对外关系上她始终是队友的妹妹。';
+        if (hp.profession === '女团爱豆' && GS.oneHeartHeroineGroup) {
+          var _gg = GS.oneHeartHeroineGroup;
+          var _sisters = _gg.members.filter(function(m) { return !m.isHeroine; }).map(function(m) { return m.role; }).join('、');
+          _roleDesc += '\n（女团背景·固定设定）她是 6 人女团『' + _gg.groupName + '』的成员，定位为「' + _gg.heroinePos + '」，所属社『' + _gg.company + '』，概念『' + _gg.concept + '』，粉丝名『' + _gg.fandom + '』，出道约 ' + _gg.debutYears + ' 年始终二线。出圈的歌有：' + _gg.songs.join('；') + '。团内其他 5 位姐姐成员：' + _sisters + '（这 5 位与女主都是女性，是女团里的姐姐成员，与"哥哥"无关）。当前处境：' + _gg.statusDesc + ' 她夹在"想拼一波"和"认命平淡"之间——正好与亲哥（顶流男团成员）形成圈层落差。⚠️ 性别铁律：女团 6 人（含女主）全部是女性；SEVENTEEN（亲哥 / 男主 / 情敌）全部是男性。两者是不同团体，严禁混同。';
+        }
+        userRoleDesc += _roleDesc;
       }
       if (userRoleDesc) worldLines.push('- 你的角色：' + userRoleDesc);
       worldLines.push('');
@@ -1050,11 +1056,12 @@ export function buildOneHeartSystemPrompt() {
          (hp.privateTraits.length > 0 ? '- 私密体质：' + hp.privateTraits.join('、') + '——在相关场景中自然触发。\n' : '') +
     '- ⚠️ 女主的全部外貌特征、私密体质均为女主专属设定，绝对禁止映射到任何成员身上（包括男主）。\n' +
     '- ⚠️ 女主是女性角色，绝对禁止被称为「哥/哥哥/형」。只有她的亲哥哥可以用「哥」称呼。\n' +
-    (GS.oneHeartPetName ?
-      ('[SYSTEM] 昵称锁定（强制）：男主对女主的固定专属昵称是「' + GS.oneHeartPetName + '」，全文统一使用这一个称呼，禁止更换、禁止新增其他外号或「小XX」式爱称。\n') :
-      '[SYSTEM] 昵称（强制）：男主对女主使用一个固定且贯穿整局游戏的专属爱称（例如「小名/小XX」式昵称），确定后整局保持统一，禁止中途更换、禁止同时混用多个外号。\n'
-    ) +
+    (isSisterSetting() ?
+      ('- ⚠️ 性别铁律（强制·队友的妹妹设定）：SEVENTEEN 全员（亲哥 / 男主 / 情敌）均为男性；女团成员（含女主）均为女性，是另一个团体。严禁让任何 SEVENTEEN 男性成员自称「姐 / 姐姐 / 本小姐 / 人家」等女性化自称，也严禁把他们写成女性语气或女性视角；他们就是男人，用「他 / 哥 / 前辈 / 欧巴」等男性称谓。女团里叫「姐姐」的只是女团女性成员，与 SEVENTEEN 无关。\n')
+      : '') +
+    '- 称呼自然推进（不再强制专属爱称）：男主对女主的亲密称呼随感情阶段自然生长，亲密期可用叠字/宝宝/亲爱的等自然亲密称呼，但请勿生造一个全程固定的"专属爱称"外号，也不要中途反复横跳。\n' +
     '- ⚠️ 禁止编造恋爱纪念日（如"一个月纪念""100天纪念""周年纪念"），除非剧情中明确提到。\n' +
+    '- ⚠️ 吃醋门控：在女主对男主好感度 < 20（初识/朋友阶段）时，严禁出现男主吃醋、女主吃醋、醋意、占有欲等情节——此时感情尚未建立，吃醋不合逻辑。这类情节只在好感≥20（暧昧期）之后才允许自然出现。\n' +
     buildFeaturePosNote(hp) +
     (isSisterSetting() ?
       ('- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。⚠️ 这仅代表"女主自己的内心温度"：数值低只说明女主此刻只把' + member.name + '视为哥哥的队友、尚无心动，绝不表示' + member.name + '对女主冷淡。' + member.name + '与情敌早已对女主有意，会主动关心、找借口接近、眼神追随、制造好感事件——他们的热情由自身心意驱动，不会因女主好感低而变冷。请写出男主追求的温度，亲密分寸仍按下方感情进度门控把握。\n\n')
@@ -1116,7 +1123,7 @@ export function buildOneHeartSystemPrompt() {
             // [P0-3] 男主对女主的称呼演进（与女主称呼男主互补，形成双向门控）
             parts += '\n[男主对女主的称呼·队友的妹妹]\n';
             parts += '你是男主「' + member.name + '」。初次见面时，女主是你队友' + rel.name + '的亲妹妹，你还不是她恋人，应称呼她为「' + rel.name + '的妹妹」或「你妹妹」——不可一开始就直呼名字显得轻佻越界。\n';
-            parts += '随着感情推进、独处增多（进入暧昧期 romanceStage>=1 后），可自然改口直呼女主名字；明确期/热恋期（romanceStage>=2）后可更亲密地用专属爱称，但整局需保持前后一致、不可反复横跳。\n';
+            parts += '随着感情推进、独处增多（进入暧昧期 romanceStage>=1 后），可自然改口直呼女主名字；明确期/热恋期（romanceStage>=2）后可更亲密地用叠字/宝宝/亲爱的等自然亲密称呼，但整局需保持前后一致、不可反复横跳，且不要生造一个固定专属外号。\n';
             parts += '⚠️ 禁止在初识期（romanceStage<1）就叫女主名字或爱称——你与她还不熟，过度亲密会显得突兀冒进。\n';
             // [seed] 男主上心种子事件 + 专属小动作（仅队友妹妹设定，基于男主真实人设生成）
             if (GS.oneHeartSeedEvent) {
@@ -1341,6 +1348,10 @@ export function buildOneHeartChatSystemPrompt() {
   if (isSisterSetting() && _aff < 20) {
     lines.push('【隐藏心意】你（男主）其实已经对女主有好感，聊天里可以带一点主动与在意（多问一句、记得她说过的话、偶尔的小关心），但女主视角只是把你们当哥哥的队友，对话不要显得越界或过于熟络。');
   }
+  if (isSisterSetting()) {
+    // 性别铁律（聊天同样固化）：SEVENTEEN 全男、女团全女，男成员不得女性化自称
+    lines.push('【性别铁律·强制】你是 SEVENTEEN 男性成员，用「他 / 哥 / 前辈 / 欧巴」等男性称谓，严禁自称「姐 / 姐姐 / 本小姐 / 人家」等女性化自称，严禁女性语气或女性视角。女团（含女主）全是女性，是另一个团体，与你们无关。');
+  }
   lines.push('【当前时段】' + _activity + '。如果她问你"在忙什么"，答案要基于此刻你正在做的事，不要只反问不回答。');
   if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
     var _sch = GS.oneHeartSchedule.main;
@@ -1503,7 +1514,7 @@ export function buildOneHeartUserMessage(type, extra) {
       var _rs = GS.oneHeartRomanceStage || 0;
       var _rsRound = GS.oneHeartGenCount || 0;
       if (_rs === 0) {
-        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧/越界但不过线的阶段——眼神停留、试探、吃醋苗头、私下称呼变化。严禁在本阶段出现告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n⚠️ 此时段（初识期）严禁过度肢体接触与越界亲近：不得描写把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、下巴抵在你肩等超出当前关系的亲近动作。\n\n';
+        msg += '[INSTRUCTION] 感情进度门控（当前：初识期·round ' + _rsRound + '）\n这是故事早期，感情只能停留在暧昧但不过线的阶段——眼神停留、试探、私下称呼变化。⚠️ 严禁在本阶段出现吃醋/醋意/占有欲（两人尚属初识，感情未建立，吃醋不合逻辑）；严禁告白、强拉进私密空间（如后台小房间）、过度肢体接触。情敌此时只是"更关照你"，不强行肢体、不告白。让感情随时间长出来。\n⚠️ 此时段（初识期）严禁过度肢体接触与越界亲近：不得描写把头埋进肩窝/颈窝、鼻尖蹭颈窝、靠在你肩/赖在你身上、贴着你、下巴抵在你肩等超出当前关系的亲近动作。\n\n';
       } else if (_rs === 1) {
         msg += '[INSTRUCTION] 感情进度门控（当前：暧昧期·round ' + _rsRound + '）\n感情明确但不能一步到位——互动升温、可有些小甜蜜，但仍需克制。情敌开始正面竞争（争宠/较劲），但还不是告白时刻。禁止过早摊牌。\n\n';
       } else if (_rs === 2) {

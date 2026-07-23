@@ -100,7 +100,8 @@ export function defaultGameState() {
     oneHeartBrotherChatToday: false, // 当日是否已「找哥哥聊聊」（每日限一次，防刷哥哥好感）
     oneHeartDateWindowAvailable: false, // 当日是否存在有效空档（哥哥不在家 + 男主有空档），供跨天错过判定
     oneHeartBrotherTempChange: false, // B4：哥哥行程临时变更（中段翻转）待生效标记
-    oneHeartPetName: '', // [fix] 男主对女主的固定专属昵称（设置时锁定，全程统一，避免每轮换外号）
+    oneHeartPetName: '', // [deprecated] 旧版专属昵称字段，现已移除专属昵称机制（称呼按感情阶段自然推进），保留以防旧存档兼容
+    oneHeartHeroineGroup: null, // [女团] 队友的妹妹·女团爱豆线：6 人女团背景拼装结果（buildHeroineGirlGroup 生成）
     oneHeartSeedEvent: '', // [seed] 男主对女主上心的种子事件（setup时AI生成200字，供告白/吃醋时回溯呼应）
     oneHeartMannerisms: [], // [seed] 男主专属小动作（setup时从男主人设派生，1主+1备，增强角色辨识度）
     _pendingEvents: [],

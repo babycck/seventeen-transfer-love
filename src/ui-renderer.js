@@ -13,7 +13,7 @@ import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
 import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
-import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES } from './data.js';
+import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES, buildHeroineGirlGroup } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel, showNewsModal, setSwitchOneHeartTab } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -511,9 +511,6 @@ export function renderSetupWizard() {
         '</div>' +
         '<div style="margin-top:12px"><label>情敌选择（影响剧情发展方向）</label>' +
         '<select id="rivalSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px">' + _rivalHtml + '</select></div>' +
-        '<div style="margin-top:12px"><label>专属昵称（他叫你的爱称，留空让他自己定一个并固定）</label>' +
-        '<input id="petNameInput" type="text" maxlength="12" placeholder="如：小柚子 / 小笨蛋 / 留空随机" value="' + escHtml(GS.oneHeartPetName || '') + '" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px" />' +
-        '</div>' +
         '<button class="btn-primary" id="step4Start" style="margin-top:12px">🎮 开始故事！</button>' +
         '<button class="btn-secondary" id="step4Back">← 返回修改</button></div>';
     } else {
@@ -1075,23 +1072,11 @@ export function bindSetupEvents() {
         GS.affection = {};
         // 队友妹妹设定：开局第一次见面，女主只把男主当哥哥的队友、零心动
         GS.affection[GS.oneHeartMember] = isSisterSetting() ? randInt(0, 5) : randInt(10, 19);
-        // [fix] 锁定专属昵称：读取确认页输入；留空则开局由 AI 生成唯一一个并固定（全程保持统一）
-        var _petInput = document.getElementById('petNameInput');
-        GS.oneHeartPetName = _petInput && _petInput.value ? _petInput.value.trim().slice(0, 12) : '';
-        if (!GS.oneHeartPetName && GS.aiEnabled) {
-          try {
-            var _pnRes = await callDeepSeek(
-              '恋爱手游里，男主会给女主起一个专属爱称（如「小柚子」「小笨蛋」「小哭包」这类「小+字」或叠字昵称）。女主名字叫「' + (GS.heroineProfile ? GS.heroineProfile.name : '你') + '」。请只返回一个最贴合的 2-4 字中文昵称，不要解释、不要标点。',
-              '生成专属昵称', 50, false, 0.9
-            );
-            var _pn = (_pnRes || '').replace(/[^\u4e00-\u9fa5]/g, '').trim();
-            if (_pn.length >= 2 && _pn.length <= 6) GS.oneHeartPetName = _pn;
-          } catch (e) { /* 失败走兜底 */ }
-        }
-        if (!GS.oneHeartPetName) {
-          // 兜底：取女主名首字，保证至少稳定（不依赖 AI）
-          var _firstChar = (GS.heroineProfile && GS.heroineProfile.name) ? GS.heroineProfile.name.charAt(0) : '宝';
-          GS.oneHeartPetName = '小' + _firstChar;
+        // [deprecated] 专属昵称机制已移除：男主对女主称呼按感情阶段自然推进，不再锁定固定爱称
+        GS.oneHeartPetName = '';
+        // [女团背景] 队友的妹妹·女团爱豆线：拼装 6 人女团背景（女主固定门面 + 忙内）
+        if (isSisterSetting() && GS.heroineProfile && GS.heroineProfile.profession === '女团爱豆') {
+          GS.oneHeartHeroineGroup = buildHeroineGirlGroup(GS.heroineProfile.name);
         }
         GS.step = 5;
         GS.day = 1;

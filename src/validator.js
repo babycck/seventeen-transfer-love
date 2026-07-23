@@ -46,6 +46,17 @@ export function checkOneHeartPacing(content) {
     }
     return '';
   }
+  // 吃醋门控（好感 < 20 初识/朋友阶段）：感情未建立严禁吃醋/醋意
+  if (_aff < 20) {
+    var jealousKw = ['吃醋', '醋意', '占有欲', '妒火', '嫉妒', '吃味', '酸溜溜', '酸了', '心里发酸', '醋'];
+    for (var _ji = 0; _ji < jealousKw.length; _ji++) {
+      if (content.indexOf(jealousKw[_ji]) >= 0) {
+        corrections.push('[初识期门控] 当前好感仅 ' + _aff + '（<20，初识/朋友阶段），感情尚未建立，严禁出现吃醋/醋意/占有欲——命中「' + jealousKw[_ji] + '」。请改写为误会、朋友式小紧张或单纯好奇，删除任何醋意表达。');
+        break;
+      }
+    }
+  }
+
   // 阶段 < 1（初识期）：全套门控
   if (_stage < 1) {
     var _h = _hit(hotKw);

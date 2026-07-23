@@ -1209,6 +1209,60 @@ export var EX_JEALOUSY_EVENTS = [
   { minAff: 40, affDeltas: [0, 2, 3], scenario: '他在你车里随手播歌，你的歌单里还有前任推荐给你的歌。前奏响起时他看向你。', options: ['切歌：「好久没听了」', '跟他讲这首歌的故事', '说「现在这首歌是我们的了」'] }
 ];
 
+// ==================== 1v1 女团爱豆背景预设（队友的妹妹·女团线） ====================
+// 女主固定为「门面(Visual) + 忙内(Maknae)」，其余 5 位姐姐成员从池里拼装。
+// 参考质感：Brave Girls《Rollin》翻红前 / LABOUM《Hwi Hwi》 / fromis_9 / Lovelyz —— 有 1-2 首出圈歌但始终二线、不温不火、随时担心解散。
+export var GIRLGROUP_PRESETS = {
+  groupNames: ['LUMINA(루미나)', 'VELVETINE(벨베틴)', 'AURORA6(오로라식스)', 'SOLARIA(솔라리아)', 'PRISM(프리즘)', 'MOONVEIL(문베일)'],
+  companies: ['MOONLIT Entertainment', 'STARCREST', 'AURUM Music', 'NOVA9', 'HARMONY Label'],
+  concepts: ['感性抒情舞曲', '清冷风舞曲', '复古 City Pop', '梦幻 synth-pop', '中低音 R&B'],
+  fandoms: ['Lumis(루미스)', 'Velvet(벨벳)', 'Aurora(오로라)', 'Sola(솔라)', 'Prism(프리즘)', 'Veil(베일)'],
+  songs: [
+    '出道曲《Moonlight Letter(월광염서)》——中规中矩，没水花但有粉丝情怀',
+    '小爆曲《Stay With Me》——曾进音源榜前 30，成了"你们团的歌"，综艺常被点名',
+    '抒情曲《Rainy Day》——被用作某韩剧 OST 后小范围出圈',
+    '夏日曲《Sugar High》——打歌舞台点击尚可，但没能破圈',
+    '再出道曲《Echo》——概念反转尝试，圈内评价两极'
+  ],
+  // 5 位姐姐的定位（女主占第 6 位：门面 + 忙内）
+  sisterRoles: ['队长 / 主唱（操心老妈子，像大姐）', '主唱（唱功最强，稳定输出）', '主舞 / C位（舞台核心，镜头多）', 'Rapper（冷面氛围组）', '领舞 / 综艺担当（搞笑担）']
+};
+
+// 程序化拼装女主所在的 6 人女团背景。heroineName 为女主名（用于占位）。
+// 返回对象存入 GS.oneHeartHeroineGroup，由 prompts.js 注入 system prompt。
+export function buildHeroineGirlGroup(heroineName) {
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  var groupName = pick(GIRLGROUP_PRESETS.groupNames);
+  var company = pick(GIRLGROUP_PRESETS.companies);
+  var concept = pick(GIRLGROUP_PRESETS.concepts);
+  var fandom = pick(GIRLGROUP_PRESETS.fandoms);
+  // 随机 2-3 首"出名"的歌
+  var pool = GIRLGROUP_PRESETS.songs.slice();
+  var songCount = 2 + (Math.random() < 0.5 ? 0 : 1);
+  var songs = [];
+  for (var i = 0; i < songCount && pool.length; i++) {
+    var idx = Math.floor(Math.random() * pool.length);
+    songs.push(pool.splice(idx, 1)[0]);
+  }
+  var debutYears = 2 + Math.floor(Math.random() * 2); // 出道 2-3 年
+  // 5 位姐姐成员 + 女主（第 6 位）
+  var members = GIRLGROUP_PRESETS.sisterRoles.map(function(role, i) {
+    return { pos: i + 1, role: role, name: '姐姐' + (i + 1) };
+  });
+  members.push({ pos: 6, role: '门面(Visual) + 忙内(Maknae)', isHeroine: true, name: heroineName || '你' });
+  return {
+    groupName: groupName,
+    company: company,
+    concept: concept,
+    fandom: fandom,
+    debutYears: debutYears,
+    songs: songs,
+    members: members,
+    heroinePos: '门面(Visual) + 忙内(Maknae)',
+    statusDesc: '出道 ' + debutYears + ' 年始终二线，偶尔音源突入围榜单但没能破圈；公司资源紧，多靠打歌舞台 + 综艺刷脸；团里私下常聊"我们不会也轮到解散吧"。'
+  };
+}
+
 // ==================== 1v1 深夜脆弱事件池 ====================
 export var LATE_NIGHT_EVENTS = [
   { minAff: 40, affDeltas: [3, 2, 1], scenario: '凌晨三点他发来消息：「你睡了吗？」「其实有好多想跟你说……」「算了就当没看见。」', options: ['回他「我一直在，你说」', '直接打电话过去', '明天见面时问他昨晚想说什么'] },
