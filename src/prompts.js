@@ -85,7 +85,7 @@ export function invalidateSystemPromptCache() {
 
 // ==================== System Prompt ====================
 export function buildSystemPrompt() {
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     return buildOneHeartSystemPrompt();
   }
   var cacheKey = getSystemPromptCacheKey();
@@ -299,7 +299,7 @@ export function buildSystemPrompt() {
 
 // ==================== User Message ====================
 export function buildUserMessage(type, extra) {
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     return buildOneHeartUserMessage(type, extra);
   }
   extra = extra || {};
@@ -1314,6 +1314,27 @@ export function buildOneHeartSystemPrompt() {
     (GS.oneHeartColdWar && GS.oneHeartColdWar.active ? '- 状态：正在冷战中\n' : '') +
     '\n' +
 
+    (GS.gameMode === 'entSim' ? (function() {
+      var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
+      var _lvNow = (GS.entSimPopularity || 0) >= 80 ? '顶流' : ((GS.entSimPopularity || 0) >= 50 ? '当红' : ((GS.entSimPopularity || 0) >= 20 ? '上升' : '新人'));
+      var _chapName = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+      return '[娱乐圈模拟器·职业模式]\n' +
+        '本游戏是「娱乐圈模拟器」：女主是一名在韩娱打拼的' + _prof + '，既要经营事业（人气/资源/口碑），也要经营与男主（哥哥的队友）的感情。事业线与感情线并重，不要只写恋爱忽略事业，也不要只写事业忽略感情。\n' +
+        '当前章节：「' + _chapName + '」（第 ' + (GS.entSimChapter || 1) + ' 章）。章节随剧情回合数推进，代表女主事业所处的阶段——练习生期（打基础/攒出道机会）→出道期（曝光与资源爆发）→巅峰期（顶流与抉择）。\n' +
+        '当前人气：' + (GS.entSimPopularity || 0) + '/100（等级：' + _lvNow + '）。人气通过「今日日程」活动、公开曝光、舞台/作品表现累积；负面新闻、塌房会扣减。\n' +
+        '[职业专属现实]\n' +
+        (_prof === '练习生' ? '- 练习生：每天高强度训练（声乐/舞蹈/rap/演技），公司每月考核排名，出道位有限、随时可能被淘汰；没有公开身份、没有收入、粉丝几乎为零，常被前辈/工作人员使唤。压力来自「能不能出道」与同公司练习生的竞争。\n'
+          : _prof === '爱豆' ? '- 爱豆（团体成员）：回归期连轴转（录音/编舞/打歌/签售/综艺/画报），空白期焦虑（怕被忘记）；有粉丝但恋情一旦被粉丝/狗仔发现立即引爆脱粉与黑热搜、人气崩塌——所以同框、营业都要掂量曝光。舞台直拍、同框、营业CP都可能被粉丝放大镜审视。\n'
+          : _prof === 'solo歌手' ? '- solo 歌手：独立制作/演唱，自己扛销量与音源榜单，没有团兜底、孤独但自由；写歌、录 Demo、跑打歌、做 busking，能否打进榜单决定下一首有没有资源。\n'
+          : '- 演员：拍戏/试镜/读剧本/上综艺刷脸，靠作品和收视率/口碑说话；杂志专访、红毯、番位之争是日常，角色是否被嘲「花瓶」是压力来源。\n') +
+        '[行业通用规则]\n' +
+        '- 恋情与曝光风险：偶像恋爱本身不被合约禁止，但一旦被粉丝和舆论发现，会瞬间引爆脱粉、黑热搜与人气崩塌、事业受挫；女主与男主（哥哥队友）交往要自己掂量曝光——把「要躲镜头、要避嫌、要找掩护」写成真实压力，而非轻松恋情。\n' +
+        '- 曝光即双刃剑：公开活动/同框/营业CP 会涨人气但也会涨「曝光风险」；曝光风险累积到一定程度会触发绯闻/塌房危机，需要女主在事业与恋情间权衡。\n' +
+        '- 营业CP：公司可能安排女主与其他艺人（含男主或情敌）营业CP炒热度，女主被动接受、难以拒绝；这是行业常态也是感情里的「假戏真做/被拍」来源。\n' +
+        '- 同行共鸣是感情基础：男主是哥哥队友、同处行业，两人最能理解彼此的行程压力与镜头恐惧，这是其他设定没有的亲密基础。\n' +
+        '- 粉丝经济：女主的曝光=粉丝流动；正面舞台涨粉、负面新闻掉粉，把「曝光即事业」写进每次公开活动的后果里。\n\n';
+    })() : '') +
+
     '请基于以上设定和当前场景上下文，生成沉浸式剧情，只输出 JSON。';
 
   return result;
@@ -1353,7 +1374,7 @@ export function buildOneHeartChatSystemPrompt() {
     lines.push('【性别铁律·强制】你是 SEVENTEEN 男性成员，用「他 / 哥 / 前辈 / 欧巴」等男性称谓，严禁自称「姐 / 姐姐 / 本小姐 / 人家」等女性化自称，严禁女性语气或女性视角。女团（含女主）全是女性，是另一个团体，与你们无关。');
   }
   lines.push('【当前时段】' + _activity + '。如果她问你"在忙什么"，答案要基于此刻你正在做的事，不要只反问不回答。');
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
     var _sch = GS.oneHeartSchedule.main;
     lines.push('【你今天在忙】今天的本职行程：' + _sch.task + '（' + _sch.place + '）。如果提到"在忙/刚收工/累"，要基于这个行程回应，保持真实感。');
   }
@@ -1510,7 +1531,7 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += _mood;
 
     // IMP-19：感情进度门控（禁止越级行为，让感情随时间长出来）
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
       var _rs = GS.oneHeartRomanceStage || 0;
       var _rsRound = GS.oneHeartGenCount || 0;
       if (_rs === 0) {
@@ -1608,6 +1629,13 @@ export function buildOneHeartUserMessage(type, extra) {
 
     // [F] 时间/时段概念已移除：不再约束具体时段，剧情自然流动
     msg += '[场景状态] 你们随时可以相处，剧情随时间自然流动，无需声明具体时段（如"上午/深夜"），直接写当下的场景与互动即可。\n';
+    // [entSim] 事业/章节状态注入（让 AI 感知当前职业阶段与声量）
+    if (GS.gameMode === 'entSim') {
+      var _ep = GS.entSimPopularity || 0;
+      var _elv = _ep >= 80 ? '顶流' : (_ep >= 50 ? '当红' : (_ep >= 20 ? '上升' : '新人'));
+      var _ecn = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+      msg += '📊 [事业状态] 职业：' + ((GS.heroineProfile && GS.heroineProfile.profession) || '练习生') + '　|　人气 ' + _ep + '/100（' + _elv + '）　|　章节「' + _ecn + '」　|　曝光风险 ' + (GS.exposureRisk || 0) + '/100。请在剧情中自然体现女主当下的事业处境（训练/舞台/片场/榜单/粉丝反应），与感情线交织推进。\n\n';
+    }
     if (GS.oneHeartRival && !GS._rivalSwitched && GS.oneHeartRival.name) {
       msg += '[情敌选项规则] 若本段选项涉及对情敌『' + GS.oneHeartRival.name + '』的取向变化，请用 rivalAffDelta 字段表达（正数=心动倾向增加，负数=疏离），切勿把该增减混入 affDelta——affDelta 永远表示对男主『' + member.name + '』的好感。\n';
     }
@@ -1624,7 +1652,7 @@ export function buildOneHeartUserMessage(type, extra) {
     msg += '场景规则：非"新的一天"时必须延续当前场景。仅当选项明确涉及移动（如"去咖啡馆""送她回家"）才允许切换场景，且需描写移动过渡。如不涉及移动，sceneContext.location 必须与当前位置一致或为其子地点（如"咖啡馆"→"咖啡馆二楼"可接受）。\n\n';
 
     // [F/J] 男主当日行程约束（仅娱乐圈世界观；[J] 改用 team/solo 类型，不再含 busySlot/freeWindows 时段）
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
       var _sch = GS.oneHeartSchedule.main;
       var _schType = _sch.type === 'solo' ? '单人工作/录影·相对私密' : '团体/公开场合·周围人多·曝光高';
       msg += '[男主当日行程] 他今天的本职行程：' + _sch.task + '（地点：' + _sch.place + '，' + _schType + '）。\n';
@@ -1799,7 +1827,7 @@ export function buildOneHeartUserMessage(type, extra) {
 
   // IMP-17：哥哥＝信任圈内人（仅娱乐圈·「队友的妹妹」设定，role==='哥哥'）
   // [J] 探班场景已单独描述哥哥，主流程/通用哥哥立场块在探班时跳过，避免「上午哥哥说没事、下午探班又写哥哥」重复
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isVisit && !GS._brotherShownThisDay) {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isVisit && !GS._brotherShownThisDay) {
     var _bs = GS.brotherStance || 'consultant';
     var _bsMap = {
       consultant: '参谋（默认：你告诉他一切、他给意见）',
@@ -1854,7 +1882,7 @@ export function buildOneHeartUserMessage(type, extra) {
 
   // IMP-21[refactor]：代码约束替代 A~H 大段软指令（减重 AI）
   // ① 偶像行为引擎：代码推导场合 + 抽 1 条具体 beat 注入单行约束（全部娱乐圈身份生效，AI 只织入 prose）
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && type === 'phase') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && type === 'phase') {
     var _idolMode = (extra && extra.isVisit) ? 'public' : 'private';
     var _idolPool = (_idolMode === 'public') ? IDOL_PUBLIC_BEATS
       : IDOL_PRIVATE_BEATS;
@@ -1876,7 +1904,7 @@ export function buildOneHeartUserMessage(type, extra) {
     }
   }
   // ② 队友的妹妹·总原则（仅哥哥设定，2 行）：营业/私下反差 + 哥哥是内应非威胁
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && type === 'phase') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && type === 'phase') {
     msg += '[INSTRUCTION] 队友的妹妹·总原则（强制遵循）\n';
     msg += '- 营业/私下反差：他在镜头前是专业偶像，关上门才是真实的他；你越能看到他"卸下偶像外壳"的样子，活人感越强。\n';
     msg += '- 哥哥是你最信任的参谋与掩护（内应而非威胁）：所有张力都来自公众/粉丝/公司视线，哥哥若知情会调侃或掩护、绝不拆穿；即便"被哥哥撞见"也只会是温情"我早知道"，绝不会成为 BE 来源（BE 只来自公众曝光翻车或关系本身失败）。\n\n';

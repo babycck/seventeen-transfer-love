@@ -28,9 +28,35 @@ export function randInt(min, max) {
 // ==================== 身份判定 ====================
 // 是否处于「队友的妹妹」设定：1v1 模式 + 娱乐圈世界观 + 关系户=亲哥哥（role==='哥哥'）。
 // 此设定下女主比全团 13 人都小，对成员应称"前辈"/对男主亲密时称"欧巴"，禁止直呼名字。
+// 是否处于「队友的妹妹」设定：1v1 模式或娱乐圈模拟器 + 娱乐圈世界观 + 关系户=亲哥哥（role==='哥哥'）。
+// 娱乐圈模拟器(gameMode='entSim')锁定 worldSetting='entertainment' + role='哥哥'，因此一并列此门控。
 export function isSisterSetting() {
-  return GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment'
+  return (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment'
     && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥';
+}
+
+// 是否处于「娱乐圈模拟器」独立模式（首页第三入口）
+export function isEntSimMode() {
+  return GS.gameMode === 'entSim';
+}
+
+// 1v1 与娱乐圈模拟器共用恋爱引擎（均走 oneHeart 生成/渲染/绑定路径）
+export function isOneHeartLike() {
+  return GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim';
+}
+
+// 是否为爱豆职业（兼容旧存档 '女团爱豆' 与娱乐圈模拟器 '爱豆'）
+export function isIdolProfession(p) {
+  return p === '爱豆' || p === '女团爱豆';
+}
+
+// 娱乐圈模拟器·事业等级派生（人气 0-100 → 4 档）
+export function getEntSimCareerLevel(pop) {
+  var _p = (typeof pop === 'number') ? pop : 0;
+  if (_p >= 80) return '顶流';
+  if (_p >= 50) return '当红';
+  if (_p >= 20) return '上升';
+  return '新人';
 }
 
 // ==================== 1v1 时间概念已移除（F） ====================

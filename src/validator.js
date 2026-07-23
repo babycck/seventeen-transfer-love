@@ -33,7 +33,7 @@ function checkPrivateTraitViolation(content) {
 // 命中即返回 correction 字符串数组，由 generateOneHeartRound 触发一次重写。
 export function checkOneHeartPacing(content) {
   var corrections = [];
-  if (GS.gameMode !== 'oneHeart') return corrections;
+  if (GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') return corrections;
   var _aff = GS.affection[GS.oneHeartMember] || 0;
   var _stage = GS.oneHeartRomanceStage || 0;
   // 强烈越界行为（表白/强拉/强吻/同床/深夜上门等）——任何未到明确期都禁
@@ -86,7 +86,7 @@ export function checkOneHeartPacing(content) {
 // 欧巴解锁统一为 oneHeartRomanceStage >= 1 的代码闸门；stage<1 禁止欧巴/直呼男主名、禁止称哥/哥哥/형。
 export function checkOneHeartAddressing(content) {
   var corrections = [];
-  if (GS.gameMode !== 'oneHeart' || !isSisterSetting()) return corrections;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || !isSisterSetting()) return corrections;
   var member = (GS.oneHeartMember && MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; })) ? MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; }) : null;
   var memberName = member ? member.name : '';
   var allowObba = (GS.oneHeartRomanceStage || 0) >= 1;
@@ -114,14 +114,34 @@ export function checkOneHeartAddressing(content) {
   if (memberName && (GS.oneHeartRomanceStage || 0) < 1) {
     var _idx = content.indexOf(memberName);
     while (_idx >= 0) {
-      var _before = content.substring(Math.max(0, _idx - 3), _idx);
-      var _after = content.substring(_idx + memberName.length, _idx + memberName.length + 3);
+      var _before = content.substring(Math.max(0, _idx - 4), _idx);
+      // 取名字后最多 12 字窗口，去掉标点/空格后再判断是否紧跟"前辈"/"欧巴"，
+      // 兼容「全圆佑，前辈」「全圆佑的…前辈」「全圆佑，轻声说，前辈」等自然断句，避免误判为直呼名字
+      var _rawAfter = content.substring(_idx + memberName.length, _idx + memberName.length + 12);
+      var _after = _rawAfter.replace(/[\s，。、！？~·…—“”‘’"',.!?]/g, '');
       if (_before.indexOf('前辈') < 0 && _after.indexOf('前辈') < 0 && _after.indexOf('欧巴') < 0) {
         corrections.push('[称呼门控] 队友的妹妹设定下初识期须称男主"' + memberName + '前辈"，禁止直呼名字。请补上"前辈"。');
         break;
       }
       _idx = content.indexOf(memberName, _idx + 1);
     }
+  }
+  return corrections;
+}
+
+// ent-sim 专属校验：响应为 { narrative, options, entSimExtras } JSON，不含 blocks 字段，
+// 不能用换乘模式的 blocks 校验（否则永远判"剧情内容为空"→ 每次重试 3 次）。
+export function validateEntSimNarrative(parsed) {
+  var corrections = [];
+  var narrative = (parsed && parsed.narrative) || '';
+  if (narrative.length < 100) {
+    corrections.push({ severity: 'error', type: 'length', message: '正文过短（' + narrative.length + '字），请输出至少 100 字' });
+  }
+  var options = (parsed && parsed.options) || [];
+  if (options.length === 0) {
+    corrections.push({ severity: 'error', type: 'format', message: '缺少 options，请输出 2-4 个选项' });
+  } else if (options.length > 4) {
+    corrections.push({ severity: 'warning', type: 'format', message: '选项超过 4 个' });
   }
   return corrections;
 }

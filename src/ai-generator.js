@@ -1,6 +1,7 @@
 import { callDeepSeek } from './api.js';
 import { parseNarrative } from './parser.js';
-import { validateNarrative, formatCorrections } from './validator.js';
+import { parseEntSimResponse } from './ent-sim/parser.js';
+import { validateNarrative, validateEntSimNarrative, formatCorrections } from './validator.js';
 import { dispatch } from './store.js';
 import { GS } from './state.js';
 
@@ -51,9 +52,10 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
       return { raw: raw, parsed: { narrative: raw, blocks: [] }, corrections: [], attempts: attempt + 1 };
     }
 
-    var parsed = parseNarrative(raw);
+    var isEntSim = GS.gameMode === 'entSim';
+    var parsed = isEntSim ? parseEntSimResponse(raw) : parseNarrative(raw);
 
-    var corr = validateNarrative(raw, parsed);
+    var corr = isEntSim ? validateEntSimNarrative(parsed) : validateNarrative(raw, parsed);
 
     // 分离 error 和 warning
     var errors = corr.filter(function(c) { return c.severity === 'error'; });

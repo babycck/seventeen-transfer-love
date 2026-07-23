@@ -777,7 +777,7 @@ export function validateOneHeartNarrative(parsed, GS) {
 
   // [计划·项6/8] 1v1 确定性代码门控：初识期男主过度热情 + 妹妹线称呼/欧巴硬兜底
   // 命中即返回 correction，由 generateOneHeartRound 触发一次重写（最多重试不污染 userMsg）。
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     var _paceText = (parsed.narrative || '');
     var _optTextAll = '';
     if (parsed.options && parsed.options.length > 0) {

@@ -14,8 +14,9 @@ import { buildSystemPrompt, buildUserMessage, buildOneHeartSystemPrompt, buildOn
 import { ENT_SCHEDULE_POOL, BROTHER_EVENTS } from './worlds/entertainment.js';
 import { updateAffection, addAffectionLog, getAffectionDesc, updateRivalTendency, AFFECTION_MIN } from './affection.js';
 import { extractPendingPromises, extractRevealedInfo, extractMemoryFacts } from './promises.js';
-import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS, ONE_HEART_ENDING_TEMPLATES, DAILY_EXPOSURE_DECAY, LOWKEY_BONUS, NEWS_TEMPLATES } from './data.js';
+import { JEALOUSY_EVENTS, SURPRISE_EVENTS, RIVAL_EVENTS, CELEBRITY_EVENTS, SCANDAL_EVENTS, SICK_EVENTS, EX_JEALOUSY_EVENTS, LATE_NIGHT_EVENTS, ONE_HEART_ENDING_TEMPLATES, DAILY_EXPOSURE_DECAY, LOWKEY_BONUS, NEWS_TEMPLATES, ENT_SIM_AGENDA_POOLS } from './data.js';
 import { getWorldConfig } from './worlds/index.js';
+import { getEntSimCareerLevel } from './utils.js';
 import { showJealousyEvent, showSurpriseEvent, showPoolEvent, showRivalEvent, showConfrontationEvent, showConfessionEvent } from './modals/event-modal.js';
 import { generateMessage } from './modals/message-modal.js';
 // renderAll 通过 window.__renderAll 调用，避免与 ui-renderer.js 循环依赖
@@ -55,7 +56,7 @@ function pushCorrections(corrections) {
 }
 
 export async function generatePhaseNarrative() {
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     return generateOneHeartRound();
   }
   if (GS._isGenerating) { console.log('[gen] skip reentrant call'); return; }
@@ -671,7 +672,7 @@ export function triggerTruthPunishment(drunkerId) {
 }
 
 export async function handleOptionChoice(opt) {
-  if (GS.gameMode === 'oneHeart') return;
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) return;
   // [P0-3] 真心话结束后进入深夜
   if (opt.text.indexOf('进入深夜') >= 0 || opt.text.indexOf('真心话结束') >= 0 || opt.text.indexOf('X已回房间') >= 0) {
     await advancePhase();
@@ -744,7 +745,7 @@ export async function handleOptionChoice(opt) {
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('consequence', { choiceText: opt.text });
     var _opts = { tokens: TOKEN_CONFIG.consequence, temperature: 0.75 };
-    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.useSeparateApi) {
       _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
     }
     var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
@@ -974,7 +975,7 @@ export async function handleFinalChoice(opt) {
 }
 
 export async function handleFreeAction(actionText) {
-  if (GS.gameMode === 'oneHeart') return;
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) return;
   if (GS.smsSentToday && GS.phaseIndex === 3) {
     if (GS.stayCount >= MAX_STAY_COUNT) {
       showToast('⚠️ 今日继续次数已用完（' + MAX_STAY_COUNT + '/' + MAX_STAY_COUNT + '），请进入下一天。');
@@ -1001,7 +1002,7 @@ export async function handleFreeAction(actionText) {
     var sysPrompt = buildSystemPrompt();
     var userMsg = buildUserMessage('freeAction', { actionText: actionText });
     var _opts = { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 };
-    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.useSeparateApi) {
       _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
     }
     var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
@@ -1226,7 +1227,7 @@ export function applyOneHeartOptionAffection(opt) {
   if (opt.sceneType === 'date' || opt.sceneType === 'pubdate') {
     // [cover] 地下恋掩护手段（仅队友的妹妹）：约会前选择，按累计次数轮转体验不同掩护
     var _cover = '';
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
       var _covers = ['brother', 'pretend', 'avoid', 'business', 'company'];
       _cover = _covers[(GS.oneHeartCoverUsed || 0) % 5];
     }
@@ -1237,7 +1238,7 @@ export function applyOneHeartOptionAffection(opt) {
 // ==================== 1v1 事件固定后果结算（选项 / 自由输入 复用） ====================
 // 返回 true 表示本次输入命中并结算了一个 active 事件；调用方应 return，不再走通用好感应用
 export function applyOneHeartEventEffects(opt) {
-  if (!opt || GS.gameMode !== 'oneHeart') return false;
+  if (!opt || (GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim')) return false;
   var mid = GS.oneHeartMember;
   if (!mid) return false;
 
@@ -1462,7 +1463,7 @@ export function checkJealousyEvent(choiceText) {
 }
 
 export async function handleRegenerate() {
-  if (GS.gameMode === 'oneHeart') return;
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) return;
   // 重置生成锁，允许重新尝试
   GS._isGenerating = false;
   GS._advancingPhase = false;  // 重置重入锁，避免卡死
@@ -1533,7 +1534,7 @@ export async function handleRegenerate() {
 }
 
 export async function advancePhase() {
-  if (GS.gameMode === 'oneHeart') return;
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) return;
   if (GS.dayCompleted) return;
   if (GS._advancingPhase) { console.log('[advancePhase] skip reentrant call'); return; }
   GS._advancingPhase = true;
@@ -1848,7 +1849,7 @@ export async function handleQuestionBoxChoice(opt) {
 // ==================== 成员回礼系统 ====================
 export function scheduleReturnGift(memberId) {
   if (!GS.pendingReturnGifts) GS.pendingReturnGifts = [];
-  var returnDay = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) + 3 : GS.day + 1;
+  var returnDay = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') ? (GS.oneHeartGenCount || 0) + 3 : GS.day + 1;
   GS.pendingReturnGifts.push({ memberId: memberId, day: returnDay });
   saveGame();
 }
@@ -1856,7 +1857,7 @@ window.scheduleReturnGift = scheduleReturnGift;
 
 export function checkPendingReturnGifts() {
   if (!GS.pendingReturnGifts || GS.pendingReturnGifts.length === 0) return null;
-  var _curDay = GS.gameMode === 'oneHeart' ? (GS.oneHeartGenCount || 0) : GS.day;
+  var _curDay = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') ? (GS.oneHeartGenCount || 0) : GS.day;
   var pending = GS.pendingReturnGifts.filter(function(p) { return p.day <= _curDay; });
   if (pending.length === 0) return null;
   var first = pending[0];
@@ -1943,7 +1944,7 @@ export async function doActionTask() {
       skipActiveMissionCard: true
     });
     var _opts = { tokens: TOKEN_CONFIG.freeAction, temperature: 0.8 };
-    if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.useSeparateApi) {
       _opts.providerKey = GS.mainApiProvider || GS.apiProvider;
     }
     var _gr = await generateWithRetry(sysPrompt, userMsg, _opts);
@@ -2049,7 +2050,7 @@ function pickOneHeartRandomEvent() {
 // 确定性：按「当前回合 >= minRound 且独立概率命中」筛选候选，去重缓冲 oneHeartBrotherPool 保证不重复，
 // 使哥哥戏份稳定、多样、不靠 AI 随缘。返回事件对象（含 stanceDelta）。
 function pickOneHeartBrotherEvent() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return null;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return null;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return null;
   if (!BROTHER_EVENTS || !BROTHER_EVENTS.length) return null;
   if (!Array.isArray(GS.oneHeartBrotherPool)) GS.oneHeartBrotherPool = [];
@@ -2092,7 +2093,7 @@ function pickOneHeartBrotherEvent() {
 // 立场由数值 oneHeartBrotherAff 单一推导：>=15 supportive / 0~15 consultant / -20~0 testing / <-20 protective
 // 阈值从 ±30 收紧到 ±20，并将 supportive 阈值由 20 降到 15（K），使正常通关更易摸到 supportive（HE 可达），仍保留四态区分。
 export function updateBrotherStance(delta, reason) {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   if (!GS.oneHeartBrotherAff) GS.oneHeartBrotherAff = 0;
   var before = GS.oneHeartBrotherAff;
@@ -2112,7 +2113,7 @@ export function updateBrotherStance(delta, reason) {
 
 // 约会效果结算：由 sceneType==='date' 选项触发，后台累加绯闻热度 + 哥哥示好 + 锁探班
 function applyDateEffects(isPublic, cover) {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (GS.oneHeartDateToday) return;
   var _delta = isPublic ? 10 : 1;
   // [cover] 地下恋掩护手段（仅队友的妹妹）：约会前选择，影响曝光/支持度/情敌倾向
@@ -2154,7 +2155,7 @@ function applyDateEffects(isPublic, cover) {
 // 项5：绯闻热度累加（仅娱乐圈·队友的妹妹，0~100）。
 // 由 sceneType date 选项、探班/高调行为等累加；超阈值(>=60)触发绯闻事件。
 function accumulateScandalHeat(amount, reason) {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   GS.exposureRisk = Math.max(0, Math.min(100, (GS.exposureRisk || 0) + (amount || 0)));
   if (GS.exposureRisk >= 60) {
@@ -2167,7 +2168,7 @@ function accumulateScandalHeat(amount, reason) {
 // 项2：哥哥立场每日缓慢回落（向 0 衰减），避免一次负向事件永久卡在 testing/protective。
 // 配合高回合正向恢复事件（bro_bless 等），确保 testing/protective 有出口、supportive 仍可达。
 export function applyBrotherStanceDailyDecay() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   if (!GS.oneHeartBrotherAff) GS.oneHeartBrotherAff = 0;
   GS.oneHeartBrotherAff = Math.trunc(GS.oneHeartBrotherAff * 0.9); // 每新一天向 0 衰减 10%
@@ -2178,7 +2179,7 @@ export function applyBrotherStanceDailyDecay() {
 // [H] 绯闻热度每日自然衰减（解决"只增不减"）：进入新一天时调用。
 // 低调日（未约高风险约会）额外减值。与 accumulateScandalHeat 下限 0 配合。
 export function applyScandalHeatDailyDecay(prevDated) {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   var _decay = DAILY_EXPOSURE_DECAY || 12;
   // 低调日：昨日（prevDated，调用 generateOneHeartSchedule 前捕获，避免被其重置覆盖）未发起约会 → 额外减值
@@ -2189,7 +2190,7 @@ export function applyScandalHeatDailyDecay(prevDated) {
 
 // IMP-ENT-DATE(B1)：主动「找哥哥聊聊」
 export async function handleBrotherChat() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!GS.oneHeartRelationCharacter || GS.oneHeartRelationCharacter.role !== '哥哥') return;
   if (GS.oneHeartBrotherChatToday) { showToast('🔒 今天已经跟哥哥聊过啦，明天再来吧'); return; }
   var _broName = GS.oneHeartRelationCharacter.name || '哥哥';
@@ -2281,6 +2282,23 @@ export function evaluateEnding() {
   }
   else if (aff >= 20) type = 'NE_AMBIGUOUS';
   else type = 'NE';
+  // [entSim] 事业线纳入结局（人气/等级 影响终局走向）
+  if (GS.gameMode === 'entSim') {
+    var _popE = GS.entSimPopularity || 0;
+    score += Math.max(-12, Math.min(15, (_popE - 40) * 0.35));
+    // 顶流 + 感情稳 → 事业爱情双丰收
+    if (!GS._rivalSwitched && aff >= 60 && brother !== 'protective' && _popE >= 70 && scandal < 2) {
+      type = 'HE_STAR';
+    }
+    // 顶流但感情没成 → 专注事业、独美收场
+    else if (!GS._rivalSwitched && _popE >= 80 && aff < 40 && scandal < 3 && (GS.exposureRisk || 0) < 90) {
+      type = 'NE_CAREER';
+    }
+    // 人气崩 + 翻车 → 事业塌房
+    else if (_popE < 15 && (scandal >= 2 || (GS.exposureRisk || 0) >= 80)) {
+      type = 'BE_CAREER';
+    }
+  }
   var _res = { endingType: type, meters: meters, score: Math.round(score) };
   GS.oneHeartEndingRes = _res;
   return _res;
@@ -2296,7 +2314,7 @@ export function rollEnding() {
 // IMP-19：感情进度阶段推进（由好感度驱动，门控激进/告白类行为）
 // 0 初识(aff<20) / 1 暧昧(aff>=20) / 2 明确(aff>=60) / 3 高潮(aff>=80)
 export function updateOneHeartRomanceStage() {
-  if (GS.gameMode !== 'oneHeart') return;
+  if (GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') return;
   var _aff = GS.affection[GS.oneHeartMember] || 0;
   var _stage = 0;
   if (_aff >= 80) _stage = 3;
@@ -2313,7 +2331,7 @@ export function updateOneHeartRomanceStage() {
 
 // IMP-16：生成娱乐圈今日行程（三人窗口错开，逼选其一）
 export function generateOneHeartSchedule() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (!ENT_SCHEDULE_POOL || !ENT_SCHEDULE_POOL.length) return;
   var roles = [
     { key: 'main', id: GS.oneHeartMember },
@@ -2353,7 +2371,7 @@ export function generateOneHeartSchedule() {
     }
   }
   // [social] 行程改进（仅队友的妹妹）：空白日 + 两人同闲 + 情敌档倾向
-  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment') {
     var _gcS = GS.oneHeartGenCount || 0;
     if (_gcS > 0 && _gcS % 5 === 0) {
       // 空白日：三人都忙→女主独处（触发秘密/朋友圈/剧场）
@@ -2383,14 +2401,104 @@ export function generateOneHeartSchedule() {
   GS.oneHeartBrotherChatToday = false; // 新的一天重置「找哥哥聊聊」次数
   GS.oneHeartDateWindowAvailable = false;
   GS.oneHeartVisitLocked = ''; // 每日重置探班锁（修复：原漏重置导致第2天起探班永久禁用）
+
+  // [entSim] 女主每日日程（点击活动按钮，真实娱乐圈质感；非必做，做了有加成+偶遇剧情）
+  GS.entSimTodayAgenda = [];
+  GS.entSimAgendaDone = [];
+  GS.entSimRestDay = false;
+  if (GS.gameMode === 'entSim' && GS.worldSetting === 'entertainment') {
+    var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '';
+    var _pool = ENT_SIM_AGENDA_POOLS[_prof] || ENT_SIM_AGENDA_POOLS['练习生'] || [];
+    if (_pool.length) {
+      // 休息日：随机（回归期无休息在职业事件/章节逻辑里细化，这里先 10% 概率）
+      if (Math.random() < 0.1) {
+        GS.entSimRestDay = true;
+      } else {
+        var _n = 1 + Math.floor(Math.random() * 3); // 1-3 个
+        var _used = {};
+        var _ag = 0;
+        while (_ag < _n && GS.entSimTodayAgenda.length < _pool.length) {
+          var _cand = _pool[Math.floor(Math.random() * _pool.length)];
+          if (_used[_cand.task]) { _ag++; continue; }
+          _used[_cand.task] = true;
+          GS.entSimTodayAgenda.push({
+            id: 'ag_' + _prof + '_' + GS.entSimTodayAgenda.length + '_' + Math.floor(Math.random() * 1e6),
+            task: _cand.task,
+            place: _cand.place,
+            cat: _cand.cat,
+            type: _cand.type,
+            encounterHint: _cand.encounterHint,
+            exposure: (_cand.exposure || 0),
+            done: false
+          });
+          _ag++;
+        }
+      }
+    }
+  }
   GS.oneHeartBrotherTempChange = false;
   GS.oneHeartSchedule = schedule;
   saveGame();
 }
 
+// [entSim] 执行女主今日日程活动：生成该活动场景（含 encounterHint 引导的分支），并结算人气/曝光
+export async function doAgendaActivity(activityId) {
+  if (GS.gameMode !== 'entSim') return;
+  if (GS._isGenerating) return;
+  var _act = null;
+  for (var i = 0; i < (GS.entSimTodayAgenda || []).length; i++) {
+    if (GS.entSimTodayAgenda[i].id === activityId) { _act = GS.entSimTodayAgenda[i]; break; }
+  }
+  if (!_act) return;
+  if ((GS.entSimAgendaDone || []).indexOf(activityId) >= 0) { showToast('今天已经做过这个啦~'); return; }
+  GS._isGenerating = true;
+  showLoading('正在发生...');
+  try {
+    var _member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
+    var _mname = _member ? _member.name : '他';
+    var _sys = buildOneHeartSystemPrompt();
+    var _hint = _act.encounterHint || '';
+    var _user = '【女主今日日程活动】\n女主今天的工作/生活安排是：「' + _act.task + '」（地点：' + _act.place +
+      '，类型：' + (_act.type === 'team' ? '团体公开场合（周围很多人，曝光高）' : '单人练习/录制（较私密）') + '）。\n' +
+      '请基于这个场景，自然发展一段约 250-350 字的沉浸剧情，像普通剧情段落一样呈现，可包含女主内心活动。' +
+      (_hint ? '\n场景提示（供参考，可自然融入，不必照搬原文）：' + _hint : '') + '\n' +
+      '当前状态：与' + _mname + '的好感度 ' + (GS.affection[GS.oneHeartMember] || 0) + '/100；' +
+      '哥哥立场：' + (GS.brotherStance || '参谋') + '；女主人气 ' + (GS.entSimPopularity || 0) + '。\n' +
+      '要求：若场景会遇见男主/哥哥/团员/粉丝，自然写出互动；结尾给 2-3 个推进剧情的选项。不要写任何系统说明或 JSON。';
+    var _gr = await generateWithRetry(_sys, _user, { tokens: 1300, temperature: 0.85 });
+    var _raw = _gr.raw;
+    var _parsed = parseNarrative(_raw);
+    if (!_parsed) _parsed = { narrative: _raw, options: [] };
+    // 概率成败影响人气（Q16：有概率成败影响人气）
+    var _success = Math.random() < 0.7;
+    var _delta = _success ? randInt(1, 4) : -randInt(1, 3);
+    GS.entSimPopularity = Math.max(0, Math.min(100, (GS.entSimPopularity || 0) + _delta));
+    GS.entSimCareerLevel = getEntSimCareerLevel(GS.entSimPopularity);
+    // 曝光加成（公开活动，Q67）
+    if (_act.exposure && _act.exposure > 0) {
+      GS.exposureRisk = (GS.exposureRisk || 0) + _act.exposure;
+    }
+    GS.entSimAgendaDone.push(activityId);
+    dispatch({ type: 'PUSH_TODAY_TEXT', text: _raw });
+    GS.currentOptions = (_parsed.options && _parsed.options.length) ? _parsed.options : [{ label: '▶', text: '▶ 继续' }];
+    GS.isInConsequence = true;
+    // [entSim] 人气快进章节（不计入回合，仅按声量触发）
+    checkEntSimChapterAdvance(false);
+    saveGame();
+  } catch (e) {
+    console.error('[doAgendaActivity]', e);
+    showToast('⚠️ ' + formatAIError(e));
+    if ((GS.entSimAgendaDone || []).indexOf(activityId) < 0) GS.entSimAgendaDone.push(activityId);
+  } finally {
+    GS._isGenerating = false;
+    hideLoading();
+    if (window.__renderAll) window.__renderAll();
+  }
+}
+
 // [F/J] 探班——独立按钮（无参），与约会互斥、每天一次；强制场景切换（不续写主线）
 export async function doVisitMember() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   // [F] 与约会互斥、每天一次（函数层兜底，UI 灰化外的第二道闸）
   if (GS.oneHeartVisitLocked === 'done') {
     showToast('🔒 今天已经探过啦，先进入新的一天吧');
@@ -2470,6 +2578,36 @@ export async function doVisitMember() {
 
 // [约会按钮已移除] 约会功能已融入叙事选项（opt.sceneType==='date'），由 applyDateEffects / accumulateScandalHeat 取代。
 
+// [entSim] 章节推进：回合数 / 人气 触发阶段切换，并播放过场动画
+// countRound=true 时累加回合数（每个主剧情回合一次）；false 时仅按人气声量快进（日程活动结算后调用）。
+export function checkEntSimChapterAdvance(countRound) {
+  if (GS.gameMode !== 'entSim') return false;
+  if (countRound) GS.entSimChapterRound = (GS.entSimChapterRound || 0) + 1;
+  var _pop = GS.entSimPopularity || 0;
+  var _round = GS.entSimChapterRound || 0;
+  var _chap = GS.entSimChapter || 1;
+  var _next = _chap;
+  // 回合阈值：第 8 回合进「出道期」，第 15 回合进「巅峰期」（章节 3 为无限）
+  if (_round >= 15) _next = 3;
+  else if (_round >= 8) _next = 2;
+  // 人气快进：声量足够可直接跳章
+  if (_chap === 1 && _pop >= 50) _next = 2;
+  if (_chap === 2 && _pop >= 80) _next = 3;
+  if (_next > _chap) {
+    GS.entSimChapter = _next;
+    // 同步 canonical 章节字段（顶部 chapterIndex/chapterName 读这个），避免遮罩喊的章节与顶栏不一致
+    if (GS.entSim && GS.entSim.chapter) {
+      GS.entSim.chapter.index = _next;
+      GS.entSim.chapter.name = ({ 1: '练习生期', 2: '出道期', 3: '巅峰期', 4: '传奇期' }[_next]) || GS.entSim.chapter.name;
+    }
+    saveGame();
+    if (typeof window !== 'undefined' && window.showEntSimChapterTransition) window.showEntSimChapterTransition(_next);
+    return true;
+  }
+  saveGame();
+  return false;
+}
+
 export async function generateOneHeartRound(extra) {
   extra = extra || {};
   if (GS._isGenerating) { GS._pendingOneHeartGen = extra; return; } // 协作式：在飞生成结束后由 finally 补跑，避免并发双调用与死空白
@@ -2518,13 +2656,13 @@ export async function generateOneHeartRound(extra) {
       GS.weather = generateDailyWeather(GS.weather, GS.season);
     }
     // 首轮或新的一天都生成今日新闻（已有 GS.newsDay===GS.day 去重保护）
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment') {
       generateDailyNews();
     }
     // [fix#4] 清除上一轮遗留的「事件进行中」标志：当玩家上一轮用自由输入而非选项回应时，
     // applyOneHeartOptionAffection 不会被调用、active 标志不会被清除，会误吞本轮正常选项的后果。
     // 事件按其自身条件（confession 看好感/未done、cpScandal/exposure 看 done 标志）会在本轮重新注入，故清除安全。
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
       GS.oneHeartConfessionActive = false;
       GS.oneHeartCpScandalActive = false;
       GS.oneHeartExposureChoiceActive = false;
@@ -2562,7 +2700,7 @@ export async function generateOneHeartRound(extra) {
 
     // IMP-17[fix]：感情越深，哥哥越放心（确定性正向来源，仅「队友的妹妹」）
     // 好感度跨过 40/60/80 里程碑时各 +5，让正常通关可稳定推高 brotherStance → supportive（HE 可达）。
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
       var _ba = GS.affection[GS.oneHeartMember] || 0;
       var _ms = [40, 60, 80];
       for (var _mi = 0; _mi < _ms.length; _mi++) {
@@ -2574,7 +2712,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // IMP-17 ⑦ 哥哥递进考验（三次，仅「队友的妹妹」设定）：中局试探 / 后局设局 / 结局前把关
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
       var _gc = GS.oneHeartGenCount || 0;
       var _aff = GS.affection[GS.oneHeartMember] || 0;
       var _bs = GS.brotherStance || 'consultant';
@@ -2613,7 +2751,7 @@ export async function generateOneHeartRound(extra) {
 
     // IMP-17[fix]：哥哥专属事件（代码抽选，确定性触发，仅「队友的妹妹」）
     // 与 isRandom 同链路注入 userMsg；事件自带的 stanceDelta 立即结算，使 testing/protective 真正可达。
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding && !extra.isVisit) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding && !extra.isVisit) {
       var _be = pickOneHeartBrotherEvent();
       if (_be) {
         userMsg += '[哥哥专属] 请触发以下哥哥相关剧情——根据当前世界观自然改编场景与互动方式，但保留核心情感互动：\n"' + _be.desc + '"\n';
@@ -2622,7 +2760,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // [secret] 女主秘密机制（仅娱乐圈·队友的妹妹）：哥哥调侃 / 男主发现 / 被撞破
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.heroineSecrets && GS.heroineSecrets.length && !extra.isEnding && !extra.isVisit) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.heroineSecrets && GS.heroineSecrets.length && !extra.isEnding && !extra.isVisit) {
       var _gs = GS.oneHeartGenCount || 0;
       var _secPick = function(){ return GS.heroineSecrets[Math.floor(Math.random() * GS.heroineSecrets.length)]; };
       // 哥哥调侃（间隔>=8回合，随机50%，可多次）
@@ -2661,7 +2799,7 @@ export async function generateOneHeartRound(extra) {
       userMsg += '[男主冷战] 男主因之前被你拒绝，这几回合略显疏远、刻意保持距离，但眼神里还藏着在意。请写出这种微妙的距离感，以及被你在意时他的细微松动。\n\n';
     }
     // [romance] 男主告白事件（好感>=60 + 哥哥非protective + 已约会 + 未触发 + 冷却过）
-    if (GS.gameMode === 'oneHeart' && !extra.isEnding && !GS.oneHeartConfessionDone && (GS.oneHeartConfessionCooldown || 0) <= 0 && !GS.oneHeartConfessionActive) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isEnding && !GS.oneHeartConfessionDone && (GS.oneHeartConfessionCooldown || 0) <= 0 && !GS.oneHeartConfessionActive) {
       var _affC = GS.affection[GS.oneHeartMember] || 0;
       var _bsC = GS.brotherStance || 'consultant';
       var _coldC = (GS.oneHeartGenCount || 0) < (GS.oneHeartMaleColdUntil || 0);
@@ -2678,7 +2816,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // [exposure] 营业CP假戏真做被拍 + 彻底曝光抉择（仅娱乐圈·队友的妹妹）
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
       var _job = (GS.heroineProfile && GS.heroineProfile.job) || '';
       var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '';
       var _isIdol = (_job.indexOf('爱豆') >= 0 || _job.indexOf('女团') >= 0 || _job.indexOf('idol') >= 0 || _job.indexOf('偶像') >= 0 || _job.indexOf('女演员') >= 0 || _job.indexOf('演员') >= 0 || _job.indexOf('练习生') >= 0 || _job.indexOf('trainee') >= 0 || _prof.indexOf('爱豆') >= 0 || _prof.indexOf('女团') >= 0 || _prof.indexOf('idol') >= 0 || _prof.indexOf('偶像') >= 0 || _prof.indexOf('女演员') >= 0 || _prof.indexOf('演员') >= 0 || _prof.indexOf('练习生') >= 0 || _prof.indexOf('trainee') >= 0);
@@ -2751,7 +2889,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // 1v1 校验：场景/人物/时段一致性（最多重试1次，仅硬违规触发二次生成；软违规已放过省API）
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate) {
       var _vres = validateOneHeartNarrative(parsed, GS);
       if (_vres && _vres.hasHard) {
         var _corrections = _vres.corrections || '';
@@ -2765,7 +2903,7 @@ export async function generateOneHeartRound(extra) {
             var _vres2 = validateOneHeartNarrative(_retryParsed, GS);
             var _retryCorrections = (_vres2 && _vres2.corrections) || '';
             if (_vres2 && _vres2.hasHard) {
-              if (_retryCorrections.indexOf('[哥哥身份]') >= 0 && GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+              if (_retryCorrections.indexOf('[哥哥身份]') >= 0 && (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
                 // 硬替换：从 correction 中提取错误名称，替换为合法哥哥名
                 var _legalBro = GS.oneHeartRelationCharacter.name || '';
                 var _broMatch = _retryCorrections.match(/「([^」]+)」对女主说"我妹/);
@@ -2807,7 +2945,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // [J] 主流程（非探班）若已出现哥哥桥段，置标志供探班去重（防「上午哥哥说没事、下午探班又写哥哥」）
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isVisit) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isVisit) {
       var _narr = parsed.narrative || '';
       if (_narr.indexOf('哥哥') >= 0) {
         GS._brotherShownThisDay = true;
@@ -2829,7 +2967,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // [v23-fix] 话题频率追踪：提取 narrative 中的主题关键词，累加至 dailyTopicFrequency
-    if (GS.gameMode === 'oneHeart' && parsed.narrative) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && parsed.narrative) {
       if (!GS.dailyTopicFrequency) GS.dailyTopicFrequency = {};
       var _topicKeywords = ['直拍', '舞台', '练习室', '视频', '编舞', '录音', '拍摄', '综艺', '直播', '打歌', '演唱会', '彩排', '签售', '杂志', '广告', 'MV', '歌曲', '专辑', '回归', '采访', '节目', '记者', '粉丝', '相机', '镜头', '热搜', '曝光', '礼物', '约会', '做饭', '吃饭', '散步', '电影', '逛街', '旅行', '生病', '医院', '吵架', '冷战', '误会', '吃醋', '表白', '告白', '牵手', '拥抱', '接吻', '礼物', '惊喜', '生日'];
       var _narrForTopics = parsed.narrative;
@@ -2877,7 +3015,7 @@ export async function generateOneHeartRound(extra) {
     GS.currentOptions = parsed.options || [];
 
     // 1v1 食物禁忌代码硬修正：删除/替换包含男主禁忌食材的选项
-    if (GS.gameMode === 'oneHeart' && GS.currentOptions.length > 0) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.currentOptions.length > 0) {
       var _mainMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
       var _taboos = (_mainMember && _mainMember.foodTaboos) || [];
       if (_taboos.length > 0) {
@@ -2907,7 +3045,7 @@ export async function generateOneHeartRound(extra) {
     }
 
   // [F] 时间概念已移除：不再推进 24h 时钟。仅刷新场景位置/在场人物（若有 AI 声明），保持场景延续。
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     var _ctx = GS.oneHeartSceneContext || { location: '', present: [] };
     var _declaredCtx = (parsed && parsed.sceneContext) || null;
     GS.oneHeartSceneContext = {
@@ -2915,7 +3053,7 @@ export async function generateOneHeartRound(extra) {
       present: (_declaredCtx && Array.isArray(_declaredCtx.present)) ? _declaredCtx.present : (Array.isArray(_ctx.present) ? _ctx.present : [])
     };
     // 存储前修正 present 中可能存在的错误哥哥名
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
       var _legalBroName = GS.oneHeartRelationCharacter.name || '';
       for (var _piC = 0; _piC < GS.oneHeartSceneContext.present.length; _piC++) {
         var _pName = GS.oneHeartSceneContext.present[_piC];
@@ -2941,7 +3079,7 @@ export async function generateOneHeartRound(extra) {
     }
 
     // 日记/朋友圈计数器
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
       // 回礼检测
       var returnGiftInfo = checkPendingReturnGifts();
       if (returnGiftInfo) {
@@ -2968,14 +3106,16 @@ export async function generateOneHeartRound(extra) {
     GS.smsSentToday = false;
 
     // 1v1 回合计数（回礼/冷战/聊天回合判断依赖；旧异步压缩逻辑已移除，事件条目改为每篇剧情生成时 AI 顺带返回）
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && !extra.noTimeAdvance) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate && !extra.noTimeAdvance) {
       GS.oneHeartGenCount = (GS.oneHeartGenCount || 0) + 1;
       // IMP-19：感情进度阶段推进（门控激进/告白类行为）
       updateOneHeartRomanceStage();
+      // [entSim] 章节推进（回合数驱动，含人气快进）
+      if (GS.gameMode === 'entSim') checkEntSimChapterAdvance(true);
     }
 
     // 1v1 冷战检测 + 好感度阶段解锁 + 约会日检测
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate) {
       if (!GS._affMilestones) GS._affMilestones = {};
       var _prevAff = GS.oneHeartAffHistory && GS.oneHeartAffHistory.length > 0 ? GS.oneHeartAffHistory[GS.oneHeartAffHistory.length - 1] : 0;
       var memId = GS.oneHeartMember;
@@ -3050,23 +3190,23 @@ export async function generateOneHeartRound(extra) {
     saveGame();
 
     // 1v1 事件触发（回合后检查，非重新生成非结局时）
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && !extra.isEnding && !GS.gameOver) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate && !extra.isEnding && !GS.gameOver) {
       await checkOneHeartEvents();
     }
 
     // 1v1 约定检测（每回合，只扫最新一回合）
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && parsed && parsed.narrative) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate && parsed && parsed.narrative) {
       if (parsed.narrative.length >= 50) detectOneHeartPromises(parsed.narrative);
     }
 
     // 1v1 秘密信件触发（确定性间隔 + 上限 6 封）
     var _letterEvery = GS.oneHeartLetterEvery || 5;
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.letters || []).length < 6 && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % _letterEvery === 0) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate && (GS.letters || []).length < 6 && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % _letterEvery === 0) {
       _needLetter = true;
     }
 
     // 1v1 主动消息触发（每5-8回合）→ 推入 chatHistory 并标记红点
-    if (GS.gameMode === 'oneHeart' && !extra.isRegenerate && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % randInt(5, 8) === 0 && Math.random() < 0.6) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && !extra.isRegenerate && (GS.oneHeartGenCount || 0) > 0 && (GS.oneHeartGenCount || 0) % randInt(5, 8) === 0 && Math.random() < 0.6) {
       var _aff = GS.affection[GS.oneHeartMember] || 0;
       var _msg = await generateMessage(_aff);
       if (_msg) {
@@ -3676,7 +3816,7 @@ export async function sendChatMessage(userMessage) {
   GS.chatHistory.push({ role: 'user', content: userMessage.trim() });
 
   // 聊天好感度：每5条+1，每天最多3次
-  var _today = GS.gameMode === 'oneHeart' ? (GS.oneHeartDateIdx || 0) : GS.day;
+  var _today = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') ? (GS.oneHeartDateIdx || 0) : GS.day;
   if (GS._chatAffDay !== _today) { GS._chatAffCount = 0; GS._chatAffDay = _today; }
   GS._chatAffCount++;
   // 每天最多3次好感度加成（对应15条）
@@ -3827,7 +3967,7 @@ export async function generateMoment() {
     var userMsg = buildOneHeartUserMessage('moment');
 
     // [social] 朋友圈暗斗（队友的妹妹，随机50%看好感）：让 AI 在返回 JSON 中给某条动态附带「情敌较劲评论」
-    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && GS.oneHeartRival && Math.random() < 0.5) {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && GS.oneHeartRival && Math.random() < 0.5) {
       var _rvD2 = (GS.oneHeartRival && GS.oneHeartRival.name) || '情敌';
       userMsg += '\n\n[朋友圈暗斗彩蛋] 你发/他发这条朋友圈后，情敌「' + _rvD2 + '」在评论区留下一句阴阳怪气、暗暗较劲的发言（20字内）。请在返回的 JSON 中，为其中一条动态（mine 或 his）额外添加字符串字段 rivalComment 写入这句话；好感越高越明显。';
     }
@@ -3975,7 +4115,7 @@ async function generateLetter() {
 
 // ==================== 新闻生成 ====================
 export function generateDailyNews() {
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') return;
   if (GS.newsDay === GS.day) return;
   if (!GS.newsFeed) GS.newsFeed = [];
   var member = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });

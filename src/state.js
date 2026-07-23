@@ -126,6 +126,48 @@ export function defaultGameState() {
     oneHeartTimeProgress: 0, // [已废弃] 保留向后兼容，不再使用
     oneHeartSceneContext: { location: '', present: [] }, // 代码追踪场景位置、在场人物（时段概念已移除·F）
 
+    // [entSim] 娱乐圈模拟器状态（完全独立模块 src/ent-sim/，不再复用 oneHeart 引擎）
+    entSim: {
+      career: { popularity: 30, careerLevel: '', resourcesLevel: '新人' }, // 四维职业基线 + 资源等级（由作品在播数派生）
+      cycle: { phaseIndex: 0, stageIndex: 0, roundInPhase: 0, roundInStage: 0, roundTotal: 0 }, // 周期系统：4 相位 × 阶段
+      publicOpinion: { fan: 50, media: 50, professional: 50, anti: 0 }, // 系统3 四维舆论（fan/media/professional/anti）
+      npcNetwork: {
+        nodes: {}, // nid -> {id,type,name,intimacy,stance,lastEventRound}（7 类 NPC）
+        paparazzi: { nextRound: 0, armed: false }, // 狗仔"周一见"预告
+        filmSis: { backstabArmed: false } // 站姐回踩
+      },
+      romance: {
+        depth: 0, // 恋爱深度 0-5（0初遇/1暧昧/2暧昧明朗/3恋情/4浓情/5公开）
+        emotion: '思念', // 男主情绪（吃醋/思念/不安/坚定）
+        lastBeatRound: 0,
+        confessionDone: false,
+        confessionResult: '', // accepted/rejected/delayed
+        coverUsed: 0, // 累计掩护次数（>=3 粉丝起疑）
+        publicLine: false, // 是否转公开线
+        seedEvent: '', // 男主上心种子事件（开场 AI 生成）
+        mannerisms: [], // 男主专属小动作
+        maleLead: { id: '', name: '', memberId: '' } // R1：男主作为独立 NPC（SEVENTEEN 成员）
+      },
+      works: { slots: {}, nextWorkId: 1 }, // 系统2 作品槽（key=id, value={type,title,subject,stage,startRound,lastProgressRound,buzz}）
+      dailyBuzz: { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenRound: -1 }, // 系统6 每日舆论
+      careerHistory: [], // 事业事件日志
+      secret: { items: [], foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 }, // 女主秘密（限娱乐圈，非 EXO 向）
+      brother: {
+        stance: '参谋', // 参谋/认可掩护/试探/反对公开
+        support: 0, // -100~100 哥哥支持度
+        pool: [], // 哥哥专属事件缓冲
+        testNudged: { 1: false, 2: false, 3: false }, // 哥哥递进考验三阶段
+        rivalAware: false, // 是否察觉情敌上心
+        talkPending: false // 哥哥找女主谈话支线待触发
+      },
+      chapter: { index: 1, name: '练习生期', roundInChapter: 0, entered: false }, // 系统7 章节生态
+      fittings: { dresses: [], lastGenRound: -1 }, // 红毯礼服候选（颁奖季）
+      endings: { hint: '', locked: false, type: '', eligible: false, text: '' }, // 系统10 结局
+      agenda: { main: '', related: '', rival: '', doneFlags: {} }, // 左栏日程（主档/相关档/晚档）
+      misc: { suspicion: 0, manualPRUsed: 0, prRemaining: 2 }, // 粉丝怀疑度 / 手动公关已用 / 剩余
+      flags: {} // 扩展标记位
+    },
+
     oneHeartPromiseLog: [], // [{ text, createdAtRound }] 约定创建日志，用于延迟兑现控制
     oneHeartLastEventRound: 0,
     _newChat: false,
@@ -366,6 +408,8 @@ export function saveGame() {
     delete stateToSave.pendingChoiceText;
     delete stateToSave._pendingSource;
     delete stateToSave._pendingOneHeartGen; // 协作式重入排队标记，纯运行时，不持久化
+    delete stateToSave._entSimGenerating;   // ent-sim 生成锁：生成成功分支 saveGame 时仍为 true，须剥离否则刷新后卡死空白
+    delete stateToSave._entSimAutoTries;    // ent-sim 自动重试计数：纯瞬态，不持久化
     var json = JSON.stringify(stateToSave);
     if (json.length > SAVE_SIZE_WARN) {
       console.warn('存档大小: ' + (json.length / 1024).toFixed(1) + 'KB');
@@ -384,6 +428,16 @@ export function saveGame() {
 }
 
 export function migrateSave() {
+  // ent-sim 娱乐圈模拟器：补全新字段（合作期 / 营业CP假戏真做），不影响已有进度
+  if (GS.entSim) {
+    if (!GS.entSim.romance) GS.entSim.romance = {};
+    if (GS.entSim.romance.collabActive === undefined) GS.entSim.romance.collabActive = null;
+    if (typeof GS.entSim.romance.collabSweetAccum !== 'number') GS.entSim.romance.collabSweetAccum = 0;
+    if (!GS.entSim.misc) GS.entSim.misc = {};
+    if (typeof GS.entSim.misc.exposureAccum !== 'number') GS.entSim.misc.exposureAccum = 0;
+    if (typeof GS.entSim.misc.cpRealProgress !== 'number') GS.entSim.misc.cpRealProgress = 0;
+    if (typeof GS.entSim.misc.cpRealTriggered !== 'boolean') GS.entSim.misc.cpRealTriggered = false;
+  }
   if (!GS.version || GS.version !== 'v22') {
     if (!GS.version || GS.version === 'v21') {
       // v21 → v22 新增字段兜底
@@ -672,6 +726,17 @@ export function migrateSave() {
     if (Object.prototype.hasOwnProperty.call(_defState, _dk) && GS[_dk] === undefined) {
       GS[_dk] = _defState[_dk];
     }
+  }
+  // [entSim] 旧 oneHeart + entertainment 存档迁移为独立娱乐圈模拟器模式（始终执行）
+  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
+    GS.gameMode = 'entSim';
+    var _migProf = (GS.heroineProfile && GS.heroineProfile.profession) || '';
+    if (_migProf === '女团爱豆') { GS.heroineProfile.profession = '爱豆'; _migProf = '爱豆'; }
+    var _migIdol = (_migProf === '爱豆' || _migProf === '女团爱豆');
+    GS.entSim.chapter.index = _migIdol ? 2 : 1;
+    GS.entSim.chapter.name = ['练习生期', '出道期', '巅峰期', '传奇期'][GS.entSim.chapter.index - 1] || '练习生期';
+    GS.entSim.career.popularity = (_migIdol ? 40 : 30);
+    GS.entSim.career.careerLevel = getEntSimCareerLevel(GS.entSim.career.popularity);
   }
   // 运行时锁重置（必须写在整个兜底的最后，且不在版本分支内，确保任何存档都能解卡）
   GS._isGenerating = false;

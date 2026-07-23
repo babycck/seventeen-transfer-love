@@ -7,13 +7,14 @@
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection, fetchModels,
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
-import { isSisterSetting } from './utils.js';
+import { isSisterSetting, isIdolProfession, getEntSimCareerLevel } from './utils.js';
 import { safeParseJson } from './parser.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, doAgendaActivity, generateOneHeartSchedule } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES, buildHeroineGirlGroup } from './data.js';
+import { ENT_SIM_CAREER_LIST } from './ent-sim/data.js';
 import { generateAllXArchives } from './x-archive.js';
 import { showSmsModal, showGiftPanel, showAffectionPanel, showApiSettingsModal, showConfirmModal, showHelpMergedModal, showReviewModal, showArchiveModal, showTaskPanel, showNewsModal, setSwitchOneHeartTab } from './modals.js';
 import { invalidateSystemPromptCache } from './prompts.js';
@@ -21,6 +22,9 @@ import { invalidateSystemPromptCache } from './prompts.js';
 import { showMidnightCallModal } from './modals/midnight-call.js';
 // 1v1 模态弹窗
 import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal, showEventCardModal } from './modals.js';
+// 娱乐圈模拟器（独立模块，不再复用 oneHeart 引擎）
+import { renderEntSimGameScreen, bindEntSimEvents } from './ent-sim/ui.js';
+import { initEntSimState } from './ent-sim/state.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
 import { renderParsedNarrative, renderNarrativeSection, startTypewriter, showEditButton } from './ui/narrative-box.js';
@@ -56,27 +60,36 @@ export function initTheme() {
 
 // 队友的妹妹设定：身份固定为「哥哥的妹妹」，额外显示职业子下拉（纯职业池，可圈内互动）
 // 两种模式（换乘 / 1v1）共用。locked 为 true 时只读（换乘模式设定后）。
-function buildSisterProfHtml(hp, locked, ro) {
+function buildSisterProfHtml(hp, locked, ro, profList) {
   if (hp.job !== '队友的妹妹') return '';
-  var _profVal = hp.profession || '女团爱豆';
+  var _list = profList || SISTER_PROFESSIONS;
+  // 兼容两种结构：字符串数组（SISTER_PROFESSIONS）/ 对象数组（ENT_SIM_PROFESSIONS：{name, startChapter}）
+  var _nameOf = function(p) { return (typeof p === 'object' && p !== null) ? p.name : p; };
+  var _firstVal = _list.length ? _nameOf(_list[0]) : '';
+  var _profVal = hp.profession || _firstVal;
   if (!hp.profession) hp.profession = _profVal;
   if (locked) {
     return '<label>职业</label><input type="text" id="hpProfession" value="' + escHtml(_profVal) + '"' + ro + '>';
   }
   return '<label>你的职业（圈内·可互动）</label>' +
     '<select id="hpProfession" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:10px">' +
-    SISTER_PROFESSIONS.map(function(p) {
-      return '<option value="' + p + '"' + (_profVal === p ? ' selected' : '') + '>' + p + '</option>';
+    _list.map(function(p) {
+      var _val = _nameOf(p);
+      return '<option value="' + _val + '"' + (_profVal === _val ? ' selected' : '') + '>' + _val + '</option>';
     }).join('') + '</select>';
 }
 
 export function renderAll() {
   var app = document.getElementById('app');
-  // 1v1 模式标识，供 CSS 做差异化布局
-  if (GS.gameMode === 'oneHeart' && GS.step >= 5) {
-    app.classList.add('oneheart-mode');
-  } else {
+  // 模式标识，供 CSS 做差异化布局
+  if (GS.gameMode === 'entSim' && GS.step >= 5) {
+    app.classList.add('entsim-mode');
     app.classList.remove('oneheart-mode');
+  } else if (GS.gameMode === 'oneHeart' && GS.step >= 5) {
+    app.classList.add('oneheart-mode');
+    app.classList.remove('entsim-mode');
+  } else {
+    app.classList.remove('oneheart-mode', 'entsim-mode');
   }
   if (GS.step < 5) {
     app.innerHTML = renderSetupWizard();
@@ -218,7 +231,8 @@ export function renderSetupWizard() {
   var html = '';
 
   if (GS.step === 1) {
-    var modeSel = (GS.gameMode || 'transfer') === 'oneHeart' ? 'oneHeart' : 'transfer';
+    var modeSel = GS.gameMode || 'transfer';
+    if (modeSel !== 'transfer' && modeSel !== 'oneHeart' && modeSel !== 'entSim') modeSel = 'transfer';
     var hasKey = GS.apiKey && GS.apiKey.length > 0;
     var providerOptions = '';
     for (var pk in API_PROVIDERS) {
@@ -228,7 +242,7 @@ export function renderSetupWizard() {
     var modelOptions = buildModelOptionsHtml(GS.apiProvider, GS.apiModel);
     var provider = API_PROVIDERS[GS.apiProvider] || API_PROVIDERS.deepseek;
     var showFetchBtn = provider.dynamicModels ? '' : 'display:none;';
-    var isOneHeart = modeSel === 'oneHeart';
+    var isOneHeart = (modeSel === 'oneHeart' || modeSel === 'entSim');
     var useSep = GS.useSeparateApi && isOneHeart;
     var sepToggleHtml = '';
     if (isOneHeart) {
@@ -300,7 +314,10 @@ export function renderSetupWizard() {
       '<span class="mode-desc">经典模式 · 与 3 位成员在心动小屋共度 12 天</span></button>' +
       '<button class="mode-option' + (modeSel === 'oneHeart' ? ' selected' : '') + '" id="modeOneHeart">' +
       '<span class="mode-emoji">💗</span><span class="mode-name">只为你心动</span>' +
-      '<span class="mode-desc">1v1 模式 · 与 1 位成员展开专属恋爱</span></button></div>' +
+      '<span class="mode-desc">1v1 模式 · 与 1 位成员展开专属恋爱</span></button>' +
+      '<button class="mode-option' + (modeSel === 'entSim' ? ' selected' : '') + '" id="modeEntSim">' +
+      '<span class="mode-emoji">🌟</span><span class="mode-name">娱乐圈模拟器</span>' +
+      '<span class="mode-desc">娱乐圈生态模拟 · 事业×舆论×地下恋（爱豆/演员/歌手/幕后…）</span></button></div>' +
       '<hr style="margin:16px 0;border:none;border-top:1px solid #f0e0e0">' +
       sepToggleHtml +
       (useSep ? otherHtml + '<hr style="margin:12px 0;border:none;border-top:1px solid #f0e0e0">' + mainHtml : unifiedHtml) +
@@ -311,8 +328,9 @@ export function renderSetupWizard() {
       '<input type="file" id="step1ImportInput" accept=".json" style="display:none">' +
       '</div></div>';
   } else if (GS.step === 2) {
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') {
       var hp = GS.heroineProfile;
+      if (GS.gameMode === 'entSim') hp.job = '队友的妹妹'; // 娱乐圈模拟器：身份锁定为队友的妹妹
       html = '<div class="setup-step"><h2>💗 Step 2：心动对象 + 女主</h2>' +
         '<p class="step-desc">选择 1 位成员并设定你的角色</p>' +
         '<h4 style="margin:12px 0 6px;font-size:14px;color:var(--text-primary)">选择心动对象</h4>' +
@@ -336,14 +354,15 @@ export function renderSetupWizard() {
         '<label>姓名/昵称</label><input type="text" id="hpName" value="' + escHtml(hp.name) + '">' +
         '<label>年龄</label><input type="number" id="hpAge" value="' + hp.age + '" min="18" max="40">' +
         '<label>公开身份</label>' +
-        '<select id="hpJob" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:6px">' +
+        '<select id="hpJob" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:6px"' + (GS.gameMode === 'entSim' ? ' disabled' : '') + '>' +
         '<option value="">-- 选择公开身份 --</option>' +
         HEROINE_PUBLIC_IDENTITIES.map(function(id) {
           return '<option value="' + id + '"' + (hp.job === id ? ' selected' : '') + '>' + id + '</option>';
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
+        (GS.gameMode === 'entSim' ? '<p style="font-size:11px;color:#8b6b6b;margin:-4px 0 8px">🔒 娱乐圈模拟器：身份锁定为「队友的妹妹」</p>' : '') +
         (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') +
-        buildSisterProfHtml(hp, false, '') +
+        buildSisterProfHtml(hp, false, '', GS.gameMode === 'entSim' ? ENT_SIM_CAREER_LIST : undefined) +
         '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
         '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit">' +
@@ -474,6 +493,23 @@ export function renderSetupWizard() {
         '<button class="btn-primary" id="step3Next" ' + ((useDropdown ? GS.worldSetting : GS.worldSetting) && GS.writingStyle ? '' : 'disabled') + '>' +
         (GS.worldSetting && GS.writingStyle ? (isCustomWorld && !GS.oneHeartCustomWorld ? '请设定世界观' : '下一步 →') : '请选择世界观和写作风格') + '</button>' +
         '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
+    } else if (GS.gameMode === 'entSim') {
+      // 娱乐圈模拟器：世界观锁定=娱乐圈，仅选写作风格
+      GS.worldSetting = 'entertainment';
+      html = '<div class="setup-step"><h2>🌟 Step 3：世界设定</h2>' +
+        '<p class="step-desc">娱乐圈世界观已锁定（你是队友的妹妹，也是圈内艺人）</p>' +
+        '<div class="confirm-card"><div class="confirm-row"><span class="confirm-label">世界观</span><span>娱乐圈地下恋</span></div></div>' +
+        '<label style="margin-top:16px;display:block">写作风格</label>' +
+        '<div class="style-grid" id="styleGrid">' +
+        ONE_HEART_STYLES.map(function(s) {
+          var sel = GS.writingStyle === s.id;
+          return '<div class="style-chip' + (sel ? ' selected' : '') + '" data-id="' + s.id + '">' +
+            '<div class="style-name">' + s.name + '</div>' +
+            '<div class="style-desc">' + s.desc + '</div></div>';
+        }).join('') + '</div>' +
+        '<button class="btn-primary" id="step3Next" ' + (GS.writingStyle ? '' : 'disabled') + '>' +
+        (GS.writingStyle ? '下一步 →' : '请选择写作风格') + '</button>' +
+        '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
     } else {
       html = '<div class="setup-step"><h2>⭐ Step 3：选择成员</h2>' +
         '<p class="step-desc">从 13 位 SEVENTEEN 成员中选择 3 位参加节目 <small>（已选 ' + GS.selectedMembers.length + '/3）</small></p>' +
@@ -488,7 +524,8 @@ export function renderSetupWizard() {
         '<button class="btn-secondary" id="step3Back">← 返回</button></div>';
     }
   } else if (GS.step === 4) {
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') {
+      var _modeLabel = GS.gameMode === 'entSim' ? '娱乐圈模拟器' : '只为你心动（1v1）';
       var confirmMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
       var confirmWorld = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
       var confirmStyle = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
@@ -502,9 +539,9 @@ export function renderSetupWizard() {
       html = '<div class="setup-step"><h2>💗 准备开始</h2>' +
         '<p class="step-desc">确认你的设定，然后开始你的专属恋爱故事</p>' +
         '<div class="confirm-card">' +
-        '<div class="confirm-row"><span class="confirm-label">游戏模式</span><span>只为你心动（1v1）</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">游戏模式</span><span>' + _modeLabel + '</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">心动对象</span><span>' + (confirmMember ? confirmMember.emoji + ' ' + confirmMember.name + '（' + confirmMember.stageName + '）' : '未选择') + '</span></div>' +
-        '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : '未选择') + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : (GS.gameMode === 'entSim' ? '娱乐圈地下恋' : '未选择')) + '</span></div>' +
         (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? '<div class="confirm-row"><span class="confirm-label">世界设定</span><span style="font-size:11px;max-height:60px;overflow-y:auto">' + escHtml(GS.oneHeartCustomWorld.substring(0, 200)) + (GS.oneHeartCustomWorld.length > 200 ? '...' : '') + '</span></div>' : '') +
         '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
         '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + escHtml(hp.name) + ' · ' + hp.age + '岁 · ' + (isSisterSetting() && hp.profession ? escHtml(hp.profession + '（哥哥的妹妹）') : escHtml(hp.job)) + '</span></div>' +
@@ -556,6 +593,18 @@ export function bindSetupEvents() {
     if (modeOneHeart) {
       modeOneHeart.addEventListener('click', function() {
         GS.gameMode = 'oneHeart';
+        GS.selectedMembers = [];
+        GS.secretX = '';
+        saveGame();
+        renderAll();
+      });
+    }
+    var modeEntSim = document.getElementById('modeEntSim');
+    if (modeEntSim) {
+      modeEntSim.addEventListener('click', function() {
+        GS.gameMode = 'entSim';
+        // 娱乐圈模拟器：锁定世界观=娱乐圈、关系户=亲哥哥（队友的妹妹），身份由 step2 锁定
+        GS.worldSetting = 'entertainment';
         GS.selectedMembers = [];
         GS.secretX = '';
         saveGame();
@@ -734,7 +783,7 @@ export function bindSetupEvents() {
         showToast('请输入 API Key');
         return;
       }
-      if (GS.gameMode === 'oneHeart' && GS.useSeparateApi) {
+      if (((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') && GS.useSeparateApi) {
         if (!GS.mainApiKey.trim()) {
           showToast('请输入正文专用 API Key');
           return;
@@ -794,7 +843,7 @@ export function bindSetupEvents() {
         GS.heroineProfile.age = tpl.age;
         GS.heroineProfile.job = tpl.publicIdentity;
         if (tpl.publicIdentity === '队友的妹妹' && !GS.heroineProfile.profession) {
-          GS.heroineProfile.profession = '女团爱豆';
+          GS.heroineProfile.profession = (GS.gameMode === 'entSim') ? '爱豆' : '女团爱豆';
         }
         GS.heroineProfile.appearance = tpl.appearance.slice();
         GS.heroineProfile.personality = tpl.personality.slice();
@@ -845,8 +894,8 @@ export function bindSetupEvents() {
           GS.heroineProfile.job = this.value;
           if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
         }
-        if (GS.gameMode === 'oneHeart' && this.value === '队友的妹妹' && !GS.heroineProfile.profession) {
-          GS.heroineProfile.profession = '女团爱豆';
+        if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && this.value === '队友的妹妹' && !GS.heroineProfile.profession) {
+          GS.heroineProfile.profession = (GS.gameMode === 'entSim') ? '爱豆' : '女团爱豆';
         }
         saveGame();
         renderAll();
@@ -914,7 +963,7 @@ export function bindSetupEvents() {
     }, false);
 
     // 模式特定绑定
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
       document.querySelectorAll('#oneHeartMemberGrid .member-chip').forEach(function(chip) {
         chip.addEventListener('click', function() {
           GS.oneHeartMember = this.dataset.id;
@@ -1030,6 +1079,27 @@ export function bindSetupEvents() {
         saveGame();
         renderAll();
       });
+    } else if (GS.gameMode === 'entSim') {
+      // 娱乐圈模拟器：世界观锁定=娱乐圈，仅绑定写作风格 + 下一步
+      GS.worldSetting = 'entertainment';
+      document.querySelectorAll('#styleGrid .style-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          GS.writingStyle = this.dataset.id;
+          saveGame();
+          renderAll();
+        });
+      });
+      document.getElementById('step3Next').addEventListener('click', function() {
+        if (!GS.writingStyle) { showToast('请选择写作风格'); return; }
+        GS.step = 4;
+        saveGame();
+        renderAll();
+      });
+      document.getElementById('step3Back').addEventListener('click', function() {
+        GS.step = 2;
+        saveGame();
+        renderAll();
+      });
     } else {
       document.querySelectorAll('#memberGrid .member-chip').forEach(function(chip) {
         chip.addEventListener('click', function() {
@@ -1059,9 +1129,43 @@ export function bindSetupEvents() {
   }
 
   if (GS.step === 4) {
-    if (GS.gameMode === 'oneHeart') {
+    if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') {
       document.getElementById('step4Start').addEventListener('click', async function() {
         if (!GS.oneHeartMember) return;
+        // [entSim] 娱乐圈模拟器：完全独立的初始化路径，不复用 oneHeart 关系网/情敌/种子生成
+        if (GS.gameMode === 'entSim') {
+          GS.selectedMembers = [GS.oneHeartMember];
+          GS.affection = {};
+          initEntSimState();
+          GS.step = 5;
+          GS.day = 1;
+          GS.currentDatingLocation = null;
+          GS.phaseIndex = 0;
+          GS.stayCount = 0;
+          GS.phaseOptionCount = 0; GS.phaseFreeCount = 0;
+          GS.todayFullText = [];
+          GS.consequenceNarratives = [];
+          GS.currentOptions = [];
+          GS.phaseNarrative = '';
+          GS._isGenerating = false;
+          GS._entSimGenerating = false;
+          GS._entSimCurrent = null;
+          GS._entSimNarrativeBuffer = '';
+          // 生成 365 天日期（复用 oneHeart 日期生成器，仅作时间背景）
+          var _esDates = generateOneHeartDates();
+          GS.season = _esDates.season;
+          GS.gameMonth = _esDates.month;
+          GS.gameDates = _esDates.dates;
+          GS.currentDate = _esDates.dates[0];
+          var _esSeason = getSeasonByMonth(GS.currentDate.month);
+          if (_esSeason) GS.season = _esSeason.season;
+          GS.weather = generateDailyWeather('', GS.season);
+          GS.weathers = [];
+          GS.todayHoliday = null;
+          saveGame();
+          renderAll(); // renderEntSimGameScreen 检测到空剧情会自动生成首轮
+          return;
+        }
         // 身份与世界观兼容性检查
         var _compat = WORLD_IDENTITY_COMPATIBILITY[GS.worldSetting];
         if (_compat && _compat !== 'all' && GS.heroineProfile && GS.heroineProfile.job && _compat.indexOf(GS.heroineProfile.job) < 0) {
@@ -1075,7 +1179,7 @@ export function bindSetupEvents() {
         // [deprecated] 专属昵称机制已移除：男主对女主称呼按感情阶段自然推进，不再锁定固定爱称
         GS.oneHeartPetName = '';
         // [女团背景] 队友的妹妹·女团爱豆线：拼装 6 人女团背景（女主固定门面 + 忙内）
-        if (isSisterSetting() && GS.heroineProfile && GS.heroineProfile.profession === '女团爱豆') {
+        if (isSisterSetting() && GS.heroineProfile && isIdolProfession(GS.heroineProfile.profession)) {
           GS.oneHeartHeroineGroup = buildHeroineGirlGroup(GS.heroineProfile.name);
         }
         GS.step = 5;
@@ -1241,13 +1345,18 @@ export function bindSetupEvents() {
                 '；习惯：' + (_seedMember.habits || []).join('，') + '；怪习惯：' + (_seedMember.quirks || []).join('，') +
                 '；口头禅：' + (_seedMember.catchphrases || []).join('，') + '）是男主，女主是他亲哥哥「' + _seedRel.name + '」的妹妹。' +
                 '两人初次见面，女主只当他是哥哥队友、毫无心动，但男主已对她有意。\n请返回JSON：\n{\n' +
-                '  "seed": "200字以内的「男主对女主上心的种子事件」：一个具体小场景 + 男主隐藏的心动反应，后续可在告白或吃醋时被男主回溯回忆。类型自由（如：女主无意哼了男主写的歌 / 女主帮男主解围 / 女主某句话戳中男主 / 女主被哥哥吐槽的瞬间被男主看到等），不要每次都是哼歌。",\n' +
+                '  "seed": "200字以内的「男主对女主上心的种子事件」：一个具体小场景 + 男主隐藏的心动反应，后续可在告白或吃醋时被男主回溯回忆。类型自由（如：女主随口哼唱一段自己爱哼的旋律或当下流行的歌、男主无意听到被击中 / 女主帮男主解围 / 女主某句话戳中男主 / 女主被哥哥吐槽的瞬间被男主看到等），不要每次都是哼歌。",\n' +
+                '  "musicConstraint": "⚠️ 涉及音乐动机时的硬性方向约束：只允许【女主主动哼唱 → 男主旁听被击中】这一个方向，且歌必须是女主凭自身可能听过/会唱的（她自己随口哼的旋律、当下流行歌、或男主所在团体已公开发行的歌曲）。严禁写“男主未发表/写完没人听/全专最没人记得”的歌——女主无从知晓却在那里哼，逻辑矛盾。若选择音乐类种子，务必遵守此约束。",\n' +
                 '  "mannerisms": ["对在意的人不自觉流露的专属小动作1（≤20字，需体现角色辨识度）","专属小动作2（≤20字）"]\n}\n只返回JSON，不要解释。';
               var _seedRes = await callDeepSeek(_seedPrompt, '生成种子事件与小动作', 600, false, 0.9);
               var _seedParsed = safeParseJson(_seedRes);
               if (_seedParsed) {
-                if (_seedParsed.seed && typeof _seedParsed.seed === 'string' && _seedParsed.seed.trim().length >= 40) {
-                  GS.oneHeartSeedEvent = _seedParsed.seed.trim();
+                var _seedText = (_seedParsed.seed || '').trim();
+                // [seed 护栏] 代码层确定性兜底：若 AI 返回的音乐类种子仍踩"男主写的冷门/无人听/未发表"矛盾，
+                // 直接弃用，回落到下方已修正的中性模板（不依赖 AI 遵守 prompt）。
+                var _seedForbidden = /男主写.{0,8}(冷门|没人|无人|未发表|全专)|全专最没人记得|未发表.{0,8}歌|写完.{0,8}没人/.test(_seedText);
+                if (_seedText.length >= 40 && !_seedForbidden) {
+                  GS.oneHeartSeedEvent = _seedText;
                 }
                 if (_seedParsed.mannerisms && _seedParsed.mannerisms.length) {
                   GS.oneHeartMannerisms = _seedParsed.mannerisms
@@ -1259,7 +1368,7 @@ export function bindSetupEvents() {
           }
           // 兜底：种子事件固定模板
           if (!GS.oneHeartSeedEvent) {
-            GS.oneHeartSeedEvent = '练习室里女主无聊哼起男主写的一首冷门歌的副歌，男主推门听见时脚步顿了半拍——那是全专最没人记得的一首，却被她哼得正好。他没说话，只是后来录音时悄悄把那段副歌加了一轨和她哼的一样的即兴转音。';
+            GS.oneHeartSeedEvent = '练习室里女主练习间隙随口哼起一段旋律，男主推门进来拿水时听见，脚步顿了半拍——她哼的是时下正流行的副歌，跑调却自得其乐，他没出声，只是后来在歌单里悄悄把那首歌置了顶。';
           }
           // 兜底：从男主习惯取两条动作类小动作
           if (!GS.oneHeartMannerisms || GS.oneHeartMannerisms.length === 0) {
@@ -1400,9 +1509,8 @@ export function toggleArrayItem(arr, val) {
 
 // ==================== 游戏界面渲染 ====================
 export function renderGameScreen() {
-  if (GS.gameMode === 'oneHeart') {
-    return renderOneHeartGameScreen();
-  }
+  if (GS.gameMode === 'entSim') return renderEntSimGameScreen();
+  if (GS.gameMode === 'oneHeart') return renderOneHeartGameScreen();
   var members = GS.selectedMembers.map(function(id) {
     return MEMBERS.find(function(m) { return m.id === id; });
   });
@@ -1812,11 +1920,8 @@ export function renderEndingScreen(members) {
 
 export function bindGameEvents() {
   window.showOneHeartMainlineModal = showOneHeartMainlineModal;
-  // 1v1 模式事件绑定
-  if (GS.gameMode === 'oneHeart') {
-    bindOneHeartEvents();
-    return;
-  }
+  if (GS.gameMode === 'entSim') { bindEntSimEvents(); return; }
+  if (GS.gameMode === 'oneHeart') { bindOneHeartEvents(); return; }
   // 记忆审查面板事件
   var mrToggle = document.getElementById('mrToggle');
   if (mrToggle) {
@@ -2465,12 +2570,96 @@ export async function enterTestMode() {
 
 // ==================== 1v1 事件绑定 ====================
 
+// [entSim] 章节过场动画（全屏淡入遮罩，展示新阶段标题）
+export function showEntSimChapterTransition(chap) {
+  var _names = { 1: '练习生期', 2: '出道期', 3: '巅峰期' };
+  var _desc = {
+    2: '练习生熬过了考核与等待——你终于拿到了出道位。镜头与舞台向你打开，曝光与资源一起涌来，恋情却也必须更小心地藏进阴影里。',
+    3: '你站到了行业的顶端。顶流的聚光灯下，每一个选择都被放大：公开还是地下？事业还是爱情？这一章，由你定义结局。'
+  };
+  var _name = _names[chap] || ('第' + chap + '章');
+  var overlay = document.createElement('div');
+  overlay.className = 'entSim-chapter-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+    'background:linear-gradient(160deg, rgba(24,20,46,0.96), rgba(40,30,70,0.96));color:#fff;text-align:center;opacity:0;transition:opacity .6s ease;';
+  overlay.innerHTML =
+    '<div style="font-size:14px;letter-spacing:6px;color:#b9aee0;margin-bottom:14px">CHAPTER ' + chap + '</div>' +
+    '<div style="font-size:34px;font-weight:700;margin-bottom:18px;background:linear-gradient(90deg,#c9b8ff,#9ad0a0);-webkit-background-clip:text;background-clip:text;color:transparent">' + _name + '</div>' +
+    '<div style="max-width:420px;font-size:14px;line-height:1.9;color:#e6e1f5;padding:0 24px">' + (_desc[chap] || '') + '</div>';
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function() { overlay.style.opacity = '1'; });
+  setTimeout(function() { overlay.style.opacity = '0'; }, 3200);
+  setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 3900);
+}
+window.showEntSimChapterTransition = showEntSimChapterTransition;
+
+// [entSim] 事业面板：展示人气 / 等级 / 章节 / 曝光 / 今日日程进度
+export function showEntSimCareerPanel() {
+  var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
+  var _pop = GS.entSimPopularity || 0;
+  var _lv = getEntSimCareerLevel(_pop);
+  var _chap = GS.entSimChapter || 1;
+  var _chapName = _chap === 1 ? '练习生期' : (_chap === 2 ? '出道期' : '巅峰期');
+  var _round = GS.entSimChapterRound || 0;
+  var _nextRoundNeed = _chap === 1 ? (8 - _round) : (_chap === 2 ? (15 - _round) : 0);
+  var _popNeed = _chap === 1 ? Math.max(0, 50 - _pop) : (_chap === 2 ? Math.max(0, 80 - _pop) : 0);
+  var _prog = _chap >= 3 ? '已是最终章（巅峰期，无限推进）' : ('再写 ' + _nextRoundNeed + ' 个剧情回合，或人气再涨 ' + _popNeed + ' 即可进入下一章');
+  var _agendaHtml = '';
+  if (GS.entSimTodayAgenda && GS.entSimTodayAgenda.length) {
+    _agendaHtml = '<div style="margin-top:8px">';
+    for (var i = 0; i < GS.entSimTodayAgenda.length; i++) {
+      var a = GS.entSimTodayAgenda[i];
+      var done = (GS.entSimAgendaDone || []).indexOf(a.id) >= 0;
+      _agendaHtml += '<div style="font-size:12px;color:' + (done ? '#9ad0a0' : '#e6e1f5') + '">' + (done ? '✓ ' : '○ ') + escHtml(a.task) + (done ? '（已完成）' : '') + '</div>';
+    }
+    _agendaHtml += '</div>';
+  } else {
+    _agendaHtml = '<div style="font-size:12px;color:#b9aee0;margin-top:8px">今天暂无档期安排。</div>';
+  }
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-content" style="max-width:460px">' +
+    '<h3 style="margin:0 0 14px;font-size:17px;color:var(--text-primary)">📊 我的娱乐圈事业</h3>' +
+    '<div style="font-size:13px;line-height:2;color:var(--text-primary)">' +
+    '职业：<b>' + escHtml(_prof) + '</b><br>' +
+    '当前章节：<b>' + _chapName + '</b>（第 ' + _chap + ' 章）<br>' +
+    '曝光风险：<b>' + (GS.exposureRisk || 0) + '/100</b>' +
+    '</div>' +
+    '<div style="margin:14px 0">' +
+    '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-primary);margin-bottom:6px"><span>人气 ' + _pop + '/100</span><span>' + _lv + '</span></div>' +
+    '<div style="height:10px;border-radius:6px;background:rgba(124,111,240,0.18);overflow:hidden"><div style="height:100%;width:' + _pop + '%;background:linear-gradient(90deg,#7c6ff0,#9ad0a0)"></div></div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#b9aee0;margin-bottom:10px">📈 ' + _prog + '</div>' +
+    '<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">今日日程</div>' +
+    _agendaHtml +
+    '<button class="modal-close-x" id="entSimCareerClose">✕</button>' +
+    '<div style="margin-top:16px;text-align:right"><button id="entSimCareerOk" class="btn-secondary">关闭</button></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#entSimCareerClose').addEventListener('click', function() { overlay.remove(); });
+  overlay.querySelector('#entSimCareerOk').addEventListener('click', function() { overlay.remove(); });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
+window.showEntSimCareerPanel = showEntSimCareerPanel;
+// 返回主菜单（entSim 驾驶舱顶栏「返回」按钮调用）
+window.returnToEntSimMenu = function() {
+  GS.step = 1;
+  var app = document.getElementById('app');
+  if (app) {
+    app.classList.remove('entsim-mode');
+    app.classList.remove('oneheart-mode');
+    app.innerHTML = renderSetupWizard();
+    bindSetupEvents();
+  }
+};
+
 // IMP-16：渲染娱乐圈今日行程条 + 探班按钮（仅娱乐圈世界观）
 function renderOneHeartActions() {
   // [F] 移除 24h 行程条：探班/约会改为独立按钮（与时钟/空档/疲劳概念脱钩）
   var box = document.getElementById('oneHeartScheduleStrip');
   if (!box) return;
-  if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') {
+  if ((GS.gameMode !== 'oneHeart' && GS.gameMode !== 'entSim') || GS.worldSetting !== 'entertainment') {
     box.innerHTML = '';
     return;
   }
@@ -2488,6 +2677,28 @@ function renderOneHeartActions() {
     html += '<span style="font-size:11px;color:#b9aee0">🤝哥哥立场：' + _bsText + ' · ' + _bhome + ' · 🔥绯闻热度 ' + _risk + '/100</span>';
   }
   html += '</div>';
+  // [entSim] 女主今日日程卡片（点击执行，非必做；做了有加成+偶遇剧情）
+  if (GS.gameMode === 'entSim') {
+    var _chapName = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+    html += '<div style="margin:10px 0;padding:10px 12px;border:1px solid var(--border-primary);border-radius:12px;background:rgba(124,111,240,0.06)">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#b9aee0;margin-bottom:6px"><span>🌟 今日日程（点击执行，非必做）　|　人气 ' + (GS.entSimPopularity || 0) + '（' + getEntSimCareerLevel(GS.entSimPopularity || 0) + '）　|　' + _chapName + '　|　曝光 ' + (GS.exposureRisk || 0) + '</span><button class="entSimCareerBtn oneheart-action-btn" style="font-size:11px;padding:2px 10px;margin:0">📊 事业</button></div>';
+    if (GS.entSimRestDay) {
+      html += '<div style="font-size:12px;color:#9ad0a0">🛌 今天没有行程，难得的休息日——可以发发朋友圈、翻翻手机，或静待夜晚的悄悄话。</div>';
+    } else if (!GS.entSimTodayAgenda || !GS.entSimTodayAgenda.length) {
+      html += '<div style="font-size:12px;color:#b9aee0">今天暂时没有档期安排。</div>';
+    } else {
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      for (var _ai = 0; _ai < GS.entSimTodayAgenda.length; _ai++) {
+        var _a = GS.entSimTodayAgenda[_ai];
+        var _done = GS.entSimAgendaDone.indexOf(_a.id) >= 0;
+        var _icon = _a.type === 'team' ? '👥' : '🎧';
+        html += '<button class="entSimAgendaBtn oneheart-action-btn" data-aid="' + _a.id + '"' + (_done ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>' +
+          _icon + ' ' + escHtml(_a.task) + (_done ? ' ✓' : '') + '</button>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
   box.innerHTML = html;
   var visitBtn = document.getElementById('btnOneHeartVisit');
   if (visitBtn && !_visitLocked) {
@@ -2507,6 +2718,21 @@ function bindOneHeartEvents() {
   var _visitBtn = document.getElementById('btnOneHeartVisit');
   if (_visitBtn && GS.oneHeartDateToday) _visitBtn.innerHTML = '🎬 探班（今日已约）';
   renderOneHeartActions();
+  // [entSim] 今日日程活动按钮绑定
+  if (GS.gameMode === 'entSim') {
+    var _agBtns = document.querySelectorAll('.entSimAgendaBtn');
+    for (var _b = 0; _b < _agBtns.length; _b++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var _aid = btn.getAttribute('data-aid');
+          if (_aid) doAgendaActivity(_aid);
+        });
+      })(_agBtns[_b]);
+    }
+    // [entSim] 事业面板按钮
+    var _careerBtn = document.querySelector('.entSimCareerBtn');
+    if (_careerBtn) _careerBtn.addEventListener('click', function() { showEntSimCareerPanel(); });
+  }
 
   // 操作区浮层 toggle（默认收起）
   var operationToggle = document.getElementById('operationToggle');
@@ -2636,7 +2862,7 @@ function bindOneHeartEvents() {
       saveGame();
       var _ob6 = document.getElementById('operationBody'); if (_ob6) _ob6.style.display = 'none';
       // [romance] 自由输入也可能是在回应仍 active 的事件（男主告白/营业CP曝光/彻底曝光抉择），先结算固定后果，避免事件被悄悄吞掉
-      if (GS.gameMode === 'oneHeart' && applyOneHeartEventEffects({ text: freeText, choiceText: freeText })) {
+      if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && applyOneHeartEventEffects({ text: freeText, choiceText: freeText })) {
         // 事件已结算（showToast 已提示），不重复处理，继续生成下一段剧情
       }
       await generateOneHeartRound();

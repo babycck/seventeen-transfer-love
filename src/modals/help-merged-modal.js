@@ -49,13 +49,13 @@ export function showHelpMergedModal() {
 }
 
 function buildRulesContent() {
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     var ohMember = MEMBERS.find(function(m) { return m.id === GS.oneHeartMember; });
     var world = ONE_HEART_WORLDS.find(function(w) { return w.id === GS.worldSetting; });
     var style = ONE_HEART_STYLES.find(function(s) { return s.id === GS.writingStyle; });
     return '<div style="font-size:12px;line-height:1.8;color:var(--text-secondary)">' +
       '<p><strong>💗 只为你心动（1v1 模式）</strong></p>' +
-      '<p><strong>📅 当前：' + (GS.gameMode === 'oneHeart' ? 'Round ' + (Math.floor((GS.oneHeartGenCount || 0) / 3) + 1) : 'Day ' + GS.day) + '</strong></p>' +
+      '<p><strong>📅 当前：' + ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') ? 'Round ' + (Math.floor((GS.oneHeartGenCount || 0) / 3) + 1) : 'Day ' + GS.day) + '</strong></p>' +
       '<p><strong>❤️ 心动对象：</strong>' + (ohMember ? ohMember.emoji + ' ' + escHtml(ohMember.name) : '未选择') + '</p>' +
       '<p><strong>🌍 世界观：</strong>' + (world ? world.name : '未选择') + ' · <strong>✍️ 风格：</strong>' + (style ? style.name : '未选择') + '</p>' +
       '<p><strong>📋 核心机制</strong></p>' +
@@ -99,7 +99,7 @@ function buildRulesContent() {
 }
 
 function buildManualContent() {
-  if (GS.gameMode === 'oneHeart') {
+  if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim')) {
     return oneHeartManualHTML();
   }
   return transferManualHTML();

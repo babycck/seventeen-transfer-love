@@ -3,7 +3,7 @@ import { MEMBERS } from '../data.js';
 import { parseNarrative } from '../parser.js';
 
 export function showReviewModal() {
-  var isOneHeart = GS.gameMode === 'oneHeart';
+  var isOneHeart = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim');
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.style.zIndex = '200';
@@ -350,7 +350,7 @@ function buildPromisesContent() {
 }
 
 function buildSummaryContent() {
-  var isOneHeart = GS.gameMode === 'oneHeart';
+  var isOneHeart = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim');
   var summaries = GS.dailySummaries || [];
   var eventLog = GS.oneHeartEventLog || [];
   var html = '';

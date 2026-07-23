@@ -957,18 +957,69 @@ export var ONE_HEART_WORLDS = [
     promptSuffix: '末世设定：世界崩坏后第X年，丧尸/辐射/资源短缺。你们是一个小型幸存者团队的成员。日常：外出搜刮物资、修缮避难所、警戒放哨、分配食物。氛围：绝望中的人性光辉，弱肉强食的残酷法则下，他是你唯一可以后背相托的人。关系：末日中建立的感情——不是因为浪漫，而是因为信任。'
   },
   {
-    id: 'entertainment',
-    name: '娱乐圈地下恋',
-    desc: '你和他是互有好感的暧昧关系，但还没有正式在一起。他是SEVENTEEN成员，你是圈内幕后工作人员。台上偶遇营业，台下偷偷见面——一场不能被发现的暧昧。',
-    promptSuffix: '娱乐圈设定：他是当红团体SEVENTEEN成员，你是圈内幕后工作人员（化妆师/造型师/编剧）。你们互有好感，但还没有正式确认关系。暧昧在镜头下克制，在独处时升温。日常：拍摄现场偶遇、深夜偷偷见面、用工作身份打掩护、躲避私生和狗仔。氛围：甜在暧昧未确认的阶段——每一次靠近都是试探，每一次独处都是冒险。一旦曝光，对他是事业毁灭打击——你们能走多远？'
-  },
-  {
     id: 'custom',
     name: '✍️ 自定义世界',
     desc: '由你亲手书写世界观设定，一切由你做主。',
     promptSuffix: ''
   }
 ];
+
+// [entSim] 娱乐圈模拟器·职业（4 选 1，身份锁定=队友的妹妹）
+// name = 显示名；startChapter = 开局章节（1=练习生期 / 2=出道期，练习生经历后出道转 2）
+export var ENT_SIM_PROFESSIONS = [
+  { name: '练习生', startChapter: 1 },
+  { name: '爱豆', startChapter: 2 },
+  { name: 'solo歌手', startChapter: 2 },
+  { name: '演员', startChapter: 2 }
+];
+
+// [entSim] 娱乐圈模拟器·职业初始人气（0-100，按职业差异化）
+export var ENT_SIM_PROF_POPULARITY = {
+  '练习生': 10,
+  '爱豆': 40,
+  'solo歌手': 35,
+  '演员': 30
+};
+
+// [entSim] 娱乐圈模拟器·每日日程池（按职业）
+// 每项：task 活动 / place 地点 / cat 类别 / type team(团体公开·易遇人) | solo(单人·易刷手机) / exposure 公开活动曝光加成
+// encounterHint：该活动自然会「遇到谁 / 看到什么」，供 AI 生成分支剧情参考
+export var ENT_SIM_AGENDA_POOLS = {
+  '练习生': [
+    { task: '月末评价排练', place: '公司练习室', cat: '练习', type: 'solo', exposure: 0, encounterHint: '练习间隙刷手机，看到男主新物料推送被队友调侃"你看得挺认真啊"；也可能撞见来探班的哥哥' },
+    { task: '声乐课', place: '声乐教室', cat: '练习', type: 'solo', exposure: 0, encounterHint: '上课时收到公司群消息，看到男主团体回归预告，心里小小期待' },
+    { task: '舞蹈课', place: '舞蹈教室', cat: '练习', type: 'team', exposure: 0, encounterHint: '和同期练习生一起练，聊起"你哥他们又上音银了"，你表面淡定' },
+    { task: '公司宿舍夜话', place: '练习生宿舍', cat: '生活', type: 'team', exposure: 0, encounterHint: '舍友八卦谁谁被淘汰，你担心自己，也想起哥哥说过"别给自己太大压力"' },
+    { task: '前辈探班', place: '公司走廊', cat: '社交', type: 'team', exposure: 0, encounterHint: '遇到出道的前辈，被鼓励几句；也可能偶遇来公司的哥哥和男主' },
+    { task: '出道组选拔观摩', place: '评审室门外', cat: '评价', type: 'solo', exposure: 0, encounterHint: '远远看到评审进出，紧张得手心出汗，偷偷给哥哥发消息求鼓励' }
+  ],
+  '爱豆': [
+    { task: '音乐节目打歌', place: '音乐节目待机室', cat: '打歌', type: 'team', exposure: 2, encounterHint: '后台撞见同期的 SEVENTEEN 候补舞台，哥哥悄悄对你比"加油"；也可能和男主舞台擦肩' },
+    { task: '回归 showcase', place: '演唱会场馆', cat: '回归', type: 'team', exposure: 2, encounterHint: '台上表演时余光扫到观众席里的男主，心跳漏一拍；签售时粉丝问"姐姐有男朋友吗"' },
+    { task: '签售会', place: '签售现场', cat: '粉丝', type: 'team', exposure: 1, encounterHint: '粉丝问"姐姐理想型""有没有喜欢的人"，你笑着打太极；有人递来男主相关应援被你悄悄收下' },
+    { task: '练习室合宿', place: '团体宿舍', cat: '练习', type: 'team', exposure: 0, encounterHint: '和姐姐们一起练，某位姐姐（争门面的）抢了你 part，你有点闷；哥哥发消息问你们吃了没' },
+    { task: '画报拍摄', place: '摄影棚', cat: '拍摄', type: 'solo', exposure: 3, encounterHint: '拍照时被站姐拍到戴了和男主同款饰品，后来网上有人扒"同款"，你一阵心虚' },
+    { task: 'Vlive 直播', place: '宿舍直播间', cat: '粉丝', type: 'solo', exposure: 1, encounterHint: '直播时粉丝刷"想看你和哥哥同框"，你岔开话题；弹幕有人问恋爱观' },
+    { task: '综艺录制', place: '综艺摄影棚', cat: '综艺', type: 'team', exposure: 2, encounterHint: '和哥哥同台当嘉宾，被主持人起哄"兄妹默契"，男主在台下看着笑' },
+    { task: '海外签售', place: '海外场馆', cat: '粉丝', type: 'team', exposure: 1, encounterHint: '海外行程和男主巡演撞期，两人都忙见不到，视频时各自叹气' }
+  ],
+  'solo歌手': [
+    { task: '写歌 / 编曲 demo', place: '个人工作室', cat: '创作', type: 'solo', exposure: 0, encounterHint: '写歌时灵感卡壳，想起男主某句随口哼的旋律，默默写进副歌；收到男主"写歌顺利吗"的微信' },
+    { task: '录音棚录制', place: '录音棚', cat: '录制', type: 'solo', exposure: 0, encounterHint: '录音时耳机里放男主写的歌找感觉，被制作人问"你笑什么"' },
+    { task: '个人舞台彩排', place: '电视台舞台', cat: '舞台', type: 'team', exposure: 2, encounterHint: '彩排遇到男主当天也有通告，两人后台点头示意，被站姐拍到"同框"' },
+    { task: '音源发布日', place: '公司会议室', cat: '发布', type: 'solo', exposure: 2, encounterHint: '音源空降榜单，你紧张刷新；男主发来祝贺，你嘴硬"运气好"' },
+    { task: '音乐节', place: '音乐节现场', cat: '舞台', type: 'team', exposure: 2, encounterHint: '音乐节和男主乐队同台不同场，演出完在后台聊两句被拍' },
+    { task: '颁奖礼提名', place: '颁奖礼红毯', cat: '典礼', type: 'team', exposure: 3, encounterHint: '红毯被问"和某某（男主）认识吗"，你淡定否认；台下座位紧挨' }
+  ],
+  '演员': [
+    { task: '片场拍摄', place: '影视基地', cat: '拍摄', type: 'team', exposure: 1, encounterHint: '片场遇到同剧男主客串（若同剧），对手戏心跳加速；或被拍到和男主同剧组' },
+    { task: '剧本研读会', place: '剧组会议室', cat: '研读', type: 'team', exposure: 0, encounterHint: '和演员们围读，聊角色感情线，你想起自己和男主"戏外"的暧昧' },
+    { task: '试镜', place: '制片公司', cat: '试镜', type: 'solo', exposure: 0, encounterHint: '试镜等待时刷到男主新剧预告，暗暗较劲要演得更好' },
+    { task: '杂志专访', place: '采访间', cat: '采访', type: 'solo', exposure: 3, encounterHint: '被问"现实里有在追的人吗"，你答"专注事业"，编辑笑着记下' },
+    { task: '杀青感言', place: '杀青宴', cat: '典礼', type: 'team', exposure: 2, encounterHint: '杀青宴上被起哄和男主（若客串）"戏里戏外"，你举杯掩饰脸红' },
+    { task: '收视率之夜', place: '公司直播间', cat: '播剧', type: 'solo', exposure: 2, encounterHint: '守着收视率刷新，男主发"加油"，你回了个表情包' }
+  ]
+};
 
 // 写作风格
 export var ONE_HEART_STYLES = [
@@ -1297,7 +1348,11 @@ export var ONE_HEART_ENDING_TEMPLATES = {
   BE_RIVAL: { label: '情敌上位', desc: '情敌趁虚而入、反客为主，原男主出局。', tone: '苦涩、错位，写立场的悄然反转。' },
   BE_BROTHER: { label: '哥哥反对', desc: '哥哥强烈反对，关系被迫止步。', tone: '无奈、拉扯，写亲情与爱情的冲突。' },
   // —— 隐藏结局 ——
-  HIDDEN_RIVAL: { label: '和情敌在一起', desc: '你最终接受了情敌的心意，原男主成了过去式。', tone: '意外、反转、新的开始，写心之所向的坦诚。' }
+  HIDDEN_RIVAL: { label: '和情敌在一起', desc: '你最终接受了情敌的心意，原男主成了过去式。', tone: '意外、反转、新的开始，写心之所向的坦诚。' },
+  // —— 娱乐圈模拟器·事业向结局（entSim）——
+  HE_STAR: { label: '顶流情侣', desc: '人气冲顶（顶流）+ 感情稳固 + 哥哥祝福，事业爱情双丰收的圆满。', tone: '璀璨、笃定、有未来感。写两人各自在事业巅峰仍紧握彼此的手，公开或被祝福的那一刻，以及并肩走下去的底气。' },
+  NE_CAREER: { label: '事业独美', desc: '人气冲顶但感情没走到一起——女主选择专注事业，活成自己的光。', tone: '清醒、疏离却从容。写她在事业巅峰时的独当一面，对那段无果的感情只剩淡淡余温，不遗憾、不回头。' },
+  BE_CAREER: { label: '事业塌房', desc: '人气崩盘 + 曝光翻车，人设与事业一起垮掉。', tone: '狼狈、清醒、余震不断。写从高处跌落的过程，以及她在废墟里重新审视自己，保持人物尊严不彻底狗血。' }
 };
 
 // ==================== 1v1 情敌专属事件池 ====================

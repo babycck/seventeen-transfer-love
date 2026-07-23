@@ -26,7 +26,7 @@ function applyThemeDirect(theme) {
 
 function exportStoryTxt() {
   var text = '';
-  var isOneHeart = GS.gameMode === 'oneHeart';
+  var isOneHeart = (GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim');
   if (isOneHeart) {
     // 1v1 模式：从缓存 + 当前剧情拼接完整原文
     var allNarratives = [];
