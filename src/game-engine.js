@@ -1198,6 +1198,9 @@ export function applyOneHeartOptionAffection(opt) {
   var curAff = GS.affection[mid];
   var affDelta = opt.affDelta || 0;
 
+  // [romance] 事件后果优先：玩家用「选项」或「自由输入」回应告白/营业CP/曝光事件时，先结算固定后果
+  if (applyOneHeartEventEffects(opt)) return;
+
   // [修复B] 情敌专属增减只走 rivalAffDelta，不再据此吞掉男主好感
   if (!GS._rivalSwitched && GS.oneHeartRival && typeof opt.rivalAffDelta === 'number' && opt.rivalAffDelta !== 0) {
     updateRivalTendency(opt.rivalAffDelta, opt.affReason || '主线选项涉及情敌');
@@ -1221,8 +1224,105 @@ export function applyOneHeartOptionAffection(opt) {
   addAffectionLog(mid, finalDelta, opt.affReason || '你选择了某个行动' + (finalDelta !== affDelta ? '（防通胀调整：原' + affDelta + '）' : ''));
   // 约会检测：AI 标记 sceneType==='date' 的选项，后台结算绯闻热度/哥哥示好/锁探班
   if (opt.sceneType === 'date' || opt.sceneType === 'pubdate') {
-    applyDateEffects(opt.sceneType === 'pubdate');
+    // [cover] 地下恋掩护手段（仅队友的妹妹）：约会前选择，按累计次数轮转体验不同掩护
+    var _cover = '';
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
+      var _covers = ['brother', 'pretend', 'avoid', 'business', 'company'];
+      _cover = _covers[(GS.oneHeartCoverUsed || 0) % 5];
+    }
+    applyDateEffects(opt.sceneType === 'pubdate', _cover);
   }
+}
+
+// ==================== 1v1 事件固定后果结算（选项 / 自由输入 复用） ====================
+// 返回 true 表示本次输入命中并结算了一个 active 事件；调用方应 return，不再走通用好感应用
+export function applyOneHeartEventEffects(opt) {
+  if (!opt || GS.gameMode !== 'oneHeart') return false;
+  var mid = GS.oneHeartMember;
+  if (!mid) return false;
+
+  // 男主告白事件：接受 / 拒绝 / 拖延
+  if (GS.oneHeartConfessionActive && !GS._rivalSwitched) {
+    var _ct = (opt.text || '') + (opt.choiceText || '');
+    GS.oneHeartConfessionActive = false;
+    GS.oneHeartConfessionDone = true;
+    if (_ct.indexOf('接受') >= 0 || _ct.indexOf('答应') >= 0 || _ct.indexOf('愿意') >= 0) {
+      // 接受：stage 锁 2 + 哥哥 +5
+      GS.oneHeartRomanceStage = Math.max(GS.oneHeartRomanceStage || 0, 2);
+      updateBrotherStance(5, '男主告白被接受，哥哥更认可');
+      GS.oneHeartConfessionResult = 'accepted';
+      saveGame();
+      showToast('💗 你接受了他的告白');
+      return true;
+    } else if (_ct.indexOf('拒绝') >= 0 || _ct.indexOf('不行') >= 0 || _ct.indexOf('还没') >= 0 || _ct.indexOf('不想') >= 0) {
+      // 拒绝：aff-10 + 情敌+15 + 看人设疏远（内向→冷战2回合）
+      updateAffection(mid, -10);
+      if (!GS._rivalSwitched && GS.oneHeartRival) updateRivalTendency(15, '男主告白被拒，情敌趁虚而入');
+      var _mm = MEMBERS.find(function(m){ return m.id === mid; });
+      var _mp = (_mm && _mm.personality) || '';
+      if (_mp.indexOf('内向') >= 0) GS.oneHeartMaleColdUntil = (GS.oneHeartGenCount || 0) + 2;
+      GS.oneHeartConfessionResult = 'rejected';
+      saveGame();
+      showToast('💔 你拒绝了他');
+      return true;
+    } else {
+      // 拖延：冷却5回合 + 哥哥-3 + 触发哥哥谈话支线
+      GS.oneHeartConfessionCooldown = 5;
+      updateBrotherStance(-3, '告白被拖延，哥哥觉得你在吊着男主');
+      GS.oneHeartBroTalkPending = true;
+      GS.oneHeartConfessionResult = 'delayed';
+      saveGame();
+      showToast('⏳ 你拖延了他的告白');
+      return true;
+    }
+  }
+
+  // 营业CP被拍事件后果（公关澄清 / 不回应 / 公开）
+  if (GS.oneHeartCpScandalActive) {
+    var _ctC = (opt.text || '') + (opt.choiceText || '');
+    GS.oneHeartCpScandalActive = false;
+    if (_ctC.indexOf('公开') >= 0) {
+      GS.exposureRisk = 100;
+      GS.oneHeartPublicLine = true;
+      showToast('📸 你们顺势公开了');
+    } else if (_ctC.indexOf('公关澄清') >= 0 || _ctC.indexOf('澄清') >= 0) {
+      // [exposure] 手动公关每次哥哥-3；额度用尽时不得「假澄清」
+      if ((GS.oneHeartPrRemaining || 0) > 0) {
+        GS.oneHeartPrRemaining -= 1;
+        GS.exposureRisk = Math.max(0, (GS.exposureRisk || 0) - 10);
+        updateBrotherStance(-3, '手动公关澄清，哥哥觉得你又惹绯闻');
+        if (!GS._rivalSwitched && GS.oneHeartRival) updateRivalTendency(-5, '公关澄清，情敌被撇清');
+        showToast('📢 公关澄清，热度下降（剩余公关 ' + GS.oneHeartPrRemaining + ' 次）');
+      } else {
+        showToast('⚠️ 手动公关额度已用完，无法澄清（可考虑不回应或公开）');
+      }
+    } else {
+      GS.exposureRisk = Math.min(100, (GS.exposureRisk || 0) + 20);
+      showToast('🔥 不回应，热度持续上涨');
+    }
+    saveGame();
+    return true;
+  }
+
+  // 彻底曝光公开抉择后果
+  if (GS.oneHeartExposureChoiceActive) {
+    var _ctE = (opt.text || '') + (opt.choiceText || '');
+    GS.oneHeartExposureChoiceActive = false;
+    GS.oneHeartExposureChoiceDone = true;
+    if (_ctE.indexOf('公开承认') >= 0 || _ctE.indexOf('公开') >= 0) {
+      GS.oneHeartPublicLine = true;
+      GS.exposureRisk = 100;
+    } else if (_ctE.indexOf('坚决否认') >= 0 || _ctE.indexOf('否认') >= 0) {
+      GS.exposureRisk = Math.max(0, Math.min(100, (GS.exposureRisk || 0) - 30));
+    } else {
+      GS.exposureRisk = Math.max(0, (GS.exposureRisk || 0) - 15);
+    }
+    saveGame();
+    showToast('⚖️ 你做出了曝光抉择');
+    return true;
+  }
+
+  return false;
 }
 
 // ==================== 1v1 情敌阶段检测与触发 ====================
@@ -2011,10 +2111,34 @@ export function updateBrotherStance(delta, reason) {
 }
 
 // 约会效果结算：由 sceneType==='date' 选项触发，后台累加绯闻热度 + 哥哥示好 + 锁探班
-function applyDateEffects(isPublic) {
+function applyDateEffects(isPublic, cover) {
   if (GS.gameMode !== 'oneHeart' || GS.worldSetting !== 'entertainment') return;
   if (GS.oneHeartDateToday) return;
   var _delta = isPublic ? 10 : 1;
+  // [cover] 地下恋掩护手段（仅队友的妹妹）：约会前选择，影响曝光/支持度/情敌倾向
+  if (cover) {
+    GS.oneHeartCoverUsed = (GS.oneHeartCoverUsed || 0) + 1;
+    if (cover === 'pretend') {
+      // 假装不熟：曝光略降，推进慢（不额外减好感）
+      _delta = Math.max(0, _delta - 2);
+    } else if (cover === 'brother') {
+      // 借哥掩护：消耗哥哥支持度-3，可能转 testing
+      _delta = Math.max(0, _delta - 3);
+      updateBrotherStance(-3, '借哥哥打掩护，哥哥觉得被当工具');
+    } else if (cover === 'avoid') {
+      // 避嫌约会（包场/深夜/郊外）：质量+但被拍风险+
+      _delta = _delta + 4;
+    } else if (cover === 'business') {
+      // 营业掩护：情敌倾向+（仅队友的妹妹，情敌在场时）
+      if (!GS._rivalSwitched && GS.oneHeartRival) updateRivalTendency(3, '借营业掩护，情敌顺势靠近');
+      _delta = Math.max(0, _delta - 1);
+    } else if (cover === 'company') {
+      // 公司掩护：限量，曝光大降
+      _delta = Math.max(0, _delta - 10);
+    }
+    // 累计3次粉丝起疑→曝光+
+    if ((GS.oneHeartCoverUsed || 0) >= 3) GS.exposureRisk = Math.min(100, (GS.exposureRisk || 0) + 5);
+  }
   GS.exposureRisk = Math.max(0, Math.min(100, (GS.exposureRisk || 0) + _delta));
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     if (GS.brotherAtHome) {
@@ -2022,8 +2146,9 @@ function applyDateEffects(isPublic) {
     }
   }
   GS.oneHeartDateToday = true;
+  GS.oneHeartEverDated = true; // [romance] 记录曾约会，作为男主告白事件门槛
   saveGame();
-  showToast('💞 约会场景已记录，绯闻热度 +' + _delta + (GS.brotherAtHome ? '，哥哥关注+2' : ''));
+  showToast('💞 约会场景已记录' + (cover ? '（掩护：' + cover + '）' : '') + '，绯闻热度 +' + _delta + (GS.brotherAtHome ? '，哥哥关注+2' : ''));
 }
 
 // 项5：绯闻热度累加（仅娱乐圈·队友的妹妹，0~100）。
@@ -2105,6 +2230,8 @@ window.handleBrotherChat = handleBrotherChat;
 // IMP-18：1v1 结局判定（聚合既有仪表盘，不新增独立数值）
 // 输入：brotherStance(IMP-17) / oneHeartRivalAff(情敌倾向) / GS.mood(IMP-13) / oneHeartScandalPool(曝光) / affection(男主好感)
 export function evaluateEnding() {
+  // [stability] 结局只应在「走向大结局」时判定一次；缓存后重复调用（UI 重渲染等）结果不变，避免 HE_BABY 随机跳变
+  if (GS.oneHeartEndingRes) return GS.oneHeartEndingRes;
   var aff = GS.affection[GS.oneHeartMember] || 0;
   var brother = GS.brotherStance || 'consultant';
   var rival = GS.oneHeartRivalAff || 0; // >0 女主偏向情敌；<0 情敌线翻车（对正主有利）
@@ -2131,12 +2258,32 @@ export function evaluateEnding() {
   else score += Math.min(10, -rival * 0.3); // 情敌翻车→略加分
   score -= scandal * 5; // 曝光翻车重罚
   score += moodVal * 5;
+  // [endings] 10+ 细分结局（综合：哥哥立场 × 情敌倾向 × 曝光 × 是否公开）
   var type;
-  if (scandal >= 3 || rival >= 50 || aff < 20) type = 'BE';
-  else if (score >= 35 && aff >= 60 && brother === 'supportive') type = 'HE';
-  else if (score <= 0) type = 'BE';
+  // 情敌隐藏结局（已接受情敌告白转正 → 和情敌在一起）
+  if (GS._rivalSwitched) type = 'HIDDEN_RIVAL';
+  // BE 档细分
+  else if (scandal >= 3 || (GS.exposureRisk || 0) >= 90) type = 'BE_SCANDAL';
+  else if (rival >= 50) type = 'BE_RIVAL';
+  else if (brother === 'protective' && aff < 60) type = 'BE_BROTHER';
+  else if (aff < 20) type = 'BE';
+  // HE 档细分
+  else if (aff >= 60 && brother !== 'protective') {
+    if (GS.oneHeartPublicLine) type = 'HE_PUBLIC';
+    else if (aff >= 80 && (GS.oneHeartRomanceStage || 0) >= 3 && Math.random() < 0.3) type = 'HE_BABY';
+    else if (scandal === 0) type = 'HE_UNDERGROUND';
+    else type = 'HE';
+  }
+  // NE 档细分
+  else if (aff >= 40) {
+    if (brother === 'consultant') type = 'NE_DISTANCE';
+    else type = 'NE_PEACE';
+  }
+  else if (aff >= 20) type = 'NE_AMBIGUOUS';
   else type = 'NE';
-  return { endingType: type, meters: meters, score: Math.round(score) };
+  var _res = { endingType: type, meters: meters, score: Math.round(score) };
+  GS.oneHeartEndingRes = _res;
+  return _res;
 }
 
 // IMP-18：rollEnding（同档内轻随机，仅影响文案语气，不改变档位结论）
@@ -2157,6 +2304,8 @@ export function updateOneHeartRomanceStage() {
   else if (_aff >= 20) _stage = 1;
   else _stage = 0;
   if (GS.oneHeartRomanceStage !== _stage) {
+    // 0→1 升阶：触发「心动时刻」高光（仅首次进入暧昧期）
+    if (_stage === 1 && GS.oneHeartRomanceStage === 0) GS.oneHeartPendingHeartbeat = true;
     GS.oneHeartRomanceStage = _stage;
     saveGame();
   }
@@ -2203,6 +2352,25 @@ export function generateOneHeartSchedule() {
       schedule[r.key].awayReason = (pick.cat === '行程') ? pick.task : '';
     }
   }
+  // [social] 行程改进（仅队友的妹妹）：空白日 + 两人同闲 + 情敌档倾向
+  if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
+    var _gcS = GS.oneHeartGenCount || 0;
+    if (_gcS > 0 && _gcS % 5 === 0) {
+      // 空白日：三人都忙→女主独处（触发秘密/朋友圈/剧场）
+      schedule.main = null; schedule.related = null; schedule.rival = null;
+      GS.oneHeartBlankDay = true;
+    } else {
+      GS.oneHeartBlankDay = false;
+      // 两人同时空闲（随机20%）：main 与 rival 同闲，制造焦虑
+      if (Math.random() < 0.2 && schedule.main && schedule.rival) {
+        schedule.main.freeTogether = true;
+        schedule.rival.freeTogether = true;
+      }
+    }
+    // 情敌档被选中→情敌倾向+（轻量，看选项）
+    if (schedule.rival && !GS._rivalSwitched) updateRivalTendency(1, '行程档期让女主与情敌多有接触');
+  }
+
   // IMP-17：由哥哥（related）行程派生「是否在家」——仅队友的妹妹设定有意义
   if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
     var _relSch = schedule.related;
@@ -2353,6 +2521,14 @@ export async function generateOneHeartRound(extra) {
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
       generateDailyNews();
     }
+    // [fix#4] 清除上一轮遗留的「事件进行中」标志：当玩家上一轮用自由输入而非选项回应时，
+    // applyOneHeartOptionAffection 不会被调用、active 标志不会被清除，会误吞本轮正常选项的后果。
+    // 事件按其自身条件（confession 看好感/未done、cpScandal/exposure 看 done 标志）会在本轮重新注入，故清除安全。
+    if (GS.gameMode === 'oneHeart') {
+      GS.oneHeartConfessionActive = false;
+      GS.oneHeartCpScandalActive = false;
+      GS.oneHeartExposureChoiceActive = false;
+    }
     var _endType = '';
     var _endRes = null;
     if (extra.isEnding) {
@@ -2397,12 +2573,40 @@ export async function generateOneHeartRound(extra) {
       }
     }
 
-    // IMP-17 ⑦ 中点「哥哥的考验」：中局哥哥把男主单独叫去"谈谈"试探诚意（仅队友的妹妹设定）
+    // IMP-17 ⑦ 哥哥递进考验（三次，仅「队友的妹妹」设定）：中局试探 / 后局设局 / 结局前把关
     if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
-      if ((GS.oneHeartGenCount || 0) >= 15 && !GS.brotherTestNudged) {
-        userMsg += '[角色出场] 中局，哥哥把男主单独叫去"谈谈"——他想试探男主是否真心对你好（哥哥是参谋/掩护，不是反对者）。请自然写出这段试探、男主的紧张反应、以及你（女主）在旁的微妙心情。哥哥的立场会因此次互动而微妙变化。\n\n';
-        updateBrotherStance(3, '中局哥哥"谈谈"，更认可男主');
+      var _gc = GS.oneHeartGenCount || 0;
+      var _aff = GS.affection[GS.oneHeartMember] || 0;
+      var _bs = GS.brotherStance || 'consultant';
+      // "失败"代理：哥哥已不信任（testing/protective）时，本次考验给负向、更不放心；否则正向认可
+      var _lowTrust = (_bs === 'testing' || _bs === 'protective');
+      // 其一·中局试探（维持现状 genCount>=15）
+      if (_gc >= 15 && !GS.brotherTestNudged) {
+        userMsg += '[哥哥考验·其一] 中局，哥哥把男主单独叫去"谈谈"——他想试探男主是否真心对你好（哥哥是参谋/掩护角色，不是反对者）。请自然写出这段试探、男主的紧张反应、以及你（女主）在旁的微妙心情。\n\n';
+        updateBrotherStance(_lowTrust ? -3 : 3, _lowTrust ? '中局考验·男主未过关，哥哥更不放心' : '中局考验·更认可男主');
         GS.brotherTestNudged = true;
+        saveGame();
+      }
+      // 其二·后局设局：哥哥故意在男主面前安排妹妹和情敌独处，看男主反应
+      else if (_gc >= 30 && !GS.brotherTest2Nudged) {
+        var _rivalName2 = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '情敌';
+        userMsg += '[哥哥考验·其二] 后局，哥哥暗中设局：他故意在男主在场时安排情敌「' + _rivalName2 + '」送你回家 / 与你独处，想看看男主是沉得住气还是会吃醋失态。请写出男主的反应、情敌的微妙态度、以及你在局中的心情。哥哥在暗处观察你的反应与男主的表现。\n\n';
+        updateBrotherStance(_lowTrust ? -5 : 5, _lowTrust ? '设局考验·男主表现未让哥哥放心' : '设局考验·男主经得住，哥哥更认可');
+        GS.brotherTest2Nudged = true;
+        saveGame();
+      }
+      // 其三·结局前把关：好感达阈值，哥哥主动最后确认（须已进入后局，避免跳过前两次）
+      else if (_gc >= 40 && _aff >= 70 && !GS.brotherTest3Nudged) {
+        userMsg += '[哥哥考验·其三] 结局将至，哥哥主动把你叫到一边"把关"——他认真问你这段关系你到底想清楚没有、男主是不是能托付的人。这是他最后一次确认，语气里有哥哥的郑重，也有藏不住的舍不得。\n\n';
+        updateBrotherStance(_lowTrust ? -8 : 8, _lowTrust ? '最终把关·哥哥仍有顾虑' : '最终把关·哥哥彻底认可');
+        GS.brotherTest3Nudged = true;
+        saveGame();
+      }
+      // 哥哥察觉情敌异常（情敌倾向>=20）：哥哥作为情敌队友察觉情敌对妹妹上心，三重身份张力
+      if (GS.oneHeartRivalAff >= 20 && !GS.brotherRivalAware) {
+        var _rivalName3 = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '情敌';
+        userMsg += '[哥哥察觉情敌] 哥哥作为「' + _rivalName3 + '」的队友，察觉到情敌最近对你格外上心——排练时多看了你几眼、随口打听你的事。哥哥私下把情敌叫到一边警告"别打我妹主意"（两人单独，偶尔被你撞见）。哥哥是否把这件事告诉你，取决于他现在的立场（supportive 会提醒你提防，testing/protective 可能先按兵不动）。\n\n';
+        GS.brotherRivalAware = true;
         saveGame();
       }
     }
@@ -2414,6 +2618,95 @@ export async function generateOneHeartRound(extra) {
       if (_be) {
         userMsg += '[哥哥专属] 请触发以下哥哥相关剧情——根据当前世界观自然改编场景与互动方式，但保留核心情感互动：\n"' + _be.desc + '"\n';
         if (_be.stanceDelta) updateBrotherStance(_be.stanceDelta, _be.name);
+      }
+    }
+
+    // [secret] 女主秘密机制（仅娱乐圈·队友的妹妹）：哥哥调侃 / 男主发现 / 被撞破
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.heroineSecrets && GS.heroineSecrets.length && !extra.isEnding && !extra.isVisit) {
+      var _gs = GS.oneHeartGenCount || 0;
+      var _secPick = function(){ return GS.heroineSecrets[Math.floor(Math.random() * GS.heroineSecrets.length)]; };
+      // 哥哥调侃（间隔>=8回合，随机50%，可多次）
+      if (_gs - (GS.heroineSecretBroTeaseRound || 0) >= 8 && _gs > 6 && Math.random() < 0.5) {
+        userMsg += '[哥哥调侃秘密] 哥哥又拿你藏着的一件糗事打趣——' + _secPick() + '。他不是真生气，就是哥哥式地拿捏你，顺便提醒"藏好点别被队友看见"。请写出这段轻松又亲密的兄妹互动。\n\n';
+        GS.heroineSecretBroTeaseRound = _gs;
+      }
+      // 男主发现（间隔>=6回合，好感>=20，随机40%）
+      else if (_gs - (GS.heroineSecretMaleRound || 0) >= 6 && _gs > 4 && (GS.affection[GS.oneHeartMember] || 0) >= 20 && Math.random() < 0.4) {
+        userMsg += '[男主发现秘密] 男主意外撞见了你藏着的一件糗事——' + _secPick() + '。他没笑你，反而觉得这样的你很真实、很可爱。请写出他发现时的反应，以及这成了你们之间只有彼此知道的小秘密。\n\n';
+        GS.heroineSecretMaleRound = _gs;
+      }
+      // 被撞破（仅一次：情敌/队友撞见→把柄→曝光风险+8）
+      else if (GS.oneHeartRival && GS.oneHeartRival.name && !GS.heroineSecretFoundByRival && _gs - (GS.heroineSecretRivalRound || 0) >= 6 && _gs > 8 && Math.random() < 0.3) {
+        userMsg += '[秘密被撞破] 情敌「' + GS.oneHeartRival.name + '」无意中撞见了你藏着的事——' + _secPick() + '。他把这当成了拿捏你的小把柄，似笑非笑地没说破。这段若被抖出去就是绯闻素材（曝光风险上升）。请写出这一幕的微妙张力。\n\n';
+        GS.heroineSecretFoundByRival = true;
+        GS.heroineSecretRivalRound = _gs;
+        GS.exposureRisk = Math.min(100, (GS.exposureRisk || 0) + 8);
+      }
+    }
+
+    // [romance] 心动时刻（好感首破20进入暧昧期时，插在剧情开头写300字高光）
+    if (GS.oneHeartPendingHeartbeat && !extra.isEnding) {
+      userMsg += '[心动时刻] 请在本段剧情【开头】用约300字沉浸式描写女主第一次对男主「动心」的那个瞬间——具体的细节、心跳漏拍的感觉、一个让她愣神的画面（不必立刻挑明，可以只是「奇怪，他刚才那样笑的时候，我好像多看了两眼」）。纯文字高光，不要特效、不要标题框。写完后自然接回主线。\n\n';
+      GS.oneHeartPendingHeartbeat = false;
+      saveGame();
+    }
+    // [romance] 哥哥谈话支线（拖延告白后触发）：哥哥找女主谈话
+    if (GS.oneHeartBroTalkPending && !extra.isEnding) {
+      userMsg += '[哥哥谈话] 哥哥把你叫到一边，认真问你：「你是不是不喜欢他？不喜欢就说清楚，别耽误人家。」请写出哥哥作为哥哥的直白关心，以及你如何回应（可以解释你只是还没想好，或顺势坦白）。这句谈话应推动你对这段关系的态度。\n\n';
+      GS.oneHeartBroTalkPending = false;
+      saveGame();
+    }
+    // [romance] 男主冷战（拒绝后内向型，持续若干回合）
+    if ((GS.oneHeartGenCount || 0) < (GS.oneHeartMaleColdUntil || 0) && !extra.isEnding) {
+      userMsg += '[男主冷战] 男主因之前被你拒绝，这几回合略显疏远、刻意保持距离，但眼神里还藏着在意。请写出这种微妙的距离感，以及被你在意时他的细微松动。\n\n';
+    }
+    // [romance] 男主告白事件（好感>=60 + 哥哥非protective + 已约会 + 未触发 + 冷却过）
+    if (GS.gameMode === 'oneHeart' && !extra.isEnding && !GS.oneHeartConfessionDone && (GS.oneHeartConfessionCooldown || 0) <= 0 && !GS.oneHeartConfessionActive) {
+      var _affC = GS.affection[GS.oneHeartMember] || 0;
+      var _bsC = GS.brotherStance || 'consultant';
+      var _coldC = (GS.oneHeartGenCount || 0) < (GS.oneHeartMaleColdUntil || 0);
+      if (_affC >= 60 && _bsC !== 'protective' && !_coldC && GS.oneHeartEverDated) {
+        var _mnC = (MEMBERS.find(function(m){ return m.id === GS.oneHeartMember; }) || {}).name || '他';
+        userMsg += '[男主告白] 今天，男主「' + _mnC + '」在私下/家中正式向你告白——他认真地说出心意，眼神和语气都藏不住。请写出这段告白的氛围与你的心动或犹豫。并给出三个选项，【分别必须以「接受」/「拒绝」/「拖延」开头】，供你回应：\n- 接受：你答应在一起\n- 拒绝：你说还不行/没准备好\n- 拖延：你不置可否、说再想想（会让关系冷却一段时间）\n\n';
+        GS.oneHeartConfessionActive = true;
+        saveGame();
+      }
+    }
+    // 告白冷却递减（每生成一次 -1）
+    if (GS.oneHeartConfessionCooldown > 0) {
+      GS.oneHeartConfessionCooldown = GS.oneHeartConfessionCooldown - 1;
+    }
+
+    // [exposure] 营业CP假戏真做被拍 + 彻底曝光抉择（仅娱乐圈·队友的妹妹）
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && !extra.isEnding) {
+      var _job = (GS.heroineProfile && GS.heroineProfile.job) || '';
+      var _isIdol = (_job.indexOf('爱豆') >= 0 || _job.indexOf('女团') >= 0 || _job.indexOf('idol') >= 0 || _job.indexOf('女演员') >= 0 || _job.indexOf('演员') >= 0);
+      var _rivalC = (GS.oneHeartRival && GS.oneHeartRival.name) ? GS.oneHeartRival.name : '情敌';
+      // 固定1次（stage>=3）
+      if (!GS.oneHeartCpScandalDone && (GS.oneHeartRomanceStage || 0) >= 3) {
+        if (_isIdol) {
+          userMsg += '[营业CP被拍] 公司安排你与情敌「' + _rivalC + '」以"营业CP"名义同框营业（拍杂志/上综艺），假戏真做——镜头前越亲密，私下越尴尬。狗仔拍到你们"热恋"画面，绯闻炸开，男主在旁看着。请写出这场被摆布的甜蜜与暗流。\n\n';
+        } else {
+          userMsg += '[营业CP被拍] 公司安排情敌「' + _rivalC + '」与另一位女艺人营业CP，借机靠近、刷存在感，狗仔拍到他"新绯闻"——你作为旁观者，心里莫名发酸（吃醋）。请写出你掩饰醋意、又忍不住在意的微妙。\n\n';
+        }
+        userMsg += '并给出三个选项，【分别以「公关澄清」/「不回应」/「公开」开头】：公关澄清（消耗1次手动公关额度压热度、情敌好感-）/不回应（热度持续上涨）/公开（顺势承认，转公开线但曝光暴涨）。\n\n';
+        GS.oneHeartCpScandalActive = true;
+        GS.oneHeartCpScandalDone = true;
+        saveGame();
+      }
+      // 回拨1次（情敌倾向>=30，固定事件已发生）
+      else if (!GS.oneHeartCpScandal2Done && GS.oneHeartCpScandalDone && (GS.oneHeartRivalAff || 0) >= 30) {
+        userMsg += '[营业CP回拨] 情敌「' + _rivalC + '」借着之前营业CP的余温，又主动制造了一次与你同框的"绯闻"——他显然在借机靠近、也借机刺激男主。请写出这场拉扯，并给出三个选项【以「公关澄清」/「不回应」/「公开」开头】供你应对（效果同上）。\n\n';
+        GS.oneHeartCpScandalActive = true;
+        GS.oneHeartCpScandal2Done = true;
+        saveGame();
+      }
+      // 彻底曝光抉择（曝光爆表，结局前高潮）
+      // 注意：若同轮营业CP事件已激活（_ctC.indexOf('公开') 会误吞曝光的"公开承认"选项），则推迟到下一轮，避免两个分支抢同一选项
+      if (!GS.oneHeartExposureChoiceDone && (GS.exposureRisk || 0) >= 90 && !GS.oneHeartCpScandalActive) {
+        userMsg += '[彻底曝光抉择] 绯闻彻底爆了——全网都在讨论你和男主（或情敌）的关系，公司、哥哥、粉丝都在等你的态度。请写出这场风暴的中心，并给出三个选项【以「公开承认」/「坚决否认」/「躲起来」开头】：公开承认（转公开线，压力巨大）/坚决否认（暂避风头，隐患未消）/躲起来（先消失一阵，让哥哥和男主善后）。这个抉择将深刻影响结局。\n\n';
+        GS.oneHeartExposureChoiceActive = true;
+        saveGame();
       }
     }
 
@@ -2456,19 +2749,21 @@ export async function generateOneHeartRound(extra) {
       return;
     }
 
-    // 1v1 校验：场景/人物/时段一致性（最多重试1次）
+    // 1v1 校验：场景/人物/时段一致性（最多重试1次，仅硬违规触发二次生成；软违规已放过省API）
     if (GS.gameMode === 'oneHeart' && !extra.isRegenerate) {
-      var _corrections = validateOneHeartNarrative(parsed, GS);
-      if (_corrections) {
+      var _vres = validateOneHeartNarrative(parsed, GS);
+      if (_vres && _vres.hasHard) {
+        var _corrections = _vres.corrections || '';
         var _retryMsg = userMsg + '\n\n[修正] ' + _corrections + '\n请根据修正指示重新生成。';
         var _retryGr = await generateWithRetry(sysMsg, _retryMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.phaseNarrative, skipValidate: true, providerKey: GS.useSeparateApi ? (GS.mainApiProvider || GS.apiProvider) : GS.apiProvider });
         var _retryRaw = (_retryGr && _retryGr.raw) ? _retryGr.raw : '';
         if (_retryRaw) {
           var _retryParsed = parseOneHeartNarrative(_retryRaw);
           if (_retryParsed && _retryParsed.narrative) {
-            // 二次校验：如果仍有矛盾，记录警告但不阻塞（避免无限重试）
-            var _retryCorrections = validateOneHeartNarrative(_retryParsed, GS);
-            if (_retryCorrections) {
+            // 二次校验：如果仍有硬矛盾，记录警告但不阻塞（避免无限重试）
+            var _vres2 = validateOneHeartNarrative(_retryParsed, GS);
+            var _retryCorrections = (_vres2 && _vres2.corrections) || '';
+            if (_vres2 && _vres2.hasHard) {
               if (_retryCorrections.indexOf('[哥哥身份]') >= 0 && GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥') {
                 // 硬替换：从 correction 中提取错误名称，替换为合法哥哥名
                 var _legalBro = GS.oneHeartRelationCharacter.name || '';
@@ -3007,7 +3302,7 @@ async function checkOneHeartEvents() {
         GS.oneHeartArgueCooldown = 3;
       }
     }
-  } else if (aff >= 60 && Math.random() < _jealousyChance && GS._pendingEvents.length < 2) {
+  } else {
     var _jeaScenario = '';
     var _jeaOpts = ['跟着直觉走', '冷静观察', '大胆行动'];
     var _jeaPool = GS.oneHeartJealousyPool || [];
@@ -3530,6 +3825,12 @@ export async function generateMoment() {
     var sysMsg = buildOneHeartSystemPrompt();
     var userMsg = buildOneHeartUserMessage('moment');
 
+    // [social] 朋友圈暗斗（队友的妹妹，随机50%看好感）：让 AI 在返回 JSON 中给某条动态附带「情敌较劲评论」
+    if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.role === '哥哥' && GS.oneHeartRival && Math.random() < 0.5) {
+      var _rvD2 = (GS.oneHeartRival && GS.oneHeartRival.name) || '情敌';
+      userMsg += '\n\n[朋友圈暗斗彩蛋] 你发/他发这条朋友圈后，情敌「' + _rvD2 + '」在评论区留下一句阴阳怪气、暗暗较劲的发言（20字内）。请在返回的 JSON 中，为其中一条动态（mine 或 his）额外添加字符串字段 rivalComment 写入这句话；好感越高越明显。';
+    }
+
     var _gr = await generateWithRetry(sysMsg, userMsg, { maxTokens: ONE_HEART_TOKEN_CONFIG.momentGen, temperature: 0.85, skipValidate: true });
     var raw = (_gr && _gr.raw) ? _gr.raw : '';
     if (typeof raw !== 'string') raw = '';
@@ -3556,6 +3857,7 @@ export async function generateMoment() {
         replyBack: json.mine.replyBack || '',
         photo: json.mine.photo || '',
         type: json.mine.type || '日常',
+        rivalComment: (json.mine && json.mine.rivalComment) || '',
         timestamp: ts,
         liked: false
       });
@@ -3572,6 +3874,7 @@ export async function generateMoment() {
         replyBack: json.his.replyBack || '',
         photo: json.his.photo || '',
         type: json.his.type || '日常',
+        rivalComment: (json.his && json.his.rivalComment) || '',
         timestamp: ts,
         liked: false
       });

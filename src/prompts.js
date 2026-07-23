@@ -69,7 +69,7 @@ function getSystemPromptCacheKey() {
   return [
     GS.selectedMembers.join(','),
     GS.secretX,
-    hp.name, hp.age, hp.job, hp.zodiac,
+    hp.name, hp.age, hp.job, hp.profession, hp.zodiac,
     hp.appearance.join(','),
     hp.personality.join(','),
     hp.mbti,
@@ -1034,12 +1034,15 @@ export function buildOneHeartSystemPrompt() {
       worldLines.push('- 他的身份：' + wc.memberRole + '。' + wc.memberDesc);
       if (wc.secondCareerNote) worldLines.push('- 他的第二职业定位：' + wc.secondCareerNote);
       var userRoleDesc = (wc.userRoles && wc.userRoles[hp.job]) ? wc.userRoles[hp.job] : wc.userFallback;
+      if (isSisterSetting() && hp.profession) {
+        userRoleDesc += '\n（补充·职业）女主本职职业为「' + hp.profession + '」，与男主同为娱乐圈圈内人，练习室/打歌/综艺/后台/行程等圈内场景可自然展开；对外关系上她始终是队友的妹妹。';
+      }
       if (userRoleDesc) worldLines.push('- 你的角色：' + userRoleDesc);
       worldLines.push('');
       return worldLines.join('\n');
     })() +
 
-    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，出生年份：' + (getPlayerBirthYear(hp.age, GS.oneHeartStartYear || 2025)) + '年，职业：' + hp.job + '\n' +
+    '- 姓名：' + hp.name + '，年龄：' + hp.age + '岁，出生年份：' + (getPlayerBirthYear(hp.age, GS.oneHeartStartYear || 2025)) + '年，职业：' + (isSisterSetting() && hp.profession ? (hp.profession + '（身份：哥哥的妹妹）') : hp.job) + '\n' +
     (hp.zodiac ? '- 星座：' + hp.zodiac + '\n' : '') +
     (hp.birthday ? '- 生日：' + hp.birthday.month + '月' + hp.birthday.day + '日\n' : '') +
     '- 外貌特征：' + hp.appearance.join('、') + '\n' +
@@ -1053,7 +1056,11 @@ export function buildOneHeartSystemPrompt() {
     ) +
     '- ⚠️ 禁止编造恋爱纪念日（如"一个月纪念""100天纪念""周年纪念"），除非剧情中明确提到。\n' +
     buildFeaturePosNote(hp) +
-    '- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n' +
+    (isSisterSetting() ?
+      ('- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。⚠️ 这仅代表"女主自己的内心温度"：数值低只说明女主此刻只把' + member.name + '视为哥哥的队友、尚无心动，绝不表示' + member.name + '对女主冷淡。' + member.name + '与情敌早已对女主有意，会主动关心、找借口接近、眼神追随、制造好感事件——他们的热情由自身心意驱动，不会因女主好感低而变冷。请写出男主追求的温度，亲密分寸仍按下方感情进度门控把握。\n\n')
+      :
+      ('- 女主对' + member.name + '的好感度：' + (GS.affection[member.id] || 0) + '（' + getAffectionDesc(GS.affection[member.id] || 0) + '）。好感度影响互动距离：低好感→克制/疏离/客气，中好感→暧昧/试探/暗流涌动，高好感→亲密/主动/自然。请根据好感度调整描写分寸。\n\n')
+    ) +
 
     getHeroineBehaviorText() + '\n\n' +
 
@@ -1103,6 +1110,28 @@ export function buildOneHeartSystemPrompt() {
           parts += '⚠️ 你（女主）称亲哥哥可用「我哥」或「' + rel.name + '」，这是被允许的。\n';
           if (isSisterSetting()) {
             parts += '⚠️ ' + getOneHeartAddressRule() + '\n';
+            parts += '\n[前提·初次见面] 本次是女主第一次见到你（' + member.name + '）与情敌「' + (GS.oneHeartRival ? GS.oneHeartRival.name : '他') + '」。在女主视角里，你们都只是她亲哥哥「' + rel.name + '」的队友——没有心动、没有私交，只是"哥哥的朋友"。\n';
+            parts += '⚠️ 女主此刻把你们当普通哥哥的队友看待，不会主动示好、不会脸红、不会特别在意，内心是"朋友/陌生哥哥队友"状态。\n';
+            parts += '⚠️ 但你与情敌早已注意到女主、对她有好感，会主动关心、找借口接近、眼神追随、制造接触机会（好感事件由你们发起）。感情必须由女主侧随事件自然萌发，不可预设她已动心。\n';
+            // [P0-3] 男主对女主的称呼演进（与女主称呼男主互补，形成双向门控）
+            parts += '\n[男主对女主的称呼·队友的妹妹]\n';
+            parts += '你是男主「' + member.name + '」。初次见面时，女主是你队友' + rel.name + '的亲妹妹，你还不是她恋人，应称呼她为「' + rel.name + '的妹妹」或「你妹妹」——不可一开始就直呼名字显得轻佻越界。\n';
+            parts += '随着感情推进、独处增多（进入暧昧期 romanceStage>=1 后），可自然改口直呼女主名字；明确期/热恋期（romanceStage>=2）后可更亲密地用专属爱称，但整局需保持前后一致、不可反复横跳。\n';
+            parts += '⚠️ 禁止在初识期（romanceStage<1）就叫女主名字或爱称——你与她还不熟，过度亲密会显得突兀冒进。\n';
+            // [seed] 男主上心种子事件 + 专属小动作（仅队友妹妹设定，基于男主真实人设生成）
+            if (GS.oneHeartSeedEvent) {
+              parts += '\n[男主上心种子·回溯锚点] 男主「' + member.name + '」对你上心的起点是这一幕（已发生）：' + GS.oneHeartSeedEvent + '\n';
+              parts += '⚠️ 这是男主心动的根源，请在剧情进入关键节点（男主告白、吃醋、感情转折）时，自然地让男主回想这一瞬间，形成前后呼应的张力，但不要每轮重复提及。\n';
+            }
+            if (GS.oneHeartMannerisms && GS.oneHeartMannerisms.length) {
+              parts += '\n[男主专属小动作·辨识度] 「' + member.name + '」对在意的人会不自觉流露这些小动作：' + GS.oneHeartMannerisms.join('；') + '。\n';
+              parts += '请在描写男主时，每隔5-8回合自然地让男主流露出其中一处（不必每轮，点到为止），以体现角色辨识度，让他"像本人"而非通用男主。\n';
+            }
+            // [secret] 女主秘密（反差萌，供发现/调侃/撞破三路径呼应）
+            if (GS.heroineSecrets && GS.heroineSecrets.length) {
+              parts += '\n[女主秘密·反差萌] 女主私下藏着这些不让哥哥知道的事（都是EXO追星向的小秘密，纯属可爱反差，不是黑料）：\n- ' + GS.heroineSecrets.join('\n- ') + '\n';
+              parts += '这些秘密可在剧情中自然被男主意外发现（成为两人小默契）、被哥哥调侃拿捏、或被情敌/队友撞破变成把柄。但初次见面时女主绝不会主动提起，需由事件触发。\n';
+            }
           } else {
             parts += '⚠️ 称呼规则（强制执行）：你称呼亲哥哥「' + rel.name + '」时可用「我哥」「' + rel.name + '」；你称呼男主「' + member.name + '」时默认直呼名字，进入暧昧期（romanceStage>=1）后可自然改口称「欧巴」，初识期（romanceStage<1）禁止称「欧巴」。绝对禁止把男主和亲哥哥的称呼互相套用。\n';
           }
@@ -1269,7 +1298,7 @@ export function buildOneHeartSystemPrompt() {
       if (_aff >= 60) return '热恋期';
       if (_aff >= 40) return '暧昧升温';
       if (_aff >= 20) return '暧昧初期';
-      return '初识期';
+      return isSisterSetting() ? '初次见面·朋友（只是哥哥的队友）' : '初识期';
     })() + '（好感度 ' + (GS.affection[GS.oneHeartMember] || 0) + '）\n' +
     (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name ? '- ' + GS.oneHeartRelationCharacter.role + '：' + GS.oneHeartRelationCharacter.name + '\n' : '') +
     (GS.oneHeartRival && GS.oneHeartRival.name ? '- 情敌：' + GS.oneHeartRival.name + (GS.oneHeartRival.interactionStyle ? '（互动风格：' + GS.oneHeartRival.interactionStyle + (GS.oneHeartRival.loveStyle ? ' · 情感模式：' + GS.oneHeartRival.loveStyle : '') + '）' : '') + (GS.oneHeartRivalAff ? '（情敌倾向：' + GS.oneHeartRivalAff + '）' : '') + '\n' : '') +
@@ -1309,6 +1338,9 @@ export function buildOneHeartChatSystemPrompt() {
   lines.push('');
   lines.push('【你的人设】性格：' + member.personality + '。互动风格：' + member.interactionStyle + '。情感模式：' + member.loveStyle + '。' + (member.catchphrases ? '口头禅/习惯：' + member.catchphrases.join('、') + '。' : '') + '说话要有你自己的特色。');
   lines.push('【关系状态】当前好感度档位：' + _tier + '（数值' + _aff + '）。' + (GS.oneHeartColdWar && GS.oneHeartColdWar.active ? ' · 你们正处于冷战期' : '') + (GS.oneHeartRival && GS.oneHeartRival.name ? ' · 存在情敌「' + GS.oneHeartRival.name + '」' : ''));
+  if (isSisterSetting() && _aff < 20) {
+    lines.push('【隐藏心意】你（男主）其实已经对女主有好感，聊天里可以带一点主动与在意（多问一句、记得她说过的话、偶尔的小关心），但女主视角只是把你们当哥哥的队友，对话不要显得越界或过于熟络。');
+  }
   lines.push('【当前时段】' + _activity + '。如果她问你"在忙什么"，答案要基于此刻你正在做的事，不要只反问不回答。');
   if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment' && GS.oneHeartSchedule && GS.oneHeartSchedule.main) {
     var _sch = GS.oneHeartSchedule.main;
@@ -1503,7 +1535,13 @@ export function buildOneHeartUserMessage(type, extra) {
     // 关系角色出场触发
     var _genCount = GS.oneHeartGenCount || 0;
     if (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) {
-      if (!GS._relCharIntroduced && _genCount >= 2) {
+      if (isSisterSetting()) {
+        // [P0] 队友妹妹：哥哥是亲哥、开局已认识，无需"第一次出现"注入；
+        // 仅周期性提示他在场并体现双重身份，制造哥哥立场张力。
+        if (_genCount > 0 && _genCount % 8 === 0) {
+          msg += '[哥哥在场] 「' + GS.oneHeartRelationCharacter.name + '」（你亲哥、男主的队友）自然出现在剧情里——可体现他"哥哥/队友"双重身份与对你们关系的态度（试探/掩护/吐槽/夹在男主与情敌之间为难）。\n\n';
+        }
+      } else if (!GS._relCharIntroduced && _genCount >= 2) {
         msg += '[角色出场] 请在本段剧情中自然地引入「' + GS.oneHeartRelationCharacter.name + '」（' + GS.oneHeartRelationCharacter.role + '）。他/她第一次出现在故事中。\n\n';
         GS._relCharIntroduced = true;
       } else if (_genCount > 0 && _genCount % 8 === 0) {
@@ -1511,8 +1549,17 @@ export function buildOneHeartUserMessage(type, extra) {
       }
     }
     // 情敌出场触发
-    if (GS.oneHeartRival && GS.oneHeartRival.name) {
-      if (!GS._rivalIntroduced && _genCount >= 3) {
+    if (GS.oneHeartRival && GS.oneHeartRival.name && !GS._rivalSwitched) {
+      if (isSisterSetting()) {
+        // [P0] 队友妹妹：情敌是哥哥队友、开局已认识，无需"第一次出现"注入；
+        // 周期性强化"他在场+追求张力"，与哥哥把关/被拍曝光主题呼应。
+        if (_genCount > 0 && _genCount % 10 === 0) {
+          var _lastRivalRound = GS.oneHeartLastEventRound || 0;
+          if ((_genCount - _lastRivalRound) >= 4) {
+            msg += '[情敌在场] 「' + GS.oneHeartRival.name + '」（你哥的队友、情感阻碍者）在近期剧情中再次出现——可制造男主与情敌之间的追求张力、或触发哥哥对你的"把关"反应。\n\n';
+          }
+        }
+      } else if (!GS._rivalIntroduced && _genCount >= 3) {
         msg += '[情敌出场] 请在本段剧情中自然地引入「' + GS.oneHeartRival.name + '」。他是你的情感阻碍者——第一次出现在故事中，可以是偶遇、来电、或者你没想到的场合。\n\n';
         GS._rivalIntroduced = true;
       } else if (_genCount > 0 && _genCount % 10 === 0) {

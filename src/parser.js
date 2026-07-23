@@ -660,10 +660,13 @@ export function parseOneHeartNarrative(rawText) {
  * 校验 1v1 剧情一致性
  * @param {Object} parsed - parseOneHeartNarrative 的返回值
  * @param {Object} GS - 当前游戏状态
- * @returns {string|null} - 有矛盾时返回 correction 描述，否则 null
+ * @returns {{corrections: ?string, hasHard: boolean}} - corrections 为硬违规描述(用于重试反馈)，hasHard 表示是否触发二次生成
  */
 export function validateOneHeartNarrative(parsed, GS) {
+  // 硬违规：触发二次生成（进度越界/称呼/哥哥冒充/脏话/哥哥身份辈分）
   var corrections = [];
+  // 软违规：仅记录不触发二次生成（季节词/剧情重复/话题重复/eventItems代词），用于省API
+  var softCorrections = [];
 
   var oldCtx = GS.oneHeartSceneContext || { location: '', present: [] };
   // 判断是否为新的一天/生日/节日（这些场景允许重新开始）
@@ -725,7 +728,7 @@ export function validateOneHeartNarrative(parsed, GS) {
         var _simText = _simParsed ? (_simParsed.events || []).join('') + (_simParsed.dialogues || []).join('') : _simSummary;
         var _jaccard = _oneHeartJaccard(_narrText, _simText);
         if (_jaccard > 0.25) {
-          corrections.push('剧情重复检测：本段剧情与近期记忆的关键词重叠度达' + Math.round(_jaccard * 100) + '%，请换一个切入角度或新的事件展开');
+          softCorrections.push('剧情重复检测：本段剧情与近期记忆的关键词重叠度达' + Math.round(_jaccard * 100) + '%，请换一个切入角度或新的事件展开');
           break;
         }
       }
@@ -748,7 +751,7 @@ export function validateOneHeartNarrative(parsed, GS) {
         }
       }
       if (_foundHighFreq) {
-        corrections.push('话题重复检测：近期已多次出现「' + _highFreqTopics.join('、') + '」相关话题，请完全切换到不相关的全新事件或场景（如日常琐事、社交互动、意外状况），严禁再次涉及以上高频话题');
+        softCorrections.push('话题重复检测：近期已多次出现「' + _highFreqTopics.join('、') + '」相关话题，请完全切换到不相关的全新事件或场景（如日常琐事、社交互动、意外状况），严禁再次涉及以上高频话题');
       }
     }
   }
@@ -766,7 +769,7 @@ export function validateOneHeartNarrative(parsed, GS) {
                        (_relName && _item.indexOf(_relName) >= 0) ||
                        _item.indexOf('女主') >= 0;
         if (!_hasName) {
-          corrections.push('eventItems[' + _ei + '] 使用了代词"他/她"但没有明确人名，必须写明具体角色名字（如"' + _memberName + '"或"女主"）');
+          softCorrections.push('eventItems[' + _ei + '] 使用了代词"他/她"但没有明确人名，必须写明具体角色名字（如"' + _memberName + '"或"女主"）');
         }
       }
     }
@@ -783,16 +786,23 @@ export function validateOneHeartNarrative(parsed, GS) {
       }
     }
     var _gateText = _paceText + '\n' + _optTextAll;
-    var _gateCorr = checkOneHeartPacing(_gateText)
+    // 硬违规：进度越界 / 称呼(欧巴·直呼名·称哥) / 哥哥冒充 / 脏话 / 哥哥身份辈分 —— 触发二次生成
+    var _hard = checkOneHeartPacing(_gateText)
       .concat(checkOneHeartAddressing(_gateText))
       .concat(checkOneHeartBrotherImpersonation(_gateText))
-      .concat(checkSeasonConsistency(_gateText))
       .concat(checkProfanity(_gateText))
       .concat(checkNarrativeAgeHonorific(_gateText));
-    for (var _gi = 0; _gi < _gateCorr.length; _gi++) corrections.push(_gateCorr[_gi]);
+    // 软违规：季节词不一致 —— 仅记录不触发二次生成（省API）
+    var _soft = checkSeasonConsistency(_gateText);
+    for (var _gi = 0; _gi < _hard.length; _gi++) corrections.push(_hard[_gi]);
+    for (var _si2 = 0; _si2 < _soft.length; _si2++) softCorrections.push(_soft[_si2]);
   }
 
-  return corrections.length > 0 ? corrections.join(' | ') : null;
+  if (softCorrections.length > 0) console.info('[1v1] 软违规（已放过，不二次生成）：', softCorrections.join(' | '));
+  return {
+    corrections: corrections.length > 0 ? corrections.join(' | ') : null,
+    hasHard: corrections.length > 0
+  };
 }
 
 // 1v1 选项兜底生成（代码硬修正用，避免整段重生成）

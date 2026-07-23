@@ -37,6 +37,7 @@ export function showMomentsModal() {
         (m.replyBack ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↩ <strong>[' + escHtml(posterName) + ']</strong> ' + escHtml(m.replyBack) + '</div>' : '') +
         (m.userComment ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↪ <strong>[我]</strong> ' + escHtml(m.userComment) + '</div>' : '') +
         (m.commentReply ? '<div class="oneheart-moment-reply" style="padding-left:16px">└↪ <strong>[' + escHtml(memberName) + ']</strong> ' + escHtml(m.commentReply) + '</div>' : '') +
+        (m.rivalComment ? '<div class="oneheart-moment-reply" style="padding-left:16px;color:#e08e45">└😼 <strong>[' + escHtml((GS.oneHeartRival && GS.oneHeartRival.name) || '情敌') + ']</strong> ' + escHtml(m.rivalComment) + '</div>' : '') +
         '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-light)" class="moment-actions">' +
         '<button class="moment-like-btn" data-idx="' + i + '" style="border:none;background:none;font-size:12px;cursor:pointer;color:' + likeColor + ';padding:2px 4px">❤️ ' + (m.liked ? '已赞' : '点赞') + '</button>' +
         '<button class="moment-comment-btn" data-idx="' + i + '" style="border:none;background:none;font-size:12px;cursor:pointer;color:var(--text-muted);padding:2px 4px">💬 评论</button>' +

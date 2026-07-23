@@ -7,9 +7,11 @@
   GS, saveGame, resetGame, defaultGameState, randInt, escHtml, testAPIConnection, fetchModels,
   showLoading, hideLoading, showToast, callDeepSeek
 } from './core.js';
+import { isSisterSetting } from './utils.js';
+import { safeParseJson } from './parser.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
@@ -358,6 +360,22 @@ export function renderSetupWizard() {
       var locked = GS.profileLocked;
       var ro = locked ? ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"' : '';
       var chipStyle = locked ? ' style="pointer-events:none;opacity:0.7"' : '';
+      // 队友的妹妹设定：身份固定为「哥哥的妹妹」，额外显示职业子下拉（纯职业池，可圈内互动）
+      var isSisterId = hp.job === '队友的妹妹';
+      var sisterProfHtml = '';
+      if (GS.gameMode === 'oneHeart' && isSisterId) {
+        var _profVal = hp.profession || '女团爱豆';
+        if (!hp.profession) hp.profession = _profVal;
+        if (locked) {
+          sisterProfHtml = '<label>职业</label><input type="text" id="hpProfession" value="' + escHtml(_profVal) + '"' + ro + '>';
+        } else {
+          sisterProfHtml = '<label>你的职业（圈内·可互动）</label>' +
+            '<select id="hpProfession" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;background:var(--bg-card);color:var(--text-primary);font-family:inherit;margin-bottom:10px">' +
+            SISTER_PROFESSIONS.map(function(p) {
+              return '<option value="' + p + '"' + (_profVal === p ? ' selected' : '') + '>' + p + '</option>';
+            }).join('') + '</select>';
+        }
+      }
       html = '<div class="setup-step"><h2>👩 Step 2：女主人设</h2>' +
         '<p class="step-desc">' + (locked ? '✅ 女主人设已设定（只读）' : '设定你的角色（设定后将只读）') + '</p>' +
         (!locked ? '<div style="display:flex;gap:6px;margin-bottom:10px">' +
@@ -376,7 +394,7 @@ export function renderSetupWizard() {
           return '<option value="' + id + '"' + (hp.job === id ? ' selected' : '') + '>' + id + '</option>';
         }).join('') +
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
-        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') +
+        (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') : '<label>职业</label><input type="text" id="hpJob" value="' + escHtml(hp.job) + '"' + ro + '>') + sisterProfHtml +
         '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
         '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit"' + ro + '>' +
@@ -487,7 +505,7 @@ export function renderSetupWizard() {
         '<div class="confirm-row"><span class="confirm-label">世界观</span><span>' + (confirmWorld ? confirmWorld.name : '未选择') + '</span></div>' +
         (GS.worldSetting === 'custom' && GS.oneHeartCustomWorld ? '<div class="confirm-row"><span class="confirm-label">世界设定</span><span style="font-size:11px;max-height:60px;overflow-y:auto">' + escHtml(GS.oneHeartCustomWorld.substring(0, 200)) + (GS.oneHeartCustomWorld.length > 200 ? '...' : '') + '</span></div>' : '') +
         '<div class="confirm-row"><span class="confirm-label">写作风格</span><span>' + (confirmStyle ? confirmStyle.name : '未选择') + '</span></div>' +
-        '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + escHtml(hp.name) + ' · ' + hp.age + '岁 · ' + escHtml(hp.job) + '</span></div>' +
+        '<div class="confirm-row"><span class="confirm-label">女主</span><span>' + escHtml(hp.name) + ' · ' + hp.age + '岁 · ' + (isSisterSetting() && hp.profession ? escHtml(hp.profession + '（哥哥的妹妹）') : escHtml(hp.job)) + '</span></div>' +
         '</div>' +
         '<div style="margin-top:12px"><label>情敌选择（影响剧情发展方向）</label>' +
         '<select id="rivalSelect" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-primary);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;margin-top:6px">' + _rivalHtml + '</select></div>' +
@@ -776,6 +794,9 @@ export function bindSetupEvents() {
         GS.heroineProfile.name = '沈' + ['也','安','希','晴','薇','樱','琳','菲','雅','媛'][Math.floor(Math.random()*10)];
         GS.heroineProfile.age = tpl.age;
         GS.heroineProfile.job = tpl.publicIdentity;
+        if (tpl.publicIdentity === '队友的妹妹' && !GS.heroineProfile.profession) {
+          GS.heroineProfile.profession = '女团爱豆';
+        }
         GS.heroineProfile.appearance = tpl.appearance.slice();
         GS.heroineProfile.personality = tpl.personality.slice();
         GS.heroineProfile.mbti = tpl.mbti;
@@ -825,8 +846,19 @@ export function bindSetupEvents() {
           GS.heroineProfile.job = this.value;
           if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
         }
+        if (GS.gameMode === 'oneHeart' && this.value === '队友的妹妹' && !GS.heroineProfile.profession) {
+          GS.heroineProfile.profession = '女团爱豆';
+        }
         saveGame();
         renderAll();
+      });
+    }
+    // 姐姐设定·职业子下拉监听
+    var hpProfSelect = document.getElementById('hpProfession');
+    if (hpProfSelect) {
+      hpProfSelect.addEventListener('change', function() {
+        GS.heroineProfile.profession = this.value;
+        saveGame();
       });
     }
     var hpJobCustom = document.getElementById('hpJobCustom');
@@ -1039,7 +1071,8 @@ export function bindSetupEvents() {
         }
         GS.selectedMembers = [GS.oneHeartMember];
         GS.affection = {};
-        GS.affection[GS.oneHeartMember] = randInt(10, 19);
+        // 队友妹妹设定：开局第一次见面，女主只把男主当哥哥的队友、零心动
+        GS.affection[GS.oneHeartMember] = isSisterSetting() ? randInt(0, 5) : randInt(10, 19);
         // [fix] 锁定专属昵称：读取确认页输入；留空则开局由 AI 生成唯一一个并固定（全程保持统一）
         var _petInput = document.getElementById('petNameInput');
         GS.oneHeartPetName = _petInput && _petInput.value ? _petInput.value.trim().slice(0, 12) : '';
@@ -1191,6 +1224,62 @@ export function bindSetupEvents() {
           if (GS.oneHeartRival.memberId === GS.oneHeartRelationCharacter.memberId) {
             console.warn('[1v1] 防御检查：情敌与关系网角色为同一人，清空情敌避免混淆', GS.oneHeartRival.memberId);
             GS.oneHeartRival = null;
+          }
+        }
+        // [P0] 队友妹妹设定：开局第一次见面已同时认识哥哥与情敌（都是哥哥队友），
+        // 置位避免后续 userMessage 注入"第一次出现"造成与前提冲突。
+        if (isSisterSetting()) {
+          GS._relCharIntroduced = true;
+          GS._rivalIntroduced = true;
+          // [seed] 基于男主真实人设，一次性生成「上心种子事件」(200字) + 专属小动作(1主+1备)
+          var _seedMember = MEMBERS.find(function(m){ return m.id === GS.oneHeartMember; });
+          var _seedRel = GS.oneHeartRelationCharacter;
+          GS.oneHeartSeedEvent = '';
+          GS.oneHeartMannerisms = [];
+          // [secret] 女主秘密（EXO追星向，setup随机2-3个，作为反差萌与剧情钩子）
+          var _secPool = [
+            '你曾是 EXO 的粉丝，手机里至今存着当年追星时的 photo card 和应援棒',
+            '你瞒着哥哥偷偷跑去 EXO 的签售会，还排了队要到了签名',
+            '你高中时写过 EXO 的同人文，存在某个没告诉任何人的旧文档里',
+            '你会在 SEVENTEEN 某位成员的直播间悄悄刷礼物，假装是路人粉丝',
+            '你买过 EXO 的小卡、专辑和海报，藏在自己房间最里层的抽屉',
+            '你偷偷收集过「' + (_seedMember ? _seedMember.name : '男主') + '」的小卡和周边，混在 EXO 周边里没人发现'
+          ];
+          _secPool.sort(function(){ return Math.random() - 0.5; });
+          GS.heroineSecrets = _secPool.slice(0, randInt(2, 3));
+          if (GS.aiEnabled && _seedMember && _seedRel) {
+            try {
+              var _seedPrompt =
+                '你是恋爱手游编剧。背景：SEVENTEEN成员「' + _seedMember.name + '」（性格：' + (_seedMember.personality || '') +
+                '；习惯：' + (_seedMember.habits || []).join('，') + '；怪习惯：' + (_seedMember.quirks || []).join('，') +
+                '；口头禅：' + (_seedMember.catchphrases || []).join('，') + '）是男主，女主是他亲哥哥「' + _seedRel.name + '」的妹妹。' +
+                '两人初次见面，女主只当他是哥哥队友、毫无心动，但男主已对她有意。\n请返回JSON：\n{\n' +
+                '  "seed": "200字以内的「男主对女主上心的种子事件」：一个具体小场景 + 男主隐藏的心动反应，后续可在告白或吃醋时被男主回溯回忆。类型自由（如：女主无意哼了男主写的歌 / 女主帮男主解围 / 女主某句话戳中男主 / 女主被哥哥吐槽的瞬间被男主看到等），不要每次都是哼歌。",\n' +
+                '  "mannerisms": ["对在意的人不自觉流露的专属小动作1（≤20字，需体现角色辨识度）","专属小动作2（≤20字）"]\n}\n只返回JSON，不要解释。';
+              var _seedRes = await callDeepSeek(_seedPrompt, '生成种子事件与小动作', 600, false, 0.9);
+              var _seedParsed = safeParseJson(_seedRes);
+              if (_seedParsed) {
+                if (_seedParsed.seed && typeof _seedParsed.seed === 'string' && _seedParsed.seed.trim().length >= 40) {
+                  GS.oneHeartSeedEvent = _seedParsed.seed.trim();
+                }
+                if (_seedParsed.mannerisms && _seedParsed.mannerisms.length) {
+                  GS.oneHeartMannerisms = _seedParsed.mannerisms
+                    .filter(function(x){ return x && typeof x === 'string' && x.length <= 30; })
+                    .slice(0, 2);
+                }
+              }
+            } catch (e) { /* 失败走兜底 */ }
+          }
+          // 兜底：种子事件固定模板
+          if (!GS.oneHeartSeedEvent) {
+            GS.oneHeartSeedEvent = '练习室里女主无聊哼起男主写的一首冷门歌的副歌，男主推门听见时脚步顿了半拍——那是全专最没人记得的一首，却被她哼得正好。他没说话，只是后来录音时悄悄把那段副歌加了一轨和她哼的一样的即兴转音。';
+          }
+          // 兜底：从男主习惯取两条动作类小动作
+          if (!GS.oneHeartMannerisms || GS.oneHeartMannerisms.length === 0) {
+            GS.oneHeartMannerisms = [
+              (_seedMember && _seedMember.habits && _seedMember.habits[0]) || '不自觉多看女主一眼',
+              (_seedMember && _seedMember.habits && _seedMember.habits[1]) || '说话时放慢语速'
+            ];
           }
         }
         }
@@ -1566,10 +1655,11 @@ function renderOneHeartGameScreen() {
     var _finalAff = GS.affection[GS.oneHeartMember] || 0;
     var _affLabel = getAffectionDesc(_finalAff);
     var _endType = GS.oneHeartEnding || 'NE';
+    var _cat = (_endType && _endType.indexOf('HE') === 0) ? 'HE' : ((_endType && _endType.indexOf('BE') === 0) ? 'BE' : (_endType === 'HIDDEN_RIVAL' ? 'HIDDEN' : 'NE'));
     var _endMeta = (ONE_HEART_ENDING_TEMPLATES && ONE_HEART_ENDING_TEMPLATES[_endType]) || (ONE_HEART_ENDING_TEMPLATES && ONE_HEART_ENDING_TEMPLATES.NE);
     var _endLabel = _endMeta ? _endMeta.label : '结局';
-    var _endBanner = _endType === 'HE' ? '#2e7d32' : (_endType === 'BE' ? '#c62828' : '#7b1fa2');
-    var _endIcon = _endType === 'HE' ? '💍' : (_endType === 'BE' ? '💔' : '🌙');
+    var _endBanner = _cat === 'HE' ? '#2e7d32' : (_cat === 'BE' ? '#c62828' : (_cat === 'HIDDEN' ? '#ad1457' : '#7b1fa2'));
+    var _endIcon = _cat === 'HE' ? '💍' : (_cat === 'BE' ? '💔' : (_cat === 'HIDDEN' ? '🖤' : '🌙'));
     var _finalResult = GS.finalResult || '';
     html += '<div style="text-align:center;padding:30px 20px">' +
       '<div style="font-size:30px;margin-bottom:8px">' + _endIcon + '</div>' +
@@ -2558,6 +2648,10 @@ function bindOneHeartEvents() {
       GS.currentOptions = [];
       saveGame();
       var _ob6 = document.getElementById('operationBody'); if (_ob6) _ob6.style.display = 'none';
+      // [romance] 自由输入也可能是在回应仍 active 的事件（男主告白/营业CP曝光/彻底曝光抉择），先结算固定后果，避免事件被悄悄吞掉
+      if (GS.gameMode === 'oneHeart' && applyOneHeartEventEffects({ text: freeText, choiceText: freeText })) {
+        // 事件已结算（showToast 已提示），不重复处理，继续生成下一段剧情
+      }
       await generateOneHeartRound();
     });
   }

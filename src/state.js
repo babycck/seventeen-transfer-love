@@ -67,7 +67,32 @@ export function defaultGameState() {
     oneHeartBrotherAff: 0, // 哥哥支持度数值（驱动 brotherStance 推导，范围 -100~100）
     oneHeartBrotherLog: [], // 哥哥立场变化日志 [{round, change, reason, total}]
     oneHeartBrotherPool: [], // 哥哥专属事件缓冲（参谋/掩护/调侃/考验，运行期填充）
-    brotherTestNudged: false, // IMP-17：本局「哥哥的考验」是否已触发（仅一次）
+    brotherTestNudged: false, // IMP-17：本局「哥哥的考验·其一」是否已触发（中局试探）
+    brotherTest2Nudged: false, // [brother] 后局设局考验（其二）是否已触发
+    brotherTest3Nudged: false, // [brother] 结局前把关考验（其三）是否已触发
+    brotherRivalAware: false, // [brother] 哥哥是否已察觉情敌对妹妹上心（情敌倾向>=20）
+    heroineSecrets: [], // [secret] 女主不可让哥哥知道的秘密（EXO追星向，setup随机2-3个）
+    heroineSecretBroTeaseRound: 0, // [secret] 上次哥哥调侃秘密的回合数（间隔控制，可多次）
+    heroineSecretMaleRound: 0, // [secret] 上次男主发现秘密的回合数（间隔控制）
+    heroineSecretRivalRound: 0, // [secret] 上次秘密被撞破的回合数（间隔控制）
+    heroineSecretFoundByRival: false, // [secret] 是否已被情敌/队友撞破（一次性把柄，曝光风险+）
+    oneHeartPendingHeartbeat: false, // [romance] 心动时刻待注入（好感首破20进入暧昧期时置位）
+    oneHeartEverDated: false, // [romance] 是否曾与男主约会（男主告白事件门槛之一）
+    oneHeartConfessionDone: false, // [romance] 男主告白事件是否已触发（接受/拒绝/拖延后均置位，避免重复）
+    oneHeartConfessionActive: false, // [romance] 本次剧情是否为男主告白事件（供 handleOptionChoice 识别后果）
+    oneHeartConfessionResult: '', // [romance] 告白结果：accepted/rejected/delayed
+    oneHeartConfessionCooldown: 0, // [romance] 拖延后冷却回合数（期间不再触发告白）
+    oneHeartMaleColdUntil: 0, // [romance] 男主冷战截止回合（拒绝后内向型冷战）
+    oneHeartBroTalkPending: false, // [romance] 哥哥找女主谈话支线待触发（拖延告白后）
+    oneHeartPrRemaining: 2, // [exposure] 手动公关剩余次数（每次哥哥-3，限量2）
+    oneHeartCpScandalActive: false, // [exposure] 营业CP被拍事件进行中（供handleOptionChoice识别）
+    oneHeartCpScandalDone: false, // [exposure] 营业CP被拍固定事件是否已触发（stage>=3）
+    oneHeartCpScandal2Done: false, // [exposure] 营业CP被拍回拨事件是否已触发（情敌倾向>=30）
+    oneHeartExposureChoiceActive: false, // [exposure] 彻底曝光公开抉择进行中
+    oneHeartExposureChoiceDone: false, // [exposure] 彻底曝光公开抉择是否已触发
+    oneHeartCoverUsed: 0, // [exposure] 累计使用掩护手段次数（>=3粉丝起疑曝光+）
+    oneHeartPublicLine: false, // [exposure] 是否已转公开线（影响结局）
+    oneHeartBlankDay: false, // [social] 今日是否为空白日（三人都忙→女主独处，触发秘密/朋友圈/剧场）
     brotherAtHome: true, // 哥哥是否在家（由 IMP-16 行程派生；不在家=正当空档，可放男主进门且哥哥知情）
     brotherAffMilestone: 0, // 哥哥随感情深化而放心的里程碑（0/40/60/80，仅「队友的妹妹」）
     // IMP-ENT-DATE：日程约束 / 主动约会相关
@@ -76,6 +101,8 @@ export function defaultGameState() {
     oneHeartDateWindowAvailable: false, // 当日是否存在有效空档（哥哥不在家 + 男主有空档），供跨天错过判定
     oneHeartBrotherTempChange: false, // B4：哥哥行程临时变更（中段翻转）待生效标记
     oneHeartPetName: '', // [fix] 男主对女主的固定专属昵称（设置时锁定，全程统一，避免每轮换外号）
+    oneHeartSeedEvent: '', // [seed] 男主对女主上心的种子事件（setup时AI生成200字，供告白/吃醋时回溯呼应）
+    oneHeartMannerisms: [], // [seed] 男主专属小动作（setup时从男主人设派生，1主+1备，增强角色辨识度）
     _pendingEvents: [],
     _pendingEventResults: [],
     _usedEventScenarios: [],
@@ -127,6 +154,7 @@ export function defaultGameState() {
       name: '沈也',
       age: 25,
       job: '独立插画师',
+      profession: '',
       zodiac: '',
       birthday: { month: 0, day: 0 },
       appearance: ['泪痣', '冷白皮', '淡颜系', '酒窝'],
@@ -177,6 +205,7 @@ export function defaultGameState() {
     endingEpilogue: null,
     endingArchive: [],
     oneHeartEnding: '', // IMP-18：1v1 结局类型（HE/NE/BE）
+    oneHeartEndingRes: null, // [stability] 结局判定缓存（避免 HE_BABY 随机跳变）
     endingMeters: null, // IMP-18：结局判定仪表盘快照（brotherStance/rivalAff/scandal/affection/mood）
     prevSummary: '',
     prevRawText: '',
@@ -381,6 +410,7 @@ export function migrateSave() {
     if (GS.oneHeartCustomWorld === undefined) GS.oneHeartCustomWorld = '';
     if (GS.oneHeartMainLine === undefined) GS.oneHeartMainLine = '';
     if (GS.heroineProfile && GS.heroineProfile.identity) delete GS.heroineProfile.identity;
+    if (GS.heroineProfile && GS.heroineProfile.profession === undefined) GS.heroineProfile.profession = '';
     if (!GS.heroineProfile.zodiac) GS.heroineProfile.zodiac = '';
     if (GS.dailyMemories && GS.dailyMemories.length > 0 && (!GS.dailySummaries || GS.dailySummaries.length === 0)) {
       GS.dailySummaries = GS.dailyMemories; delete GS.dailyMemories;
@@ -544,6 +574,11 @@ export function migrateSave() {
     if (!Array.isArray(GS.oneHeartPromiseLog)) GS.oneHeartPromiseLog = [];
     if (GS._relCharIntroduced === undefined) GS._relCharIntroduced = false;
     if (GS._rivalIntroduced === undefined) GS._rivalIntroduced = false;
+    if (GS.brotherTest2Nudged === undefined) GS.brotherTest2Nudged = false;
+    if (GS.brotherTest3Nudged === undefined) GS.brotherTest3Nudged = false;
+    if (GS.brotherRivalAware === undefined) GS.brotherRivalAware = false;
+    if (GS.oneHeartSeedEvent === undefined) GS.oneHeartSeedEvent = '';
+    if (!Array.isArray(GS.oneHeartMannerisms)) GS.oneHeartMannerisms = [];
     if (GS._newMoments === undefined) GS._newMoments = false;
     if (GS._newDiary === undefined) GS._newDiary = false;
     if (GS._newChat === undefined) GS._newChat = false;
@@ -575,6 +610,28 @@ export function migrateSave() {
     if (GS.oneHeartScandalCount === undefined) GS.oneHeartScandalCount = 0;
     if (GS.exposureRisk === undefined) GS.exposureRisk = 0;
     if (GS.brotherAtHome === undefined) GS.brotherAtHome = true;
+    if (!Array.isArray(GS.heroineSecrets)) GS.heroineSecrets = [];
+    if (GS.heroineSecretBroTeaseRound === undefined) GS.heroineSecretBroTeaseRound = 0;
+    if (GS.heroineSecretMaleRound === undefined) GS.heroineSecretMaleRound = 0;
+    if (GS.heroineSecretRivalRound === undefined) GS.heroineSecretRivalRound = 0;
+    if (GS.heroineSecretFoundByRival === undefined) GS.heroineSecretFoundByRival = false;
+    if (GS.oneHeartPendingHeartbeat === undefined) GS.oneHeartPendingHeartbeat = false;
+    if (GS.oneHeartEverDated === undefined) GS.oneHeartEverDated = false;
+    if (GS.oneHeartConfessionDone === undefined) GS.oneHeartConfessionDone = false;
+    if (GS.oneHeartConfessionActive === undefined) GS.oneHeartConfessionActive = false;
+    if (GS.oneHeartConfessionResult === undefined) GS.oneHeartConfessionResult = '';
+    if (GS.oneHeartConfessionCooldown === undefined) GS.oneHeartConfessionCooldown = 0;
+    if (GS.oneHeartMaleColdUntil === undefined) GS.oneHeartMaleColdUntil = 0;
+    if (GS.oneHeartBroTalkPending === undefined) GS.oneHeartBroTalkPending = false;
+    if (GS.oneHeartPrRemaining === undefined) GS.oneHeartPrRemaining = 2;
+    if (GS.oneHeartCpScandalActive === undefined) GS.oneHeartCpScandalActive = false;
+    if (GS.oneHeartCpScandalDone === undefined) GS.oneHeartCpScandalDone = false;
+    if (GS.oneHeartCpScandal2Done === undefined) GS.oneHeartCpScandal2Done = false;
+    if (GS.oneHeartExposureChoiceActive === undefined) GS.oneHeartExposureChoiceActive = false;
+    if (GS.oneHeartExposureChoiceDone === undefined) GS.oneHeartExposureChoiceDone = false;
+    if (GS.oneHeartCoverUsed === undefined) GS.oneHeartCoverUsed = 0;
+    if (GS.oneHeartPublicLine === undefined) GS.oneHeartPublicLine = false;
+    if (GS.oneHeartBlankDay === undefined) GS.oneHeartBlankDay = false;
     if (GS.brotherAffMilestone === undefined) GS.brotherAffMilestone = 0;
     // IMP-ENT-DATE：新字段兜底
     if (GS.oneHeartDateToday === undefined) GS.oneHeartDateToday = false;

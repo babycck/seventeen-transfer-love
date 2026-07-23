@@ -91,6 +91,19 @@ export function showChatModal() {
     chatMessages.appendChild(typingDiv);
     scrollToBottom();
 
+    // [social] 偶尔「开会/练习中晚点回」点缀（不惩罚，纯氛围）：低概率先显示开会提示，延迟后再进入输入态
+    if (Math.random() < 0.18) {
+      typingDiv.textContent = memberName + ' 正在开会，稍后回复…';
+      await new Promise(function(r){ setTimeout(r, 2200 + Math.random() * 2600); });
+      typingDiv.textContent = memberName + ' 正在输入...';
+      scrollToBottom();
+    }
+
+    // [social] 聊天"正在输入"时长随好感变（低好感慢3-5秒，高好感快0.5-1秒，像真人回得快慢）
+    var _affC = (GS.affection && GS.oneHeartMember && GS.affection[GS.oneHeartMember]) || 0;
+    var _wait = _affC >= 60 ? (500 + Math.random() * 500) : (_affC >= 20 ? (1500 + Math.random() * 1500) : (3000 + Math.random() * 2000));
+    await new Promise(function(r){ setTimeout(r, _wait); });
+
     // Send to AI
     var reply = await sendChatMessage(text);
     chatMessages.removeChild(typingDiv);
