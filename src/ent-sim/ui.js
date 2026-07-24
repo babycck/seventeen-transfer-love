@@ -228,7 +228,6 @@ function renderAgenda() {
   if (E.agenda.brother && E.brother && E.brother.name) {
     items.push({ key: 'brother', icon: '👨', text: (E.agenda.brother || '哥哥') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : '') });
   }
-  items.push({ key: 'teammate', icon: '👯', text: '队友互动' });
   return '<div class="es-agenda">' + items.map(function(it) {
     if (it.key === 'teammate') {
       var done = (E.agenda.doneFlags && E.agenda.doneFlags[it.key]) ? ' done' : '';
@@ -465,7 +464,6 @@ function renderTheaterInner() {
 
 // ---------- 事件绑定 ----------
 export function bindEntSimEvents() {
-  if (GS._entSimGenerating) GS._entSimGenerating = false;
   // 惰性初始化
   if (!GS.entSim || !GS.entSim.romance || !GS.entSim.romance.maleLead || !GS.entSim.romance.maleLead.memberId) {
     return;
@@ -537,7 +535,7 @@ function bindStoryEvents() {
     b.addEventListener('click', function() { onAgendaClick(b.dataset.agenda); });
   });
   document.querySelectorAll('.es-sis[data-sis]').forEach(function(b) {
-    b.addEventListener('click', function() { onTeammateInteract(parseInt(b.dataset.sis, 10)); });
+    b.addEventListener('click', function() { showNarrativeLoading(); triggerTeammateEvent(GS.entSim.heroineGroup[parseInt(b.dataset.sis, 10)]); });
   });
   bindId('es-fan-btn', onFanReaction);
   document.querySelectorAll('.es-npc-node[data-npc]').forEach(function(el) {
@@ -896,13 +894,14 @@ function onChatSend() {
 // ---------- 记忆回顾（可编辑，包括当天实时剧情） ----------
 function onMemoryLog() {
   var E = GS.entSim;
-  // 当天实时剧情
+  // 当天实时剧情 — 可编辑
   var todayBlock = '';
+  var todayText = '';
   if (GS._entSimCurrent && GS._entSimCurrent.narrative) {
-    var todayPreview = GS._entSimCurrent.narrative.replace(/\n/g, ' ').substring(0, 300);
+    todayText = GS._entSimCurrent.narrative;
     todayBlock = '<div class="es-mem-today">' +
-      '<div class="es-col-title">📋 今天 (Day ' + (E.cycle.dayCount || 1) + ') — 实时剧情</div>' +
-      '<div class="es-mem-today-text">' + escHtml(todayPreview) + (GS._entSimCurrent.narrative.length > 300 ? '…' : '') + '</div>' +
+      '<div class="es-col-title">📋 今天 (Day ' + (E.cycle.dayCount || 1) + ') — 实时剧情 <small>（可直接编辑，改完点保存）</small></div>' +
+      '<textarea class="es-mem-textarea" id="es-mem-today-text" rows="4" placeholder="（暂无今日剧情）">' + escHtml(todayText) + '</textarea>' +
       '</div>';
   }
   // 过往压缩记忆
@@ -912,7 +911,7 @@ function onMemoryLog() {
     var idx = summaries.length - 1 - di;
     return '<div class="es-mem-day-edit">' +
       '<div class="es-mem-day-head"><b>Day ' + d.day + '</b> <span class="es-mem-kw">' + escHtml((d.keywords || []).join('、')) + '</span></div>' +
-      '<textarea class="es-mem-textarea" data-mem="' + idx + '" rows="2" placeholder="（无关键事件）">' + escHtml(eventsText) + '</textarea>' +
+      '<textarea class="es-mem-textarea" data-mem="' + idx + '" rows="2" placeholder="（无压缩记忆）">' + escHtml(eventsText) + '</textarea>' +
       '</div>';
   }).join('');
   if (!daysHtml) daysHtml = '<div class="es-empty">暂无压缩记忆（进入下一天后自动生成）</div>';
@@ -946,7 +945,14 @@ function onMemoryLog() {
 
   // 保存
   overlay.querySelector('#es-mem-save').addEventListener('click', function() {
-    var textareas = overlay.querySelectorAll('.es-mem-textarea');
+    // 今天实时剧情 — 存入 memory.todayNote
+    var todayTa = overlay.querySelector('#es-mem-today-text');
+    if (todayTa && GS._entSimCurrent) {
+      E.memory.todayNote = E.memory.todayNote || '';
+      E.memory.todayNote = todayTa.value.trim();
+    }
+    // 过往压缩记忆
+    var textareas = overlay.querySelectorAll('.es-mem-textarea[data-mem]');
     textareas.forEach(function(ta) {
       var idx = parseInt(ta.getAttribute('data-mem'), 10);
       var val = ta.value.trim();
@@ -1539,11 +1545,6 @@ function renderBuzzReplies(lines) {
 }
 
 // ---------- 女团队友支线互动 ----------
-function onTeammateInteract(index) {
-  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
-  confirmTeammateInteract(index);
-}
-
 // 从日程「队友互动」槽打开选择面板：让玩家选具体找哪位姐姐
 function showTeammateSelectPanel() {
   console.log('[teammate-panel] called');
