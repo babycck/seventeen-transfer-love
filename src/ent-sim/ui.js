@@ -19,7 +19,7 @@ import {
 } from './romance.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
-  continueEntSimMain, triggerEntSimEvent, triggerEntSimHypothetical, enterEntSimEnding,
+  continueEntSimMain, triggerEntSimEvent, enterEntSimEnding,
   goEntSimNextDay, initiateEntSimDate, generateEntSimConfession,
   generateEntSimChat, generateEntSimMoment, generateEntSimTheater, generateEntSimDiary, handleEntSimRegenerate, generateEntSimLetter,
   generateEntSimRound, runEntSimEnding, triggerTeammateEvent, restartEntSim
@@ -112,11 +112,11 @@ export function renderEntSimGameScreen() {
     if (!app) return;
     app.innerHTML = renderHtml();
     bindEntSimEvents();
-    // 剧情生成后自动滚到底部
+    // 剧情生成后自动跳到最新内容
     setTimeout(function() {
-      var nEl = document.getElementById('es-narrative');
-      if (nEl) nEl.scrollTop = nEl.scrollHeight;
-    }, 50);
+      var endEl = document.getElementById('es-narrative-end');
+      if (endEl) endEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
     if (GS._entSimStageUpPending) showStageUpCeremony();
   };
   return renderHtml();
@@ -257,7 +257,7 @@ function renderCenter(cur, heartPending) {
     '<div class="es-panel es-center-panel">' +
       '<div class="es-col-title">📖 剧情 · Day ' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</div>' +
       heartTitle +
-      '<div class="' + nCls + '" id="es-narrative">' + nHtml + '</div>' +
+      '<div class="' + nCls + '" id="es-narrative">' + nHtml + '<div id="es-narrative-end"></div></div>' +
       '<div class="es-opts" id="es-options">' + optionsHtml + '</div>' +
       renderFreeInput() +
       romanceBtns +
@@ -275,16 +275,18 @@ function renderFreeInput() {
 }
 // 快捷指令（移到剧情框下方，靠近剧情内容）
 function renderQuickActions() {
+  var E = GS.entSim;
   var quick = [
-    { q: 'main', label: '拉回主线' },
     { q: 'regenerate', label: '重新生成' },
     { q: 'nextagenda', label: '下一个行程' },
-    { q: 'hypo', label: '自由推演' },
+    { q: 'cover', label: '🛡️ 掩护(' + (5 - (E.romance.coverUsed || 0)) + '/5)', act: 'cover' },
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
-  ].map(function(b) { return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>'; }).join('');
+  ].map(function(b) {
+    return '<button class="es-quick-btn' + (b.act ? ' es-quick-sm' : '') + '" data-q="' + b.q + '"' + (b.act ? ' data-act="' + b.act + '"' : '') + '>' + b.label + '</button>';
+  }).join('');
   return '<div class="es-quick es-quick-center">' + quick + '</div>';
 }
 function renderRomanceButtons() {
@@ -293,8 +295,6 @@ function renderRomanceButtons() {
   if (E.affection >= 30) btns += '<button class="es-rom-btn" data-act="date">💞 约会（好感' + E.affection + '）</button>';
   var cf = tryConfession();
   if (cf.canConfess) btns += '<button class="es-rom-btn es-confess" data-act="confess">💍 告白</button>';
-  btns += '<button class="es-rom-btn" data-act="risk">⚠️ 风险预估</button>';
-  btns += '<button class="es-rom-btn" data-act="cover">🛡️ 掩护 ' + (5 - (E.romance.coverUsed || 0)) + '/5</button>';
   if (E.affection >= 100 && (E.cycle.roundTotal - (E.flags.sweetMaxRound || 0)) >= 10) {
     btns += '<button class="es-rom-btn es-ending" data-act="ending">🌟 进入大结局</button>';
   }
@@ -404,13 +404,13 @@ function renderDepthTop() {
       '<span class="es-depth-label">' + getRomanceStageLabel() + ' · 好感 ' + aff + '/100</span>' +
     '</div>';
 }
-// 剧情框下方的 Tab 切换条（剧情/聊天/朋友圈/剧场/日记）
+// 剧情框下方的 Tab 切换条（剧情/聊天/朋友圈/剧场/日记/信箱）—— 装进圆角框
 function renderTabBar() {
   var labels = { story: '剧情', chat: '聊天', moments: '朋友圈', theater: '剧场', diary: '日记', letters: '信箱' };
   var tabs = ['story', 'chat', 'moments', 'theater', 'diary', 'letters'].map(function(t) {
     return '<span class="es-tab' + (currentTab() === t ? ' on' : '') + '" data-tab="' + t + '">' + labels[t] + '</span>';
   }).join('');
-  return '<div class="es-tabbar">' + tabs + '</div>';
+  return '<div class="es-panel es-tab-panel"><div class="es-tabbar">' + tabs + '</div></div>';
 }
 
 // ---------- Tab 渲染 ----------
@@ -544,6 +544,10 @@ function bindStoryEvents() {
   document.querySelectorAll('.es-rom-btn[data-act]').forEach(function(b) {
     b.addEventListener('click', function() { onRomanceAct(b.dataset.act); });
   });
+  // 掩护按钮（class 是 es-quick-sm 嵌在快捷指令行，走 onRomanceAct）
+  document.querySelectorAll('.es-quick-sm[data-act]').forEach(function(b) {
+    b.addEventListener('click', function(e) { e.stopPropagation(); onRomanceAct(b.dataset.act); });
+  });
   document.querySelectorAll('.es-quick-btn[data-q]').forEach(function(b) {
     b.addEventListener('click', function() { onQuick(b.dataset.q); });
   });
@@ -589,7 +593,11 @@ function showNarrativeLoading() {
   var existing = nEl.querySelector('.es-loading-inline');
   if (existing) existing.remove();
   nEl.insertAdjacentHTML('beforeend', '<div class="es-loading-inline">✨ 正在加载剧情…</div>');
-  setTimeout(function() { nEl.scrollTop = nEl.scrollHeight; }, 10);
+  // 滚到最新内容处
+  setTimeout(function() {
+    var endEl = document.getElementById('es-narrative-end');
+    if (endEl) endEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 10);
 }
 function rerender() {
   if (window.__renderEntSim) { window.__renderEntSim(); return; }
@@ -657,14 +665,28 @@ function onNpcInteract(type) {
 // 快捷指令
 function onQuick(q) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+
+  // 重新生成/下一个行程 加确认防误触
+  var confirmActions = { regenerate: '重新生成', nextagenda: '下一个行程' };
+  if (confirmActions[q]) {
+    showEntSimModal('⚠️ 确认操作',
+      '<p style="text-align:center;padding:8px 0">确定要 <b>' + confirmActions[q] + '</b> 吗？<br><small style="color:var(--text-muted)">当前未选择的选项将被跳过</small></p>',
+      [
+        { id: 'cancel', label: '取消' },
+        { id: 'confirm', label: '确定', primary: true }
+      ]).then(function(r) {
+        if (r !== 'confirm') return;
+        showNarrativeLoading();
+        if (q === 'nextagenda') continueEntSimMain().then(rerender);
+        else if (q === 'regenerate') handleEntSimRegenerate().then(rerender);
+      });
+    return;
+  }
+
   showNarrativeLoading();
-  if (q === 'main') { continueEntSimMain().then(rerender); }
-  else if (q === 'nextday') { goEntSimNextDay().then(rerender); }
-  else if (q === 'regenerate') { handleEntSimRegenerate().then(rerender); }
-  else if (q === 'nextagenda') { continueEntSimMain().then(rerender); }
+  if (q === 'nextday') { goEntSimNextDay().then(rerender); }
   else if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
   else if (q === 'visit') { showEntSimVisitChoice(); }
-  else if (q === 'hypo') { triggerEntSimHypothetical('如果女主此刻更主动或选择完全相反的路线，会发生什么？').then(rerender); }
   else if (q === 'ending') { onEnding(); }
 }
 
@@ -711,38 +733,14 @@ function onRomanceAct(act) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
   if (act === 'date') {
     var venue = DATE_VENUES[Math.floor(Math.random() * DATE_VENUES.length)];
-    // 约会前先选掩护（闭环）：选完掩护再进入约会场景
     showCoverPanel(function() { initiateEntSimDate(venue).then(rerender); });
   } else if (act === 'confess') {
     generateEntSimConfession().then(rerender);
   } else if (act === 'ending') {
     onEnding();
-  } else if (act === 'risk') {
-    showRiskEstimate();
   } else if (act === 'cover') {
     showCoverPanel();
   }
-}
-// 风险预估弹窗：显示当前风险等级、预估粉丝流失、建议
-function showRiskEstimate() {
-  var E = GS.entSim;
-  var r = assessRomanceRisk(0);
-  var popLoss = 0;
-  if (r.score >= 80) popLoss = 15;
-  else if (r.score >= 60) popLoss = 10;
-  else if (r.score >= 40) popLoss = 5;
-  else if (r.score >= 20) popLoss = 2;
-  var tierLabel = r.score >= 80 ? '⛈️ 引爆' : r.score >= 60 ? '🔴 哗然' : r.score >= 40 ? '🟠 升温' : r.score >= 20 ? '🟡 暗涌' : '🟢 安全';
-  var html = '<div class="es-risk-panel">' +
-    '<div class="es-risk-title">地下恋风险评估</div>' +
-    '<div class="es-risk-row"><span>当前档位</span><span>' + tierLabel + '</span></div>' +
-    '<div class="es-risk-row"><span>风险分</span><span>' + r.score + '/100</span></div>' +
-    '<div class="es-risk-row"><span>已用掩护</span><span>' + (E.romance.coverUsed || 0) + '/5</span></div>' +
-    '<div class="es-risk-row"><span>若被拍到一次预估粉丝流失</span><span>-' + popLoss + ' 人气</span></div>' +
-    '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + '</span></div>' +
-    '<div style="margin-top:8px;font-size:12px;color:var(--es-text-dim)">建议：高风险时先用掩护/避嫌约会，避免被拍到。</div>' +
-    '</div>';
-  showEntSimModal('⚠️ 风险预估', html, [{ id: 'ok', label: '知道了', primary: true }]);
 }
 // 掩护面板：选择一种掩护手段，应用后反馈
 function showCoverPanel(onDone) {

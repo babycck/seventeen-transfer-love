@@ -2315,9 +2315,12 @@ body {
 @keyframes es-pulse { 0%, 100% { opacity: .4; } 50% { opacity: .85; } }
 .es-options { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .es-option {
-  text-align: left; padding: 11px 14px; border: 1px solid rgba(124,111,240,.3);
+  text-align: left; padding: 8px 12px; border: 1px solid rgba(124,111,240,.3);
   border-radius: 12px; background: rgba(124,111,240,.1); color: var(--es-text);
-  cursor: pointer; font-family: inherit; font-size: 13px; line-height: 1.5; transition: .15s;
+  cursor: pointer; font-family: inherit; font-size: 13px; line-height: 1.4; transition: .15s;
+  /* 最多 2 行，超长截断 */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .es-option:hover { background: rgba(124,111,240,.2); transform: translateY(-1px); border-color: var(--es-primary2); }
 .es-option:disabled { opacity: .5; cursor: default; transform: none; }
@@ -2383,8 +2386,13 @@ body {
 /* ===== ent-sim preview 风格布局（基于 entSim-ui-preview.html） ===== */
 .es-grid {
   max-width: 1480px; margin: 0 auto; padding: 0 12px 16px;
-  display: grid; grid-template-columns: 240px 1fr 280px; gap: 12px; align-items: start;
+  display: grid; grid-template-columns: 240px 1fr 280px; gap: 12px; align-items: stretch;
 }
+/* 三栏等高：每列 flex-column，主 panel 撑满高度 */
+.es-col { display: flex; flex-direction: column; min-width: 0; }
+.es-left > .es-panel, .es-right > .es-panel { flex: 1; }
+.es-center-panel { flex: 1; }
+.es-tab-panel { flex-shrink: 0; }
 .es-cycle-tag {
   display: inline-block; padding: 4px 10px; border-radius: 20px;
   background: rgba(124,111,240,.16); color: var(--es-primary); font-size: 12px; font-weight: 600;
@@ -2416,10 +2424,10 @@ body {
 .es-ag-btn .es-ic { opacity: .8; }
 .es-ag-btn .es-loc { margin-left: auto; opacity: .5; font-size: 10px; }
 .es-res { font-size: 13px; color: var(--es-text); }
-.es-center-panel { min-height: calc(100vh - 130px); }
+.es-center-panel { }
 .es-narrative {
   background: var(--es-soft); border: 1px solid var(--es-card-border); border-radius: 12px;
-  padding: 18px; font-size: 15px; line-height: 1.9; color: var(--es-text); min-height: 260px; max-height: 56vh; overflow-y: auto;
+  padding: 18px; font-size: 15px; line-height: 1.9; color: var(--es-text); min-height: 160px; max-height: 56vh; overflow-y: auto;
 }
 .es-options { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
 .es-hot { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
@@ -2469,7 +2477,10 @@ body {
 .es-depth-top .es-depth-label { margin-left: auto; font-size: 13px; white-space: nowrap; }
 
 /* 剧情框下方的 Tab 切换条 */
-.es-tabbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+.es-tabbar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; justify-content: center; }
+/* Tab 装进框 */
+.es-tab-panel { margin-top: 12px; padding: 10px 12px; }
+.es-tab-panel .es-tabbar { margin-top: 0; }
 /* 内联 Tab 内容（单页滚动，取消全屏高度） */
 .es-tab-content { margin-top: 12px; }
 .es-tab-inner { min-height: 0; box-shadow: none; }
@@ -2580,7 +2591,7 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-pop i { font-style: normal; color: var(--es-primary2); }
 
 /* 恋爱动作按钮 */
-.es-rom-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.es-rom-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .es-rom-btn {
   flex: 1; min-width: 120px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
   font-size: 13px; font-weight: 600; font-family: inherit; color: #fff;
@@ -2643,6 +2654,9 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
   background: var(--es-soft); border: 1px solid var(--es-card-border); transition: .15s;
 }
 .es-quick-btn:hover { background: var(--es-soft-hover); border-color: var(--es-primary2); transform: translateY(-1px); }
+/* 缩小版快捷按钮（风险预估/掩护用） */
+.es-rom-sm { display: inline-flex; gap: 6px; align-items: center; }
+.es-quick-sm { font-size: 11px; padding: 5px 10px; }
 
 /* 底部 Tab */
 .es-tabs { display: flex; gap: 6px; margin-top: 10px; }
@@ -2701,7 +2715,7 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 }
 .es-free-send:hover { filter: brightness(1.08); }
 /* 剧情框下方的快捷指令行 */
-.es-quick-center { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.es-quick-center { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 /* 朋友圈 Tab */
 .es-moments-panel { min-height: calc(100vh - 130px); }
