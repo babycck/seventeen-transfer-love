@@ -627,14 +627,28 @@ function onNpcInteract(type) {
   var node = getNpcNodes().filter(function(n) { return n.type === type; })[0];
   var label = node ? node.name : 'NPC';
   var html = '<p>主动互动 · <b>' + escHtml(label) + '</b></p>' + acts.map(function(a) {
-    return '<button class="es-modal-btn" data-ni="' + a.key + '">' + a.icon + ' ' + a.label + '<span class="es-modal-sub">' + a.note + '</span></button>';
+    var tags = [];
+    if (a.pop) tags.push('<span class="es-ni-tag es-ni-pop">人气' + (a.pop > 0 ? '+' : '') + a.pop + '</span>');
+    if (a.exposure) tags.push('<span class="es-ni-tag es-ni-exp">曝光' + (a.exposure > 0 ? '+' : '') + a.exposure + '</span>');
+    return '<button class="es-modal-btn" data-ni="' + a.key + '">' + a.icon + ' ' + a.label + ' ' + tags.join('') + '<span class="es-modal-sub">' + a.note + '</span></button>';
   }).join('');
   showEntSimModal('🕸️ 互动 · ' + label, html, []);
   document.querySelectorAll('[data-ni]').forEach(function(b) {
     b.addEventListener('click', function() {
       var r = interactNpc(type, b.dataset.ni);
       closeEntSimModal();
-      if (r.success) showToast('已互动：' + r.note);
+      if (r.success) {
+        // 在剧情区插入互动结果卡片
+        var nEl = document.getElementById('es-narrative');
+        if (nEl) {
+          nEl.insertAdjacentHTML('beforeend',
+            '<div class="es-npc-interact-result">' +
+              '<span class="es-npc-interact-icon">' + (node.icon || '👤') + '</span>' +
+              '<span class="es-npc-interact-text">' + escHtml(r.note) + '</span>' +
+            '</div>');
+          nEl.scrollTop = nEl.scrollHeight;
+        }
+      }
       rerender();
     });
   });
@@ -1054,39 +1068,53 @@ function showEntSimChatModal() {
 function showEntSimMomentsModal() {
   var E = GS.entSim;
   var ml = (E.romance && E.romance.maleLead) || { name: '他' };
+  var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '我';
   var moments = E.moments || [];
 
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
 
-  var itemsHtml = moments.map(function(m) {
-    return '<div class="es-moment-item">' +
-      '<div class="es-moment-post">' + escHtml(m.post || '') + '</div>' +
-      (m.reply ? '<div class="es-moment-reply">💬 ' + escHtml(ml.name) + '：' + escHtml(m.reply) + '</div>' : '') +
+  var itemsHtml = '';
+  if (moments.length === 0) {
+    itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有朋友圈动态 📸</div>';
+  } else {
+    for (var i = moments.length - 1; i >= 0; i--) {
+      var m = moments[i];
+      var ts = m.ts ? new Date(m.ts) : new Date();
+      var timeStr = (ts.getMonth() + 1) + '月' + ts.getDate() + '日 ' + ts.getHours() + ':' + String(ts.getMinutes()).padStart(2, '0');
+      var posterName = m.name || hpName;
+      var replyName = m.replyName || ml.name;
+      itemsHtml += '<div class="oneheart-moment-card">' +
+        '<div class="oneheart-moment-time">' + escHtml(timeStr) + ' · ' + escHtml(m.type || '日常') + '</div>' +
+        '<div class="oneheart-moment-content"><strong>' + escHtml(posterName) + '</strong> ' + escHtml(m.post || '') + '</div>' +
+        (m.reply ? '<div class="oneheart-moment-reply">└ <strong>' + escHtml(replyName) + '</strong> ' + escHtml(m.reply) + '</div>' : '') +
+        '<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">❤️ ' + (m.liked ? '已赞' : '点赞') + '</div>' +
       '</div>';
-  }).join('');
-  if (!itemsHtml) itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">暂无朋友圈动态</div>';
+    }
+  }
 
   overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
     '<button class="modal-close-x" id="esMomentsClose">✕</button>' +
     '<div class="oneheart-chat-modal">' +
     '<div class="oneheart-chat-header"><span>📸</span><span class="oneheart-chat-name">朋友圈</span></div>' +
-    '<div class="oneheart-chat-messages">' + itemsHtml + '</div>' +
+    '<div class="oneheart-chat-messages" style="padding:12px">' + itemsHtml + '</div>' +
     '<div style="padding:10px"><button class="es-btn primary es-wide" id="esGenMoment">生成新动态</button></div>' +
     '</div></div>';
 
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
   document.getElementById('esMomentsClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
-  document.getElementById('esGenMoment').addEventListener('click', function() {
-    document.getElementById('esGenMoment').disabled = true;
-    document.getElementById('esGenMoment').textContent = '生成中…';
-    generateEntSimMoment().then(function() {
-      overlay.remove();
-      showEntSimMomentsModal(); // 重新打开显示新动态
-    }).catch(function() { overlay.remove(); });
-  });
+  var genBtn = document.getElementById('esGenMoment');
+  if (genBtn) {
+    genBtn.addEventListener('click', function() {
+      genBtn.disabled = true; genBtn.textContent = '生成中…';
+      generateEntSimMoment().then(function() {
+        overlay.remove();
+        showEntSimMomentsModal();
+      }).catch(function() { overlay.remove(); });
+    });
+  }
 }
 
 // ---------- 📱 手机框弹窗：剧场 ----------
@@ -1228,7 +1256,7 @@ export function showEntSimModal(title, bodyHtml, buttons) {
   return new Promise(function(resolve) {
     closeEntSimModal();
     var overlay = document.createElement('div');
-    overlay.className = 'es-modal-overlay';
+    overlay.className = 'es-modal-overlay es-modal-dark';
     var btns = (buttons && buttons.length) ? buttons.map(function(b) {
       return '<button class="es-modal-btn ' + (b.primary ? 'primary' : '') + '" data-res="' + b.id + '">' + escHtml(b.label) + '</button>';
     }).join('') : '';

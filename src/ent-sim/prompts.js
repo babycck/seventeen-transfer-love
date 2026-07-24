@@ -35,7 +35,7 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【恋爱阶段（好感度 0-100 派生）】' + AFFECTION_STAGES.map(function(s) { return s.min + '=' + s.icon + s.label; }).join(' / ') + '。好感度由每回合的 affectionDelta(±1-3) 推进。\n';
   sys += '【告白门槛】好感度 ≥ 80（交往）且 未冷战 且 未告白过，下一个或下下个剧情会自然触发告白，不要一到 80 就生硬告白。\n';
   sys += '【心动时刻】好感度跨过「暧昧(50)→心动(60)」时，应有一段约 300 字的沉浸式心动高光描写（粉色氛围、心跳感），插入当前剧情前。\n';
-  sys += '【写作风格】现实向、甜宠暗恋、地下恋视角、有压力感。每段正文剧情 400-900 字（JSON 输出下达到 400+ 字即可，不要硬凑字），充分铺陈人物心理、环境与互动细节，避免幼稚甜腻。恋爱慢热有张力。\n';
+  sys += '【写作风格】现实向、甜宠暗恋、地下恋视角、有压力感。每段正文剧情 800-1800 字，充分铺陈人物心理描写、环境细节、对话与互动，写出细腻的慢热恋爱张力，不要干瘪叙述。\n';
   sys += '【场景连续性·强制】剧情必须发生在"今日日程"设定的场景内（如主档是「打歌期」，剧情就写在待机室/后台；主档是「合宿」，剧情就在宿舍；主档是「签售会」，就在签售现场）。不要突然跳到无关新地点，场景转换须通过选项或时间推进自然过渡。每次生成都会下发【本场场景·强制锁定】指令，必须严格遵守。\n';
   sys += '【时段写作指引】上午偏练习/工作、下午偏社交/营业/互动、夜晚偏私密/独处/约会，由当前时段标签决定氛围。\n';
   sys += '【称呼规则】女主 ' + (hp.age || 19) + ' 岁，比男主/哥哥年幼，叫男主「XX哥」、叫哥哥「哥」。年长角色可叫女主名或「妹／妹妹」。禁止年幼者对女主用错位称呼。\n';
@@ -68,6 +68,8 @@ export function buildEntSimSystemPrompt(mode) {
 export function buildEntSimUserMessage(type, extra) {
   extra = extra || {};
   var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead) || {};
+  var mlName = ml.name || '他';
   var msg = '';
 
   if (type === 'phase') {
@@ -99,6 +101,8 @@ export function buildEntSimUserMessage(type, extra) {
     msg = '【聊天】以下是最近 ' + history.length + ' 条对话上下文（越靠下越近）：\n' + (ctx ? ctx + '\n' : '') + '女主新消息：「' + (extra.msg || '') + '」。请以男主口吻写一条回复（narrative 即回复正文，options 留空）。语气按当前好感阶段：' + getRomanceStageLabel() + '，保持人设连贯。\n';
   } else if (type === 'moment') {
     msg = '【朋友圈】请生成一条女主的朋友圈动态（narrative 即动态正文，options 留空），自然融入当前娱乐圈/恋爱状态，可带 emoji，1-3 句。\n';
+  } else if (type === 'momentReply') {
+    msg = '【朋友圈回复】女主刚发了一条朋友圈：「' + (extra.post || '') + '」。请以男主「' + mlName + '」的口吻写一条简短回复（narrative 即回复正文，options 留空），根据当前感情阶段调整语气：陌生时礼貌、暧昧时暗示、热恋时直接。1-2 句即可，不要太长。\n';
   } else if (type === 'theater') {
     msg = '【剧场番外】主题：「' + (extra.themePrompt || '男主视角') + '」。请生成约 800 字番外故事（narrative 即正文，options 留空）。\n';
   }

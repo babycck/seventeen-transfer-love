@@ -1740,7 +1740,7 @@ body {
 .quick-cmd:hover { background: var(--bg-soft-hover); border-color: var(--accent-primary-light); }
 
 /* entSim 弹窗统一深色主题（剧场/日记/聊天/朋友圈） */
-.es-modal-dark .modal-content, .modal-content.es-phone-shell {
+.es-modal-dark .modal-content, .modal-content.es-phone-shell, .es-modal-dark .es-modal {
   background: linear-gradient(160deg, #1c1a2e, #141220); color: #e6e1f5;
   border: 1px solid rgba(160,140,220,.15);
 }
@@ -1748,6 +1748,12 @@ body {
 .es-modal-dark .modal-content .oneheart-chat-name,
 .modal-content.es-phone-shell h3 { color: #d5c8f0; }
 .es-modal-dark .modal-content .es-fan-card-body { color: #e6e1f5; }
+.es-modal-dark .es-modal-title { color: #d5c8f0; }
+.es-modal-dark .es-modal-body { color: #e6e1f5; }
+.es-modal-dark .es-modal-body p { color: #e6e1f5; }
+.es-modal-dark .es-modal-sub { color: #b9aee0; }
+.es-modal-dark .es-modal-btn { color: #e6e1f5; border-color: rgba(160,140,220,.25); }
+.es-modal-dark .es-modal-btn:hover { background: rgba(124,111,240,.2); }
 
 /* 1v1 Chat Modal */
 .oneheart-chat-modal {
@@ -2473,6 +2479,13 @@ body {
 .es-pap-hot:hover { background: rgba(255,107,107,.1); }
 .es-npc-click { cursor: pointer; }
 .es-npc-click:hover { transform: translateY(-2px); border-color: var(--es-primary); }
+.es-npc-interact-result {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; margin: 10px 0;
+  background: rgba(124,111,240,.08); border: 1px solid rgba(124,111,240,.18); border-radius: 8px;
+  font-size: 12px; color: var(--es-text-dim); animation: es-fade-in .3s ease;
+}
+.es-npc-interact-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+.es-npc-interact-text { line-height: 1.6; }
 svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underline; }
 .es-evening { display: flex; gap: 8px; flex-wrap: wrap; }
 .es-evening-btn {
@@ -2489,6 +2502,9 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-risk-badge.es-risk-low { background: rgba(91,214,160,.16); color: var(--es-green); border: 1px solid rgba(91,214,160,.4); }
 .es-risk-badge.es-risk-safe { background: var(--es-soft); color: var(--es-text2); border: 1px solid var(--es-card-border); }
 .es-modal-sub { display: block; font-size: 11px; opacity: .65; margin-top: 2px; font-weight: 400; }
+.es-ni-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+.es-ni-pop { background: rgba(91,214,160,.15); color: var(--es-green); }
+.es-ni-exp { background: rgba(255,138,138,.15); color: var(--es-red); }
 .es-risk-modal { font-size: 12px; color: var(--es-text); line-height: 1.9; }
 .es-risk-line { color: var(--es-text2); }
 .es-risk-score { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: var(--es-soft); border: 1px solid var(--es-card-border); font-weight: 600; color: var(--es-text); }

@@ -346,7 +346,9 @@ function runEntSimType(type, extra, storeResult) {
   var sys = buildEntSimSystemPrompt();
   var user = buildEntSimUserMessage(type, extra);
   var maxT = (type === 'theater') ? 1200 : 700;
-  return generateWithRetry(sys, user, { temperature: 0.9, maxTokens: maxT })
+  // 朋友圈/聊天/剧场不需要 options 和长文校验，跳过校验
+  var skipVal = type === 'moment' || type === 'chat' || type === 'theater';
+  return generateWithRetry(sys, user, { temperature: 0.9, maxTokens: maxT, plainText: skipVal, skipValidate: skipVal })
     .then(function(res) {
       var raw = (res && res.raw) ? res.raw : '';
       var parsed = parseEntSimResponse(raw);
@@ -367,11 +369,37 @@ export function generateEntSimChat(msg) {
   });
 }
 
-// 朋友圈：双方都发（此处生成女主动态），失败不显示
+// 朋友圈：女主发动态 + 男主回复，失败不显示
 export function generateEntSimMoment() {
   return runEntSimType('moment', {}, function(narrative) {
-    if (narrative) GS.entSim.moments.push({ id: Date.now(), post: narrative, reply: '', ts: Date.now() });
-    saveGame();
+    if (!narrative) return;
+    // 同时生成男主回复
+    var ml = GS.entSim.romance && GS.entSim.romance.maleLead;
+    var mlName = ml ? ml.name : '他';
+    var sys = buildEntSimSystemPrompt();
+    var replyPrompt = buildEntSimUserMessage('momentReply', { post: narrative });
+    generateWithRetry(sys, replyPrompt, { temperature: 0.85, maxTokens: 200, plainText: true, skipValidate: true })
+      .then(function(r) {
+        var reply = (r && r.raw) ? r.raw.trim() : '';
+        if (reply && reply.length > 200) reply = reply.slice(0, 200);
+        if (!reply) reply = '这是今天的你吗？😊';
+        GS.entSim.moments.push({
+          id: Date.now(), post: narrative, reply: reply,
+          name: (GS.heroineProfile && GS.heroineProfile.name) || '我',
+          replyName: mlName, ts: Date.now(),
+          type: '日常', liked: false
+        });
+        saveGame();
+      })
+      .catch(function() {
+        GS.entSim.moments.push({
+          id: Date.now(), post: narrative, reply: '嗯。',
+          name: (GS.heroineProfile && GS.heroineProfile.name) || '我',
+          replyName: mlName, ts: Date.now(),
+          type: '日常', liked: false
+        });
+        saveGame();
+      });
   });
 }
 
