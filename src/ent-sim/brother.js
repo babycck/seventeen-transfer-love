@@ -4,7 +4,7 @@
 // ============================================================
 import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
-import { GIRLGROUP_EVENTS, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR } from './data.js';
+import { GIRLGROUP_EVENTS, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
 
 // 哥哥事件池（剧情类，不强制影响进度）
 export var BROTHER_EVENT_POOL = [
@@ -143,10 +143,28 @@ function pickRivalAdvance(E) {
   var node = E.npcNetwork && E.npcNetwork.nodes['npc_suitor'];
   if (!node) return null;
   var intimacy = node.intimacy || 0;
-  var pool = RIVAL_ADVANCE_EVENTS.filter(function(e) { return intimacy >= (e.minIntimacy || 0); });
-  if (!pool.length) return null;
+  // 6阶段情敌攻势：根据好感度定位阶段
+  var aff = E.affection || 0;
+  var stage = 1;
+  for (var s = ENT_SIM_RIVAL_STAGES.length - 1; s >= 0; s--) {
+    if (aff >= ENT_SIM_RIVAL_STAGES[s].minAff) { stage = ENT_SIM_RIVAL_STAGES[s].stage; break; }
+  }
+  // 阶段6：情敌退出祝福，无攻势
+  if (stage >= 6) return null;
+  // 20%概率触发
   if (randInt(1, 100) > 20) return null;
-  return cloneEvent(pool[randInt(0, pool.length - 1)]);
+  var actions = ENT_SIM_RIVAL_ACTIONS[stage] || ENT_SIM_RIVAL_ACTIONS[1];
+  if (!actions || !actions.length) return null;
+  // 去重：避免同id重复触发
+  var triggered = E._rivalTriggered || {};
+  var available = actions.filter(function(a) { return !triggered[a.id]; });
+  if (!available.length) { E._rivalTriggered = {}; available = actions; }
+  var picked = available[randInt(0, available.length - 1)];
+  E._rivalTriggered = E._rivalTriggered || {};
+  E._rivalTriggered[picked.id] = true;
+  var rvNode = getNpcNodes().filter(function(n) { return n.type === 'rival' || n.type === 'suitor'; })[0];
+  var rvName = (rvNode && rvNode.name) || '团内成员';
+  return { text: '【情敌·' + ENT_SIM_RIVAL_STAGES[stage-1].label + '】' + rvName + '：' + picked.desc, exposure: stage >= 3 ? 1 : 0, stage: stage };
 }
 
 function cloneEvent(ev) {

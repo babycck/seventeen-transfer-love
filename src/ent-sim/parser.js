@@ -3,6 +3,7 @@
 // AI 以 JSON 返回 { narrative, options, entSimExtras }；兜底回退到 markdown 解析。
 // ============================================================
 import { safeParseJson, parseNarrative } from '../parser.js';
+export { safeParseJson };
 
 // 截断兜底：从原始文本正则/括号匹配提取关键字段（AI 返回 JSON 被 max_tokens 截断时仍可部分恢复）
 function extractBalancedObj(raw, key) {

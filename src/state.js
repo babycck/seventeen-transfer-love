@@ -489,6 +489,12 @@ export function migrateSave() {
     if (typeof E.misc.cpRealTriggered !== 'boolean') E.misc.cpRealTriggered = false;
 
     if (!E.buzzReplies || typeof E.buzzReplies !== 'object') E.buzzReplies = {};
+    if (typeof E._momentCounter !== 'number') E._momentCounter = 0;
+    if (typeof E._diaryCounter !== 'number') E._diaryCounter = 0;
+    if (!Array.isArray(E.diaryHis)) E.diaryHis = [];
+    if (!Array.isArray(E.letters)) E.letters = [];
+    if (typeof E._chatAffCount !== 'number') { E._chatAffCount = 0; E._chatAffDay = 0; E._chatAffGained = 0; }
+    if (!E._rivalTriggered || typeof E._rivalTriggered !== 'object') E._rivalTriggered = {};
     if (!Array.isArray(E.chatHistory)) E.chatHistory = [];
     if (!Array.isArray(E.moments)) E.moments = [];
     if (!Array.isArray(E.theaterHistory)) E.theaterHistory = [];

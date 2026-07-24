@@ -21,10 +21,10 @@ export function buildEntSimHeroineGroup() {
   var namePool = ['恩率', '知允', '秀妍', '宥娜', '彩琳', '瑞胤', '河英', '允真', '艺璘', '多彬'];
   var roles = [
     { tag: '最疼你的大姐', rel: 'r1' },
-    { tag: '总抢 part 的', rel: 'r2' },
+    { tag: '舞台疯子', rel: 'r2' },
     { tag: '想退团的', rel: 'r3' },
-    { tag: '争门面的', rel: 'r4' },
-    { tag: '佛系躺平的', rel: 'r5' }
+    { tag: '综艺担当', rel: 'r4' },
+    { tag: '佛系维他命', rel: 'r5' }
   ];
   var used = {};
   var out = [];
@@ -1041,7 +1041,7 @@ export var ENT_SIM_AGENDA_POOLS = {
     { task: '音乐节目打歌', place: '音乐节目待机室', cat: '打歌', type: 'team', exposure: 2, encounterHint: '后台撞见同期的 SEVENTEEN 候补舞台，哥哥悄悄对你比"加油"；也可能和男主舞台擦肩' },
     { task: '回归 showcase', place: '演唱会场馆', cat: '回归', type: 'team', exposure: 2, encounterHint: '台上表演时余光扫到观众席里的男主，心跳漏一拍；签售时粉丝问"姐姐有男朋友吗"' },
     { task: '签售会', place: '签售现场', cat: '粉丝', type: 'team', exposure: 1, encounterHint: '粉丝问"姐姐理想型""有没有喜欢的人"，你笑着打太极；有人递来男主相关应援被你悄悄收下' },
-    { task: '练习室合宿', place: '团体宿舍', cat: '练习', type: 'team', exposure: 0, encounterHint: '和姐姐们一起练，某位姐姐（争门面的）抢了你 part，你有点闷；哥哥发消息问你们吃了没' },
+    { task: '练习室合宿', place: '团体宿舍', cat: '练习', type: 'team', exposure: 0, encounterHint: '和姐姐们一起练到深夜，累了就横七竖八躺在地板上聊天，哥哥发消息问你们吃了没' },
     { task: '画报拍摄', place: '摄影棚', cat: '拍摄', type: 'solo', exposure: 3, encounterHint: '拍照时被站姐拍到戴了和男主同款饰品，后来网上有人扒"同款"，你一阵心虚' },
     { task: 'Vlive 直播', place: '宿舍直播间', cat: '粉丝', type: 'solo', exposure: 1, encounterHint: '直播时粉丝刷"想看你和哥哥同框"，你岔开话题；弹幕有人问恋爱观' },
     { task: '综艺录制', place: '综艺摄影棚', cat: '综艺', type: 'team', exposure: 2, encounterHint: '和哥哥同台当嘉宾，被主持人起哄"兄妹默契"，男主在台下看着笑' },

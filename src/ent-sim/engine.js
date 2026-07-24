@@ -6,8 +6,8 @@
 import { GS, saveGame } from '../state.js';
 import { checkChapterAdvance, initEntSimState, popularity, careerLevel } from './state.js';
 import { generateWithRetry } from '../ai-generator.js';
-import { showToast } from '../utils.js';
-import { parseEntSimResponse, parseEntSimExtras } from './parser.js';
+import { showToast, randInt } from '../utils.js';
+import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
 import { buildEntSimSystemPrompt, buildEntSimUserMessage } from './prompts.js';
 import { rollDailyAgenda, getTimeOfDayLabel } from './cycle.js';
 import { applyDiscoveryBlowback, addExposure } from './public-opinion.js';
@@ -16,7 +16,7 @@ import { generateDailyBuzz, generateFanReaction } from './immersion.js';
 import { evaluateEnding } from './endings.js';
 import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
-import { ENDING_TONE, TEAMMATE_FLAVOR } from './data.js';
+import { ENDING_TONE, TEAMMATE_FLAVOR, DAILY_ENGAGEMENT_POOL } from './data.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
@@ -40,8 +40,11 @@ export function generateEntSimRound(type, extra) {
 
   var _nEl = (typeof document !== 'undefined') ? document.getElementById('es-narrative') : null;
   if (_nEl) {
-    _nEl.insertAdjacentHTML('beforeend', '<div class="es-loading-inline">✨ 正在加载剧情…</div>');
-    _nEl.scrollTop = _nEl.scrollHeight;
+    var _existing = _nEl.querySelector('.es-loading-inline');
+    if (!_existing) {
+      _nEl.insertAdjacentHTML('beforeend', '<div class="es-loading-inline">✨ 正在加载剧情…</div>');
+      _nEl.scrollTop = _nEl.scrollHeight;
+    }
   }
 
   _entSimInflight = generateWithRetry(sys, user, { temperature: 0.9, maxTokens: 5000 })
@@ -95,16 +98,23 @@ export function generateEntSimRound(type, extra) {
     .then(function(current) {
       GS._entSimGenerating = false;
       _entSimInflight = null;
-      // 自动写日记：每轮生成后记录摘要
+      // 自动写日记：每 3 回合 AI 生成完整日记（对齐 1v1）
       if (current && current.narrative && !extra.noSideEffects) {
         var E = GS.entSim;
-        E.diary = E.diary || [];
-        // 日记摘要取 narrative 前 50 字
+        // 简洁摘要同时保留（记忆回顾用）
         var sum = (current.narrative || '').replace(/\n/g, ' ').substring(0, 50).trim();
         var choiceText = extra.choiceText || extra.freeText || '';
         if (sum) {
-          E.diary.push({ day: E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0, summary: sum, choice: choiceText });
-          if (E.diary.length > 60) E.diary = E.diary.slice(-60);
+          E.diarySummary = E.diarySummary || [];
+          E.diarySummary.push({ day: E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0, summary: sum, choice: choiceText });
+          if (E.diarySummary.length > 60) E.diarySummary = E.diarySummary.slice(-60);
+        }
+        // AI 日记：每 3 回合触发一次（女主 + 男主双视角）
+        E._diaryCounter = (E._diaryCounter || 0) + 1;
+        if (E._diaryCounter >= 3) {
+          E._diaryCounter = 0;
+          generateEntSimDiary(); // 异步，不阻塞
+          generateEntSimDiaryHis(); // 男主视角日记
         }
         // 男主视角碎片解锁（好感 40/60/80）
         var aff = E.affection || 0;
@@ -144,7 +154,10 @@ function applySideEffects(extras) {
         var sev = Math.max(1, Math.min(5, Math.ceil(mag / 2)));
         applyDiscoveryBlowback(sev);
         // 曝光后生成粉丝圈反应（异步，不阻塞主流程）
-        generateFanReaction('曝光：「' + (extras.exposureEvent.label || '未知') + '」').catch(function(){});
+        var evLabel = extras.exposureEvent.label || '未知';
+        var evNote = extras.exposureEvent.note || '';
+        var evDetail = '曝光事件：' + evLabel + (evNote ? '（' + evNote + '）' : '');
+        generateFanReaction('曝光', evDetail).catch(function(){});
       }
     }
   }
@@ -200,11 +213,26 @@ export function goEntSimNextDay() {
   var E = GS.entSim;
   E.cycle.dayCount++;
   E.cycle.roundTotal++; // 换天才推进回合数，避免每次操作污染冷却/冷战倒计时
+  // 秘密信箱：每 7-10 回合自动一封信
+  if (E.cycle.roundTotal > 0 && E.cycle.roundTotal % (7 + randInt(0, 3)) === 0) {
+    generateEntSimLetter(); // 异步，不阻塞
+  }
+  // 朋友圈自动生成：每 3-5 回合自动一条（对齐 1v1 规则）
+  E._momentCounter = (E._momentCounter || 0) + 1;
+  var momentThresh = 3 + Math.floor(Math.random() * 3); // 3~5
+  if (E._momentCounter >= momentThresh) {
+    E._momentCounter = 0;
+    generateEntSimMoment(); // 异步，不阻塞换天流程
+  }
   E.cycle.timeOfDay = 0; // 时段不随操作推进，换天重置为上午
   E.chapter.roundInChapter = (E.chapter.roundInChapter || 0) + 1; // 章节内回合/天数累计
   tickRomanceTimers(); // 清理过期冷战 / 告白冷却
   rollDailyAgenda();
   generateDailyBuzz();
+  // 每日营业事件：从 100+ 条池子随机抽一条，异步生成粉丝圈反应（不阻塞换天）
+  var pool = DAILY_ENGAGEMENT_POOL.slice();
+  var engEvent = pool[randInt(0, pool.length - 1)];
+  generateFanReaction('每日营业', engEvent).catch(function(){});
   // 曝光累计衰减 30%
   E.misc.exposureAccum = Math.floor((E.misc.exposureAccum || 0) * 0.7);
   // 重置每日 NPC 互动次数
@@ -242,10 +270,13 @@ export function handleEntSimFreeInput(text) {
   return generateEntSimRound('free', { freeText: text });
 }
 
-// 懒生成男主种子事件（首次生成 200 字上心契机存档，供告白/吃醋/心动时刻回溯）
+// 懒生成男主种子事件（首次互动后的回溯存档，供告白/吃醋/心动时刻引用）
+// 不在开局立即生成——开局两人只是陌生人/前辈后辈，种子事件应在有互动基础后才产生
 export function ensureSeedEvent() {
   var E = GS.entSim;
   if (E.romance.seedEvent) return Promise.resolve();
+  // 延迟门槛：必须好感 >= 5 或已推进 >= 3 回合，避免开局就预设男主心动
+  if ((E.affection || 0) < 5 && (E.cycle.roundTotal || 0) < 3) return Promise.resolve();
   var ml = E.romance.maleLead;
   var mlName = ml ? ml.name : '男主';
   // 兜底场景（AI 失败/为空时使用，保证 seedEvent 永不空、不污染回溯锚点）
@@ -347,7 +378,7 @@ function runEntSimType(type, extra, storeResult) {
   var user = buildEntSimUserMessage(type, extra);
   var maxT = (type === 'theater') ? 1200 : 700;
   // 朋友圈/聊天/剧场不需要 options 和长文校验，跳过校验
-  var skipVal = type === 'moment' || type === 'chat' || type === 'theater';
+  var skipVal = type === 'chat' || type === 'theater' || type === 'diary' || type === 'diaryHis'; // momentDual 需要 JSON 解析，不走 plainText
   return generateWithRetry(sys, user, { temperature: 0.9, maxTokens: maxT, plainText: skipVal, skipValidate: skipVal })
     .then(function(res) {
       var raw = (res && res.raw) ? res.raw : '';
@@ -361,45 +392,138 @@ function runEntSimType(type, extra, storeResult) {
 
 // 聊天：男主按人设回复，不推进时段
 export function generateEntSimChat(msg) {
+  var E = GS.entSim;
+  // 每日限制：20条
+  var today = E.cycle.dayCount || 1;
+  E._chatAffDay = E._chatAffDay || 0;
+  if (E._chatAffDay !== today) { E._chatAffDay = today; E._chatAffCount = 0; }
+  E._chatAffCount = E._chatAffCount || 0;
+  if (E._chatAffCount >= 20) {
+    if (typeof showToast === 'function') showToast('今天聊得够多了，明天再聊吧');
+    return Promise.resolve('dailyLimit');
+  }
   return runEntSimType('chat', { msg: msg }, function(narrative) {
-    GS.entSim.chatHistory.push({ role: 'user', content: msg });
-    GS.entSim.chatHistory.push({ role: 'ai', content: narrative || '（暂时在日程中，晚点再回你～）' });
-    if (GS.entSim.chatHistory.length > 40) GS.entSim.chatHistory = GS.entSim.chatHistory.slice(-40);
+    E._chatAffCount++;
+    // 200字按句截断
+    var nar = narrative || '';
+    if (nar.length > 200) {
+      var cut = nar.slice(0, 200);
+      var lastPeriod = Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('！'), cut.lastIndexOf('？'));
+      nar = lastPeriod > 100 ? cut.slice(0, lastPeriod + 1) : cut;
+    }
+    // JSON容错
+    if (typeof nar === 'object') nar = nar.content || nar.reply || nar.text || nar.raw || '（嗯。）';
+    if (typeof nar !== 'string') nar = '（嗯。）';
+    E.chatHistory.push({ role: 'user', content: msg });
+    E.chatHistory.push({ role: 'ai', content: nar });
+    if (E.chatHistory.length > 40) E.chatHistory = E.chatHistory.slice(-40);
+    // 每5条+1好感，每天上限3次
+    if (E._chatAffCount % 5 === 0) {
+      var affGained = Math.min(Math.floor(E._chatAffCount / 5), 3) - (E._chatAffGained || 0);
+      if (affGained > 0) {
+        E._chatAffGained = (E._chatAffGained || 0) + affGained;
+        E.affection = (E.affection || 0) + affGained;
+      }
+    }
     saveGame();
   });
 }
 
-// 朋友圈：女主发动态 + 男主回复，失败不显示
+// 日记：AI 生成完整日记（对齐 1v1，每 3 回合自动触发）
+export function generateEntSimDiary() {
+  return runEntSimType('diary', {}, function(narrative) {
+    if (!narrative || narrative.length < 20) return;
+    var E = GS.entSim;
+    E.diary = E.diary || [];
+    E.diary.push({ day: E.cycle.dayCount || 1, content: narrative, ts: Date.now() });
+    if (E.diary.length > 30) E.diary = E.diary.slice(-30);
+    saveGame();
+  });
+}
+
+// 男主日记：AI 生成男主视角日记（对齐 1v1 双视角）
+export function generateEntSimDiaryHis() {
+  return runEntSimType('diaryHis', {}, function(narrative) {
+    if (!narrative || narrative.length < 20) return;
+    var E = GS.entSim;
+    E.diaryHis = E.diaryHis || [];
+    E.diaryHis.push({ day: E.cycle.dayCount || 1, content: narrative, ts: Date.now() });
+    if (E.diaryHis.length > 30) E.diaryHis = E.diaryHis.slice(-30);
+    saveGame();
+  });
+}
+
+// 秘密信箱：男主第一人称私密信（对齐1v1信件系统）
+export function generateEntSimLetter() {
+  return runEntSimType('letter', {}, function(narrative) {
+    if (!narrative || narrative.length < 20) return;
+    var E = GS.entSim;
+    E.letters = E.letters || [];
+    E.letters.push({ round: E.cycle.roundTotal || 1, content: narrative, ts: Date.now(), read: false });
+    if (E.letters.length > 30) E.letters = E.letters.slice(-30);
+    saveGame();
+  });
+}
+
+// 重新生成：回滚最近一段剧情用相同条件重新生成
+export function handleEntSimRegenerate() {
+  var cur = GS._entSimCurrent;
+  if (!cur) { if (typeof showToast === 'function') showToast('没有可重新生成的内容'); return Promise.resolve(); }
+  var choiceText = cur.choiceText || cur.freeText || '';
+  GS._entSimCurrent = null;
+  if (choiceText) {
+    return generateEntSimRound('choice', { choiceText: choiceText, regenerate: true });
+  }
+  return continueEntSimMain().then(function() {});
+}
+
+// 朋友圈：双人JSON模式（对齐1v1）- 女主+男主各一条，含回复链/情敌暗斗
 export function generateEntSimMoment() {
-  return runEntSimType('moment', {}, function(narrative) {
+  var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead) || {};
+  var mlName = ml.name || '他';
+  var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '我';
+  var extra = {};
+  // 情敌暗斗彩蛋：50%概率让AI附带情敌评论
+  if (Math.random() < 0.5) {
+    var rivalNode = null;
+    try { rivalNode = getNpcNodes().filter(function(n) { return n.type === 'rival' || n.type === 'suitor'; })[0]; } catch(e) {}
+    var rvName = (rivalNode && rivalNode.name) || '';
+    if (rvName) extra.rivalComment = true;
+  }
+  return runEntSimType('momentDual', extra, function(narrative) {
     if (!narrative) return;
-    // 同时生成男主回复
-    var ml = GS.entSim.romance && GS.entSim.romance.maleLead;
-    var mlName = ml ? ml.name : '他';
-    var sys = buildEntSimSystemPrompt();
-    var replyPrompt = buildEntSimUserMessage('momentReply', { post: narrative });
-    generateWithRetry(sys, replyPrompt, { temperature: 0.85, maxTokens: 200, plainText: true, skipValidate: true })
-      .then(function(r) {
-        var reply = (r && r.raw) ? r.raw.trim() : '';
-        if (reply && reply.length > 200) reply = reply.slice(0, 200);
-        if (!reply) reply = '这是今天的你吗？😊';
-        GS.entSim.moments.push({
-          id: Date.now(), post: narrative, reply: reply,
-          name: (GS.heroineProfile && GS.heroineProfile.name) || '我',
-          replyName: mlName, ts: Date.now(),
-          type: '日常', liked: false
-        });
-        saveGame();
-      })
-      .catch(function() {
-        GS.entSim.moments.push({
-          id: Date.now(), post: narrative, reply: '嗯。',
-          name: (GS.heroineProfile && GS.heroineProfile.name) || '我',
-          replyName: mlName, ts: Date.now(),
-          type: '日常', liked: false
-        });
-        saveGame();
+    var json = safeParseJson(narrative);
+    if (!json) return;
+    var ts = Date.now();
+    var mom = E.moments = E.moments || [];
+    // 女主动态
+    if (json.mine && (json.mine.post || json.mine.reply)) {
+      mom.push({
+        id: ts + '_mine', name: hpName, isHeroine: true,
+        post: json.mine.post || json.mine.reply || '',
+        reply: json.mine.post ? (json.mine.reply || '') : '',
+        replyBack: json.mine.replyBack || '',
+        photo: json.mine.photo || '',
+        type: json.mine.type || '日常',
+        rivalComment: json.mine.rivalComment || '',
+        ts: ts, liked: false
       });
+    }
+    // 男主动态
+    if (json.his && (json.his.post || json.his.reply)) {
+      mom.push({
+        id: ts + 1 + '_his', name: mlName, isHeroine: false,
+        post: json.his.post || json.his.reply || '',
+        reply: json.his.post ? (json.his.reply || '') : '',
+        replyBack: json.his.replyBack || '',
+        photo: json.his.photo || '',
+        type: json.his.type || '日常',
+        rivalComment: json.his.rivalComment || '',
+        ts: ts, liked: false
+      });
+    }
+    saveGame();
   });
 }
 

@@ -1,5 +1,5 @@
 // ============================================================
-// 系统6 每日舆论被动生成：每日热搜 / 粉丝讨论 / 媒体标题
+// 系统6 每日舆论被动生成：每日热搜 / 粉丝讨论 / 媒体热议
 // 模板 + 随机，避免每轮都打 API。男主名/女主名注入。
 // ============================================================
 import { GS, saveGame } from '../state.js';
@@ -271,15 +271,15 @@ export function generateDailyBuzz() {
     var ext = EXTERNAL_HOT[randInt(0, EXTERNAL_HOT.length - 1)];
     if (!buzzByTitle(hotSearch, buzzTitle(ext))) hotSearch.push(ext);
   }
-  // 粉丝讨论：40% 概率一条女主 + 外部
-  var fanDiscussion = Math.random() < 0.4 ? pickN(DAILY_BUZZ_TEMPLATES.fanDiscussion, 1) : [];
-  while (fanDiscussion.length < (fanDiscussion.length ? 3 : 3)) {
+  // 粉丝讨论：全部外部（不包含女主）
+  var fanDiscussion = [];
+  while (fanDiscussion.length < 3) {
     var fe = EXTERNAL_FAN[randInt(0, EXTERNAL_FAN.length - 1)];
     if (!buzzByTitle(fanDiscussion, buzzTitle(fe))) fanDiscussion.push(fe);
   }
-  // 媒体标题：40% 概率一条女主 + 外部
-  var mediaTitle = Math.random() < 0.4 ? pickN(DAILY_BUZZ_TEMPLATES.mediaTitle, 1) : [];
-  while (mediaTitle.length < (mediaTitle.length ? 2 : 2)) {
+  // 媒体标题：全部外部（不包含女主）
+  var mediaTitle = [];
+  while (mediaTitle.length < 2) {
     var me = EXTERNAL_MEDIA[randInt(0, EXTERNAL_MEDIA.length - 1)];
     if (!buzzByTitle(mediaTitle, buzzTitle(me))) mediaTitle.push(me);
   }
@@ -299,15 +299,42 @@ export function getDailyBuzz() {
   return E.dailyBuzz;
 }
 
+// 女主相关舆论条目 → AI 生成 2-3 条"网友热议"评论（路人/粉丝/黑粉三视角）
+export async function generateBuzzRepliesAI(itemTitle, itemContent) {
+  var sys = buildEntSimSystemPrompt('buzzreply');
+  var user = [
+    '【任务】为下面这条热搜/新闻生成 3 条"网友热议"评论（每条 40-80 字，不要 JSON）。',
+    '【热点内容】标题：' + itemTitle + (itemContent ? '\n内容：' + itemContent : ''),
+    '【要求】',
+    '- 三条评论分别代表：路人视角（客观分析）、粉丝视角（维护辩解）、黑粉/对家视角（嘲讽踩一脚）',
+    '- 每条评论前用 · 开头',
+    '- 语气真实、带网络感，可用饭圈用语（直拍/舞台/塌房/对家/毒唯/控评等）',
+    '- 直接输出三条评论，每行一条，不要编号、不要标签、不要其他文字'
+  ].join('\n');
+  try {
+    var res = await generateWithRetry(sys, user, { plainText: true, skipValidate: true, maxTokens: 500, temperature: 0.9, sceneType: 'buzzreply' });
+    var text = (res && res.raw) ? res.raw : '';
+    var lines = text.split('\n').filter(function(l) { return l.trim(); }).map(function(l) { return l.trim(); });
+    if (lines.length >= 2) return lines.slice(0, 3);
+    if (lines.length === 1) return [lines[0], '· 等一个后续', '· 大家怎么看？'];
+    return null; // 失败返回 null → 调用方用池子兜底
+  } catch (e) {
+    console.warn('[immersion] generateBuzzRepliesAI failed:', e);
+    return null;
+  }
+}
+
 // 营业/曝光后生成"粉丝圈反应"短文（大粉/路人/黑粉三视角），存入 E.fanReactions
-export async function generateFanReaction(reason) {
+// reason: 短标签（如「曝光」）；eventDetail: 长文本描述具体发生了什么（如「狗仔拍到你和男主深夜同车」）
+export async function generateFanReaction(reason, eventDetail) {
   var E = GS.entSim;
   if (!E) return '';
   var sys = buildEntSimSystemPrompt('fanreaction');
   var buzz = E.dailyBuzz || {};
+  var eventDesc = eventDetail || reason || '近期营业 / 曝光事件';
   var user = [
     '【任务】生成一段"粉丝圈反应"短文（纯文本，150-250 字，不要 JSON，不要标题）。',
-    '【触发背景】' + (reason || '近期营业 / 曝光事件'),
+    '【触发背景】' + eventDesc,
     '【要求】分三个视角：①大粉（死忠）如何解读 ②路人怎么看 ③黑粉/对家粉如何攻击。语气真实、带网络感，可用饭圈用语（直拍/舞台/塌房/对家/毒唯等）。',
     '【当前舆论面】热搜：' + (buzz.hotSearch || []).map(buzzTitle).join(' / ') + '；粉丝讨论：' + (buzz.fanDiscussion || []).map(buzzTitle).join(' / '),
     '【记忆摘要】\n' + buildMemorySnapshot(),
@@ -317,7 +344,7 @@ export async function generateFanReaction(reason) {
     var res = await generateWithRetry(sys, user, { plainText: true, skipValidate: true, maxTokens: 800, temperature: 0.85, sceneType: 'fanreaction' });
     var text = res.raw || '';
     E.fanReactions = E.fanReactions || [];
-    E.fanReactions.push({ round: E.cycle.roundTotal, reason: reason || '', text: text });
+    E.fanReactions.push({ round: E.cycle.roundTotal, reason: reason || '', event: eventDetail || '', text: text });
     if (E.fanReactions.length > 6) E.fanReactions = E.fanReactions.slice(-6);
     saveGame();
     return text;

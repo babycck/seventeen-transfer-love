@@ -11,7 +11,7 @@ import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
 import { getTimeOfDayLabel } from './cycle.js';
-import { getDailyBuzz, generateFanReaction, buzzTitle, buzzContent } from './immersion.js';
+import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
 import { getNpcNodes, interactNpc, getNpcInteractions } from './npc-network.js';
 import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
@@ -21,7 +21,7 @@ import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
   continueEntSimMain, triggerEntSimEvent, triggerEntSimHypothetical, enterEntSimEnding,
   goEntSimNextDay, initiateEntSimDate, generateEntSimConfession,
-  generateEntSimChat, generateEntSimMoment, generateEntSimTheater,
+  generateEntSimChat, generateEntSimMoment, generateEntSimTheater, generateEntSimDiary, handleEntSimRegenerate, generateEntSimLetter,
   generateEntSimRound, runEntSimEnding, triggerTeammateEvent, restartEntSim
 } from './engine.js';
 import { STAGE_CEREMONY, TEAMMATE_FLAVOR } from './data.js';
@@ -278,6 +278,7 @@ function renderFreeInput() {
 function renderQuickActions() {
   var quick = [
     { q: 'main', label: '拉回主线' },
+    { q: 'regenerate', label: '重新生成' },
     { q: 'nextagenda', label: '下一个行程' },
     { q: 'hypo', label: '自由推演' },
     { q: 'event', label: '随机事件' },
@@ -338,8 +339,8 @@ function renderRight() {
     '<div class="es-panel">' +
       '<div class="es-col-title">📊 今日圈内</div>' +
       '<div class="es-hot">' + (hot || '<div class="es-empty">暂无热搜</div>') + '</div>' +
-      '<div class="es-col-title" style="margin-top:4px">📰 媒体标题</div>' +
-      '<div class="es-hot">' + (media || '<div class="es-empty">暂无媒体标题</div>') + '</div>' +
+      '<div class="es-col-title" style="margin-top:4px">📰 媒体热议</div>' +
+      '<div class="es-hot">' + (media || '<div class="es-empty">暂无媒体热议</div>') + '</div>' +
       '<div class="es-col-title" style="margin-top:4px">💬 粉丝讨论</div>' +
       '<div class="es-fan">' + (fan || '<div class="es-empty">暂无讨论</div>') + '</div>' +
       lovePanel +
@@ -406,8 +407,8 @@ function renderDepthTop() {
 }
 // 剧情框下方的 Tab 切换条（剧情/聊天/朋友圈/剧场/日记）
 function renderTabBar() {
-  var labels = { story: '剧情', chat: '聊天', moments: '朋友圈', theater: '剧场', diary: '日记' };
-  var tabs = ['story', 'chat', 'moments', 'theater', 'diary'].map(function(t) {
+  var labels = { story: '剧情', chat: '聊天', moments: '朋友圈', theater: '剧场', diary: '日记', letters: '信箱' };
+  var tabs = ['story', 'chat', 'moments', 'theater', 'diary', 'letters'].map(function(t) {
     return '<span class="es-tab' + (currentTab() === t ? ' on' : '') + '" data-tab="' + t + '">' + labels[t] + '</span>';
   }).join('');
   return '<div class="es-tabbar">' + tabs + '</div>';
@@ -504,6 +505,7 @@ function bindCommonNav() {
       else if (tab === 'moments') { showEntSimMomentsModal(); }
       else if (tab === 'theater') { showEntSimTheaterModal(); }
       else if (tab === 'diary') { showEntSimDiaryModal(); }
+      else if (tab === 'letters') { showEntSimLetterModal(); }
     });
   });
   document.querySelectorAll('[data-back="1"]').forEach(function(el) {
@@ -660,6 +662,7 @@ function onQuick(q) {
   showNarrativeLoading();
   if (q === 'main') { continueEntSimMain().then(rerender); }
   else if (q === 'nextday') { goEntSimNextDay().then(rerender); }
+  else if (q === 'regenerate') { handleEntSimRegenerate().then(rerender); }
   else if (q === 'nextagenda') { continueEntSimMain().then(rerender); }
   else if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
   else if (q === 'visit') { showEntSimVisitChoice(); }
@@ -768,7 +771,7 @@ function showCoverPanel(onDone) {
         var type = el.getAttribute('data-cover');
         var res = applyCover(type);
         if (res.ok) {
-          if (type === 'business') generateFanReaction('营业 CP：' + mechs[type].label).catch(function(){});
+          if (type === 'business') generateFanReaction('营业掩护', '公司安排你和团内另一位成员做营业CP来转移视线，结果粉丝在评论区吵成一片，有人嗑有人骂有人扒细节').catch(function(){});
           closeEntSimModal();
           showToast('已使用 ' + mechs[type].label + '，剩余 ' + res.remaining + '/5');
           if (onDone) onDone(); else rerender();
@@ -1083,12 +1086,15 @@ function showEntSimMomentsModal() {
       var m = moments[i];
       var ts = m.ts ? new Date(m.ts) : new Date();
       var timeStr = (ts.getMonth() + 1) + '月' + ts.getDate() + '日 ' + ts.getHours() + ':' + String(ts.getMinutes()).padStart(2, '0');
-      var posterName = m.name || hpName;
-      var replyName = m.replyName || ml.name;
+      var posterName = m.name || (m.isHeroine ? hpName : ml.name);
+      var isHer = m.isHeroine;
       itemsHtml += '<div class="oneheart-moment-card">' +
-        '<div class="oneheart-moment-time">' + escHtml(timeStr) + ' · ' + escHtml(m.type || '日常') + '</div>' +
+        '<div class="oneheart-moment-time">' + (isHer ? '📸 ' : '💜 ') + escHtml(timeStr) + ' · ' + escHtml(m.type || '日常') + '</div>' +
+        (m.photo ? '<div class="oneheart-moment-photo">📷 ' + escHtml(m.photo) + '</div>' : '') +
         '<div class="oneheart-moment-content"><strong>' + escHtml(posterName) + '</strong> ' + escHtml(m.post || '') + '</div>' +
-        (m.reply ? '<div class="oneheart-moment-reply">└ <strong>' + escHtml(replyName) + '</strong> ' + escHtml(m.reply) + '</div>' : '') +
+        (m.reply ? '<div class="oneheart-moment-reply">└ <strong>' + escHtml(m.isHeroine ? (ml.name || '他') : hpName) + '</strong> ' + escHtml(m.reply) + '</div>' : '') +
+        (m.replyBack ? '<div class="oneheart-moment-reply">　 <strong>' + escHtml(posterName) + '</strong> ' + escHtml(m.replyBack) + '</div>' : '') +
+        (m.rivalComment ? '<div class="oneheart-moment-rival">⚡ ' + escHtml(m.rivalComment) + '</div>' : '') +
         '<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">❤️ ' + (m.liked ? '已赞' : '点赞') + '</div>' +
       '</div>';
     }
@@ -1115,6 +1121,40 @@ function showEntSimMomentsModal() {
       }).catch(function() { overlay.remove(); });
     });
   }
+}
+
+// ---------- 📱 手机框弹窗：秘密信箱 ----------
+function showEntSimLetterModal() {
+  var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
+  var letters = E.letters || [];
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+
+  var itemsHtml = '';
+  for (var i = letters.length - 1; i >= 0; i--) {
+    var l = letters[i];
+    var ts = l.ts ? new Date(l.ts) : new Date();
+    var dateStr = (ts.getMonth() + 1) + '月' + ts.getDate() + '日';
+    itemsHtml += '<div class="es-letter-card">' +
+      '<div class="es-letter-date">💌 ' + escHtml(ml.name) + ' · ' + escHtml(dateStr) + '</div>' +
+      '<div class="es-letter-body">' + escHtml(l.content || '') + '</div>' +
+    '</div>';
+  }
+  if (!itemsHtml) itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有收到信件 💌<br>每 7-10 轮自动生成一封</div>';
+
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column;height:75vh">' +
+    '<button class="modal-close-x" id="esLetterClose">✕</button>' +
+    '<div class="oneheart-chat-modal">' +
+    '<div class="oneheart-chat-header"><span>💌</span><span class="oneheart-chat-name">秘密信箱</span></div>' +
+    '<div style="flex:1;overflow-y:auto;padding:12px">' + itemsHtml + '</div>' +
+    '</div></div>';
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esLetterClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
 }
 
 // ---------- 📱 手机框弹窗：剧场 ----------
@@ -1199,37 +1239,43 @@ function showEntSimDiaryModal() {
   overlay.className = 'modal-overlay';
   overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
 
-  // 我的日记
+  // 日记（女主 + 男主混排，按时间倒序）
+  var diaryHis = E.diaryHis || [];
+  var allDiary = (diary || []).map(function(d) { return Object.assign({}, d, { author: 'me' }); })
+    .concat((diaryHis || []).map(function(d) { return Object.assign({}, d, { author: 'him' }); }));
+  allDiary.sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
   var myHtml = '';
-  for (var i = diary.length - 1; i >= 0; i--) {
-    var d = diary[i];
-    myHtml += '<div class="es-diary-card">' +
-      '<div class="es-diary-date">Day ' + (d.day || '?') + ' · 第 ' + (d.round || '?') + ' 回合</div>' +
-      '<div class="es-diary-body">' + escHtml(d.summary || '') + '</div>' +
-      (d.choice ? '<div class="es-diary-choice">❥ ' + escHtml(d.choice) + '</div>' : '') +
+  for (var i = 0; i < allDiary.length; i++) {
+    var d = allDiary[i];
+    var ts = d.ts ? new Date(d.ts) : null;
+    var dateStr = ts ? ((ts.getMonth() + 1) + '月' + ts.getDate() + '日') : ('Day ' + (d.day || '?'));
+    var isHis = d.author === 'him';
+    myHtml += '<div class="es-diary-card' + (isHis ? ' es-diary-his' : '') + '">' +
+      '<div class="es-diary-date">' + (isHis ? '💜 ' + escHtml(ml.name) : '📅') + ' ' + escHtml(dateStr) + '</div>' +
+      '<div class="es-diary-body">' + escHtml(d.content || d.summary || '') + '</div>' +
       '</div>';
   }
-  if (!myHtml) myHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有日记 📝<br>继续剧情会自动记录</div>';
+  if (!myHtml) myHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有日记 📝<br>每 3 轮剧情后自动记录</div>';
 
-  // 他的视角（男主碎片）
+  // 记忆碎片（男主视角 POV）
   var hisHtml = '';
   var theater = E.theaterHistory || [];
   for (var j = theater.length - 1; j >= 0; j--) {
     var h = theater[j];
     if (h.type !== 'malePOV') continue;
     hisHtml += '<div class="es-diary-card es-diary-his">' +
-      '<div class="es-diary-date">💜 ' + escHtml(ml.name) + ' 的视角 · 好感 ' + (h.unlockAff || '?') + '</div>' +
+      '<div class="es-diary-date">💜 ' + escHtml(ml.name) + ' · 好感 ' + (h.unlockAff || '?') + '</div>' +
       '<div class="es-diary-body">' + escHtml(h.content || '') + '</div>' +
       '</div>';
   }
-  if (!hisHtml) hisHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有他的视角 👁️<br>好感度达到 40/60/80 时解锁</div>';
+  if (!hisHtml) hisHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有记忆碎片 💌<br>好感度达到 40/60/80 时解锁<br>他会写下不曾当面说的话…</div>';
 
   overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column;height:80vh">' +
     '<button class="modal-close-x" id="esDiaryClose">✕</button>' +
-    '<h3 style="text-align:center;margin:12px 0 8px">📝 日记</h3>' +
+    '<h3 style="text-align:center;margin:12px 0 8px">📝 日记 & 碎片</h3>' +
     '<div style="display:flex;gap:4px;margin:0 12px 8px;border-bottom:1.5px solid var(--border-primary,#333)">' +
-    '<button class="es-diary-tab active" id="esDiaryMine" style="flex:1;padding:8px;border:none;background:rgba(124,111,240,.15);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--accent-primary,#7c6ff0);font-weight:600">📖 我的</button>' +
-    '<button class="es-diary-tab" id="esDiaryHis" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--text-muted,#8b6b6b)">📖 他的</button>' +
+    '<button class="es-diary-tab active" id="esDiaryMine" style="flex:1;padding:8px;border:none;background:rgba(124,111,240,.15);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--accent-primary,#7c6ff0);font-weight:600">📖 日记</button>' +
+    '<button class="es-diary-tab" id="esDiaryHis" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--text-muted,#8b6b6b)">💌 记忆碎片</button>' +
     '</div>' +
     '<div id="esDiaryContent" style="flex:1;overflow-y:auto;min-height:0;padding:0 12px">' + myHtml + '</div>' +
     '</div>';
@@ -1296,16 +1342,23 @@ function onFanReaction() {
   if (parts.hater) cards += '<div class="es-fan-card es-fan-dark"><div class="es-fan-card-icon">⚡ 黑粉</div><div class="es-fan-card-body">' + escHtml(parts.hater) + '</div></div>';
   if (!cards) cards = '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-body">' + escHtml(raw) + '</div></div>'; // 兜底
 
+  // 触发事件区块
+  var eventBlock = '';
+  if (latest.event) {
+    eventBlock = '<div class="es-fan-event"><div class="es-fan-event-label">📌 触发事件</div><div class="es-fan-event-body">' + escHtml(latest.event) + '</div></div>';
+  }
+
   var html = '<div class="es-fanreact">' +
     '<div class="es-fanreact-head">📝 营业反馈 · 第 ' + latest.round + ' 回合</div>' +
-    '<div class="es-fanreact-reason"><span class="es-fan-badge">' + escHtml(latest.reason || '近期营业') + '</span></div>' +
+    eventBlock +
+    '<div class="es-fanreact-reason">' + (latest.reason ? '<span class="es-fan-badge">' + escHtml(latest.reason) + '</span>' : '') + '</div>' +
     '<div class="es-fan-cards">' + cards + '</div>' +
     '</div>';
   showEntSimModal('📱 粉丝圈反应', html, [{ id: 'close', label: '关闭'}]);
 }
 
 // ---------- 点击右侧舆论条目 → 详情弹窗 ----------
-var BUZZ_LABELS = { hot: '🔥 热搜', fan: '💬 粉丝讨论', media: '📰 媒体标题' };
+var BUZZ_LABELS = { hot: '🔥 热搜', fan: '💬 粉丝讨论', media: '📰 媒体热议' };
 var BUZZ_ICONS = { topfan: '💗 大粉', passerby: '👀 路人', hater: '⚡ 黑粉' };
 
 function bindBuzzClicks() {
@@ -1402,6 +1455,16 @@ function showBuzzDetail(type, idx) {
       var expandBtn2 = document.getElementById('es-buzz-expand');
       if (expandBtn2) { expandBtn2.disabled = true; expandBtn2.textContent = '✅ 已展开'; }
     }
+    // 非女主相关：直接从池子抽 2 条展示，不需要点击
+    if (!isHeroineRelated(item) && !cached) {
+      var pool = BUZZ_COMMENT_POOL.slice();
+      var autoLines = [];
+      for (var ai = 0; ai < 2 && pool.length; ai++) {
+        var ri = Math.floor(Math.random() * pool.length);
+        autoLines.push(pool.splice(ri, 1)[0]);
+      }
+      renderBuzzReplies(autoLines);
+    }
     var expandBtn = document.getElementById('es-buzz-expand');
     if (expandBtn && !cached) {
       expandBtn.addEventListener('click', function() {
@@ -1411,8 +1474,8 @@ function showBuzzDetail(type, idx) {
   }, 100);
 }
 
-// 展开讨论串：从预写评论池随机抽 2-5 条（缓存到 E.buzzReplies，无需 AI）
-function expandBuzzThread(type, idx) {
+// 展开讨论串：女主条目用 AI 生成，非女主用预写评论池
+async function expandBuzzThread(type, idx) {
   var buzz = getDailyBuzz();
   var list = buzz[type === 'fan' ? 'fanDiscussion' : type === 'hot' ? 'hotSearch' : 'mediaTitle'] || [];
   if (!list[idx]) return;
@@ -1430,25 +1493,40 @@ function expandBuzzThread(type, idx) {
   }
 
   var expandBtn = document.getElementById('es-buzz-expand');
-  if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '⏳ 展开中…'; }
+  if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '⏳ AI 生成中…'; }
 
-  // 随机抽取 2 条
-  var n = 2;
-  var pool = BUZZ_COMMENT_POOL.slice();
-  var lines = [];
-  for (var i = 0; i < n && pool.length; i++) {
-    var ri = Math.floor(Math.random() * pool.length);
-    lines.push(pool.splice(ri, 1)[0]);
+  var lines;
+  if (isHeroineRelated(item)) {
+    // 女主条目 → AI 生成真实网友讨论
+    var itemTitle = buzzTitle(item);
+    var itemContent = buzzContent(item);
+    if (itemContent === itemTitle) itemContent = '';
+    lines = await generateBuzzRepliesAI(itemTitle, itemContent);
+    // AI 失败时回退到池子
+    if (!lines || lines.length < 2) {
+      var pool = BUZZ_COMMENT_POOL.slice();
+      lines = [];
+      for (var i = 0; i < 2 && pool.length; i++) {
+        var ri = Math.floor(Math.random() * pool.length);
+        lines.push(pool.splice(ri, 1)[0]);
+      }
+    }
+  } else {
+    // 非女主条目 → 预写池子随机抽 2 条
+    var n = 2;
+    var pool2 = BUZZ_COMMENT_POOL.slice();
+    lines = [];
+    for (var j = 0; j < n && pool2.length; j++) {
+      var ri2 = Math.floor(Math.random() * pool2.length);
+      lines.push(pool2.splice(ri2, 1)[0]);
+    }
   }
 
   // 缓存
   E.buzzReplies[cacheKey] = { lines: lines };
   saveGame();
-  // 稍等让按钮文字更新
-  setTimeout(function() {
-    renderBuzzReplies(lines);
-    if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '✅ 已展开'; }
-  }, 200);
+  renderBuzzReplies(lines);
+  if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '✅ 已展开'; }
 }
 
 function renderBuzzReplies(lines) {
