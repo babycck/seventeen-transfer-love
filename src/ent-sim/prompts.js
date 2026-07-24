@@ -7,13 +7,15 @@ import { GS } from '../state.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
 import { buildMemorySnapshot } from './memory.js';
+import { getNpcNodes } from './npc-network.js';
 
 export function buildEntSimSystemPrompt(mode) {
   var hp = GS.heroineProfile || {};
-  var ml = GS.entSim.romance.maleLead;
-  var bro = GS.oneHeartRelationCharacter || GS.entSim.brother;
-  var rival = GS.entSim.npcNetwork.nodes['npc_rival'];
-  var suitor = GS.entSim.npcNetwork.nodes['npc_suitor'];
+  var E = GS.entSim || {};
+  var ml = (E.romance && E.romance.maleLead) || {};
+  var bro = GS.oneHeartRelationCharacter || E.brother;
+  var rival = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_rival']);
+  var suitor = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']);
 
   var sys = '';
   sys += '你是一个沉浸式娱乐圈恋爱文字游戏的叙事 AI。玩家扮演一名韩国女团爱豆（艺名：' + (hp.name || '你') + '，' + (hp.age || 19) + ' 岁，小糊团成员），在娱乐圈打拼。SEVENTEEN 成员「' + (ml ? ml.name : '男主') + '」是她的哥哥的队友，但两人目前只是同行业前辈与后辈的关系——是否通过哥哥见过面、说过话，都是未知数。故事从零开始，感情完全空白，没有任何预设的暧昧或好感。\n';
@@ -21,11 +23,11 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【女团队友（背景人物）】女主在 6 人小糊团（女主 + 5 位姐姐），队友（由 AI 按设定具象化客串）：' + sisterSummary() + '。她们是日常背景，可偶尔在剧情里出现（如练习室、待机室、宿舍），增添女团真实感，但不要抢戏。\n';
   sys += '⚠️ 团魂铁则：六人非常团结、互相扶持、没有内斗。禁止写队友翻白眼、阴阳怪气、抢站位、明争暗斗等行为。她们之间的互动永远是温暖的、互相撑腰的。\n';
   sys += '【男主设定】男主「' + (ml ? ml.name : '男主') + '」是 SEVENTEEN 成员，有自己的行程/事业/情绪。让他像真实偶像：会吃醋、会主动、有小动作，不是通用男主。\n';
-  if (GS.entSim.romance.seedEvent) {
-    sys += '【男主上心契机·种子事件】' + GS.entSim.romance.seedEvent + '\n（这是男主为什么对女主不一样的根，后续告白/吃醋/心动时刻可回溯引用，保持前后一致。）\n';
+  if (E.romance && E.romance.seedEvent) {
+    sys += '【男主上心契机·种子事件】' + E.romance.seedEvent + '\n（这是男主为什么对女主不一样的根，后续告白/吃醋/心动时刻可回溯引用，保持前后一致。）\n';
   }
-  if (GS.entSim.romance.mannerisms && GS.entSim.romance.mannerisms.length) {
-    sys += '【男主小动作】' + GS.entSim.romance.mannerisms.join('、') + '（每 5-8 回合自然出现一次，用于角色辨识度，不要每次都写）。\n';
+  if (E.romance && E.romance.mannerisms && E.romance.mannerisms.length) {
+    sys += '【男主小动作】' + E.romance.mannerisms.join('、') + '（每 5-8 回合自然出现一次，用于角色辨识度，不要每次都写）。\n';
   }
   sys += '【称呼演变】男主对女主的称呼随感情推进：初期叫全名或「XX前辈/后辈」或不带称呼 → 熟络后叫艺名/全名 → 暧昧期叫「小 X」→ 明确期叫「宝宝/亲爱的」。严禁开局就叫「你妹妹」「妹妹」，那必须是已通过哥哥认识后才可能出现的称呼。\n';
   sys += '【男主主动】男主每天约 10% 概率主动发起互动（发消息/探班/吃醋/送东西/约你），按好感阶段解锁类型。\n';

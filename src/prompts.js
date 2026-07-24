@@ -1039,7 +1039,7 @@ export function buildOneHeartSystemPrompt() {
         if (hp.profession === '女团爱豆' && GS.oneHeartHeroineGroup) {
           var _gg = GS.oneHeartHeroineGroup;
           var _sisters = _gg.members.filter(function(m) { return !m.isHeroine; }).map(function(m) { return m.role; }).join('、');
-          _roleDesc += '\n（女团背景·固定设定）她是 6 人女团『' + _gg.groupName + '』的成员，定位为「' + _gg.heroinePos + '」，所属社『' + _gg.company + '』，概念『' + _gg.concept + '』，粉丝名『' + _gg.fandom + '』，出道约 ' + _gg.debutYears + ' 年始终二线。出圈的歌有：' + _gg.songs.join('；') + '。团内其他 5 位姐姐成员：' + _sisters + '（这 5 位与女主都是女性，是女团里的姐姐成员，与"哥哥"无关）。当前处境：' + _gg.statusDesc + ' 她夹在"想拼一波"和"认命平淡"之间——正好与亲哥（顶流男团成员）形成圈层落差。⚠️ 性别铁律：女团 6 人（含女主）全部是女性；SEVENTEEN（亲哥 / 男主 / 情敌）全部是男性。两者是不同团体，严禁混同。';
+          _roleDesc += '\n（女团背景·固定设定）她是 6 人女团『' + _gg.groupName + '』的成员，定位为「' + _gg.heroinePos + '」，所属社『' + _gg.company + '』，概念『' + _gg.concept + '』，粉丝名『' + _gg.fandom + '』，' + (_gg.debutYears > 0 ? '出道约 ' + _gg.debutYears + ' 年始终二线' : '刚出道不久的新人团') + '。出圈的歌有：' + _gg.songs.join('；') + '。团内其他 5 位姐姐成员：' + _sisters + '（这 5 位与女主都是女性，是女团里的姐姐成员，与"哥哥"无关）。当前处境：' + _gg.statusDesc + ' 她夹在"想拼一波"和"认命平淡"之间——正好与亲哥（顶流男团成员）形成圈层落差。⚠️ 性别铁律：女团 6 人（含女主）全部是女性；SEVENTEEN（亲哥 / 男主 / 情敌）全部是男性。两者是不同团体，严禁混同。';
         }
         userRoleDesc += _roleDesc;
       }
@@ -1317,10 +1317,10 @@ export function buildOneHeartSystemPrompt() {
     (GS.gameMode === 'entSim' ? (function() {
       var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
       var _lvNow = (GS.entSimPopularity || 0) >= 80 ? '顶流' : ((GS.entSimPopularity || 0) >= 50 ? '当红' : ((GS.entSimPopularity || 0) >= 20 ? '上升' : '新人'));
-      var _chapName = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+      var _chapName = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
       return '[娱乐圈模拟器·职业模式]\n' +
         '本游戏是「娱乐圈模拟器」：女主是一名在韩娱打拼的' + _prof + '，既要经营事业（人气/资源/口碑），也要经营与男主（哥哥的队友）的感情。事业线与感情线并重，不要只写恋爱忽略事业，也不要只写事业忽略感情。\n' +
-        '当前章节：「' + _chapName + '」（第 ' + (GS.entSimChapter || 1) + ' 章）。章节随剧情回合数推进，代表女主事业所处的阶段——练习生期（打基础/攒出道机会）→出道期（曝光与资源爆发）→巅峰期（顶流与抉择）。\n' +
+        '当前章节：「' + _chapName + '」（第 ' + (GS.entSimChapter || 1) + ' 章）。章节随剧情回合数推进，代表女主事业所处的阶段——新人期（小糊团刚起步/攒人气）→上升期（曝光与资源爆发）→巅峰期（顶流与抉择）。\n' +
         '当前人气：' + (GS.entSimPopularity || 0) + '/100（等级：' + _lvNow + '）。人气通过「今日日程」活动、公开曝光、舞台/作品表现累积；负面新闻、塌房会扣减。\n' +
         '[职业专属现实]\n' +
         (_prof === '练习生' ? '- 练习生：每天高强度训练（声乐/舞蹈/rap/演技），公司每月考核排名，出道位有限、随时可能被淘汰；没有公开身份、没有收入、粉丝几乎为零，常被前辈/工作人员使唤。压力来自「能不能出道」与同公司练习生的竞争。\n'
@@ -1633,7 +1633,7 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS.gameMode === 'entSim') {
       var _ep = GS.entSimPopularity || 0;
       var _elv = _ep >= 80 ? '顶流' : (_ep >= 50 ? '当红' : (_ep >= 20 ? '上升' : '新人'));
-      var _ecn = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+      var _ecn = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
       msg += '📊 [事业状态] 职业：' + ((GS.heroineProfile && GS.heroineProfile.profession) || '练习生') + '　|　人气 ' + _ep + '/100（' + _elv + '）　|　章节「' + _ecn + '」　|　曝光风险 ' + (GS.exposureRisk || 0) + '/100。请在剧情中自然体现女主当下的事业处境（训练/舞台/片场/榜单/粉丝反应），与感情线交织推进。\n\n';
     }
     if (GS.oneHeartRival && !GS._rivalSwitched && GS.oneHeartRival.name) {

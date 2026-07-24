@@ -2598,7 +2598,7 @@ export function checkEntSimChapterAdvance(countRound) {
     // 同步 canonical 章节字段（顶部 chapterIndex/chapterName 读这个），避免遮罩喊的章节与顶栏不一致
     if (GS.entSim && GS.entSim.chapter) {
       GS.entSim.chapter.index = _next;
-      GS.entSim.chapter.name = ({ 1: '练习生期', 2: '出道期', 3: '巅峰期', 4: '传奇期' }[_next]) || GS.entSim.chapter.name;
+      GS.entSim.chapter.name = ({ 1: '新人期', 2: '上升期', 3: '巅峰期', 4: '传奇期' }[_next]) || GS.entSim.chapter.name;
     }
     saveGame();
     if (typeof window !== 'undefined' && window.showEntSimChapterTransition) window.showEntSimChapterTransition(_next);

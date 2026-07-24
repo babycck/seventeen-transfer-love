@@ -5,6 +5,7 @@
 import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
 import { GIRLGROUP_EVENTS, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
+import { getNpcNodes } from './npc-network.js';
 
 // 哥哥事件池（剧情类，不强制影响进度）
 export var BROTHER_EVENT_POOL = [
@@ -58,8 +59,8 @@ export function checkOneHeartEvents() {
   // 1. 男主小动作：每 5-8 回合自然出现一次
   var lastM = E._lastMannerismRound || 0;
   var interval = E._mannerismInterval || randInt(5, 8);
-  if (r - lastM >= interval && E.mannerisms && E.mannerisms.length) {
-    ev = { text: '男主的小动作：' + E.mannerisms[randInt(0, E.mannerisms.length - 1)], key: 'mannerism' };
+  if (r - lastM >= interval && E.romance.mannerisms && E.romance.mannerisms.length) {
+    ev = { text: '男主的小动作：' + E.romance.mannerisms[randInt(0, E.romance.mannerisms.length - 1)], key: 'mannerism' };
     E._lastMannerismRound = r;
     E._mannerismInterval = randInt(5, 8);
   }

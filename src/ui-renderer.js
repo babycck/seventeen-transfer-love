@@ -2571,9 +2571,9 @@ export async function enterTestMode() {
 
 // [entSim] 章节过场动画（全屏淡入遮罩，展示新阶段标题）
 export function showEntSimChapterTransition(chap) {
-  var _names = { 1: '练习生期', 2: '出道期', 3: '巅峰期' };
+  var _names = { 1: '新人期', 2: '上升期', 3: '巅峰期' };
   var _desc = {
-    2: '练习生熬过了考核与等待——你终于拿到了出道位。镜头与舞台向你打开，曝光与资源一起涌来，恋情却也必须更小心地藏进阴影里。',
+    2: '新人熬过了起步期——你的团终于有了姓名。镜头与舞台向你打开，曝光与资源一起涌来，恋情却也必须更小心地藏进阴影里。',
     3: '你站到了行业的顶端。顶流的聚光灯下，每一个选择都被放大：公开还是地下？事业还是爱情？这一章，由你定义结局。'
   };
   var _name = _names[chap] || ('第' + chap + '章');
@@ -2598,7 +2598,7 @@ export function showEntSimCareerPanel() {
   var _pop = GS.entSimPopularity || 0;
   var _lv = getEntSimCareerLevel(_pop);
   var _chap = GS.entSimChapter || 1;
-  var _chapName = _chap === 1 ? '练习生期' : (_chap === 2 ? '出道期' : '巅峰期');
+  var _chapName = _chap === 1 ? '新人期' : (_chap === 2 ? '上升期' : '巅峰期');
   var _round = GS.entSimChapterRound || 0;
   var _nextRoundNeed = _chap === 1 ? (8 - _round) : (_chap === 2 ? (15 - _round) : 0);
   var _popNeed = _chap === 1 ? Math.max(0, 50 - _pop) : (_chap === 2 ? Math.max(0, 80 - _pop) : 0);
@@ -2678,7 +2678,7 @@ function renderOneHeartActions() {
   html += '</div>';
   // [entSim] 女主今日日程卡片（点击执行，非必做；做了有加成+偶遇剧情）
   if (GS.gameMode === 'entSim') {
-    var _chapName = GS.entSimChapter === 1 ? '练习生期' : (GS.entSimChapter === 2 ? '出道期' : '巅峰期');
+    var _chapName = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
     html += '<div style="margin:10px 0;padding:10px 12px;border:1px solid var(--border-primary);border-radius:12px;background:rgba(124,111,240,0.06)">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#b9aee0;margin-bottom:6px"><span>🌟 今日日程（点击执行，非必做）　|　人气 ' + (GS.entSimPopularity || 0) + '（' + getEntSimCareerLevel(GS.entSimPopularity || 0) + '）　|　' + _chapName + '　|　曝光 ' + (GS.exposureRisk || 0) + '</span><button class="entSimCareerBtn oneheart-action-btn" style="font-size:11px;padding:2px 10px;margin:0">📊 事业</button></div>';
     if (GS.entSimRestDay) {

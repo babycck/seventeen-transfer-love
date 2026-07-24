@@ -158,7 +158,7 @@ export function defaultGameState() {
         rivalAware: false, // 是否察觉情敌上心
         talkPending: false // 哥哥找女主谈话支线待触发
       },
-      chapter: { index: 1, name: '练习生期', roundInChapter: 0, entered: false }, // 系统7 章节生态
+      chapter: { index: 1, name: '新人期', roundInChapter: 0, entered: false }, // 系统7 章节生态
       fittings: { dresses: [], lastGenRound: -1 }, // 红毯礼服候选（颁奖季）
       endings: { hint: '', locked: false, type: '', eligible: false, text: '' }, // 系统10 结局
       agenda: { main: '', related: '', rival: '', doneFlags: {} }, // 左栏日程（主档/相关档/晚档）
@@ -806,7 +806,7 @@ export function migrateSave() {
     if (_migProf === '女团爱豆') { GS.heroineProfile.profession = '爱豆'; _migProf = '爱豆'; }
     var _migIdol = (_migProf === '爱豆' || _migProf === '女团爱豆');
     GS.entSim.chapter.index = _migIdol ? 2 : 1;
-    GS.entSim.chapter.name = ['练习生期', '出道期', '巅峰期', '传奇期'][GS.entSim.chapter.index - 1] || '练习生期';
+    GS.entSim.chapter.name = ['新人期', '上升期', '巅峰期', '传奇期'][GS.entSim.chapter.index - 1] || '新人期';
     GS.entSim.career.popularity = (_migIdol ? 40 : 30);
     GS.entSim.career.careerLevel = getEntSimCareerLevel(GS.entSim.career.popularity);
   }

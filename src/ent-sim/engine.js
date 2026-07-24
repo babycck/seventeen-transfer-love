@@ -16,6 +16,7 @@ import { generateDailyBuzz, generateFanReaction } from './immersion.js';
 import { evaluateEnding } from './endings.js';
 import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
+import { getNpcNodes } from './npc-network.js';
 import { ENDING_TONE, TEAMMATE_FLAVOR, DAILY_ENGAGEMENT_POOL } from './data.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）

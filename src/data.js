@@ -54,7 +54,7 @@ export function buildEntSimGroupMeta() {
     concept: pick(GIRLGROUP_PRESETS.concepts),
     fandom: GIRLGROUP_PRESETS.fandoms[gi],
     songs: songs,
-    debutYears: 2 + Math.floor(Math.random() * 2)
+    debutYears: Math.floor(Math.random() * 2)
   };
 }
 export var LOWKEY_BONUS = 5; // [H] 低调日（未约高风险约会）额外减值
@@ -1009,7 +1009,7 @@ export var ONE_HEART_WORLDS = [
 ];
 
 // [entSim] 娱乐圈模拟器·职业（4 选 1，身份锁定=队友的妹妹）
-// name = 显示名；startChapter = 开局章节（1=练习生期 / 2=出道期，练习生经历后出道转 2）
+// name = 显示名；startChapter = 开局章节（1=新人期 / 2=上升期）
 export var ENT_SIM_PROFESSIONS = [
   { name: '练习生', startChapter: 1 },
   { name: '爱豆', startChapter: 2 },
@@ -1340,7 +1340,7 @@ export function buildHeroineGirlGroup(heroineName) {
     var idx = Math.floor(Math.random() * pool.length);
     songs.push(pool.splice(idx, 1)[0]);
   }
-  var debutYears = 2 + Math.floor(Math.random() * 2); // 出道 2-3 年
+  var debutYears = Math.floor(Math.random() * 2); // 出道 0-1 年（新人团）
   // 5 位姐姐成员 + 女主（第 6 位）
   var members = GIRLGROUP_PRESETS.sisterRoles.map(function(role, i) {
     return { pos: i + 1, role: role, name: '姐姐' + (i + 1) };
@@ -1355,7 +1355,7 @@ export function buildHeroineGirlGroup(heroineName) {
     songs: songs,
     members: members,
     heroinePos: '门面(Visual) + 忙内(Maknae)',
-    statusDesc: '出道 ' + debutYears + ' 年始终二线，偶尔音源突入围榜单但没能破圈；公司资源紧，多靠打歌舞台 + 综艺刷脸；团里私下常聊"我们不会也轮到解散吧"。'
+    statusDesc: (debutYears > 0 ? '出道 ' + debutYears + ' 年始终二线' : '刚出道不久的新人团') + '，偶尔音源突入围榜单但没能破圈；公司资源紧，多靠打歌舞台 + 综艺刷脸；团里私下常聊"我们不会也轮到解散吧"。'
   };
 }
 

@@ -302,8 +302,8 @@ export var BROTHER_SIDE_PLOTS = [
 
 // ---------- 系统7 章节 ----------
 export var CHAPTERS = [
-  { index: 1, name: '练习生期', icon: '🌱', desc: '资源最少，压力最大，暗恋不敢声张' },
-  { index: 2, name: '出道期', icon: '🚀', desc: '第一次站上舞台，聚光灯与狗仔同时到来' },
+  { index: 1, name: '新人期', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足，恋爱是奢侈品' },
+  { index: 2, name: '上升期', icon: '🚀', desc: '逐渐有了姓名，聚光灯与狗仔同时盯上你' },
   { index: 3, name: '巅峰期', icon: '👑', desc: '顶流焦点，恋爱即成头条，每一步都踩在刀尖' },
   { index: 4, name: '传奇期', icon: '🏆', desc: '封神之后，连恋情都成了大众祝福的童话' }
 ];

@@ -73,7 +73,8 @@ export function initEntSimState() {
     rivalAware: false,
     talkPending: false
   };
-  E.chapter = { index: career.startChapter, name: chapterNameOf(career.startChapter), roundInChapter: 0, entered: true };
+  var chapDef = CHAPTERS[career.startChapter - 1] || {};
+  E.chapter = { index: career.startChapter, name: chapterNameOf(career.startChapter), desc: chapDef.desc || '', roundInChapter: 0, entered: true };
 
   E.agenda = { main: '', mainLoc: '', related: '', relatedLoc: '', rival: '', rivalLoc: '', brother: '', brotherLoc: '', doneFlags: {} };
   // 记忆系统：每日压缩的关键词摘要 + 关键事件累积（不过期）
@@ -83,6 +84,7 @@ export function initEntSimState() {
   E.groupMeta = buildEntSimGroupMeta();
   E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, cpRealProgress: 0, cpRealTriggered: false, npcInteractionUsed: 0 }; // npcInteractionUsed 每日1次限制
   E.flags = {};
+  E.endings = { hint: '', locked: false, type: '', eligible: false, text: '' }; // 系统10 结局
   E.started = false; // 首轮剧情是否已成功生成（renderHtml 据此避免重复触发生成）
 
   // 社交系统字段
@@ -94,10 +96,11 @@ export function initEntSimState() {
   // 关系网 NPC 初始节点（精简 4 类）
   initNpcNodes();
 
-  // 重置生成中/自动重试等瞬态标志，避免上一局崩溃残留导致卡死
+  // 重置生成中/自动重试/待触发事件等瞬态标志，避免上一局崩溃残留导致卡死
   GS._entSimGenerating = false;
   GS._entSimAutoTries = 0;
   GS._entSimCurrent = null;
+  GS._entSimPendingEvent = '';
 
   saveGame();
   return E;
@@ -195,7 +198,7 @@ export function popularity() { return (GS.entSim && GS.entSim.career.popularity)
 export function careerLevel() { return (GS.entSim && GS.entSim.career.careerLevel) || '新人'; }
 export function resourcesLevel() { return (GS.entSim && GS.entSim.career.resourcesLevel) || '新人'; }
 export function chapterIndex() { return (GS.entSim && GS.entSim.chapter.index) || 1; }
-export function chapterName() { return (GS.entSim && GS.entSim.chapter.name) || '练习生期'; }
+export function chapterName() { return (GS.entSim && GS.entSim.chapter.name) || '新人期'; }
 export function cyclePhaseIndex() { return (GS.entSim && GS.entSim.cycle.phaseIndex) || 0; }
 export function romanceDepth() { return (GS.entSim && GS.entSim.romance.depth) || 0; }
 export function romanceDepthLabel() { return (ROMANCE_DEPTH_LABELS[romanceDepth()] || {}).label || '初遇'; }
@@ -229,7 +232,7 @@ export function careerLevelOf(pop) {
   return '新人';
 }
 function chapterNameOf(idx) {
-  return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].name) || '练习生期';
+  return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].name) || '新人期';
 }
 function chapterIconOf(idx) {
   return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].icon) || '🌱';

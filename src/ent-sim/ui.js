@@ -193,7 +193,7 @@ function renderLeft() {
     groupCard = '<div class="es-gm-card">' +
       '<div class="es-gm-name">' + escHtml(gm.groupName) + '</div>' +
       '<div class="es-gm-line">🏢 ' + escHtml(gm.company || '') + '  ·  🎵 ' + escHtml(gm.concept || '') + '</div>' +
-      '<div class="es-gm-line">💎 粉丝：' + escHtml(gm.fandom || '') + '  ·  出道 ' + (gm.debutYears || '') + ' 年</div>' +
+      '<div class="es-gm-line">💎 粉丝：' + escHtml(gm.fandom || '') + '  ·  ' + (gm.debutYears ? '出道 ' + gm.debutYears + ' 年' : '刚出道新人团') + '</div>' +
       (songsHtml ? '<div class="es-gm-songs">🔥 出圈曲：' + songsHtml + '</div>' : '') +
     '</div>';
   }
