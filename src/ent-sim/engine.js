@@ -59,9 +59,9 @@ export function generateEntSimRound(type, extra) {
       else if (type === 'event' && extra.eventText) branchLabel = '触发：' + extra.eventText;
       else if (type === 'hypothetical' && extra.hypotheticalText) branchLabel = '自由推演：' + extra.hypotheticalText;
       else if (type === 'phase' && extra.nextDayOpening) branchLabel = 'Day ' + (GS.entSim.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel();
-      else if (type === 'phase') branchLabel = '继续';
-      // 累积剧情：所有类型都拼接到上一段之后，保留前文可滚动回看（首段无 prev 时不拼接）
-      if (prev && prev.narrative && narrative) {
+      else if (type === 'phase') branchLabel = '▸';
+      // 累积剧情：所有类型都拼接到上一段之后（首段无 prev、上一段为错误提示时不拼接）
+      if (prev && prev.narrative && narrative && !prev.failed) {
         narrative = prev.narrative + '\n\n── ' + branchLabel + ' ──\n\n' + narrative;
         // 防止无限增长：超出上限时折叠最早内容，保留最近一段
         if (narrative.length > 10000) {

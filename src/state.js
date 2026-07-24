@@ -488,6 +488,7 @@ export function migrateSave() {
     if (typeof E.misc.cpRealProgress !== 'number') E.misc.cpRealProgress = 0;
     if (typeof E.misc.cpRealTriggered !== 'boolean') E.misc.cpRealTriggered = false;
 
+    if (!E.buzzReplies || typeof E.buzzReplies !== 'object') E.buzzReplies = {};
     if (!Array.isArray(E.chatHistory)) E.chatHistory = [];
     if (!Array.isArray(E.moments)) E.moments = [];
     if (!Array.isArray(E.theaterHistory)) E.theaterHistory = [];

@@ -2846,13 +2846,18 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 }
 .es-buzz-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; }
 .es-buzz-arrow {
-  padding: 3px 10px; border-radius: 6px; border: 1px solid var(--es-card-border);
+  padding: 2px 5px; border-radius: 4px; border: 1px solid var(--es-card-border);
   background: var(--es-soft); color: var(--es-text); font-size: 11px; cursor: pointer;
   transition: .15s; font-family: inherit;
 }
 .es-buzz-arrow:hover:not(.es-buzz-disabled) { background: var(--es-soft-hover); border-color: var(--es-primary); color: var(--es-primary); }
 .es-buzz-disabled { opacity: .35; cursor: default; }
 .es-buzz-pos { font-size: 11px; color: var(--es-text-dim); font-weight: 600; }
+.es-buzz-reply-title { font-size: 12px; font-weight: 700; color: var(--es-primary2); margin-top: 12px; margin-bottom: 6px; }
+.es-buzz-reply {
+  padding: 7px 10px; margin: 4px 0; border-radius: 8px; font-size: 12px; line-height: 1.6;
+  background: var(--es-soft); border: 1px solid var(--es-card-border); color: var(--es-text);
+}
 
 /* 日记卡片 */
 .es-diary-card { padding: 10px 0; border-bottom: 1px solid var(--es-card-border); }

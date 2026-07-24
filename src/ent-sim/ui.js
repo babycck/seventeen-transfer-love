@@ -27,6 +27,72 @@ import {
 import { STAGE_CEREMONY, TEAMMATE_FLAVOR } from './data.js';
 
 var SHOW_NPC = ['broker', 'fanleader', 'suitor'];
+
+// 通用评论池：展开讨论串时随机抽 2 条（无需 AI，省额度）
+var BUZZ_COMMENT_POOL = [
+  '前排吃瓜 蹲后续','已阅 下一个','笑死 评论区比正文精彩','这是真的吗 有没有锤',
+  '有人科普一下前因后果吗','大家都好激动 冷静冷静','不管怎样 作品才是最重要的',
+  '说实话 我觉得还行 没那么夸张','一看就是对家买的 太明显了','走过路过不要错过 粉丝别吵了',
+  '这话题居然上热搜了 是不是有人花钱了','看了三遍 还是没看懂大家在吵什么',
+  '有一说一 这个讨论挺低质的','求指路 原帖在哪','非粉 但这个真挺好笑的',
+  '我也觉得 终于有人说了','不懂就问 这是在说谁','关注作品 别关注私生活',
+  '相信她 这么多年了还没看清吗','这圈子不就是这样 习惯就好','粉丝都散了吧 越吵越热',
+  '别理黑子 专注自家','纯路人 觉得还挺有意思的','刚吃完饭回来 发生了什么',
+  '反正我不信 等官方回应','心疼妹妹 又被拉出来挡枪','为什么大家都在骂 我觉得挺正常啊',
+  '路转粉了 就喜欢这种真实感','果然是饭圈 这也能吵起来','真相只有一个 吃瓜不信瓜',
+  '好家伙 今天这瓜可真多','默默点个赞 不敢说话','没有人觉得她最近状态超好吗',
+  '这个舞台看了四五遍了 出不去了','路人表示被圈粉了','今天妆造绝了谁懂',
+  '什么时候打歌 我想看完整版','这次回归的歌真的越听越上头','她瘦了好多 心疼',
+  '说真的 这次编舞比上次好','我投一票 这绝对今年最佳','官方什么时候出高清图',
+  '不知道有没有练习室版','笑死 黑粉今天又破费了','别吵了 听歌不香吗',
+  '有人跟我一样从出道就在追吗','第一次看她舞台 被震撼到了','舞蹈力度绝了好吧',
+  '声音太有辨识度了 闭眼都能听出','新造型好适合她','这个表情管理真是没谁了',
+  '眼睛里真的有光','今天又是被治愈的一天','不懂就问 这是仙女吗',
+  '颜值这块真的没输过','路人想问一句 这个妹妹多大了','想去看现场 有一起的吗',
+  '今天直播有人录屏吗 错过了一半','就喜欢这种又甜又有态度的','看了一圈 还是她的舞台最舒服',
+  '我觉得挺好听的啊为什么有人在骂','就她一个还在认真对嘴 其他人呢','这反应速度真的快 综艺感拉满',
+  '刚下班就刷到这个 太幸福了','感觉她最近是真的开心啊','有人知道她用什么香水吗 好好闻的样子',
+  '签名好认真啊 每个都写了小爱心','为什么有人不喜欢 我无法理解','这个直拍我可以看一辈子',
+  '新人求安利 从哪里补比较好','看完这期综艺彻底入坑了','太可爱了 想把她带回家',
+  '这团真的越来越好了 肉眼可见的进步','粉丝发的应援视频好好哭','凌晨还在练舞 真的太拼了',
+  '今天打歌舞台的灯光绝了','有没有人去拼盘演唱会 组队吗','求一个原图 当壁纸',
+  '这个背景音是谁唱的 好好听','我宣布我是她的新粉了','生图都能打 这就是天生爱豆',
+  '饭圈能不能少点撕 多看舞台','今天上班路上偶遇 本人真的好小一只','吃了安利来了 已关注',
+  '每天靠她的动态续命','这种实力真的不需要解释','拍手会去了 本人比照片好看一万倍',
+  '粉丝别招黑了 让她安静发展吧','弹幕刷屏的好烦 能不能让人好好看','她演的综艺这段我笑了十分钟',
+  '听她唱歌真的好治愈','这才是真正的全能','路人粉也忍不住评论一下了',
+  '好想知道她用的什么护肤品','这舞到底怎么跳的 太快了','今天这波操作真的牛',
+  '有人说她划水 我笑了 看直拍了吗','这明明就很真诚啊 哪装了','别带节奏了 人挺好的',
+  '有人囤了专辑吗 出不出小卡','今天签售的动图有人有吗 求私','音乐银行这周的直拍必看',
+  '黑粉别来沾边好吧','看到她拿奖了 真替她开心','有没有粉丝群 想加',
+  '这个团的团综太下饭了','今天的新歌听了吗 好听到炸','这个发色染到我心巴上了',
+  '路人来看热闹 结果出不去了','终于有人说实话了','最喜欢这种安静做事的人',
+  '站姐拍的这套图美疯了','二倍速跳舞那一段我反复拖进度条','又有yxh在带节奏了 别上当',
+  '她写的这首词……真的有点东西','这个表情我真的存了 太好用了','今晚直播蹲到了 幸福',
+  '人家说了最近在好好练习 别再问了','官咖的手写信有人翻译吗','搞笑和实力共存 有点意思',
+  '出道到现在 肉眼可见的进步','不理解骂她的人 是作业太少吗','今天音源排名涨了 大家继续冲',
+  '这次回归的造型团队真的强','不知道她看过这些评论没 希望能看到好的','这编舞细节太多了 每遍都有新发现',
+  '考古了一下 她从小就这么可爱','为什么每次回归都有人拿她开刀','请公司做人 给点资源吧',
+  '刚从签售回来 她主动跟我击掌了','纯好奇 有多少人是男粉','这次回归后涨粉好快',
+  '感觉这波黑有点过了 没实锤的事到处传','每次看她跳舞都起鸡皮疙瘩','今天舞台ending是她设计的吗 太会了',
+  '黑子：没表情 粉丝：这不叫没表情这叫情绪控制','综艺上被整蛊那段真的笑死我了','有没有人发现她今天换了新耳麦',
+  '你可以永远相信她的舞台','这才出道几年啊就这么稳了','团里最努力的就是她了 有目共睹',
+  '今天下班图 她好像累了 眼神有点疲惫','别说了 我已经开始单曲循环了','这个团真的需要更多关注 实力被低估',
+  '刚看完直拍 准备去看第二遍','有没有去签售的姐妹分享一下后记','粉色那套打歌服真的封神',
+  '看到有人吐槽她穿搭 我笑了 这还不好看？','路人表示 已经被圈粉了','她真的很努力 每次舞台都进步',
+  'get不到的人有难了','这个团什么时候开演唱会 我一定去','有被惊艳到 谢谢',
+  '这期综艺值得反复看 太搞笑了','什么时候出个人综艺 想看','今天就指着这个视频活',
+  '别吵了别吵了 和和气气看妹妹不好吗','黑酸请退散','看到这么多人喜欢她 好感动',
+  '某站热点又被屠了 笑死','谁懂 今晚刷到根本停不下来','为了她买的第一张专辑 值得'
+];
+
+
+// 判断一条舆论是否与女主相关（含 {name} 或被 fill 替换后的女主名）
+function isHeroineRelated(item) {
+  var t = typeof item === 'object' ? (item.t || '') : (item || '');
+  var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '';
+  return hpName && t.indexOf(hpName) >= 0;
+}
 function suitorName() { var n = GS.entSim.npcNetwork.nodes['npc_suitor']; return (n && n.name) ? n.name : '团员'; }
 var DATE_VENUES = ['私人影院', '深夜江边', '他家', '车里', '天台', '地下停车场'];
 var THEATER_TYPES = [
@@ -1274,15 +1340,17 @@ function showBuzzDetail(type, idx) {
     '</div>' +
     extra +
     textBlock +
+    '<div id="es-buzz-replies" style="display:none"></div>' +
     arrows +
-    '<div style="margin-top:12px;text-align:center">' +
-      '<button class="es-rom-btn" id="es-buzz-expand" style="font-size:12px;padding:6px 14px;opacity:.7">🤖 AI 展开讨论串（即将开放）</button>' +
-    '</div>' +
+    // 仅女主/团队相关条目显示展开按钮，外部八卦不显示
+    (isHeroineRelated(item) ? '<div style="margin-top:12px;text-align:center">' +
+      '<button class="es-rom-btn" id="es-buzz-expand" style="font-size:12px;padding:6px 14px">💬 展开讨论</button>' +
+    '</div>' : '') +
   '</div>';
 
   showEntSimModal('📊 ' + title + ' · 详情', body, [{ id: 'close', label: '关闭' }]);
 
-  // 重新绑定切换箭头的点击
+  // 重新绑定切换箭头的点击 + 检查缓存
   setTimeout(function() {
     document.querySelectorAll('[data-buzz-prev]').forEach(function(b) {
       b.addEventListener('click', function() {
@@ -1296,13 +1364,72 @@ function showBuzzDetail(type, idx) {
         if (nextIdx >= 0) { closeEntSimModal(); showBuzzDetail(b.dataset.buzzNext, nextIdx); }
       });
     });
+    // 已有缓存：自动展示回复
+    var cacheKey = type + '_' + idx;
+    var E = GS.entSim;
+    E.buzzReplies = E.buzzReplies || {};
+    var cached = E.buzzReplies[cacheKey];
+    if (cached && cached.lines) {
+      renderBuzzReplies(cached.lines);
+      var expandBtn2 = document.getElementById('es-buzz-expand');
+      if (expandBtn2) { expandBtn2.disabled = true; expandBtn2.textContent = '✅ 已展开'; }
+    }
     var expandBtn = document.getElementById('es-buzz-expand');
-    if (expandBtn) {
+    if (expandBtn && !cached) {
       expandBtn.addEventListener('click', function() {
-        showToast('AI 展开功能将在后续版本开放');
+        expandBuzzThread(type, idx);
       });
     }
   }, 100);
+}
+
+// 展开讨论串：从预写评论池随机抽 2-5 条（缓存到 E.buzzReplies，无需 AI）
+function expandBuzzThread(type, idx) {
+  var buzz = getDailyBuzz();
+  var list = buzz[type === 'fan' ? 'fanDiscussion' : type === 'hot' ? 'hotSearch' : 'mediaTitle'] || [];
+  if (!list[idx]) return;
+  var item = list[idx];
+  var cacheKey = type + '_' + idx;
+  var E = GS.entSim;
+  E.buzzReplies = E.buzzReplies || {};
+
+  // 已有缓存直接展示
+  if (E.buzzReplies[cacheKey]) {
+    renderBuzzReplies(E.buzzReplies[cacheKey].lines);
+    var btn = document.getElementById('es-buzz-expand');
+    if (btn) { btn.disabled = true; btn.textContent = '✅ 已展开'; }
+    return;
+  }
+
+  var expandBtn = document.getElementById('es-buzz-expand');
+  if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '⏳ 展开中…'; }
+
+  // 随机抽取 2 条
+  var n = 2;
+  var pool = BUZZ_COMMENT_POOL.slice();
+  var lines = [];
+  for (var i = 0; i < n && pool.length; i++) {
+    var ri = Math.floor(Math.random() * pool.length);
+    lines.push(pool.splice(ri, 1)[0]);
+  }
+
+  // 缓存
+  E.buzzReplies[cacheKey] = { lines: lines };
+  saveGame();
+  // 稍等让按钮文字更新
+  setTimeout(function() {
+    renderBuzzReplies(lines);
+    if (expandBtn) { expandBtn.disabled = true; expandBtn.textContent = '✅ 已展开'; }
+  }, 200);
+}
+
+function renderBuzzReplies(lines) {
+  var container = document.getElementById('es-buzz-replies');
+  if (container) {
+    container.innerHTML = '<div class="es-buzz-reply-title">💬 网友热议</div>' +
+      lines.map(function(l) { return '<div class="es-buzz-reply">' + escHtml(l.replace(/^·\s*/, '')) + '</div>'; }).join('');
+    container.style.display = 'block';
+  }
 }
 
 // ---------- 女团队友支线互动 ----------
