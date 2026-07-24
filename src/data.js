@@ -13,6 +13,50 @@ export var FREE_INPUT_PHASE_LIMIT = PHASE_ACTION_LIMIT; // 向下兼容（旧引
 export var TODAY_TEXT_CAP = 12000;
 export var HYBRID_TAIL_CHARS = 3000; // [C] 混合当日注入：压缩摘要之外附加的近期叙事 tail 字符数
 export var DAILY_EXPOSURE_DECAY = 12; // [H] 曝光风险每日自然衰减量
+
+// ---------- 女团队友具象化（entSim 模式）：5 位姐姐（化名 + 性格标签 + 与女主关系） ----------
+// 注意：1v1 模式另有同名 buildHeroineGirlGroup(heroineName)（见本文件下文），二者结构不同，此处加 EntSim 前缀避免碰撞。
+import { randInt } from './utils.js';
+export function buildEntSimHeroineGroup() {
+  var namePool = ['恩率', '知允', '秀妍', '宥娜', '彩琳', '瑞胤', '河英', '允真', '艺璘', '多彬'];
+  var roles = [
+    { tag: '最疼你的大姐', rel: 'r1' },
+    { tag: '总抢 part 的', rel: 'r2' },
+    { tag: '想退团的', rel: 'r3' },
+    { tag: '争门面的', rel: 'r4' },
+    { tag: '佛系躺平的', rel: 'r5' }
+  ];
+  var used = {};
+  var out = [];
+  for (var i = 0; i < roles.length; i++) {
+    var nm;
+    do { nm = namePool[randInt(0, namePool.length - 1)]; } while (used[nm]);
+    used[nm] = true;
+    out.push({ name: nm, roleTag: roles[i].tag, rel: roles[i].rel });
+  }
+  return out;
+}
+
+// 生成女团全套设定（团名/公司/概念/粉丝名/出圈歌），与 buildEntSimHeroineGroup() 配合
+export function buildEntSimGroupMeta() {
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  var gi = Math.floor(Math.random() * GIRLGROUP_PRESETS.groupNames.length);
+  var pool = GIRLGROUP_PRESETS.songs.slice();
+  var songCount = 2 + (Math.random() < 0.5 ? 0 : 1);
+  var songs = [];
+  for (var i = 0; i < songCount && pool.length; i++) {
+    var idx = Math.floor(Math.random() * pool.length);
+    songs.push(pool.splice(idx, 1)[0]);
+  }
+  return {
+    groupName: GIRLGROUP_PRESETS.groupNames[gi],
+    company: GIRLGROUP_PRESETS.company,
+    concept: pick(GIRLGROUP_PRESETS.concepts),
+    fandom: GIRLGROUP_PRESETS.fandoms[gi],
+    songs: songs,
+    debutYears: 2 + Math.floor(Math.random() * 2)
+  };
+}
 export var LOWKEY_BONUS = 5; // [H] 低调日（未约高风险约会）额外减值
 export var PHASE_TAIL_CHARS = 800;
 export var CONSEQUENCE_TAIL_CHARS = 500;
@@ -1264,10 +1308,10 @@ export var EX_JEALOUSY_EVENTS = [
 // 女主固定为「门面(Visual) + 忙内(Maknae)」，其余 5 位姐姐成员从池里拼装。
 // 参考质感：Brave Girls《Rollin》翻红前 / LABOUM《Hwi Hwi》 / fromis_9 / Lovelyz —— 有 1-2 首出圈歌但始终二线、不温不火、随时担心解散。
 export var GIRLGROUP_PRESETS = {
-  groupNames: ['LUMINA(루미나)', 'VELVETINE(벨베틴)', 'AURORA6(오로라식스)', 'SOLARIA(솔라리아)', 'PRISM(프리즘)', 'MOONVEIL(문베일)'],
-  companies: ['MOONLIT Entertainment', 'STARCREST', 'AURUM Music', 'NOVA9', 'HARMONY Label'],
+  groupNames: ['LUMINA', 'VELVETINE', 'AURORA SIX', 'SOLARIA', 'PRISM', 'MOONVEIL'],
+  company: 'PLEDIS Entertainment', // 和 SEVENTEEN 同公司
   concepts: ['感性抒情舞曲', '清冷风舞曲', '复古 City Pop', '梦幻 synth-pop', '中低音 R&B'],
-  fandoms: ['Lumis(루미스)', 'Velvet(벨벳)', 'Aurora(오로라)', 'Sola(솔라)', 'Prism(프리즘)', 'Veil(베일)'],
+  fandoms: ['Lumis', 'Velvets', 'Auroras', 'Solas', 'Prisms', 'Veils'], // 与团名 index 对应
   songs: [
     '出道曲《Moonlight Letter(월광염서)》——中规中矩，没水花但有粉丝情怀',
     '小爆曲《Stay With Me》——曾进音源榜前 30，成了"你们团的歌"，综艺常被点名',
@@ -1283,10 +1327,11 @@ export var GIRLGROUP_PRESETS = {
 // 返回对象存入 GS.oneHeartHeroineGroup，由 prompts.js 注入 system prompt。
 export function buildHeroineGirlGroup(heroineName) {
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  var groupName = pick(GIRLGROUP_PRESETS.groupNames);
-  var company = pick(GIRLGROUP_PRESETS.companies);
+  var gi = Math.floor(Math.random() * GIRLGROUP_PRESETS.groupNames.length);
+  var groupName = GIRLGROUP_PRESETS.groupNames[gi];
+  var company = GIRLGROUP_PRESETS.company;
   var concept = pick(GIRLGROUP_PRESETS.concepts);
-  var fandom = pick(GIRLGROUP_PRESETS.fandoms);
+  var fandom = GIRLGROUP_PRESETS.fandoms[gi]; // 与团名同 index 匹配
   // 随机 2-3 首"出名"的歌
   var pool = GIRLGROUP_PRESETS.songs.slice();
   var songCount = 2 + (Math.random() < 0.5 ? 0 : 1);

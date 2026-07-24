@@ -79,6 +79,13 @@ export function safeParseJson(raw) {
     try { return JSON.parse(balanced); } catch (e) {}
     try { return JSON.parse(repairJson(balanced)); } catch (e) {}
   }
+  // 截断兜底：extractBalancedObject 返回 null（JSON 未闭合被截断）时，
+  // 从首个 { 截取到末尾，直接交 repairJson 用 bracketStack 补全缺失的闭合括号
+  var firstBrace = s.indexOf('{');
+  if (firstBrace >= 0) {
+    var truncated = s.slice(firstBrace);
+    try { return JSON.parse(repairJson(truncated)); } catch (e) {}
+  }
   try { return JSON.parse(repairJson(s)); } catch (e) {}
   return null;
 }

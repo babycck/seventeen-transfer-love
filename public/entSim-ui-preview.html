@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>娱乐圈模拟器 · UI 预览</title>
+<style>
+  :root{
+    --bg:#1A1626;
+    --bg2:#221c33;
+    --card:rgba(255,255,255,0.06);
+    --card-border:rgba(255,255,255,0.12);
+    --primary:#7C6FF0;
+    --primary2:#9D8BFF;
+    --text:#F2EEFF;
+    --text-dim:rgba(242,238,255,0.6);
+    --green:#5BD6A0;
+    --red:#FF8A8A;
+    --yellow:#FFD479;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"PingFang SC",-apple-system,sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%,#2a2150 0%,var(--bg) 55%) fixed;
+    color:var(--text);
+    min-height:100vh;
+    font-size:11px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1480px;margin:0 auto;padding:14px}
+
+  /* ===== Header ===== */
+  .header{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:12px 16px;border-radius:14px;margin-bottom:12px;
+    background:var(--card);backdrop-filter:blur(14px);
+    border:1px solid var(--card-border);
+    box-shadow:0 8px 32px rgba(0,0,0,.3);
+  }
+  .cycle-tag{
+    font-size:13px;font-weight:600;
+    background:linear-gradient(90deg,var(--primary),var(--primary2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
+  .chap-badge{
+    font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;
+    background:rgba(124,111,240,.18);border:1px solid rgba(124,111,240,.5);color:#c9b8ff;
+  }
+  .pop{font-size:12px;color:var(--text-dim)}
+  .pop b{color:var(--text);font-size:13px}
+  .mini-radar{width:40px;height:40px;margin-left:auto}
+  .icon-btn{font-size:15px;cursor:pointer;opacity:.8}
+
+  /* ===== 三栏布局 ===== */
+  .grid{display:grid;grid-template-columns:240px 1fr 280px;gap:12px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .col{
+    background:var(--card);backdrop-filter:blur(14px);
+    border:1px solid var(--card-border);border-radius:14px;
+    padding:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);
+  }
+  .col-title{
+    font-size:12px;font-weight:600;color:#b9aee0;
+    letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px;
+  }
+
+  /* 作品槽 */
+  .work-card{
+    background:rgba(124,111,240,.08);border:1px solid rgba(124,111,240,.25);
+    border-radius:10px;padding:10px;margin-bottom:12px;
+  }
+  .work-name{font-size:12px;font-weight:600;margin-bottom:8px}
+  .work-stages{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+  .stage-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2)}
+  .stage-dot.active{background:var(--primary2);box-shadow:0 0 10px var(--primary2);animation:pulse 1.6s infinite}
+  .stage-dot.done{background:var(--green)}
+  .stage-line{flex:1;height:2px;background:rgba(255,255,255,.12);border-radius:2px}
+  .stage-line.done{background:var(--green)}
+  .work-sub{font-size:10px;color:var(--text-dim)}
+  .warn{font-size:10px;color:var(--yellow);margin-top:6px;font-weight:600}
+
+  /* 日程按钮 */
+  .agenda{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .ag-btn{
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+    padding:8px 10px;border-radius:10px;cursor:pointer;font-size:12px;font-family:inherit;
+    background:rgba(255,255,255,.05);border:1px solid var(--card-border);color:var(--text);
+    transition:transform .2s,border-color .2s;
+  }
+  .ag-btn:hover{transform:translateY(-2px);border-color:var(--primary2)}
+  .ag-btn .ic{font-size:14px}
+  .ag-btn .loc{font-size:9px;color:var(--text-dim);margin-left:auto}
+  .ag-btn.done{opacity:.45;cursor:default}
+  .ag-btn.done:hover{transform:none}
+  .res{font-size:11px;color:var(--yellow);font-weight:600}
+
+  /* 剧情区 */
+  .narrative{
+    font-size:12px;line-height:1.85;color:#e6e1f5;
+    padding:14px;border-radius:10px;margin-bottom:12px;min-height:120px;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  }
+  .narrative .buzz-inline{
+    display:inline-block;font-size:10px;color:var(--red);
+    background:rgba(255,138,138,.12);padding:1px 6px;border-radius:6px;margin:0 2px;
+  }
+  .opts{display:flex;flex-direction:column;gap:7px}
+  .opt{
+    padding:9px 12px;border-radius:10px;cursor:pointer;font-size:12px;
+    background:rgba(124,111,240,.1);border:1px solid rgba(124,111,240,.3);
+    transition:transform .2s,background .2s;
+  }
+  .opt:hover{transform:translateY(-1px);background:rgba(124,111,240,.2)}
+  .opt .risk{font-size:10px;margin-left:6px}
+  .risk.low{color:var(--green)} .risk.mid{color:var(--yellow)} .risk.high{color:var(--red)}
+  .free-input{
+    margin-top:10px;width:100%;padding:9px;border-radius:10px;font-family:inherit;font-size:12px;
+    background:rgba(255,255,255,.04);border:1px solid var(--card-border);color:var(--text);
+  }
+
+  /* 热搜 */
+  .hot{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+  .hot-item{
+    display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:8px;
+    background:rgba(255,255,255,.04);font-size:11px;
+  }
+  .hot-item.me{border:1px solid var(--primary2);background:rgba(124,111,240,.14);animation:pulse 2.4s infinite}
+  .hot-rank{font-weight:700;color:var(--text-dim);width:14px}
+  .hot-item.me .hot-rank{color:var(--red)}
+  .hot-fire{font-size:10px}
+
+  /* 粉丝讨论 */
+  .fan{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+  .fan-bubble{padding:6px 9px;border-radius:9px;font-size:10px;max-width:92%}
+  .fan-bubble.topfan{background:rgba(124,111,240,.16);border-left:2px solid var(--primary2)}
+  .fan-bubble.passerby{background:rgba(255,255,255,.05);border-left:2px solid var(--text-dim)}
+  .fan-bubble.hater{background:rgba(255,138,138,.1);border-left:2px solid var(--red)}
+  .fan-bubble b{font-size:9px;color:var(--text-dim)}
+  .media{font-size:11px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);margin-bottom:12px}
+  .media .tag{font-size:9px;color:var(--yellow)}
+
+  /* 雷达图 */
+  .radar-wrap{display:flex;justify-content:center;margin:8px 0 12px}
+  .legend{display:flex;justify-content:center;gap:8px;font-size:9px;color:var(--text-dim);margin-bottom:10px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:middle}
+
+  /* NPC 网 */
+  .npc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .npc-node{
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border-radius:10px;
+    background:rgba(255,255,255,.03);border:1px solid var(--card-border);font-size:9px;text-align:center;
+  }
+  .npc-node.warn{border-color:var(--red);background:rgba(255,138,138,.1);animation:pulse 1.8s infinite}
+  .npc-avatar{
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+  }
+  .npc-node.warn .npc-avatar{box-shadow:0 0 0 3px rgba(255,138,138,.5)}
+  .npc-name{color:var(--text-dim)}
+  .npc-node.warn .npc-name{color:var(--red)}
+
+  /* 底部 */
+  .footer{
+    margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 16px;border-radius:14px;
+    background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--card-border);
+  }
+  .depth{display:flex;align-items:center;gap:8px;font-size:12px}
+  .depth-bar{display:flex;gap:4px}
+  .depth-cell{width:22px;height:10px;border-radius:3px;background:rgba(255,255,255,.1)}
+  .depth-cell.on{background:linear-gradient(90deg,var(--red),#ff6b9d)}
+  .depth-label{color:var(--red);font-weight:600}
+  .tabs{display:flex;gap:6px;margin-left:auto}
+  .tab{font-size:11px;padding:6px 14px;border-radius:20px;background:rgba(255,255,255,.05);cursor:pointer;color:var(--text-dim)}
+  .tab.on{background:linear-gradient(90deg,var(--primary),var(--primary2));color:#fff}
+
+  /* 风险弹窗 */
+  .risk-modal{
+    position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,8,20,.65);backdrop-filter:blur(4px);
+  }
+  .risk-card{
+    width:340px;max-width:92vw;padding:18px;border-radius:16px;
+    background:linear-gradient(160deg,#241d3d,#1a1530);
+    border:1px solid rgba(255,138,138,.4);box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .risk-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--red)}
+  .risk-row{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;color:var(--text-dim)}
+  .risk-row b{color:var(--text)}
+  .risk-score{font-size:26px;font-weight:800;color:var(--red);text-align:center;margin:10px 0}
+  .risk-impact{font-size:11px;text-align:center;color:var(--text-dim);margin-bottom:14px}
+  .risk-impact span{color:var(--red)}
+  .risk-btns{display:flex;gap:8px}
+  .risk-btns button{flex:1;padding:9px;border-radius:10px;border:none;font-family:inherit;font-size:12px;cursor:pointer;font-weight:600}
+  .btn-go{background:linear-gradient(90deg,var(--red),#ff6b9d);color:#fff}
+  .btn-cover{background:rgba(255,212,121,.18);color:var(--yellow);border:1px solid rgba(255,212,121,.4)!important}
+  .btn-cancel{background:rgba(255,255,255,.06);color:var(--text-dim);border:1px solid var(--card-border)!important}
+  .close-x{position:absolute;top:12px;right:14px;cursor:pointer;color:var(--text-dim);font-size:14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <span class="cycle-tag">🎤 回归期 · 打歌中 Day3/14</span>
+    <span class="chap-badge">出道期</span>
+    <span class="pop">人气 <b>72</b></span>
+    <svg class="mini-radar" viewBox="0 0 40 40">
+      <polygon points="20,4 36,20 20,36 4,20" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+      <polygon points="20,9 31,20 20,31 9,20" fill="rgba(124,111,240,.4)" stroke="#9D8BFF" stroke-width="1"/>
+    </svg>
+    <span class="icon-btn">⚙️</span>
+  </div>
+
+  <!-- 三栏 -->
+  <div class="grid">
+
+    <!-- 左栏 事业 -->
+    <div class="col">
+      <div class="col-title">🎬 事业</div>
+
+      <div class="work-card">
+        <div class="work-name">📀 2nd Mini Album</div>
+        <div class="work-stages">
+          <span class="stage-dot done"></span>
+          <span class="stage-line done"></span>
+          <span class="stage-dot active"></span>
+          <span class="stage-line"></span>
+          <span class="stage-dot"></span>
+        </div>
+        <div class="work-sub">筹备 · 发布 · 反响 ｜ 发布倒计时 Day5 · 进度65%</div>
+        <div class="warn">⚠️ 作品在播 · 曝光损失×2</div>
+      </div>
+
+      <div class="col-title" style="margin-top:4px">今日日程</div>
+      <div class="agenda">
+        <button class="ag-btn"><span class="ic">🎤</span>打歌彩排<span class="loc">待机室</span></button>
+        <button class="ag-btn done"><span class="ic">📺</span>综艺录制 ✓<span class="loc">摄影棚</span></button>
+        <button class="ag-btn"><span class="ic">📷</span>画报拍摄<span class="loc">摄影棚</span></button>
+      </div>
+
+      <div class="col-title" style="margin-top:4px">资源等级</div>
+      <div class="res">★★★ ☆ ☆ ｜ 上升期</div>
+    </div>
+
+    <!-- 中栏 剧情 -->
+    <div class="col">
+      <div class="col-title">📖 剧情 · Day 3</div>
+      <div class="narrative">
+        待机室的灯打在你脸上，你刚结束一段高音独唱的彩排，额头还冒着薄汗。哥哥从后台探出头，比了个"加油"的手势就缩回去——他今天也来打歌，同场不同团。<br><br>
+        你低头喝水时，余光扫到隔间门口站着的人。是他。他好像也是今天的待机组，正和工作人员点头说着什么，视线不经意扫过来，和你的目光撞了个正着。<br><br>
+        <span class="buzz-inline">🔥 今日热搜：XX疑似恋情？站姐发糖</span> 你心里一紧，下意识把帽檐压低了半寸。
+      </div>
+
+      <div class="opts">
+        <div class="opt">▶ 趁彩排间隙和他打个招呼<span class="risk mid">（风险:中 · 粉丝-5）</span></div>
+        <div class="opt">▶ 假装没看见，低头刷手机<span class="risk low">（风险:低 · 安全）</span></div>
+        <div class="opt">▶ 让哥哥帮忙递瓶水试探<span class="risk low">（风险:低 · 慢推进）</span></div>
+      </div>
+      <input class="free-input" placeholder="自由输入你想做的事…">
+    </div>
+
+    <!-- 右栏 舆论 -->
+    <div class="col">
+      <div class="col-title">📊 今日舆论态势</div>
+
+      <div class="hot">
+        <div class="hot-item me"><span class="hot-rank">1</span>XX疑似恋情？站姐发糖<span class="hot-fire">🔥🔥🔥</span></div>
+        <div class="hot-item"><span class="hot-rank">2</span>归国四子同框引回忆<span class="hot-fire">🔥</span></div>
+        <div class="hot-item"><span class="hot-rank">3</span>本周收视率战报出炉<span class="hot-fire">🔥</span></div>
+      </div>
+
+      <div class="fan">
+        <div class="fan-bubble topfan"><b>大粉</b>｜今天机场状态绝了，姐姐好美</div>
+        <div class="fan-bubble passerby"><b>路人</b>｜这造型谁做的…有点翻车</div>
+        <div class="fan-bubble hater"><b>黑粉</b>｜又买热搜了吧，无语</div>
+      </div>
+
+      <div class="media">📰 <b>"新人能否扛起大梁？"</b> <span class="tag">· 定调:观望</span></div>
+
+      <div class="radar-wrap">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <g transform="translate(75,75)">
+            <polygon points="0,-60 60,0 0,60 -60,0" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+            <polygon points="0,-40 40,0 0,40 -40,0" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1"/>
+            <polygon points="0,-20 20,0 0,20 -20,0" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+            <line x1="0" y1="-60" x2="0" y2="60" stroke="rgba(255,255,255,.1)"/>
+            <line x1="-60" y1="0" x2="60" y2="0" stroke="rgba(255,255,255,.1)"/>
+            <polygon points="0,-42 36,0 0,30 -48,0" fill="rgba(124,111,240,.35)" stroke="#9D8BFF" stroke-width="1.5"/>
+            <text x="0" y="-66" text-anchor="middle" fill="#b9aee0" font-size="9">粉丝</text>
+            <text x="66" y="3" text-anchor="middle" fill="#b9aee0" font-size="9">路人</text>
+            <text x="0" y="72" text-anchor="middle" fill="#b9aee0" font-size="9">媒体</text>
+            <text x="-66" y="3" text-anchor="middle" fill="#b9aee0" font-size="9">同行</text>
+          </g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--green)"></i>稳</span>
+        <span><i style="background:var(--yellow)"></i>注意</span>
+        <span><i style="background:var(--red)"></i>塌</span>
+      </div>
+
+      <div class="col-title" style="margin-top:2px">关系网</div>
+      <div class="npc">
+        <div class="npc-node warn"><div class="npc-avatar">🕵️</div><div class="npc-name">狗仔·跟踪</div></div>
+        <div class="npc-node"><div class="npc-avatar">💼</div><div class="npc-name">经纪人</div></div>
+        <div class="npc-node"><div class="npc-avatar">💄</div><div class="npc-name">造型师</div></div>
+        <div class="npc-node warn"><div class="npc-avatar">📸</div><div class="npc-name">大粉·警觉</div></div>
+        <div class="npc-node"><div class="npc-avatar">⚔️</div><div class="npc-name">同台对手</div></div>
+        <div class="npc-node"><div class="npc-avatar">🎬</div><div class="npc-name">综艺PD</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部 -->
+  <div class="footer">
+    <div class="depth">
+      <span>💗</span>
+      <div class="depth-bar">
+        <span class="depth-cell on"></span>
+        <span class="depth-cell on"></span>
+        <span class="depth-cell"></span>
+        <span class="depth-cell"></span>
+        <span class="depth-cell"></span>
+      </div>
+      <span class="depth-label">地下恋人 · 风险高</span>
+    </div>
+    <div class="tabs">
+      <span class="tab on">剧情</span>
+      <span class="tab">聊天</span>
+      <span class="tab">朋友圈</span>
+      <span class="tab">剧场</span>
+    </div>
+  </div>
+</div>
+
+<!-- 风险预估弹窗示例 -->
+<div class="risk-modal" id="riskModal">
+  <div class="risk-card" style="position:relative">
+    <span class="close-x" onclick="document.getElementById('riskModal').remove()">✕</span>
+    <div class="risk-title">⚠️ 风险预估 · 趁彩排间隙打招呼</div>
+    <div class="risk-row"><span>当前舆论</span><b>粉丝 65 · 注意档</b></div>
+    <div class="risk-row"><span>周期</span><b>打歌期（代价×3）</b></div>
+    <div class="risk-row"><span>NPC视野</span><b style="color:var(--red)">狗仔跟踪中（高）</b></div>
+    <div class="risk-score">72 / 100 🔴 危险</div>
+    <div class="risk-impact">预估影响：<span>粉丝 -12</span> · <span>媒体 -5</span></div>
+    <div class="risk-btns">
+      <button class="btn-go">确认推进</button>
+      <button class="btn-cover">换掩护</button>
+      <button class="btn-cancel" onclick="document.getElementById('riskModal').remove()">放弃</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

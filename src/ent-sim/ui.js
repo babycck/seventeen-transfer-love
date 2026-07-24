@@ -1,124 +1,238 @@
 // ============================================================
-// 娱乐圈模拟器（entSim）· UI 驾驶舱
-// 三栏布局：左=事业 / 中=剧情·选项·自由输入·快捷指令 / 右=舆论驾驶舱
-// 不依赖 oneHeart UI（完全独立路径）
+// 娱乐圈地下恋（entSim）· UI 驾驶舱
+// 三栏：左=娱乐圈背景(日程/队友/曝光) / 中=剧情·选项·自由输入 / 右=圈内态势(热搜/粉丝/关系网)
+// 底部：8阶段好感度条 + 快捷指令(拉回主线/随机事件/探班/走向结局/进入下一天) + 4 Tab(剧情/聊天/朋友圈/剧场)
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { escHtml, showToast } from '../utils.js';
-import { showApiSettingsModal, showConfirmModal } from '../modals.js';
+import { popularity, careerLevel } from './state.js';
+import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from '../data.js';
+import { escHtml, showToast, randInt } from '../utils.js';
+import { showApiSettingsModal } from '../modals.js';
+import { showActionInfoModal } from '../modals/confirm-modal.js';
+import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
+import { getTimeOfDayLabel } from './cycle.js';
+import { getDailyBuzz, generateFanReaction, buzzTitle, buzzContent } from './immersion.js';
+import { getNpcNodes, interactNpc, getNpcInteractions } from './npc-network.js';
 import {
-  initEntSimState,
-  popularity, careerLevel, resourcesLevel, chapterName, chapterIndex,
-  cyclePhaseIndex, romanceDepth, romanceDepthLabel, maleLead, brotherNode,
-  onAirWorkCount, isStageProfession
-} from './state.js';
-import { CYCLE_PHASES, CYCLE_STAGE_META, ROMANCE_DEPTH_LABELS, OPINION_DIMS, PR_ACTIONS, NPC_TYPES, COVER_MECHANISMS, FAN_SERVICE_TYPES, COLLAB_TYPES, WORK_TYPES, AWARDS_POOL, WORK_TITLE_SUGGEST, romanceIcon } from './data.js';
-import { getCyclePhaseLabel, getCyclePhaseIcon, getCycleStageLabel, getCyclePhaseMeaning, getRomanceRiskMultiplier } from './cycle.js';
-import { getOpinionTier, getOpinionForRadar, executePR, executePRDim, applyOpinionImpact } from './public-opinion.js';
-import { getNpcNodes, tickPaparazzi, interactNpc, getNpcInteractions } from './npc-network.js';
-import { getRomanceDepthLabel, getRomanceEmotion, getRomanceRisk, tryConfession, applyConfessionResult, applyCover, getCoverMechanisms, assessRomanceRisk, advanceRomance } from './romance.js';
-import { getWorks, startWork } from './works.js';
-import { getChapterMeta, checkChapterAdvance, enterChapter } from './chapter.js';
-import { doFanService } from './fan-service.js';
-import { awardsNom, awardsActive, enterAwardsCeremony, resolveAwards } from './awards.js';
-import { collabProposal, acceptCollab, rejectCollab, maybeOfferCollab } from './collab.js';
-import { getDailyBuzz } from './immersion.js';
-import { getEndingHint } from './endings.js';
+  getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
+  tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover
+} from './romance.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
-  continueEntSimMain, triggerEntSimEvent, enterEntSimEnding
+  continueEntSimMain, triggerEntSimEvent, triggerEntSimHypothetical, enterEntSimEnding,
+  goEntSimNextDay, initiateEntSimDate, generateEntSimConfession,
+  generateEntSimChat, generateEntSimMoment, generateEntSimTheater,
+  generateEntSimRound, runEntSimEnding, triggerTeammateEvent, restartEntSim
 } from './engine.js';
+import { STAGE_CEREMONY, TEAMMATE_FLAVOR } from './data.js';
 
-// 供 renderAll 调用：返回 HTML 字符串（与 oneHeart/transfer 一致，绑定由 bindEntSimEvents 负责）
+var SHOW_NPC = ['broker', 'fanleader', 'suitor'];
+function suitorName() { var n = GS.entSim.npcNetwork.nodes['npc_suitor']; return (n && n.name) ? n.name : '团员'; }
+var DATE_VENUES = ['私人影院', '深夜江边', '他家', '车里', '天台', '地下停车场'];
+var THEATER_TYPES = [
+  { type: 'malePOV', label: '男主视角', minAff: 20 },
+  { type: 'rivalIF', label: '竞争者IF', minAff: 20 },
+  { type: 'school', label: '校园IF', minAff: 35 },
+  { type: 'brotherPOV', label: '哥哥视角', minAff: 50 },
+  { type: 'wedding', label: '婚后IF', minAff: 70 },
+  { type: 'memory', label: '回忆录', minAff: 80 }
+];
+
+function currentTab() { return GS._entSimTab || 'story'; }
+
 export function renderEntSimGameScreen() {
   window.__renderEntSim = function() {
     var app = document.getElementById('app');
     if (!app) return;
     app.innerHTML = renderHtml();
     bindEntSimEvents();
+    // 剧情生成后自动滚到底部
+    setTimeout(function() {
+      var nEl = document.getElementById('es-narrative');
+      if (nEl) nEl.scrollTop = nEl.scrollHeight;
+    }, 50);
+    if (GS._entSimStageUpPending) showStageUpCeremony();
   };
   return renderHtml();
 }
 
 function renderHtml() {
+  var tab = currentTab();
+  var heartPending = GS._entSimHeartbeatPending;
+  // 主剧情：首轮未生成时自动生成（用 started 标志，避免每次渲染都重复触发生成）
+  var E = GS.entSim;
+  if (!E.started && !GS._entSimGenerating) {
+    var autoTries0 = GS._entSimAutoTries || 0;
+    if (autoTries0 >= 2) {
+      // 首轮连续失败：放弃自动重生成，标记 started 交回 bindEntSimEvents 兜底（点击拉回主线重试）
+      GS.entSim.started = true;
+      GS._entSimCurrent = { narrative: '（剧情生成较慢，请点击「拉回主线」重试）', options: ['拉回主线'], extras: {}, failed: true };
+    } else {
+      GS._entSimAutoTries = autoTries0 + 1;
+      generateEntSimRound('phase').then(rerender).catch(function() {
+        GS._entSimGenerating = false;
+        rerender();
+      });
+      return '<div id="entsim-root" class="entsim-mode"><div class="es-loading-wrap">✨ 剧情生成中…</div></div>';
+    }
+  }
   var cur = getEntSimCurrent();
-  return '' +
+  var html = '' +
     '<div id="entsim-root" class="entsim-mode">' +
       renderHeader() +
+      renderDepthTop() +
       '<div class="es-grid">' +
         '<div class="es-col es-left">' + renderLeft() + '</div>' +
-        '<div class="es-col es-center">' + renderCenter(cur) + '</div>' +
+        '<div class="es-col es-center">' + renderCenter(cur, heartPending) + '</div>' +
         '<div class="es-col es-right">' + renderRight() + '</div>' +
       '</div>' +
-      renderFooter() +
     '</div>';
+  GS._entSimHeartbeatPending = false; // 心动时刻一次性特效
+  return html;
 }
 
 // ---------- Header ----------
 function renderHeader() {
   var E = GS.entSim;
-  var pap = E.npcNetwork.paparazzi;
-  var papBadge = (pap.armed) ? '<span class="es-badge es-pap" id="es-pap-badge" style="cursor:pointer" title="点击进入狗仔危机公关">⏰倒计时' + (pap.nextRound - E.cycle.roundTotal) + '</span>' : '';
-  var awBadge = (awardsActive()) ? '<span class="es-badge es-award" id="es-award-badge" title="颁奖礼">🏆颁奖季</span>' : '';
-  var nomBadge = (awardsNom() && !awardsNom().resolved && !awardsActive()) ? '<span class="es-badge es-nom" id="es-award-badge" title="入围奖项">🏆' + escHtml(awardsNom().name) + '</span>' : '';
+  var chName = (E.chapter && E.chapter.name) ? (' ' + (E.chapter.icon || '') + ' ' + E.chapter.name) : '';
   return '' +
     '<div class="es-header">' +
       '<div class="es-h-left">' +
-        '<span class="es-cycle-tag">' + getCyclePhaseIcon() + ' ' + getCycleStageLabel() + ' · ' + getCyclePhaseLabel() + ' Day' + E.cycle.roundTotal + '</span>' +
-        '<span class="es-chip">' + chapterIconHtml() + ' ' + chapterName() + '</span>' +
+        '<span class="es-cycle-tag">💗 地下恋 · Day' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</span>' +
+        (chName ? '<span class="es-chap-badge">' + chName + '</span>' : '') +
+        '<span class="es-chap-badge">' + getRomanceStageIcon() + ' ' + getRomanceStageLabel() + '</span>' +
       '</div>' +
       '<div class="es-h-right">' +
-        '<button class="es-btn es-settings-btn" id="es-settings-btn" title="设置">⚙️</button>' +
-        '<button class="es-btn es-romance-btn" id="es-romance-btn">' + romanceIcon(romanceDepth()) + ' 男主</button>' +
-        (brotherNode() ? '<button class="es-btn" id="es-brother-btn">👨 哥哥(' + stanceShort(E.brother.stance) + ')</button>' : '') +
-        '<button class="es-btn es-end-btn" id="es-end-btn">🔚 结局</button>' +
-        papBadge + awBadge + nomBadge +
+        '<span class="es-pop" id="es-pop-btn" style="cursor:pointer" title="点击查看人气变动日志">人气 <b>' + popularity() + '</b> <i style="font-style:normal;color:#9D8BFF">(' + careerLevel() + ')</i></span>' +
+        '<span class="es-aff-mini">好感 ' + E.affection + '/100</span>' +
+        '<span class="es-icon-btn" id="es-settings-btn" title="设置">⚙️</span>' +
       '</div>' +
     '</div>';
-}
-function stanceShort(s) { return ({ '参谋': '参谋', '认可掩护': '挺你', '试探': '试探', '反对公开': '反对' })[s] || s; }
-function chapterIconHtml() { return ['🌱', '🚀', '👑', '🏆'][chapterIndex() - 1] || '🌱'; }
-function esEveningBtn(kind, label) {
-  var chosen = GS.entSim.evening || '';
-  var locked = chosen && chosen !== kind;
-  return '<button class="es-evening-btn' + (chosen === kind ? ' active' : '') + '" data-evening="' + kind + '"' + (locked ? ' disabled' : '') + '>' + label + '</button>';
 }
 
-// ---------- Left：事业面板 ----------
+// ---------- Left · 娱乐圈背景 ----------
 function renderLeft() {
   var E = GS.entSim;
-  var works = getWorks();
-  var worksHtml = works.length ? works.map(workCardHtml).join('') : '<div class="es-empty">暂无作品，去事业面板开新作</div>';
-  var agendaHtml = (
-    '<div class="es-agenda">' +
-      '<button class="es-ag-btn" data-agenda="main"><span class="es-ic">🎯</span>' + escHtml(E.agenda.main || '主档') + '</button>' +
-      '<button class="es-ag-btn" data-agenda="related"><span class="es-ic">🔗</span>' + escHtml(E.agenda.related || '相关') + '</button>' +
-      '<button class="es-ag-btn" data-agenda="rival"><span class="es-ic">💢</span>' + escHtml(E.agenda.rival || '情敌') + '</button>' +
-    '</div>'
-  );
+  var gm = E.groupMeta || {};
+  var sisters = (E.heroineGroup || []).map(function(s, i) {
+    return '<button class="es-sis" data-sis="' + i + '"><span class="es-sis-name">' + escHtml(s.name) + '</span><small>' + escHtml(s.roleTag) + '</small></button>';
+  }).join('');
+  var exp = Math.min(100, (E.misc.exposureAccum || 0) * 4);
+  var tier = getExposureTierLabel(E.misc.exposureAccum || 0);
+  var expBarColor = exp >= 80 ? 'var(--es-danger)' : exp >= 60 ? '#ff7e7e' : exp >= 40 ? '#ffd166' : exp >= 20 ? '#ffee88' : '#7ee787';
+  // 团设卡片
+  var groupCard = '';
+  if (gm.groupName) {
+    var songsHtml = (gm.songs || []).map(function(s) { return '<span class="es-gm-song">' + escHtml(s) + '</span>'; }).join('');
+    groupCard = '<div class="es-gm-card">' +
+      '<div class="es-gm-name">' + escHtml(gm.groupName) + '</div>' +
+      '<div class="es-gm-line">🏢 ' + escHtml(gm.company || '') + '  ·  🎵 ' + escHtml(gm.concept || '') + '</div>' +
+      '<div class="es-gm-line">💎 粉丝：' + escHtml(gm.fandom || '') + '  ·  出道 ' + (gm.debutYears || '') + ' 年</div>' +
+      (songsHtml ? '<div class="es-gm-songs">🔥 出圈曲：' + songsHtml + '</div>' : '') +
+    '</div>';
+  }
   return '' +
     '<div class="es-panel">' +
-      '<div class="es-panel-title">🎬 事业</div>' +
-      '<div class="es-row"><span>在播作品</span><b>' + onAirWorkCount() + '</b></div>' +
-      '<div class="es-row"><span>人气</span><b>' + popularity() + ' <i style="font-style:normal;color:#9D8BFF">(' + careerLevel() + ')</i></b></div>' +
-      '<button class="es-btn es-wide" id="es-work-btn">🎬 开新作品</button>' +
-      '<div class="es-subtitle">作品槽</div>' + worksHtml +
-      '<div class="es-subtitle">今日日程</div>' + agendaHtml +
-      '<div class="es-subtitle">🌙 晚档（与日程互斥）</div>' +
-      '<div class="es-evening">' +
-        esEveningBtn('date', '💞 约会') +
-        esEveningBtn('visit', '👀 探班') +
-        esEveningBtn('rest', '🛌 休息') +
-      '</div>' +
-      '<div class="es-subtitle">⭐ 资源等级</div>' +
-      '<div class="es-res">' + resourceStars() + '</div>' +
-      '<div class="es-row"><span>资源值</span><b>' + resourcesLevel() + '</b></div>' +
+      groupCard +
+      '<div class="es-col-title">🗓️ 今日日程</div>' +
+      renderAgenda() +
+      '<div class="es-col-title" style="margin-top:6px">👯 女团队友</div>' +
+      '<div class="es-sis-list">' + (sisters || '<div class="es-empty">—</div>') + '</div>' +
+      '<div class="es-col-title" style="margin-top:6px">🔍 曝光 ' + tier.label + '</div>' +
+      '<div class="es-exp-bar"><span style="width:' + exp + '%;background:' + expBarColor + '"></span></div>' +
+      '<small style="color:var(--text-dim)">曝光值 ' + (E.misc.exposureAccum || 0) + ' · ' + tier.desc + '</small>' +
     '</div>';
 }
-function stanceClass(s) {
-  if (s === '回踩' || s === '撤资' || s === '黑' || s === '反对公开') return 'bad';
-  if (s === '护你' || s === '捧' || s === '提携' || s === '想续约' || s === '退出祝福' || s === '认可掩护') return 'good';
-  return 'mid';
+// 曝光档位标签：🟢安全 / 🟡暗涌 / 🟠升温 / 🔴哗然 / ⛈️引爆（阈值与 public-opinion.js 对齐）
+function getExposureTierLabel(accum) {
+  if (accum >= 25) return { label: '⛈️ 引爆', desc: '恋情彻底曝光，事业与粉丝面临双重崩塌' };
+  if (accum >= 15) return { label: '🔴 哗然', desc: '热搜与黑粉已集结，危机公关迫在眉睫' };
+  if (accum >= 10) return { label: '🟠 升温', desc: '同框与同款被频繁讨论，风险快速累积' };
+  if (accum >= 5) return { label: '🟡 暗涌', desc: '站姐与营销号开始注意你们的小动作' };
+  return { label: '🟢 安全', desc: '目前尚未形成有效舆论风波' };
+}
+function renderAgenda() {
+  var E = GS.entSim;
+  var items = [
+    { key: 'main', icon: '🎤', text: (E.agenda.main || '主档') + (E.agenda.mainLoc ? '（' + E.agenda.mainLoc + '）' : '') },
+    { key: 'maleLead', icon: '💜', text: '男主：' + (E.agenda.maleLead || '行程中') + (E.agenda.maleLeadLoc ? '（' + E.agenda.maleLeadLoc + '）' : '') },
+    { key: 'related', icon: '📺', text: E.agenda.related || '相关' },
+    { key: 'rival', icon: '💢', text: suitorName() + '：' + (E.agenda.rival || '行程中') + (E.agenda.rivalLoc ? '（' + E.agenda.rivalLoc + '）' : '') }
+  ];
+  if (E.agenda.brother && E.brother && E.brother.name) {
+    items.push({ key: 'brother', icon: '👨', text: (E.agenda.brother || '哥哥') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : '') });
+  }
+  items.push({ key: 'teammate', icon: '👯', text: '队友互动' });
+  return '<div class="es-agenda">' + items.map(function(it) {
+    if (it.key === 'teammate') {
+      var done = (E.agenda.doneFlags && E.agenda.doneFlags[it.key]) ? ' done' : '';
+      return '<button class="es-ag-btn' + done + '" data-agenda="' + it.key + '"><span class="es-ic">' + it.icon + '</span>' + escHtml(it.text) + '</button>';
+    }
+    return '<div class="es-ag-tag"><span class="es-ic">' + it.icon + '</span>' + escHtml(it.text) + '</div>';
+  }).join('') + '</div>';
+}
+
+// ---------- Center · 剧情 ----------
+function renderCenter(cur, heartPending) {
+  var E = GS.entSim;
+  if (!cur) {
+    return '<div class="es-narrative">⏳ 剧情加载中…</div>' + renderFreeInput() + renderQuickActions();
+  }
+  var nCls = heartPending ? 'es-narrative es-heartbeat' : 'es-narrative';
+  var optionsHtml = (cur.options && cur.options.length) ?
+    cur.options.map(function(o, i) {
+      var rb = optionRiskBadge(o);
+      return '<button class="es-option' + (rb ? ' es-opt-risk' : '') + '" data-idx="' + i + '"' + (rb ? ' data-risk="1"' : '') + '>' + escHtml(o) + (rb ? ' <span class="es-risk">' + rb + '</span>' : '') + '</button>';
+    }).join('') : '<div class="es-empty">（等待剧情推进…）</div>';
+  var romanceBtns = renderRomanceButtons();
+  var heartTitle = heartPending ? '<div class="es-heartbeat-title">💗 心动时刻</div>' : '';
+  var nHtml = cur.narrative ? escHtml(cur.narrative).replace(/\n/g, '<br>') : '';
+  nHtml = nHtml.replace(/── (.+?) ──/g, '<div class="es-branch-sep">$1</div>');
+  return '' +
+    '<div class="es-panel es-center-panel">' +
+      '<div class="es-col-title">📖 剧情 · Day ' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</div>' +
+      heartTitle +
+      '<div class="' + nCls + '" id="es-narrative">' + nHtml + '</div>' +
+      '<div class="es-opts" id="es-options">' + optionsHtml + '</div>' +
+      renderFreeInput() +
+      romanceBtns +
+      renderQuickActions() +
+    '</div>' +
+    renderTabBar();
+}
+// 自由输入框（圆角软底 + 发送按钮，与聊天输入框一致）
+function renderFreeInput() {
+  return '' +
+    '<div class="es-free-area">' +
+      '<input class="es-free-input" id="es-free-input" placeholder="自由输入你想做的事…" />' +
+      '<button class="es-free-send" id="es-free-send">发送</button>' +
+    '</div>';
+}
+// 快捷指令（移到剧情框下方，靠近剧情内容）
+function renderQuickActions() {
+  var quick = [
+    { q: 'main', label: '拉回主线' },
+    { q: 'nextagenda', label: '下一个行程' },
+    { q: 'hypo', label: '自由推演' },
+    { q: 'event', label: '随机事件' },
+    { q: 'visit', label: '探班' },
+    { q: 'ending', label: '走向结局' },
+    { q: 'nextday', label: '进入下一天' }
+  ].map(function(b) { return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>'; }).join('');
+  return '<div class="es-quick es-quick-center">' + quick + '</div>';
+}
+function renderRomanceButtons() {
+  var E = GS.entSim;
+  var btns = '';
+  if (E.affection >= 30) btns += '<button class="es-rom-btn" data-act="date">💞 约会（好感' + E.affection + '）</button>';
+  var cf = tryConfession();
+  if (cf.canConfess) btns += '<button class="es-rom-btn es-confess" data-act="confess">💍 告白</button>';
+  btns += '<button class="es-rom-btn" data-act="risk">⚠️ 风险预估</button>';
+  btns += '<button class="es-rom-btn" data-act="cover">🛡️ 掩护 ' + (5 - (E.romance.coverUsed || 0)) + '/5</button>';
+  if (E.affection >= 100 && (E.cycle.roundTotal - (E.flags.sweetMaxRound || 0)) >= 10) {
+    btns += '<button class="es-rom-btn es-ending" data-act="ending">🌟 进入大结局</button>';
+  }
+  return btns ? '<div class="es-rom-btns">' + btns + '</div>' : '';
 }
 function isIntimateOption(text) {
   return /牵手|亲(吻|他|密)|抱|吻|约(会|见|他)|拥抱|亲密|表白|告白|同床|摸|贴|靠|十指|手牵|心动|暧昧|私会|想他/.test(text);
@@ -126,181 +240,212 @@ function isIntimateOption(text) {
 function optionRiskBadge(text) {
   if (!isIntimateOption(text)) return '';
   var score = assessRomanceRisk(0).score;
-  var lvl, fan, cls;
-  if (score >= 60) { lvl = '高'; fan = '-10'; cls = 'high'; }
-  else if (score >= 40) { lvl = '中'; fan = '-5'; cls = 'mid'; }
-  else if (score >= 20) { lvl = '低'; fan = '-2'; cls = 'low'; }
-  else { lvl = '安全'; fan = '0'; cls = 'safe'; }
-  return '<span class="es-risk-badge es-risk-' + cls + '" title="恋爱曝光风险预估">风险:' + lvl + '·粉丝' + fan + '</span>';
+  if (score >= 60) return '<span class="es-risk-high">风险:高·粉丝-10</span>';
+  if (score >= 40) return '<span class="es-risk-mid">风险:中·粉丝-5</span>';
+  if (score >= 20) return '<span class="es-risk-low">风险:低·粉丝-2</span>';
+  return '<span class="es-risk-safe">风险:安全</span>';
 }
 
-// ---------- Center：剧情 + 选项 + 输入 + 快捷指令 ----------
-function renderCenter(cur) {
-  var optionsHtml = (cur.options && cur.options.length) ?
-    cur.options.map(function(o, i) {
-      var rb = optionRiskBadge(o);
-      return '<button class="es-option' + (rb ? ' es-opt-risk' : '') + '" data-idx="' + i + '"' + (rb ? ' data-risk="1"' : '') + '>' + escHtml(o) + (rb ? ' ' + rb : '') + '</button>';
-    }).join('') : '<div class="es-empty">（等待剧情推进…）</div>';
-  return '' +
-    '<div class="es-panel es-center-panel">' +
-      '<div class="es-panel-title">📖 剧情 · Day ' + GS.entSim.cycle.roundTotal + '</div>' +
-      '<div class="es-narrative" id="es-narrative">' + (cur.narrative ? escHtml(cur.narrative).replace(/\n/g, '<br>') : '') + '</div>' +
-      '<div class="es-options" id="es-options">' + optionsHtml + '</div>' +
-      '<div class="es-inputbar">' +
-        '<input type="text" id="es-free-input" placeholder="自由行动 / 想做什么…" />' +
-        '<button class="es-btn es-romance-btn" id="es-free-send">发送</button>' +
-      '</div>' +
-      '<div class="es-quick">' +
-        '<button class="es-qbtn" id="es-q-main">🔄 拉回主线</button>' +
-        '<button class="es-qbtn" id="es-q-event">🎲 随机事件</button>' +
-        '<button class="es-qbtn" id="es-q-fanservice">📣 营业</button>' +
-        '<button class="es-qbtn" id="es-q-collab">🤝 合作企划</button>' +
-        '<button class="es-qbtn" id="es-q-cover">🛡 掩护</button>' +
-      '</div>' +
-    '</div>';
-}
-
-// ---------- Right：舆论驾驶舱 ----------
+// ---------- Right · 圈内态势 ----------
 function renderRight() {
   var E = GS.entSim;
-  var pap = E.npcNetwork.paparazzi;
-  var papHot = (pap.armed) ? '<div class="es-hot-item es-pap-hot es-hot-click" data-pap="1"><span class="es-hot-rank">⏰</span>狗仔预告：' + (pap.nextRound - E.cycle.roundTotal) + ' 回合后放料<span class="es-hot-fire">🔴</span></div>' : '';
-  var tier = getOpinionTier();
   var buzz = getDailyBuzz();
   var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '';
-  var romanceKw = /恋|绯闻|同框|同款|吻|约(会|见|他|CP)|CP|cp|私会|暧昧|恋情/;
   var hot = (buzz.hotSearch || []).map(function(h, i) {
     var fire = i < 3 ? ['🔥🔥🔥', '🔥🔥', '🔥'][i] : '';
-    var me = (hpName && h.indexOf(hpName) >= 0) ? ' me' : '';
-    var rel = romanceKw.test(h) ? ' rel' : '';
-    var clickable = rel ? ' es-hot-click' : '';
-    return '<div class="es-hot-item' + me + clickable + '"' + (rel ? ' data-rel="' + i + '"' : '') + '><span class="es-hot-rank">' + (i + 1) + '</span>' + escHtml(h) + '<span class="es-hot-fire">' + fire + '</span></div>';
+    var ht = buzzTitle(h);
+    var me = (hpName && ht.indexOf(hpName) >= 0) ? ' me' : '';
+    return '<div class="es-hot-item es-buzz-click' + me + '" data-buzz="hot" data-idx="' + i + '"><span class="es-hot-rank">' + (i + 1) + '</span>' + escHtml(ht) + '<span class="es-hot-fire">' + fire + '</span></div>';
   }).join('');
-  var fan = (buzz.fanDiscussion || []).map(function(f) {
-    var cat = classifyFan(f);
-    return '<div class="es-fan-bubble ' + cat + '"><b>' + fanLabel(cat) + '</b>｜' + escHtml(f) + '</div>';
+  var fan = (buzz.fanDiscussion || []).map(function(f, i) {
+    var ft = buzzTitle(f);
+    var cat = classifyFan(ft);
+    return '<div class="es-fan-bubble es-buzz-click ' + cat + '" data-buzz="fan" data-idx="' + i + '"><b>' + fanLabel(cat) + '</b>｜' + escHtml(ft) + '</div>';
   }).join('');
-  var media = (buzz.mediaTitle || []).map(function(m) {
-    return '<div class="es-media">📰 ' + escHtml(m) + '<span class="es-media-tag"> · 定调:' + tier.tier + '</span></div>';
+  var npcs = renderNpcList();
+  var media = (buzz.mediaTitle || []).map(function(h, i) {
+    var mt = buzzTitle(h);
+    return '<div class="es-hot-item es-buzz-click" data-buzz="media" data-idx="' + i + '"><span class="es-hot-rank">📰</span>' + escHtml(mt) + '</div>';
   }).join('');
-  var npcs = getNpcNodes().map(function(n) {
-    var warn = (stanceClass(n.stance) === 'bad') ? ' warn' : '';
-    return '<div class="es-npc-node es-npc-click' + warn + '" data-npc="' + n.type + '" title="点击主动互动"><div class="es-npc-avatar">' + (n.icon || '👤') + '</div><div class="es-npc-name">' + escHtml(n.name) + '</div></div>';
-  }).join('');
-  var risk = getRomanceRisk();
+  var lovePanel = renderLovePanel();
   return '' +
     '<div class="es-panel">' +
-      '<div class="es-panel-title">📊 今日舆论态势 <span class="es-tier" style="color:' + tier.color + '">' + tier.icon + ' ' + tier.tier + '</span></div>' +
-      '<div class="es-hot">' + papHot + (hot || '<div class="es-empty">暂无热搜</div>') + '</div>' +
-      '<div class="es-subtitle">💬 粉丝讨论</div>' +
+      '<div class="es-col-title">📊 今日圈内</div>' +
+      '<div class="es-hot">' + (hot || '<div class="es-empty">暂无热搜</div>') + '</div>' +
+      '<div class="es-col-title" style="margin-top:4px">📰 媒体标题</div>' +
+      '<div class="es-hot">' + (media || '<div class="es-empty">暂无媒体标题</div>') + '</div>' +
+      '<div class="es-col-title" style="margin-top:4px">💬 粉丝讨论</div>' +
       '<div class="es-fan">' + (fan || '<div class="es-empty">暂无讨论</div>') + '</div>' +
-      (media || '') +
-      '<div class="es-radar-wrap">' + bigRadar() + '</div>' +
-      '<div class="es-legend"><span><i style="background:var(--es-green)"></i>稳</span><span><i style="background:var(--es-yellow)"></i>注意</span><span><i style="background:var(--es-red)"></i>塌</span></div>' +
-      '<div class="es-subtitle">💞 地下恋风险 <b style="color:' + riskColor(risk.score) + '">' + risk.score + ' ' + risk.level + '</b></div>' +
-      '<div class="es-romance-mini">' + romanceIcon(romanceDepth()) + ' ' + getRomanceDepthLabel() + ' · 男主' + getRomanceEmotion() + '</div>' +
-      '<div class="es-subtitle">🕸️ 关系网</div>' +
+      lovePanel +
+      '<div class="es-col-title" style="margin-top:4px">🕸️ 关系网 <small>剩' + (1 - (E.misc.npcInteractionUsed || 0)) + '/1</small></div>' +
       '<div class="es-npc-grid">' + npcs + '</div>' +
-      '<button class="es-btn es-wide" id="es-pr-btn">🛡 危机公关（剩' + E.misc.prRemaining + '）</button>' +
+      '<button class="es-rom-btn es-fan-btn" id="es-fan-btn" style="margin-top:8px;width:100%">📝 营业反馈</button>' +
+      '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
     '</div>';
 }
-// ---------- preview 风格辅助 ----------
+// 右栏恋情面板：阶段 / 好感 / 曝光 / 已用掩护 / 哥哥支持度
+function renderLovePanel() {
+  var E = GS.entSim;
+  var stage = getRomanceStageLabel();
+  var exp = E.misc.exposureAccum || 0;
+  var tier = getExposureTierLabel(exp);
+  var cover = E.romance.coverUsed || 0;
+  var html = '<div style="margin-top:4px;padding:8px;background:rgba(255,255,255,.04);border-radius:8px">' +
+    '<div class="es-col-title" style="margin:0 0 4px 0">💗 恋情面板</div>' +
+    '<div class="es-risk-row"><span>阶段</span><span>' + getRomanceStageIcon() + ' ' + stage + '</span></div>' +
+    '<div class="es-risk-row"><span>好感</span><span>' + E.affection + '/100</span></div>' +
+    '<div class="es-risk-row"><span>曝光</span><span>' + tier.label + ' (' + exp + ')</span></div>' +
+    '<div class="es-risk-row"><span>掩护</span><span>' + cover + '/5</span></div>';
+  if (E.brother && E.brother.name) {
+    html += '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
+  }
+  html += '</div>';
+  return html;
+}
+function renderNpcList() {
+  return getNpcNodes().filter(function(n) { return SHOW_NPC.indexOf(n.type) >= 0; }).map(function(n) {
+    var warn = (stanceClass(n.stance) === 'bad') ? ' warn' : '';
+    var sub = n.type === 'rival' || n.type === 'suitor' ? '亲密度' + (n.intimacy || 0) : n.stance;
+    return '<div class="es-npc-node es-npc-click' + warn + '" data-npc="' + n.type + '" title="点击互动（剩' + (1 - (GS.entSim.misc.npcInteractionUsed || 0)) + '/1次）">' +
+      '<div class="es-npc-avatar">' + (n.icon || '👤') + '</div>' +
+      '<div class="es-npc-name">' + escHtml(n.name) + '</div>' +
+      '<small style="font-size:9px;color:var(--text-dim)">' + escHtml(sub) + '</small>' +
+      '</div>';
+  }).join('');
+}
 function classifyFan(text) {
-  if (/绝|美|神颜|圈粉|独美|封神|绝了|心动|配得上/.test(text)) return 'topfan';
+  if (/绝|美|神颜|圈粉|独美|封神|绝了|心动|配得上|嗑/.test(text)) return 'topfan';
   if (/翻车|无语|黑|崩|买热搜|糊|假|油腻|脱粉/.test(text)) return 'hater';
   return 'passerby';
 }
 function fanLabel(c) { return c === 'topfan' ? '大粉' : c === 'hater' ? '黑粉' : '路人'; }
-function radarSvg(size) {
-  var data = getOpinionForRadar();
-  var cx = size / 2, cy = size / 2, R = size / 2 - 14;
-  var off = 16; // 标签外推偏移，避免压在雷达圈边缘
-  var ang0 = -Math.PI / 2;
-  var grid = '';
-  [1, 0.66, 0.33].forEach(function(r) {
-    var poly = data.map(function(d, i) {
-      var ang = ang0 + i * Math.PI / 2;
-      return (cx + Math.cos(ang) * R * r) + ',' + (cy + Math.sin(ang) * R * r);
-    }).join(' ');
-    grid += '<polygon points="' + poly + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1"/>';
-  });
-  var axes = '';
-  for (var i = 0; i < 4; i++) {
-    var a = ang0 + i * Math.PI / 2;
-    axes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + Math.cos(a) * R) + '" y2="' + (cy + Math.sin(a) * R) + '" stroke="rgba(255,255,255,.1)"/>';
-  }
-  var poly = data.map(function(d, i) {
-    var ang = ang0 + i * Math.PI / 2;
-    return (cx + Math.cos(ang) * R * (d.value / 100)) + ',' + (cy + Math.sin(ang) * R * (d.value / 100));
-  }).join(' ');
-  var polyEl = '<polygon points="' + poly + '" fill="rgba(124,111,240,.35)" stroke="#9D8BFF" stroke-width="1.5"/>';
-  var labels = data.map(function(d, i) {
-    var a = ang0 + i * Math.PI / 2;
-    var lx = cx + Math.cos(a) * (R + off), ly = cy + Math.sin(a) * (R + off);
-    var clickable = (size > 100) ? ' class="es-radar-dim" data-dim="' + d.key + '" style="cursor:pointer"' : '';
-    return '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" fill="#b9aee0" font-size="' + (size > 100 ? 9 : 7) + '"' + clickable + '>' + d.label + '</text>';
-  }).join('');
-  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '"><g>' + grid + axes + polyEl + labels + '</g></svg>';
+function stanceClass(s) {
+  if (s === '回踩' || s === '撤资' || s === '黑' || s === '反对公开' || s === '放料') return 'bad';
+  if (s === '护你' || s === '捧' || s === '提携' || s === '想续约' || s === '退出祝福' || s === '认可掩护' || s === '已买断') return 'good';
+  return 'mid';
 }
-function miniRadar() { return '<span class="es-mini-radar">' + radarSvg(40) + '</span>'; }
-function bigRadar() { return radarSvg(150); }
-function workCardHtml(w) {
-  var dots = '';
-  for (var s = 0; s < 4; s++) {
-    var d = 'es-stage-dot';
-    if (s < w.stage) d += ' done';
-    else if (s === w.stage) d += ' active';
-    dots += '<span class="' + d + '"></span>';
-    if (s < 3) dots += '<span class="es-stage-line' + (s < w.stage ? ' done' : '') + '"></span>';
-  }
-  var warn = (w.stage === 2) ? '<div class="es-warn">⚠️ 作品在播 · 曝光损失×2</div>' : '';
-  var ended = (w.stage >= 3) ? '<div class="es-ok">✅ 已完结 · 已下档</div>' : '';
-  var c = GS.entSim.romance.collabActive;
-  var tag = (c && c.workId === w.id) ? '<span class="es-chip es-colla-tag">💞合作中</span>' : '';
-  return '<div class="es-work-card" data-work="' + escHtml(w.id) + '" style="cursor:pointer">' +
-    '<div class="es-work-name">' + w.icon + ' 《' + escHtml(w.title) + '》' + tag + '</div>' +
-    '<div class="es-work-stages">' + dots + '</div>' +
-    '<div class="es-work-sub">' + w.stageLabel + (w.needsBuzz ? ' ｜ 待反响' : '') + '</div>' +
-    warn + ended + '</div>';
-}
-function resourceStars() { return (typeof getEntSimResourceStars === 'function') ? getEntSimResourceStars() : resourcesLevel(); }
-function renderFooter() {
-  var d = romanceDepth();
-  var lbl = ROMANCE_DEPTH_LABELS[d] || { label: '初遇', risk: '常规' };
+
+// ---------- 顶部全宽好感度进度条 + 剧情框下方 Tab 条 ----------
+function renderDepthTop() {
+  var aff = GS.entSim.affection;
+  var idx = affectionStageIndex(aff);
   var cells = '';
-  for (var i = 0; i < 5; i++) cells += '<span class="es-depth-cell' + (i < d ? ' on' : '') + '"></span>';
-  return '<div class="es-footer"><div class="es-depth">💗<div class="es-depth-bar">' + cells + '</div><span class="es-depth-label">' + escHtml(lbl.label) + ' · 风险' + escHtml(lbl.risk || '常规') + '</span></div></div>';
+  for (var i = 0; i < 8; i++) cells += '<span class="es-depth-cell' + (i <= idx ? ' on' : '') + '"></span>';
+  return '' +
+    '<div class="es-depth-top">' +
+      '<span class="es-depth-ic">' + getRomanceStageIcon() + '</span>' +
+      '<div class="es-depth-bar">' + cells + '</div>' +
+      '<span class="es-depth-label">' + getRomanceStageLabel() + ' · 好感 ' + aff + '/100</span>' +
+    '</div>';
 }
-function riskColor(s) { return s >= 60 ? '#ff6b6b' : (s >= 40 ? '#ffb347' : '#7ed957'); }
+// 剧情框下方的 Tab 切换条（剧情/聊天/朋友圈/剧场/日记）
+function renderTabBar() {
+  var labels = { story: '剧情', chat: '聊天', moments: '朋友圈', theater: '剧场', diary: '日记' };
+  var tabs = ['story', 'chat', 'moments', 'theater', 'diary'].map(function(t) {
+    return '<span class="es-tab' + (currentTab() === t ? ' on' : '') + '" data-tab="' + t + '">' + labels[t] + '</span>';
+  }).join('');
+  return '<div class="es-tabbar">' + tabs + '</div>';
+}
+
+// ---------- Tab 渲染 ----------
+// ---------- Tab 内容（剧情框下方内联，单页滚动）----------
+function renderTabContent(tab) {
+  if (tab === 'chat') return renderChatInner();
+  if (tab === 'moments') return renderMomentsInner();
+  if (tab === 'theater') return renderTheaterInner();
+  return '';
+}
+function renderChatInner() {
+  var history = (GS.entSim.chatHistory || []);
+  var msgs = history.map(function(c) {
+    if (c.role === 'user') return '<div class="es-chat-msg user">' + escHtml(c.content) + '</div>';
+    return '<div class="es-chat-msg ai">' + escHtml(c.content) + '</div>';
+  }).join('');
+  return '<div class="es-chat-panel es-tab-inner">' +
+    '<div class="es-chat-header">💬 与男主聊天</div>' +
+    '<div class="es-chat-messages" id="es-chat-msgs">' + (msgs || '<div class="es-empty">开始和 ' + escHtml(GS.entSim.romance.maleLead.name) + ' 聊天吧 💬</div>') + '</div>' +
+    '<div class="es-chat-input-area">' +
+      '<input class="es-chat-input" id="es-chat-input" placeholder="输入消息…">' +
+      '<button class="es-chat-send" id="es-chat-send">发送</button>' +
+    '</div>' +
+  '</div>';
+}
+function renderMomentsInner() {
+  var moments = (GS.entSim.moments || []);
+  var html = moments.map(function(m) {
+    return '<div class="es-moment-item"><div class="es-moment-post">' + escHtml(m.post || '') + '</div>' +
+      (m.reply ? '<div class="es-moment-reply">💬 ' + escHtml(GS.entSim.romance.maleLead.name) + '：' + escHtml(m.reply) + '</div>' : '') + '</div>';
+  }).join('');
+  return '<div class="es-moments-panel es-tab-inner">' +
+    '<div class="es-chat-header">📸 朋友圈</div>' +
+    '<div class="es-moments-list">' + (html || '<div class="es-empty">暂无动态</div>') + '</div>' +
+    '<button class="es-btn es-wide" id="es-gen-moment" style="margin-top:8px">生成新动态</button>' +
+  '</div>';
+}
+function renderTheaterInner() {
+  var aff = GS.entSim.affection;
+  var html = THEATER_TYPES.map(function(t) {
+    var locked = aff < t.minAff;
+    return '<button class="es-modal-btn es-theater-type' + (locked ? ' locked' : '') + '" data-theater="' + t.type + '" data-label="' + t.label + '"' + (locked ? ' disabled' : '') + '>' +
+      (locked ? '🔒 ' : '🎬 ') + t.label + (locked ? '（需好感≥' + t.minAff + '）' : '') + '</button>';
+  }).join('');
+  return '<div class="es-theater-panel es-tab-inner">' +
+    '<div class="es-chat-header">🎬 剧场番外</div>' +
+    '<div class="es-theater-list">' + html + '</div>' +
+    '<div id="es-theater-content" style="margin-top:12px"></div>' +
+  '</div>';
+}
 
 // ---------- 事件绑定 ----------
 export function bindEntSimEvents() {
-  // 防御：上一会话异常残留的生成锁/重试计数会导致自动生成被守卫挡掉、叙事区永久空白。
-  // 进入时强制解除（bind 时机不存在真正在途的生成，可安全清除）。
   if (GS._entSimGenerating) GS._entSimGenerating = false;
-  if (GS._entSimAutoTries && GS._entSimAutoTries >= 2) GS._entSimAutoTries = 0;
-  // 惰性初始化：迁移的旧 entertainment 存档从未调用过 initEntSimState，男主/哥哥/NPC 为空时补齐
+  // 惰性初始化
   if (!GS.entSim || !GS.entSim.romance || !GS.entSim.romance.maleLead || !GS.entSim.romance.maleLead.memberId) {
-    initEntSimState();
+    return;
   }
-  // 首回合生成：narrative 为空且未在生成中时自动拉起（最多 2 次，避免 AI 漏返回叙事时无限递归）
-  var cur = getEntSimCurrent();
-  var autoTries = GS._entSimAutoTries || 0;
-  if (!cur.narrative && !GS._entSimGenerating) {
-    if (autoTries >= 2) {
-      // 已多次尝试仍无叙事：停止自动循环，给出手动重试提示，防止死循环
-      // 注意：不能直接 return，否则下方按钮绑定逻辑不执行，用户彻底卡死无法自救
-      GS._entSimCurrent = { narrative: '（剧情生成较慢，请点击「拉回主线」重试）', options: ['拉回主线'], extras: {}, failed: true };
-    } else {
-    GS._entSimAutoTries = autoTries + 1;
-    var loading = document.getElementById('es-narrative');
-    if (loading) loading.innerHTML = '<div class="es-loading">✨ 娱乐圈大幕拉开，剧情生成中…</div>';
-    continueEntSimMain().then(function() {
-      if (window.__renderEntSim) window.__renderEntSim();
-    });
+  // 通用绑定：底部 Tab 切换 + 「‹ 返回」（所有 Tab 页均需可切换/返回，修复进聊天页卡死）
+  bindCommonNav();
+  var tab = currentTab();
+  if (tab === 'story') {
+    var cur = getEntSimCurrent();
+    var autoTries = GS._entSimAutoTries || 0;
+    if (!cur.narrative && !GS._entSimGenerating) {
+      if (autoTries >= 2) {
+        GS._entSimCurrent = { narrative: '（剧情生成较慢，请点击「拉回主线」重试）', options: ['拉回主线'], extras: {}, failed: true };
+      } else {
+        GS._entSimAutoTries = autoTries + 1;
+        var loading = document.getElementById('es-narrative');
+        if (loading) loading.innerHTML = '<div class="es-loading">✨ 剧情生成中…</div>';
+        continueEntSimMain().then(function() { if (window.__renderEntSim) window.__renderEntSim(); });
+      }
     }
   }
+  // 同页内联：所有区块事件统一绑定（不再按 Tab 提前 return）
+  bindStoryEvents();
+  bindChatEvents();
+  bindMomentsEvents();
+  bindTheaterEvents();
+  bindBuzzClicks();
+}
 
+// 底部 Tab 切换：story 切到剧情视图，其余弹出手机框蒙层
+function bindCommonNav() {
+  document.querySelectorAll('.es-tab[data-tab]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var tab = el.dataset.tab;
+      if (tab === 'story') { switchEntSimTab('story'); }
+      else if (tab === 'chat') { showEntSimChatModal(); }
+      else if (tab === 'moments') { showEntSimMomentsModal(); }
+      else if (tab === 'theater') { showEntSimTheaterModal(); }
+      else if (tab === 'diary') { showEntSimDiaryModal(); }
+    });
+  });
+  document.querySelectorAll('[data-back="1"]').forEach(function(el) {
+    el.addEventListener('click', function() { switchEntSimTab('story'); });
+  });
+}
+
+function bindStoryEvents() {
   var optWrap = document.getElementById('es-options');
   if (optWrap) {
     optWrap.querySelectorAll('.es-option').forEach(function(btn) {
@@ -308,67 +453,85 @@ export function bindEntSimEvents() {
         if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
         var idx = parseInt(btn.dataset.idx, 10);
         var text = getEntSimCurrent().options[idx] || btn.textContent;
-        if (btn.dataset.risk === '1') { onOptionRisk(idx, text, btn); return; }
-        btn.disabled = true;
-        handleEntSimChoice(idx, text).then(function() { rerender(); });
+        var cur = getEntSimCurrent();
+        if (cur.type === 'confess') { onConfessChoice(idx); return; }
+        onOptionPreview(idx, text, btn);
       });
     });
   }
-  var send = document.getElementById('es-free-send');
-  if (send) send.addEventListener('click', onFreeSend);
   var fi = document.getElementById('es-free-input');
   if (fi) fi.addEventListener('keydown', function(e) { if (e.key === 'Enter') onFreeSend(); });
-
-  bind('#es-q-main', function() {
-    if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
-    continueEntSimMain().then(rerender);
-  });
-  bind('#es-q-event', onRandomEvent);
-  bind('#es-q-fanservice', onFanService);
-  bind('#es-q-collab', onCollab);
-  bind('#es-q-cover', onCover);
-  bind('#es-romance-btn', onRomance);
-  bind('#es-brother-btn', onBrother);
-  bind('#es-end-btn', onEnding);
-  bind('#es-work-btn', onWork);
-  // 今日日程可点击推进
+  bindId('es-free-send', onFreeSend);
+  bindId('es-settings-btn', function() { showApiSettingsModal(); });
+  bindId('es-pop-btn', onPopLog);
+  bindId('es-memory-btn', onMemoryLog);
   document.querySelectorAll('.es-ag-btn[data-agenda]').forEach(function(b) {
     b.addEventListener('click', function() { onAgendaClick(b.dataset.agenda); });
   });
-  // 作品卡片可点击推进
-  document.querySelectorAll('.es-work-card[data-work]').forEach(function(b) {
-    b.addEventListener('click', function() { onWorkCard(b.dataset.work); });
+  document.querySelectorAll('.es-sis[data-sis]').forEach(function(b) {
+    b.addEventListener('click', function() { onTeammateInteract(parseInt(b.dataset.sis, 10)); });
   });
-  bind('#es-pr-btn', onPR);
-  bind('#es-award-badge', onAwards);
-  bind('#es-pap-badge', onPaparazziCrisis);
-  document.querySelectorAll('.es-hot-item[data-pap]').forEach(function(el) {
-    el.addEventListener('click', function() { onPaparazziCrisis(); });
-  });
-  // —— 新增交互入口：返回 / 设置 / 晚档 / 热搜应对 / NPC互动 / 雷达公关 ——
-  bind('#es-settings-btn', function() { showApiSettingsModal(); });
-  var evBox = document.getElementById('es-evening');
-  if (evBox) evBox.addEventListener('click', function(e) {
-    var b = e.target.closest('[data-evening]');
-    if (b && !b.disabled) onEveningChoice(b.dataset.evening);
-  });
-  document.querySelectorAll('.es-hot-item[data-rel]').forEach(function(el) {
-    el.addEventListener('click', function() { onHotSearchResponse(parseInt(el.dataset.rel, 10)); });
-  });
+  bindId('es-fan-btn', onFanReaction);
   document.querySelectorAll('.es-npc-node[data-npc]').forEach(function(el) {
     el.addEventListener('click', function() { onNpcInteract(el.dataset.npc); });
   });
-  document.querySelectorAll('svg text.es-radar-dim[data-dim]').forEach(function(el) {
-    el.addEventListener('click', function() { onRadarPR(el.dataset.dim); });
+  document.querySelectorAll('.es-rom-btn[data-act]').forEach(function(b) {
+    b.addEventListener('click', function() { onRomanceAct(b.dataset.act); });
+  });
+  document.querySelectorAll('.es-quick-btn[data-q]').forEach(function(b) {
+    b.addEventListener('click', function() { onQuick(b.dataset.q); });
   });
 }
-function bind(sel, fn) { var el = document.getElementById(sel.replace('#', '')); if (el) el.addEventListener('click', fn); }
+
+function bindChatEvents() {
+  var sendBtn = document.getElementById('es-chat-send');
+  var input = document.getElementById('es-chat-input');
+  if (sendBtn) sendBtn.addEventListener('click', onChatSend);
+  if (input) input.addEventListener('keydown', function(e) { if (e.key === 'Enter') onChatSend(); });
+}
+function bindMomentsEvents() {
+  var gen = document.getElementById('es-gen-moment');
+  if (gen) gen.addEventListener('click', function() {
+    if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+    generateEntSimMoment().then(rerender);
+  });
+}
+function bindTheaterEvents() {
+  document.querySelectorAll('.es-theater-type[data-theater]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      if (b.disabled) return;
+      if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+      var label = b.dataset.label;
+      generateEntSimTheater(label).then(function(txt) {
+        var box = document.getElementById('es-theater-content');
+        if (box) box.innerHTML = '<div class="es-theater-story">' + (txt ? escHtml(txt).replace(/\n/g, '<br>') : '（生成失败，请重试）') + '</div>';
+      });
+    });
+  });
+}
+function bindId(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); }
+
+function switchEntSimTab(tab) {
+  GS._entSimTab = tab;
+  saveGame();
+  rerender();
+}
+// 在正文底部追加加载提示（保留原有剧情不变）
+function showNarrativeLoading() {
+  var nEl = document.getElementById('es-narrative');
+  if (!nEl) return;
+  var existing = nEl.querySelector('.es-loading-inline');
+  if (existing) existing.remove();
+  nEl.insertAdjacentHTML('beforeend', '<div class="es-loading-inline">✨ 正在加载剧情…</div>');
+  setTimeout(function() { nEl.scrollTop = nEl.scrollHeight; }, 10);
+}
 function rerender() {
   if (window.__renderEntSim) { window.__renderEntSim(); return; }
   var app = document.getElementById('app');
   if (app) { app.innerHTML = renderHtml(); bindEntSimEvents(); }
 }
 
+// ---------- 剧情 Tab 事件 ----------
 function onFreeSend() {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
   var fi = document.getElementById('es-free-input');
@@ -376,240 +539,620 @@ function onFreeSend() {
   var t = fi.value.trim();
   if (!t) return;
   fi.value = '';
+  showNarrativeLoading();
   handleEntSimFreeInput(t).then(rerender);
 }
-function onRandomEvent() {
+function onAgendaClick(kind) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
-  var pool = ['机场被粉丝围堵', '采访被问理想型', '男主生日你卡点祝福', '突然爆出旧照', '你入围年度奖项'];
-  var ev = pool[Math.floor(Math.random() * pool.length)];
-  triggerEntSimEvent(ev).then(rerender);
-}
-function onFanService() {
-  var html = Object.keys(FAN_SERVICE_TYPES).map(function(k) {
-    var d = FAN_SERVICE_TYPES[k];
-    return '<button class="es-modal-btn" data-fs="' + k + '">' + d.icon + ' ' + d.label + '</button>';
-  }).join('');
-  showEntSimModal('📺 营业', '<p>选择营业类型（越营业越被当工具人，高光期反噬更狠）：</p>' + html, []);
-  document.querySelectorAll('[data-fs]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var t = b.dataset.fs;
-      closeEntSimModal();
-      if (t === 'cp') {
-        pickCpSubject(function(subject) {
-          var r = doFanService(t, subject);
-          closeEntSimModal();
-          showToast(r.realCp ? '营业CP与男主假戏真做，感情升温' : (r.smoke ? '营业完成，CP 烟雾弹已抛向情敌' : '营业完成'));
-          rerender();
-        });
-      } else {
-        var r = doFanService(t);
-        showToast(r.smoke ? '营业完成，CP 烟雾弹已抛向情敌' : '营业完成');
-        rerender();
-      }
-    });
-  });
-}
-function pickCpSubject(cb) {
-  var opts = [
-    { k: '男主', label: '💑 与男主（假戏真做→真CP）' },
-    { k: '情敌', label: '💢 与情敌（掩护／制造绯闻）' },
-    { k: '其他男艺人', label: '🎭 与其他男艺人（烟雾弹）' }
-  ];
-  var html = opts.map(function(o) { return '<button class="es-modal-btn" data-cp="' + o.k + '">' + o.label + '</button>'; }).join('');
-  showEntSimModal('💏 营业CP对象', '<p>选择营业CP对象：</p>' + html, []);
-  document.querySelectorAll('[data-cp]').forEach(function(b) {
-    b.addEventListener('click', function() { cb(b.dataset.cp); });
-  });
-}
-function onCollab() {
+  console.log('[agenda-click] kind:', kind);
+  if (kind === 'teammate') { console.log('[agenda-click] teammate branch hit'); showTeammateSelectPanel(); return; }
   var E = GS.entSim;
-  if (E.romance.collabActive) {
-    var c = E.romance.collabActive;
-    var round = E.cycle.roundTotal - c.startedRound + 1;
-    var w = E.works.slots[c.workId];
-    var html = '💞 你正与<b>' + escHtml(c.subject) + '</b>合作《' + escHtml(c.title) + '》<br><br>' +
-      '合作期第 ' + round + ' 回合<br>作品进度：' + (w ? ['筹备', '制作', '在播', '收官'][w.stage] : '?') + '<br>' +
-      '甜度累计 ' + E.romance.collabSweetAccum + '<br><br>合作收官时会自然推进你们的感情。';
-    showEntSimModal('🤝 合作企划·进行中', html, [{ id: 'close', label: '知道了' }]).then(rerender);
-    return;
-  }
-  var prop = collabProposal() || maybeOfferCollab('主动争取');
-  var html2 = '合作企划：<b>' + escHtml(prop.title) + '</b><br>对象：' + escHtml(prop.subject) + '｜风险：' + prop.risk + '｜甜度：' + prop.sweetness;
-  showEntSimModal('🤝 合作企划', '<p>' + html2 + '</p>', [
-    { id: 'accept', label: '接下', primary: true },
-    { id: 'reject', label: '拒绝' }
-  ]).then(function(res) {
-    closeEntSimModal();
-    if (res === 'accept') {
-      acceptCollab(prop);
-      var a = E.romance.collabActive;
-      showToast('已接下《' + prop.title + '》' + ((a && a.subject === '男主') ? '（合作期已开启）' : ''));
-    } else if (res === 'reject') { rejectCollab(); showToast('已拒绝'); }
-    rerender();
-  });
+  var text = (E.agenda && E.agenda[kind]) || kind;
+  var loc = (E.agenda && E.agenda[kind + 'Loc']) || '';
+  var scene = '今日行程[' + kind + ']：' + text + (loc ? '（地点：' + loc + '）' : '');
+  var extraNote = '请重点围绕「' + text + '」这个行程展开剧情，并把场景切换到该行程所在地（' + (loc || '贴合该行程的合理地点') + '），角色互动要贴合此场景氛围。';
+  if (E.agenda) { E.agenda.doneFlags = E.agenda.doneFlags || {}; E.agenda.doneFlags[kind] = true; saveGame(); }
+  triggerEntSimEvent('今日行程·' + kind + '：' + text, { extraNote: extraNote, scene: scene }).then(rerender);
 }
-function onCover() {
-  var mechs = getCoverMechanisms();
-  var html = Object.keys(mechs).map(function(k) {
-    var m = mechs[k];
-    return '<button class="es-modal-btn" data-cover="' + k + '">' + m.icon + ' ' + m.label + '<br><small>' + m.cost + '</small></button>';
+function onNpcInteract(type) {
+  var E = GS.entSim;
+  if ((E.misc.npcInteractionUsed || 0) >= 1) { showToast('今日互动次数已用完，明天再来'); return; }
+  var acts = getNpcInteractions(type);
+  var node = getNpcNodes().filter(function(n) { return n.type === type; })[0];
+  var label = node ? node.name : 'NPC';
+  var html = '<p>主动互动 · <b>' + escHtml(label) + '</b></p>' + acts.map(function(a) {
+    return '<button class="es-modal-btn" data-ni="' + a.key + '">' + a.icon + ' ' + a.label + '<span class="es-modal-sub">' + a.note + '</span></button>';
   }).join('');
-  showEntSimModal('🛡 掩护手段（累计 ' + GS.entSim.romance.coverUsed + ' 次，≥3 粉丝起疑）', '<p>选择掩护方式：</p>' + html, []);
-  document.querySelectorAll('[data-cover]').forEach(function(b) {
+  showEntSimModal('🕸️ 互动 · ' + label, html, []);
+  document.querySelectorAll('[data-ni]').forEach(function(b) {
     b.addEventListener('click', function() {
-      var r = applyCover(b.dataset.cover);
+      var r = interactNpc(type, b.dataset.ni);
       closeEntSimModal();
-      showToast('已使用掩护：' + mechs[b.dataset.cover].label);
+      if (r.success) showToast('已互动：' + r.note);
       rerender();
     });
-  });
-}
-function onRomance() {
-  var E = GS.entSim;
-  var conf = tryConfession();
-  var html = '' +
-    '<div class="es-romance-card">' +
-    '<p>男主：<b>' + escHtml(maleLead().name) + '</b></p>' +
-    '<p>情绪：' + getRomanceEmotion() + '｜深度：' + getRomanceDepthLabel() + '</p>' +
-    '<p>最近主动：' + escHtml(E.romance.seedEvent || '（暂未记录）') + '</p>' +
-    '<p>风险：' + getRomanceRisk().score + ' ' + getRomanceRisk().level + '</p>' +
-    '</div>';
-  var buttons = [{ id: 'close', label: '知道了' }];
-  if (conf.canConfess) buttons.unshift({ id: 'confess', label: '💌 告白', primary: true });
-  showEntSimModal('💗 男主状态', html, buttons).then(function(res) {
-    if (res === 'confess') {
-      applyConfessionResult('accepted');
-      showToast('告白成功，恋情明朗！');
-    }
-    rerender();
-  });
-}
-function onBrother() {
-  var E = GS.entSim;
-  var html = '<p>哥哥立场：<b>' + E.brother.stance + '</b></p><p>支持度：' + E.brother.support + '</p>';
-  if (E.brother.talkPending) html += '<p class="es-warn">哥哥想找你谈谈…</p>';
-  showEntSimModal('👨 哥哥', html, [{ id: 'close', label: '关闭' }]).then(rerender);
-}
-function onEnding() {
-  var ending = enterEntSimEnding();
-  var html = '<p>根据当前状态，最可能的结局：</p><h3>' + ending.icon + ' ' + escHtml(ending.label) + '</h3><p>' + escHtml(ending.text) + '</p>';
-  showEntSimModal('🔚 结局预览', html, [{ id: 'close', label: '返回' }]).then(rerender);
-}
-function onWork() {
-  var html = Object.keys(WORK_TYPES).map(function(k) {
-    var d = WORK_TYPES[k];
-    return '<button class="es-modal-btn es-work-type" data-wt="' + k + '">' + d.icon + ' ' + d.label + '</button>';
-  }).join('');
-  showEntSimModal('🎬 开新作品', '<p>选择作品类型：</p>' + html, [{ id: 'cancel', label: '取消' }]);
-  bind('.es-work-type', function(b) {
-    promptWorkTitle(b.dataset.wt);
   });
 }
 
-// 命名弹窗：提供自动建议，允许玩家改名
-function promptWorkTitle(type) {
-  var def = WORK_TYPES[type];
-  var suggest = WORK_TITLE_SUGGEST[type] || ['新作品'];
-  var defaultTitle = suggest[Math.floor(Math.random() * suggest.length)];
-  var body = '<p>类型：' + def.icon + ' ' + def.label + '</p>' +
-    '<label style="display:block;margin:8px 0 4px;opacity:.7">给作品起个名字（留空则随机选用建议名）</label>' +
-    '<input id="es-work-title" type="text" maxlength="20" value="' + escHtml(defaultTitle) + '" ' +
-    'style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--es-border,#2a2f3a);background:var(--es-input,#15181f);color:inherit">' +
-    '<div style="margin-top:8px;font-size:12px;opacity:.6">备选：' +
-    suggest.map(function(s) { return '<span class="es-title-chip" style="cursor:pointer;margin:2px;display:inline-block;padding:2px 6px;border-radius:6px;background:var(--es-chip,#1d2230)">' + escHtml(s) + '</span>'; }).join('') +
+// 快捷指令
+function onQuick(q) {
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  showNarrativeLoading();
+  if (q === 'main') { continueEntSimMain().then(rerender); }
+  else if (q === 'nextday') { goEntSimNextDay().then(rerender); }
+  else if (q === 'nextagenda') { continueEntSimMain().then(rerender); }
+  else if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
+  else if (q === 'visit') { showEntSimVisitChoice(); }
+  else if (q === 'hypo') { triggerEntSimHypothetical('如果女主此刻更主动或选择完全相反的路线，会发生什么？').then(rerender); }
+  else if (q === 'ending') { onEnding(); }
+}
+
+// 探班 3 选 1：从日程构建选项，返回 Promise 链
+function showEntSimVisitChoice() {
+  var E = GS.entSim;
+  var choices = [];
+  if (E.romance && E.romance.maleLead && E.romance.maleLead.name) {
+    var mlKey = E.agenda.maleLead || '行程中';
+    var mlLoc = E.agenda.maleLeadLoc || '';
+    choices.push({ roleKey: 'maleLead', label: '💜 男主', name: E.romance.maleLead.name, task: mlKey, place: mlLoc || '未知', type: '单人·较私密', note: '' });
+  }
+  if (E.brother && E.brother.name) {
+    var brKey = E.agenda.brother || '练习';
+    var brLoc = E.agenda.brotherLoc || '';
+    choices.push({ roleKey: 'brother', label: '👨 哥哥', name: E.brother.name, task: brKey, place: brLoc || '未知', type: '团队·公开场合', note: '' });
+  }
+  if (E.romance && E.romance.rival && E.romance.rival.name) {
+    var rvKey = E.agenda.rival || '活动中';
+    var rvLoc = E.agenda.rivalLoc || '';
+    var sName = suitorName();
+    choices.push({ roleKey: 'rival', label: '💢 ' + sName, name: sName, task: rvKey, place: rvLoc || '未知', type: '单人·较私密', note: '⚠️ 风险极高' });
+  }
+  if (!choices.length) { showToast('没有可探班的成员'); return; }
+  showVisitChoiceModal(choices).then(function(roleKey) {
+    if (!roleKey) return;
+    var sel = null;
+    for (var i = 0; i < choices.length; i++) { if (choices[i].roleKey === roleKey) { sel = choices[i]; break; } }
+    if (!sel) return;
+    var riskNote = roleKey === 'rival' ? '⚠️ 探班' + suitorName() + '风险极高，可能引发媒体注意' : roleKey === 'maleLead' ? '⭐ 探班男主有风险，小心被拍' : '安全等级较高';
+    showActionInfoModal('探班 · ' + sel.name,
+      '📍 今日行程：' + sel.task + '（' + sel.place + '）\n\n' + riskNote + '\n\n确定要去探班吗？',
+      function() {
+        closeEntSimModal();
+        showNarrativeLoading();
+        triggerEntSimEvent('探班：你借口工作去看' + sel.name + '（他今天在' + sel.task + '），两人在工作间隙偷偷见面').then(rerender);
+      }
+    );
+  });
+}
+
+// 恋爱动作
+function onRomanceAct(act) {
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  if (act === 'date') {
+    var venue = DATE_VENUES[Math.floor(Math.random() * DATE_VENUES.length)];
+    // 约会前先选掩护（闭环）：选完掩护再进入约会场景
+    showCoverPanel(function() { initiateEntSimDate(venue).then(rerender); });
+  } else if (act === 'confess') {
+    generateEntSimConfession().then(rerender);
+  } else if (act === 'ending') {
+    onEnding();
+  } else if (act === 'risk') {
+    showRiskEstimate();
+  } else if (act === 'cover') {
+    showCoverPanel();
+  }
+}
+// 风险预估弹窗：显示当前风险等级、预估粉丝流失、建议
+function showRiskEstimate() {
+  var E = GS.entSim;
+  var r = assessRomanceRisk(0);
+  var popLoss = 0;
+  if (r.score >= 80) popLoss = 15;
+  else if (r.score >= 60) popLoss = 10;
+  else if (r.score >= 40) popLoss = 5;
+  else if (r.score >= 20) popLoss = 2;
+  var tierLabel = r.score >= 80 ? '⛈️ 引爆' : r.score >= 60 ? '🔴 哗然' : r.score >= 40 ? '🟠 升温' : r.score >= 20 ? '🟡 暗涌' : '🟢 安全';
+  var html = '<div class="es-risk-panel">' +
+    '<div class="es-risk-title">地下恋风险评估</div>' +
+    '<div class="es-risk-row"><span>当前档位</span><span>' + tierLabel + '</span></div>' +
+    '<div class="es-risk-row"><span>风险分</span><span>' + r.score + '/100</span></div>' +
+    '<div class="es-risk-row"><span>已用掩护</span><span>' + (E.romance.coverUsed || 0) + '/5</span></div>' +
+    '<div class="es-risk-row"><span>若被拍到一次预估粉丝流失</span><span>-' + popLoss + ' 人气</span></div>' +
+    '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + '</span></div>' +
+    '<div style="margin-top:8px;font-size:12px;color:var(--es-text-dim)">建议：高风险时先用掩护/避嫌约会，避免被拍到。</div>' +
     '</div>';
-  showEntSimModal('🎬 命名作品', body, [{ id: 'ok', label: '确认立项', primary: true }, { id: 'cancel', label: '取消' }])
-    .then(function(res) {
-      if (res !== 'ok') { rerender(); return; }
-      var inp = document.getElementById('es-work-title');
-      var title = (inp && inp.value ? inp.value.trim() : '') || defaultTitle;
-      startWork(type, '', title);
-      showToast('新作品《' + title + '》已立项，进入筹备期');
-      rerender();
-    });
-  // 备选名点击填入输入框
-  bind('.es-title-chip', function(chip) {
-    var inp = document.getElementById('es-work-title');
-    if (inp) inp.value = chip.textContent;
-  });
+  showEntSimModal('⚠️ 风险预估', html, [{ id: 'ok', label: '知道了', primary: true }]);
 }
-// 今日日程：点开看安排并可推进剧情
-var AGENDA_META = {
-  main: { label: '主档', icon: '🎯' },
-  related: { label: '相关档', icon: '🔗' },
-  rival: { label: '情敌', icon: '💢' }
-};
-function onAgendaClick(kind) {
-  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
-  var meta = AGENDA_META[kind] || { label: kind, icon: '📌' };
-  var text = (GS.entSim.agenda && GS.entSim.agenda[kind]) || meta.label;
-  var flavor = {
-    main: '今天的主档行程，专注在自己的事业上。',
-    related: '今天的相关档，与团队/经纪侧的协调。',
-    rival: '情敌今天的动向，可能会和你产生交集或对比。'
-  }[kind] || '';
-  var body = '<p>' + meta.icon + ' <b>' + escHtml(text) + '</b></p>' +
-    '<p style="opacity:.75">' + flavor + '</p>' +
-    '<p style="opacity:.6;font-size:12px">點下「推进」将以该日程为引子生成一段剧情。</p>';
-  showEntSimModal('📅 今日日程 · ' + meta.label, body,
-    [{ id: 'go', label: '推进剧情', primary: true }, { id: 'cancel', label: '关闭' }])
-    .then(function(res) {
-      if (res !== 'go') { rerender(); return; }
-      triggerEntSimEvent('今日行程·' + meta.label + '：' + text).then(rerender);
-    });
-}
-// 作品卡片：点击查看详情并主动推进相关剧情
-function onWorkCard(id) {
-  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
-  var w = GS.entSim.works.slots[id];
-  if (!w) { rerender(); return; }
-  var def = WORK_TYPES[w.type] || { icon: '🎬', label: w.type };
-  var c = GS.entSim.romance.collabActive;
-  var collab = (c && c.workId === id) ? '<br>💞 与 <b>' + escHtml(c.subject) + '</b> 合作中（甜度累计 ' + (GS.entSim.romance.collabSweetAccum || 0) + '）' : '';
-  var buzzNote = w.needsBuzz ? '<br><span style="color:#ffb347">⚠️ 在播待反响：推进剧情即可触发作品反响</span>' : '';
-  var body = '<p>' + def.icon + ' <b>《' + escHtml(w.title) + '》</b></p>' +
-    '<p style="opacity:.8">类型：' + escHtml(def.label) + '<br>' +
-    '阶段：' + escHtml(['筹备期', '拍摄/制作期', '宣发/在播期', '已完结/收官期'][w.stage]) + '<br>' +
-    '热度(buzz)：' + Math.round(w.buzz) + '/100' + buzzNote + collab + '</p>';
-  showEntSimModal('🎬 作品 · ' + escHtml(w.title), body,
-    [{ id: 'go', label: '推进相关剧情', primary: true }, { id: 'close', label: '关闭' }])
-    .then(function(res) {
-      if (res !== 'go') { rerender(); return; }
-      var ctx = '作品推进：《' + w.title + '》处于' + ['筹备期', '拍摄/制作期', '宣发/在播期', '已完结/收官期'][w.stage] +
-        (w.needsBuzz ? '，需要描写其在播反响与观众讨论' : '') + '，请围绕这部作品生成一段剧情';
-      triggerEntSimEvent(ctx).then(rerender);
-    });
-}
-function onPR() {
-  if (GS.entSim.misc.prRemaining <= 0) { showToast('本周公关额度已用尽'); return; }
-  var html = Object.keys(PR_ACTIONS).map(function(k) {
-    var a = PR_ACTIONS[k];
-    return '<button class="es-modal-btn" data-pr="' + k + '">' + a.icon + ' ' + a.label + '<br><small>' + a.note + '</small></button>';
+// 掩护面板：选择一种掩护手段，应用后反馈
+function showCoverPanel(onDone) {
+  var E = GS.entSim;
+  if (!canUseCover()) { showToast('掩护手段已用尽（粉丝已高度警觉），当前无法再掩护'); if (onDone) onDone(); return; }
+  var mechs = getCoverMechanisms();
+  var remaining = 5 - (E.romance.coverUsed || 0);
+  var items = Object.keys(mechs).map(function(k) {
+    var m = mechs[k];
+    var disabled = remaining <= 0 ? ' disabled' : '';
+    return '<div class="es-cover-item' + disabled + '" data-cover="' + k + '">' +
+      '<span class="es-cover-icon">' + m.icon + '</span>' +
+      '<span class="es-cover-label">' + escHtml(m.label) + '</span>' +
+      '<span class="es-cover-cost">' + escHtml(m.cost) + '</span>' +
+      '</div>';
   }).join('');
-  showEntSimModal('🛡 危机公关（每次 -哥哥支持度 3，剩 ' + GS.entSim.misc.prRemaining + '）', '<p>' + html + '</p>', []);
-  document.querySelectorAll('[data-pr]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var r = executePR(b.dataset.pr);
-      closeEntSimModal();
-      if (r.success) showToast('已应对：' + r.note);
-      else showToast(r.note);
-      rerender();
+  var skipBtn = onDone ? '<button class="es-cover-skip" data-cover-skip="1">跳过，直接继续</button>' : '';
+  var html = '<div style="padding:8px"><div class="es-risk-title">选择掩护手段（剩余 ' + remaining + '/5）</div><div class="es-cover-grid">' + items + '</div>' + skipBtn + '</div>';
+  showEntSimModal('🛡️ 地下恋掩护', html, [{ id: 'close', label: '关闭' }]);
+  // 绑定选择
+  setTimeout(function() {
+    document.querySelectorAll('.es-cover-item:not(.disabled)').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var type = el.getAttribute('data-cover');
+        var res = applyCover(type);
+        if (res.ok) {
+          if (type === 'business') generateFanReaction('营业 CP：' + mechs[type].label).catch(function(){});
+          closeEntSimModal();
+          showToast('已使用 ' + mechs[type].label + '，剩余 ' + res.remaining + '/5');
+          if (onDone) onDone(); else rerender();
+        } else {
+          showToast(res.reason || '无法使用');
+        }
+      });
+    });
+    if (onDone) {
+      var skip = document.querySelector('[data-cover-skip]');
+      if (skip) skip.addEventListener('click', function() { closeEntSimModal(); if (onDone) onDone(); });
+      var closeBtn = document.querySelector('.es-modal-overlay .es-modal-btns [data-res="close"]');
+      if (closeBtn) closeBtn.addEventListener('click', function() { if (onDone) onDone(); });
+    }
+  }, 0);
+}
+// 原 onConfessChoice 保留在下面
+function onConfessChoice(idx) {
+  var map = ['accepted', 'rejected', 'delayed'];
+  var result = map[idx] || 'delayed';
+  applyConfessionResult(result);
+  // 告白后续剧情（伤心/甜蜜）
+  continueEntSimMain().then(rerender);
+}
+function onEnding() {
+  var ending = enterEntSimEnding();
+  if (!ending) { showToast('暂未到结局，继续培养感情吧～'); return; }
+  showEntSimModal('🌟 结局 · ' + (ending.type || '未知'),
+    '<div class="es-loading">正在生成结局叙事…</div>',
+    [{ id: 'close', label: '关闭' }]);
+  runEntSimEnding().then(function(end) {
+    closeEntSimModal();
+    if (!end) { showEndingCard(ending, ending.text || ''); return; }
+    showEndingCard(end, GS._entSimEndingNarrative || '');
+  }).catch(function() {
+    closeEntSimModal();
+    showEndingCard(ending, ending.text || '');
+  });
+}
+
+// 选项点击后先预览「会发生什么」，再确认推进
+function predictOptionConsequence(text) {
+  var riskScore = assessRomanceRisk(0).score;
+  var tags = [];
+  if (isIntimateOption(text)) tags.push('💞 亲密互动：男主好感 +，但曝光风险升高');
+  if (/哥哥|哥|知勋/.test(text)) tags.push('👨 涉及哥哥：可能影响哥哥支持度 / 被他管着');
+  if (/rival|竞争者/.test(text)) tags.push('💢 涉及团内竞争者：可能推进竞争弧线');
+  if (/曝光|被拍|同框|公开|CP|同款|实锤/.test(text)) { tags.push('📸 曝光风险：可能推高曝光值'); riskScore = Math.max(riskScore, 55); }
+  if (/回避|拒绝|推开|装不熟|假装|躲/.test(text)) tags.push('🛡️ 回避：降低曝光，但好感可能小幅下降');
+  if (/粉丝|营业|直拍|红毯|签售|舞台|综艺|bubble|官咖/.test(text)) tags.push('🎤 事业相关：影响人气 / 曝光');
+  if (/秘密|EXO|同人|应援/.test(text)) tags.push('🤫 涉及你的秘密：可能被撞破成为素材');
+  if (/聊天|短信|发消息|回他|约他|联系/.test(text)) tags.push('💬 与男主联络：推进感情');
+  if (!tags.length) tags.push('➡️ 推进当前剧情（具体影响由剧情决定）');
+  return { tags: tags, riskScore: riskScore };
+}
+function onOptionPreview(idx, text, btn) {
+  var pred = predictOptionConsequence(text);
+  var riskBlock = '';
+  if (pred.riskScore > 0) {
+    var pop = pred.riskScore >= 60 ? 12 : pred.riskScore >= 40 ? 7 : 3;
+    riskBlock = '<div class="es-risk-row"><span>预估曝光风险</span><b>' + pred.riskScore + '/100</b></div>' +
+      '<div class="es-risk-row"><span>若被拍到粉丝流失</span><b>-' + pop + ' 人气</b></div>';
+  }
+  var tagsHtml = pred.tags.map(function(t) { return '<div class="es-conseq-tag">' + escHtml(t) + '</div>'; }).join('');
+  var body = '<div class="es-preview-modal">' +
+    '<div class="es-preview-choice">你选择：<b>' + escHtml(text) + '</b></div>' +
+    '<div class="es-preview-title">预计会发生：</div>' +
+    '<div class="es-conseq-list">' + tagsHtml + '</div>' +
+    riskBlock +
+    '<div class="es-preview-note">（以上为基于选项内容的预测，实际剧情由 AI 生成）</div>' +
+    '</div>';
+  showEntSimModal('❥ 选择预览', body, []);
+  // 动态注入按钮（确认推进 / 先选掩护 / 再想想）
+  setTimeout(function() {
+    var ov = document.querySelector('.es-modal-overlay');
+    if (!ov) return;
+    var btnsWrap = ov.querySelector('.es-modal-btns');
+    if (!btnsWrap) return;
+    btnsWrap.innerHTML =
+      (pred.riskScore >= 40 ? '<button class="es-risk-cover" data-act="cover">🛡️ 先选掩护</button>' : '') +
+      '<button class="es-risk-go" data-act="go">确认推进</button>' +
+      '<button class="es-risk-cancel" data-act="cancel">再想想</button>';
+    btnsWrap.querySelectorAll('[data-act]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var act = b.dataset.act;
+        closeEntSimModal();
+        if (act === 'go') {
+          showNarrativeLoading(); btn.disabled = true; handleEntSimChoice(idx, text).then(rerender);
+        } else if (act === 'cover') {
+          showCoverPanel(function() { showNarrativeLoading(); btn.disabled = true; handleEntSimChoice(idx, text).then(rerender); });
+        }
+      });
+    });
+  }, 0);
+}
+
+// ---------- 聊天 ----------
+function onChatSend() {
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  var input = document.getElementById('es-chat-input');
+  if (!input) return;
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  if (!GS.entSim.chatHistory) GS.entSim.chatHistory = [];
+  GS.entSim.chatHistory.push({ role: 'user', content: msg });
+  saveGame();
+  var msgs = document.getElementById('es-chat-msgs');
+  var aff = GS.entSim.affection || 0;
+  // 正在输入延迟：低好感 3-5 秒，高好感 0.5-1 秒，模拟真人回复速度
+  var delay = aff >= 40 ? randInt(500, 1000) : randInt(3000, 5000);
+  if (msgs) {
+    msgs.innerHTML += '<div class="es-chat-msg user">' + escHtml(msg) + '</div>';
+    msgs.innerHTML += '<div class="es-chat-typing" id="es-typing">正在输入…</div>';
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  setTimeout(function() {
+    generateEntSimChat(msg).then(function() { rerender(); });
+  }, delay);
+}
+
+// ---------- 记忆回顾（可编辑，包括当天实时剧情） ----------
+function onMemoryLog() {
+  var E = GS.entSim;
+  // 当天实时剧情
+  var todayBlock = '';
+  if (GS._entSimCurrent && GS._entSimCurrent.narrative) {
+    var todayPreview = GS._entSimCurrent.narrative.replace(/\n/g, ' ').substring(0, 300);
+    todayBlock = '<div class="es-mem-today">' +
+      '<div class="es-col-title">📋 今天 (Day ' + (E.cycle.dayCount || 1) + ') — 实时剧情</div>' +
+      '<div class="es-mem-today-text">' + escHtml(todayPreview) + (GS._entSimCurrent.narrative.length > 300 ? '…' : '') + '</div>' +
+      '</div>';
+  }
+  // 过往压缩记忆
+  var summaries = (E.memory.dailySummaries || []).slice().reverse();
+  var daysHtml = summaries.map(function(d, di) {
+    var eventsText = (d.events || []).join('\n');
+    var idx = summaries.length - 1 - di;
+    return '<div class="es-mem-day-edit">' +
+      '<div class="es-mem-day-head"><b>Day ' + d.day + '</b> <span class="es-mem-kw">' + escHtml((d.keywords || []).join('、')) + '</span></div>' +
+      '<textarea class="es-mem-textarea" data-mem="' + idx + '" rows="2" placeholder="（无关键事件）">' + escHtml(eventsText) + '</textarea>' +
+      '</div>';
+  }).join('');
+  if (!daysHtml) daysHtml = '<div class="es-empty">暂无压缩记忆（进入下一天后自动生成）</div>';
+
+  // 直接创建 overlay，不用 showEntSimModal（避免 Promise/按钮事件冲突）
+  var overlay = document.createElement('div');
+  overlay.className = 'es-modal-overlay';
+  overlay.innerHTML = '<div class="es-modal">' +
+    '<div class="es-modal-title">📖 记忆回顾</div>' +
+    '<div class="es-modal-body"><div class="es-mem">' +
+    todayBlock +
+    '<div class="es-col-title" style="margin-top:10px">📦 前日压缩记忆 <small>（可直接编辑文本，改完点保存）</small></div>' +
+    daysHtml +
+    '<div class="es-modal-btns" style="margin-top:10px;display:flex;gap:8px">' +
+    '<button class="es-modal-btn" id="es-mem-save">💾 保存修改</button>' +
+    '<button class="es-modal-btn" id="es-mem-close">关闭</button>' +
+    '</div>' +
+    '</div></div></div>';
+
+  document.body.appendChild(overlay);
+
+  // 关闭
+  var closeBtn = overlay.querySelector('#es-mem-close');
+  closeBtn.addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+  });
+
+  // 保存
+  overlay.querySelector('#es-mem-save').addEventListener('click', function() {
+    var textareas = overlay.querySelectorAll('.es-mem-textarea');
+    textareas.forEach(function(ta) {
+      var idx = parseInt(ta.getAttribute('data-mem'), 10);
+      var val = ta.value.trim();
+      var sum = E.memory.dailySummaries[idx];
+      if (sum && !isNaN(idx)) {
+        sum.events = val ? val.split('\n').filter(function(l) { return l.trim(); }) : [];
+      }
+    });
+    saveGame();
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    showToast('记忆已保存');
+  });
+}
+
+// ---------- 人气变动日志（含曝光、关键事件等全部 careerHistory） ----------
+var _popLogTypeMeta = {
+  popularity: { label: '人气', cls: 'pop' },
+  exposure: { label: '曝光', cls: 'exp' },
+  romance: { label: '恋爱', cls: 'rom' },
+  cover: { label: '掩护', cls: 'cov' },
+  npc: { label: '关系', cls: 'npc' },
+  brother: { label: '哥哥', cls: 'bro' },
+  event: { label: '事件', cls: 'evt' }
+};
+function onPopLog() {
+  var E = GS.entSim;
+  var logs = (E.careerHistory || []).slice().reverse();
+  var html = logs.length ? logs.map(function(h) {
+    var meta = _popLogTypeMeta[h.type] || { label: h.type, cls: 'etc' };
+    return '<div class="es-pop-log-item"><small>Day' + (h.day != null ? h.day : h.round) + '</small>' +
+      '<span class="es-pop-tag ' + meta.cls + '">' + meta.label + '</span>' + escHtml(h.text) + '</div>';
+  }).join('') : '<div class="es-empty">暂无变动记录</div>';
+  showEntSimModal('📈 人气变动日志', '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 累计曝光：<b>' + ((E.misc && E.misc.exposureAccum) || 0) + '</b></div>' + html, [{ id: 'close', label: '关闭' }]);
+}
+
+// ---------- 📱 手机框弹窗：聊天 ----------
+function showEntSimChatModal() {
+  var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
+  var memberName = ml.name;
+  var memberEmoji = '💜';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+
+  var msgsHtml = '';
+  var history = E.chatHistory || [];
+  for (var i = 0; i < history.length; i++) {
+    var c = history[i];
+    var cContent = typeof c.content === 'string' ? c.content : (c.content && c.content.text ? c.content.text : String(c.content || ''));
+    msgsHtml += c.role === 'user'
+      ? '<div class="oneheart-chat-msg user">' + escHtml(cContent) + '</div>'
+      : '<div class="oneheart-chat-msg ai">' + escHtml(cContent) + '</div>';
+  }
+  if (!msgsHtml) msgsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">开始和 ' + escHtml(memberName) + ' 聊天吧 💬</div>';
+
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
+    '<button class="modal-close-x" id="esChatClose">✕</button>' +
+    '<div class="oneheart-chat-modal">' +
+    '<div class="oneheart-chat-header"><span class="oneheart-chat-avatar">' + memberEmoji + '</span><span class="oneheart-chat-name">' + escHtml(memberName) + '</span></div>' +
+    '<div class="oneheart-chat-messages" id="esChatMsgs">' + msgsHtml + '</div>' +
+    '<div class="oneheart-chat-input-area">' +
+    '<input class="oneheart-chat-input" id="esChatInput" placeholder="输入消息...">' +
+    '<button class="oneheart-chat-send" id="esChatSend">发送</button>' +
+    '</div></div></div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esChatClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
+
+  var chatMsgs = document.getElementById('esChatMsgs');
+  function scrollMsgs() { if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight; }
+  setTimeout(scrollMsgs, 50);
+
+  function doSend() {
+    var input = document.getElementById('esChatInput');
+    var text = (input.value || '').trim();
+    if (!text) return;
+    input.value = ''; input.disabled = true;
+    document.getElementById('esChatSend').disabled = true;
+
+    var userDiv = document.createElement('div');
+    userDiv.className = 'oneheart-chat-msg user'; userDiv.textContent = text;
+    chatMsgs.appendChild(userDiv);
+    var typingDiv = document.createElement('div');
+    typingDiv.className = 'oneheart-chat-typing'; typingDiv.textContent = memberName + ' 正在输入...';
+    chatMsgs.appendChild(typingDiv);
+    scrollMsgs();
+
+    // 好感度影响"正在输入"时长
+    var aff = E.affection || 0;
+    var wait = aff >= 60 ? (500 + Math.random() * 500) : (aff >= 20 ? (1500 + Math.random() * 1500) : (3000 + Math.random() * 2000));
+    setTimeout(function() {
+      generateEntSimChat(text).then(function(reply) {
+        chatMsgs.removeChild(typingDiv);
+        if (reply) {
+          var aiDiv = document.createElement('div');
+          aiDiv.className = 'oneheart-chat-msg ai'; aiDiv.textContent = reply;
+          chatMsgs.appendChild(aiDiv);
+        }
+        input.disabled = false;
+        document.getElementById('esChatSend').disabled = false;
+        input.focus();
+        scrollMsgs();
+      }).catch(function() {
+        chatMsgs.removeChild(typingDiv);
+        input.disabled = false;
+        document.getElementById('esChatSend').disabled = false;
+      });
+    }, wait);
+  }
+
+  document.getElementById('esChatSend').addEventListener('click', doSend);
+  document.getElementById('esChatInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+}
+
+// ---------- 📱 手机框弹窗：朋友圈 ----------
+function showEntSimMomentsModal() {
+  var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
+  var moments = E.moments || [];
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+
+  var itemsHtml = moments.map(function(m) {
+    return '<div class="es-moment-item">' +
+      '<div class="es-moment-post">' + escHtml(m.post || '') + '</div>' +
+      (m.reply ? '<div class="es-moment-reply">💬 ' + escHtml(ml.name) + '：' + escHtml(m.reply) + '</div>' : '') +
+      '</div>';
+  }).join('');
+  if (!itemsHtml) itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">暂无朋友圈动态</div>';
+
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
+    '<button class="modal-close-x" id="esMomentsClose">✕</button>' +
+    '<div class="oneheart-chat-modal">' +
+    '<div class="oneheart-chat-header"><span>📸</span><span class="oneheart-chat-name">朋友圈</span></div>' +
+    '<div class="oneheart-chat-messages">' + itemsHtml + '</div>' +
+    '<div style="padding:10px"><button class="es-btn primary es-wide" id="esGenMoment">生成新动态</button></div>' +
+    '</div></div>';
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esMomentsClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
+  document.getElementById('esGenMoment').addEventListener('click', function() {
+    document.getElementById('esGenMoment').disabled = true;
+    document.getElementById('esGenMoment').textContent = '生成中…';
+    generateEntSimMoment().then(function() {
+      overlay.remove();
+      showEntSimMomentsModal(); // 重新打开显示新动态
+    }).catch(function() { overlay.remove(); });
+  });
+}
+
+// ---------- 📱 手机框弹窗：剧场 ----------
+function showEntSimTheaterModal() {
+  var E = GS.entSim;
+  var aff = E.affection || 0;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+
+  var items = THEATER_TYPES.map(function(t) {
+    var locked = aff < t.minAff;
+    return '<div class="es-modal-btn es-theater-type' + (locked ? ' es-theater-locked' : '') + '" data-theater="' + t.type + '" data-label="' + t.label + '"' + (locked ? ' disabled' : '') + ' style="cursor:' + (locked ? 'default' : 'pointer') + ';opacity:' + (locked ? '.4' : '1') + '">' +
+      (locked ? '🔒 ' : '🎬 ') + t.label + (locked ? '（需好感≥' + t.minAff + '）' : '') + '</div>';
+  }).join('');
+
+  var historyList = (E.theaterHistory || []).map(function(h) {
+    return '<div class="es-theater-hist" style="padding:6px 0;border-bottom:1px solid var(--es-card-border);cursor:pointer" data-tid="' + h.id + '">📖 ' + escHtml(h.title || h.type || '番外') + '</div>';
+  }).join('');
+
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
+    '<button class="modal-close-x" id="esTheaterClose">✕</button>' +
+    '<div class="oneheart-chat-modal">' +
+    '<div class="oneheart-chat-header"><span>🎬</span><span class="oneheart-chat-name">剧场番外</span></div>' +
+    '<div style="padding:10px;overflow-y:auto;max-height:55vh" id="esTheaterContent">' +
+    '<div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)">选择番外类型</div>' +
+    '<div id="esTheaterList" style="display:flex;flex-direction:column;gap:6px">' + items + '</div>' +
+    (historyList ? '<div style="margin-top:12px;font-size:12px;color:var(--text-muted)">已解锁</div><div id="esTheaterHist">' + historyList + '</div>' : '') +
+    '</div></div></div>';
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esTheaterClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
+
+  overlay.querySelectorAll('.es-theater-type:not(.es-theater-locked)').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var type = el.dataset.theater;
+      var label = el.dataset.label;
+      el.textContent = '⏳ 生成中…';
+      el.disabled = true;
+      generateEntSimTheater(type).then(function(result) {
+        overlay.remove();
+        showTheaterResultModal(label, result);
+      }).catch(function() { overlay.remove(); });
+    });
+  });
+  overlay.querySelectorAll('.es-theater-hist').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var tid = el.dataset.tid;
+      var hist = (E.theaterHistory || []).find(function(h) { return String(h.id) === String(tid); });
+      if (hist) showTheaterResultModal(hist.title || '番外', hist.content || '');
     });
   });
 }
-function onAwards() {
-  var aw = awardsActive();
-  if (!aw) { var entered = enterAwardsCeremony(); if (!entered) { showToast('暂无可进行的颁奖礼'); return; } aw = awardsActive(); }
-  var html = '<p>颁奖礼：<b>' + escHtml(aw.name) + '</b></p><p>选择你的策略：</p>';
-  var buttons = [
-    { id: 'avoid_red_carpet', label: '🚫 避开红毯同台', primary: true },
-    { id: 'red_carpet_together', label: '🌟 同走红毯' },
-    { id: 'mention_him', label: '💌 感言谢他' },
-    { id: 'no_mention', label: '🤐 滴水不漏' }
-  ];
-  showEntSimModal('🏆 颁奖礼', html, buttons).then(function(res) {
-    if (res) { var r = resolveAwards(res); showToast(r.note); }
-    rerender();
+
+// 剧场结果展示弹窗
+function showTheaterResultModal(title, content) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:20px;border-radius:16px;max-height:80vh;overflow-y:auto">' +
+    '<button class="modal-close-x" id="esTheaterResClose">✕</button>' +
+    '<h3 style="text-align:center;margin-bottom:12px">🎬 ' + escHtml(title) + '</h3>' +
+    '<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">' + escHtml(content || '(暂无内容)') + '</div>' +
+    (GS.entSim.affection >= 70 && !title.match(/回忆录/) ? '<div style="margin-top:12px;text-align:center"><button class="es-btn es-wide" id="esTheaterBack" style="font-size:12px">← 返回剧场</button></div>' : '') +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esTheaterResClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
+  var backBtn = document.getElementById('esTheaterBack');
+  if (backBtn) backBtn.addEventListener('click', function() { overlay.remove(); showEntSimTheaterModal(); });
+}
+
+// ---------- 📱 手机框弹窗：日记 ----------
+function showEntSimDiaryModal() {
+  var E = GS.entSim;
+  var diary = E.diary || [];
+  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+
+  // 我的日记
+  var myHtml = '';
+  for (var i = diary.length - 1; i >= 0; i--) {
+    var d = diary[i];
+    myHtml += '<div class="es-diary-card">' +
+      '<div class="es-diary-date">Day ' + (d.day || '?') + ' · 第 ' + (d.round || '?') + ' 回合</div>' +
+      '<div class="es-diary-body">' + escHtml(d.summary || '') + '</div>' +
+      (d.choice ? '<div class="es-diary-choice">❥ ' + escHtml(d.choice) + '</div>' : '') +
+      '</div>';
+  }
+  if (!myHtml) myHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有日记 📝<br>继续剧情会自动记录</div>';
+
+  // 他的视角（男主碎片）
+  var hisHtml = '';
+  var theater = E.theaterHistory || [];
+  for (var j = theater.length - 1; j >= 0; j--) {
+    var h = theater[j];
+    if (h.type !== 'malePOV') continue;
+    hisHtml += '<div class="es-diary-card es-diary-his">' +
+      '<div class="es-diary-date">💜 ' + escHtml(ml.name) + ' 的视角 · 好感 ' + (h.unlockAff || '?') + '</div>' +
+      '<div class="es-diary-body">' + escHtml(h.content || '') + '</div>' +
+      '</div>';
+  }
+  if (!hisHtml) hisHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有他的视角 👁️<br>好感度达到 40/60/80 时解锁</div>';
+
+  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column;height:80vh">' +
+    '<button class="modal-close-x" id="esDiaryClose">✕</button>' +
+    '<h3 style="text-align:center;margin:12px 0 8px">📝 日记</h3>' +
+    '<div style="display:flex;gap:4px;margin:0 12px 8px;border-bottom:1.5px solid var(--border-primary,#333)">' +
+    '<button class="es-diary-tab active" id="esDiaryMine" style="flex:1;padding:8px;border:none;background:rgba(124,111,240,.15);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--accent-primary,#7c6ff0);font-weight:600">📖 我的</button>' +
+    '<button class="es-diary-tab" id="esDiaryHis" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--text-muted,#8b6b6b)">📖 他的</button>' +
+    '</div>' +
+    '<div id="esDiaryContent" style="flex:1;overflow-y:auto;min-height:0;padding:0 12px">' + myHtml + '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+  document.getElementById('esDiaryClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
+
+  document.getElementById('esDiaryMine').addEventListener('click', function() {
+    document.getElementById('esDiaryContent').innerHTML = myHtml;
+    document.getElementById('esDiaryMine').style.background = 'rgba(124,111,240,.15)'; document.getElementById('esDiaryMine').style.color = 'var(--accent-primary,#7c6ff0)'; document.getElementById('esDiaryMine').style.fontWeight = '600';
+    document.getElementById('esDiaryHis').style.background = 'transparent'; document.getElementById('esDiaryHis').style.color = 'var(--text-muted,#8b6b6b)'; document.getElementById('esDiaryHis').style.fontWeight = 'normal';
+  });
+  document.getElementById('esDiaryHis').addEventListener('click', function() {
+    document.getElementById('esDiaryContent').innerHTML = hisHtml;
+    document.getElementById('esDiaryHis').style.background = 'rgba(124,111,240,.15)'; document.getElementById('esDiaryHis').style.color = 'var(--accent-primary,#7c6ff0)'; document.getElementById('esDiaryHis').style.fontWeight = '600';
+    document.getElementById('esDiaryMine').style.background = 'transparent'; document.getElementById('esDiaryMine').style.color = 'var(--text-muted,#8b6b6b)'; document.getElementById('esDiaryMine').style.fontWeight = 'normal';
   });
 }
 
@@ -634,157 +1177,218 @@ export function showEntSimModal(title, bodyHtml, buttons) {
     overlay.addEventListener('click', function(e) { if (e.target === overlay && !btns) { closeEntSimModal(); resolve(null); } });
   });
 }
-function closeEntSimModal() { if (_modalEl && _modalEl.parentNode) { _modalEl.parentNode.removeChild(_modalEl); _modalEl = null; } }
+function closeEntSimModal() { if (_modalEl && _modalEl.parentNode) { _modalEl.parentNode.removeChild(_modalEl); _modalEl = null; }
+}
 
-// ---------- 新增交互：返回 / 晚档 / 热搜应对 / NPC互动 / 雷达公关 / 风险预估 ----------
-function onEveningChoice(kind) {
+// ---------- 营业反馈（三色卡片 + 历史卡片化） ----------
+function onFanReaction() {
   var E = GS.entSim;
-  if (E.evening && E.evening !== kind) return; // 已选其它项则锁定
-  E.evening = kind;
-  var msg = '';
-  if (kind === 'date') { advanceRomance(1); msg = '💞 晚档约会被安排，恋爱悄悄升温'; }
-  else if (kind === 'visit') { msg = '👀 你决定晚档去探班，悄悄见他一面'; }
-  else { msg = '🛌 今晚是独处日，做点自己的事（可能触发秘密/朋友圈）'; }
-  saveGame();
-  showToast(msg);
-  rerender();
+  var list = E.fanReactions || [];
+  if (!list.length) { showToast('还没有营业反馈——发生曝光/营业事件后会出现粉丝圈反应'); return; }
+  var latest = list[list.length - 1];
+  // 解析最新反馈三段：·大粉： / ·路人： / ·黑粉：
+  var parts = { fan: '', passer: '', hater: '' };
+  var raw = latest.text || '';
+  var m1 = raw.match(/·大粉[：:]([\s\S]*?)(?=·路人[：:]|·黑粉[：:]|$)/);
+  var m2 = raw.match(/·路人[：:]([\s\S]*?)(?=·黑粉[：:]|$)/);
+  var m3 = raw.match(/·黑粉[：:]([\s\S]*?)$/);
+  if (m1) parts.fan = m1[1].trim();
+  if (m2) parts.passer = m2[1].trim();
+  if (m3) parts.hater = m3[1].trim();
+  // 三段卡
+  var cards = '';
+  if (parts.fan) cards += '<div class="es-fan-card es-fan-pink"><div class="es-fan-card-icon">💗 大粉</div><div class="es-fan-card-body">' + escHtml(parts.fan) + '</div></div>';
+  if (parts.passer) cards += '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-icon">😐 路人</div><div class="es-fan-card-body">' + escHtml(parts.passer) + '</div></div>';
+  if (parts.hater) cards += '<div class="es-fan-card es-fan-dark"><div class="es-fan-card-icon">⚡ 黑粉</div><div class="es-fan-card-body">' + escHtml(parts.hater) + '</div></div>';
+  if (!cards) cards = '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-body">' + escHtml(raw) + '</div></div>'; // 兜底
+
+  var html = '<div class="es-fanreact">' +
+    '<div class="es-fanreact-head">📝 营业反馈 · 第 ' + latest.round + ' 回合</div>' +
+    '<div class="es-fanreact-reason"><span class="es-fan-badge">' + escHtml(latest.reason || '近期营业') + '</span></div>' +
+    '<div class="es-fan-cards">' + cards + '</div>' +
+    '</div>';
+  showEntSimModal('📱 粉丝圈反应', html, [{ id: 'close', label: '关闭'}]);
 }
-function onHotSearchResponse(idx) {
+
+// ---------- 点击右侧舆论条目 → 详情弹窗 ----------
+var BUZZ_LABELS = { hot: '🔥 热搜', fan: '💬 粉丝讨论', media: '📰 媒体标题' };
+var BUZZ_ICONS = { topfan: '💗 大粉', passerby: '👀 路人', hater: '⚡ 黑粉' };
+
+function bindBuzzClicks() {
+  document.querySelectorAll('.es-buzz-click').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var type = el.dataset.buzz;
+      var idx = parseInt(el.dataset.idx, 10);
+      showBuzzDetail(type, idx);
+    });
+  });
+}
+
+function showBuzzDetail(type, idx) {
   var buzz = getDailyBuzz();
-  var h = (buzz.hotSearch || [])[idx] || '热搜';
-  var opts = [
-    { key: 'silence', label: '🤐 沉默冷处理', desc: '媒体0 粉丝-2，赌它自然降温' },
-    { key: 'clarify', label: '📝 发博澄清', desc: '粉丝+3 媒体-2，但实锤风险↑' },
-    { key: 'divert', label: '🎯 转移焦点', desc: '发作品/营业盖过，消耗档期' },
-    { key: 'ignore', label: '🙈 不回应', desc: '自然衰减，狗仔可能加码' }
-  ];
-  var html = '<p>热搜：<b>' + escHtml(h) + '</b></p>' + opts.map(function(o) {
-    return '<button class="es-modal-btn" data-hr="' + o.key + '">' + o.label + '<span class="es-modal-sub">' + o.desc + '</span></button>';
-  }).join('');
-  showEntSimModal('🔥 应对热搜', html, []);
-  document.querySelectorAll('[data-hr]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var k = b.dataset.hr, deltas, note;
-      if (k === 'silence') { deltas = { fan: -2 }; note = '沉默冷处理：媒体无视，粉丝略掉'; }
-      else if (k === 'clarify') { deltas = { fan: 3, media: -2 }; GS.entSim.misc.exposureAccum = (GS.entSim.misc.exposureAccum || 0) + 1; note = '发博澄清：粉丝+3 媒体-2，实锤风险↑'; }
-      else if (k === 'divert') { deltas = { fan: 1, media: -1, professional: 1 }; note = '转移焦点：新话题盖过旧料'; }
-      else { deltas = {}; note = '不回应：留给时间消化'; }
-      applyOpinionImpact(deltas, '应对热搜·' + h);
-      GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, type: 'hotsearch', text: note });
-      saveGame();
-      closeEntSimModal();
-      showToast('已应对：' + note);
-      rerender();
+  var list = buzz[type === 'fan' ? 'fanDiscussion' : type === 'hot' ? 'hotSearch' : 'mediaTitle'] || [];
+  if (!list[idx]) return;
+
+  var total = list.length;
+  var title = BUZZ_LABELS[type] || '舆论';
+  var item = list[idx];
+  var itemTitle = buzzTitle(item);
+  var itemContent = buzzContent(item);
+  // 有独立展开内容时分开显示标题和正文；无内容时只显示标题
+  var hasContent = itemContent && itemContent !== itemTitle;
+
+  // 左右切换
+  var arrows = '';
+  if (total > 1) {
+    arrows = '<div class="es-buzz-nav">' +
+      '<button class="es-buzz-arrow' + (idx <= 0 ? ' es-buzz-disabled' : '') + '" data-buzz-prev="' + type + '" data-buzz-idx="' + idx + '">◀ 上一条</button>' +
+      '<span class="es-buzz-pos">' + (idx + 1) + ' / ' + total + '</span>' +
+      '<button class="es-buzz-arrow' + (idx >= total - 1 ? ' es-buzz-disabled' : '') + '" data-buzz-next="' + type + '" data-buzz-idx="' + idx + '">下一条 ▶</button>' +
+    '</div>';
+  }
+
+  // 粉丝讨论额外显示分类图标
+  var extra = '';
+  if (type === 'fan') {
+    var cat = classifyFan(itemTitle);
+    extra = '<div class="es-buzz-cat">' + (BUZZ_ICONS[cat] || '') + '</div>';
+  }
+
+  // 女主相关高亮
+  var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '';
+  var meTag = (hpName && itemTitle.indexOf(hpName) >= 0) ? '<span class="es-buzz-me">与你相关</span>' : '';
+
+  // 展示：有内容时标题+正文，无内容时只展示标题
+  var textBlock = '';
+  if (hasContent) {
+    textBlock = '<div class="es-buzz-detail-title">' + escHtml(itemTitle) + '</div>' +
+      '<div class="es-buzz-detail-content">' + escHtml(itemContent) + '</div>';
+  } else {
+    textBlock = '<div class="es-buzz-detail-text">' + escHtml(itemTitle) + '</div>';
+  }
+
+  var body = '<div class="es-buzz-detail">' +
+    '<div class="es-buzz-detail-head">' +
+      '<span class="es-buzz-detail-type">' + title + '</span>' +
+      meTag +
+    '</div>' +
+    extra +
+    textBlock +
+    arrows +
+    '<div style="margin-top:12px;text-align:center">' +
+      '<button class="es-rom-btn" id="es-buzz-expand" style="font-size:12px;padding:6px 14px;opacity:.7">🤖 AI 展开讨论串（即将开放）</button>' +
+    '</div>' +
+  '</div>';
+
+  showEntSimModal('📊 ' + title + ' · 详情', body, [{ id: 'close', label: '关闭' }]);
+
+  // 重新绑定切换箭头的点击
+  setTimeout(function() {
+    document.querySelectorAll('[data-buzz-prev]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var prevIdx = parseInt(b.dataset.buzzIdx, 10) - 1;
+        if (prevIdx >= 0) { closeEntSimModal(); showBuzzDetail(b.dataset.buzzPrev, prevIdx); }
+      });
     });
-  });
-}
-function onPaparazziCrisis() {
-  var p = GS.entSim.npcNetwork.paparazzi;
-  if (!p.armed) { showToast('狗仔暂无预告'); return; }
-  var left = p.nextRound - GS.entSim.cycle.roundTotal;
-  var opts = [
-    { key: 'deny', label: '🙅 否认', desc: '媒体+2 黑粉+2，赌他手里没实锤' },
-    { key: 'preempt', label: '💡 先发制人自曝', desc: '粉丝-2 媒体-3，主动叙事压低伤害，危机解除' },
-    { key: 'buyout', label: '💰 买断料', desc: '花钱消灾，狗仔收手，媒体+3' },
-    { key: 'divert', label: '🎯 转移焦点', desc: '用新作品/营业盖过，消耗档期' }
-  ];
-  var html = '<p>⏰ 狗仔预告：<b>' + left + ' 回合后放料</b></p>' + opts.map(function(o) {
-    return '<button class="es-modal-btn" data-pc="' + o.key + '">' + o.label + '<span class="es-modal-sub">' + o.desc + '</span></button>';
-  }).join('');
-  showEntSimModal('🚨 狗仔危机公关', html, []);
-  document.querySelectorAll('[data-pc]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var k = b.dataset.pc, deltas, note, cleared = false;
-      if (k === 'deny') { deltas = { media: 2, anti: 2 }; note = '否认：媒体关注涨，黑粉咬住不放'; }
-      else if (k === 'preempt') { deltas = { fan: -2, media: -3, anti: -3 }; p.armed = false; p.nextRound = GS.entSim.cycle.roundTotal + 99; cleared = true; note = '先发制人自曝：主动叙事压低伤害'; }
-      else if (k === 'buyout') { deltas = { media: 3, anti: -2 }; p.armed = false; p.nextRound = GS.entSim.cycle.roundTotal + 99; cleared = true; note = '买断料：狗仔收手，危机解除'; }
-      else { deltas = { fan: 1, media: -1, professional: 1 }; note = '转移焦点：新话题盖过旧料'; }
-      applyOpinionImpact(deltas, '狗仔危机·' + note);
-      GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, type: 'paparazzi', text: note });
-      if (cleared) GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, type: 'paparazzi', text: '狗仔预告已化解' });
-      saveGame();
-      closeEntSimModal();
-      showToast('已应对：' + note);
-      rerender();
+    document.querySelectorAll('[data-buzz-next]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var nextIdx = parseInt(b.dataset.buzzIdx, 10) + 1;
+        if (nextIdx >= 0) { closeEntSimModal(); showBuzzDetail(b.dataset.buzzNext, nextIdx); }
+      });
     });
-  });
+    var expandBtn = document.getElementById('es-buzz-expand');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', function() {
+        showToast('AI 展开功能将在后续版本开放');
+      });
+    }
+  }, 100);
 }
-function onNpcInteract(type) {
-  var acts = getNpcInteractions(type);
-  var label = (NPC_TYPES[type] || {}).label || 'NPC';
-  var html = '<p>主动互动 · <b>' + escHtml(label) + '</b></p>' + acts.map(function(a) {
-    return '<button class="es-modal-btn" data-ni="' + a.key + '">' + a.icon + ' ' + a.label + '<span class="es-modal-sub">' + a.note + '</span></button>';
-  }).join('');
-  showEntSimModal('🕸️ 主动互动 · ' + label, html, []);
-  document.querySelectorAll('[data-ni]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var r = interactNpc(type, b.dataset.ni);
-      closeEntSimModal();
-      if (r.success) showToast('已互动：' + r.note);
-      rerender();
-    });
-  });
+
+// ---------- 女团队友支线互动 ----------
+function onTeammateInteract(index) {
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  confirmTeammateInteract(index);
 }
-function onRadarPR(dim) {
-  var dimMeta = OPINION_DIMS.filter(function(d) { return d.key === dim; })[0] || { label: dim };
-  var acts = Object.keys(PR_ACTIONS).map(function(k) {
-    var a = PR_ACTIONS[k];
-    return { key: k, label: a.label, icon: a.icon, note: a.note };
-  });
-  var html = '<p>针对性公关 · <b>' + escHtml(dimMeta.label) + '</b>（消耗 1 次公关额度）</p>' + acts.map(function(a) {
-    return '<button class="es-modal-btn" data-rp="' + a.key + '">' + a.icon + ' ' + a.label + '<span class="es-modal-sub">' + a.note + '</span></button>';
-  }).join('');
-  showEntSimModal('🛡 针对性公关', html, []);
-  document.querySelectorAll('[data-rp]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var r = executePRDim(dim, b.dataset.rp);
-      closeEntSimModal();
-      if (r.success) showToast('已公关：' + r.note + '（' + dimMeta.label + '额外+' + (r.boosted || 0) + '）');
-      else showToast(r.note);
-      rerender();
-    });
-  });
-}
-function onOptionRisk(idx, text, btn) {
-  var risk = assessRomanceRisk(0);
+
+// 从日程「队友互动」槽打开选择面板：让玩家选具体找哪位姐姐
+function showTeammateSelectPanel() {
+  console.log('[teammate-panel] called');
   var E = GS.entSim;
-  var o = E.publicOpinion;
-  var mult = getRomanceRiskMultiplier();
-  var fanImpact = risk.score >= 60 ? 12 : risk.score >= 40 ? 7 : 3;
-  var mediaImpact = risk.score >= 60 ? 5 : 3;
-  var covers = getCoverMechanisms();
-  var coverHtml = Object.keys(covers).map(function(k) {
-    var c = covers[k];
-    return '<button class="es-modal-btn" data-cover="' + k + '">' + c.icon + ' ' + c.label + '<span class="es-modal-sub">' + c.cost + '</span></button>';
-  }).join('');
-  var body = '<div class="es-risk-modal">' +
-    '<div class="es-risk-line">当前舆论：粉丝 ' + o.fan + ' · 媒体 ' + o.media + ' · 周期倍率 ' + mult + '</div>' +
-    '<div class="es-risk-line">周期：' + getCyclePhaseLabel() + '（代价×' + mult + '）</div>' +
-    '<div class="es-risk-line">NPC视野：' + (E.npcNetwork.paparazzi.armed ? '狗仔跟踪中（高）' : '暂未被发现') + '</div>' +
-    '<div class="es-risk-score">预估风险：' + risk.score + '/100 ' + risk.level + '</div>' +
-    '<div class="es-risk-line">预估影响：粉丝-' + fanImpact + ' 媒体-' + mediaImpact + '</div>' +
-    '</div>' +
-    '<div class="es-risk-actions">' +
-      '<button class="es-modal-btn primary" data-risk-act="confirm">确认推进</button>' +
-      '<button class="es-modal-btn" data-risk-act="cover">换掩护</button>' +
-      '<button class="es-modal-btn" data-risk-act="giveup">放弃</button>' +
-    '</div>' +
-    '<div id="es-risk-cover" style="display:none;margin-top:8px"><div class="es-subtitle">选择掩护手段（各有代价）</div>' + coverHtml + '</div>';
-  showEntSimModal('⚠️ 风险预估 · ' + text, body, []);
-  document.querySelectorAll('[data-risk-act]').forEach(function(b) {
+  var list = E.heroineGroup || [];
+  // 自愈：旧存档 heroineGroup 为空时尝试重建
+  if (!list.length) {
+    console.log('[teammate-panel] heroineGroup empty, rebuilding...');
+    E.heroineGroup = buildEntSimHeroineGroup();
+    E.groupMeta = E.groupMeta || buildEntSimGroupMeta();
+    list = E.heroineGroup;
+    saveGame();
+  }
+  if (!list.length) { showToast('暂时没有可互动的队友'); return; }
+  console.log('[teammate-panel] showing panel with', list.length, 'teammates');
+  var html = '<p style="margin-bottom:10px;color:var(--text-muted)">今天想和哪位姐姐聊聊？点选后确认即可触发专属支线。</p>' +
+    '<div class="es-sis-list">' + list.map(function(s, i) {
+      return '<button class="es-sis" data-picksis="' + i + '"><span class="es-sis-name">' + escHtml(s.name) + '</span><small>' + escHtml(s.roleTag) + '</small></button>';
+    }).join('') + '</div>';
+  showEntSimModal('👯 队友互动', html, [{ id: 'close', label: '关闭' }]);
+  document.querySelectorAll('[data-picksis]').forEach(function(b) {
     b.addEventListener('click', function() {
-      var act = b.dataset.riskAct;
-      if (act === 'confirm') { closeEntSimModal(); btn.disabled = true; handleEntSimChoice(idx, text).then(rerender); }
-      else if (act === 'giveup') { closeEntSimModal(); }
-      else if (act === 'cover') { var w = document.getElementById('es-risk-cover'); if (w) w.style.display = (w.style.display === 'none') ? 'block' : 'none'; }
-    });
-  });
-  document.querySelectorAll('#es-risk-cover [data-cover]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var r = applyCover(b.dataset.cover);
       closeEntSimModal();
-      if (r.ok) showToast('已换掩护：' + covers[b.dataset.cover].label + '（' + covers[b.dataset.cover].cost + '）');
-      rerender();
+      confirmTeammateInteract(parseInt(b.dataset.picksis, 10));
     });
   });
+}
+
+// 确认弹窗：预览该队友的性格走向，确认后再触发 AI 剧情
+function confirmTeammateInteract(index) {
+  var E = GS.entSim;
+  var sis = (E.heroineGroup || [])[index];
+  if (!sis) return;
+  var flavor = TEAMMATE_FLAVOR[sis.roleTag] || '队友找你聊了聊近况。';
+  var html = '和 <b>' + escHtml(sis.name) + '（' + escHtml(sis.roleTag) + '）</b> 聊聊？<br><br>' + escHtml(flavor);
+  showActionInfoModal('👯 队友互动', html, '确定', '取消').then(function(ok) {
+    if (!ok) return;
+    triggerTeammateEvent(sis);
+  });
+}
+
+// ---------- 结局全屏卡片 ----------
+function showEndingCard(ending, narrative) {
+  if (!ending) return;
+  var tier = ending.type && ending.type.indexOf('be') === 0 ? 'be' : (ending.type && ending.type.indexOf('he') === 0 ? 'he' : 'ne');
+  var overlay = document.createElement('div');
+  overlay.className = 'es-ending-overlay es-ending-' + tier;
+  var body = (narrative || ending.text || '').replace(/\n/g, '<br>');
+  overlay.innerHTML = '<div class="es-ending-card">' +
+    '<div class="es-ending-icon">' + (ending.icon || '🎬') + '</div>' +
+    '<div class="es-ending-label">' + escHtml(ending.label || '') + '</div>' +
+    '<div class="es-ending-narr">' + body + '</div>' +
+    '<div class="es-ending-actions">' +
+      '<button id="es-ending-restart" class="primary">重新开始（新的一局）</button>' +
+      '<button id="es-ending-close" class="ghost">关闭</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  var closeBtn = document.getElementById('es-ending-close');
+  var restartBtn = document.getElementById('es-ending-restart');
+  if (closeBtn) closeBtn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  if (restartBtn) restartBtn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); restartEntSim(); });
+}
+
+// ---------- 好感阶段升级仪式感 ----------
+function showStageUpCeremony() {
+  var p = GS._entSimStageUpPending;
+  if (!p) return;
+  GS._entSimStageUpPending = null;
+  var ceremony = STAGE_CEREMONY[p.to] || '你们的相处又近了一步。';
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card">' +
+    '<div class="es-stageup-icon">' + (p.icon || '💞') + '</div>' +
+    '<div class="es-stageup-label">关系进入 · ' + escHtml(p.label || '') + '</div>' +
+    '<div class="es-stageup-desc">' + escHtml(ceremony) + '</div>' +
+    '<button id="es-stageup-go" class="primary">❥ 继续</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var go = document.getElementById('es-stageup-go');
+  if (go) go.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
 }

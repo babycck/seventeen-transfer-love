@@ -1,0 +1,18 @@
+
+> seventeen-transfer-love@v20-vite dev
+> vite --host
+
+Re-optimizing dependencies because vite config has changed
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m209[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.31.0.1:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.31.59:[1m5173[22m/[39m
+[2m05:10:25[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/ui.js[22m
+[2m05:12:40[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/ui.js[22m
+[2m05:14:43[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/game-engine.js[22m
+[2m05:15:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/engine.js[22m
+[2m05:16:05[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/ui.js[22m
+[2m05:17:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/prompts.js[22m
+[2m05:17:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mD:/SEVENTEEN/src/ent-sim/engine.js[22m

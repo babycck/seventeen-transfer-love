@@ -134,8 +134,21 @@ export function checkOneHeartAddressing(content) {
 export function validateEntSimNarrative(parsed) {
   var corrections = [];
   var narrative = (parsed && parsed.narrative) || '';
-  if (narrative.length < 100) {
-    corrections.push({ severity: 'error', type: 'length', message: '正文过短（' + narrative.length + '字），请输出至少 100 字' });
+  // 内容模式检测：防止主剧情生成被"粉丝圈反应"任务污染（AI 误输出大粉/路人/黑粉纯文本）
+  var _fanMarkers = ['·大粉', '·路人', '·黑粉', '·回踩粉', '大粉：', '路人：', '黑粉：', '回踩粉：'];
+  for (var _fi = 0; _fi < _fanMarkers.length; _fi++) {
+    if (narrative.indexOf(_fanMarkers[_fi]) >= 0) {
+      corrections.push({ severity: 'error', type: 'content', message: '检测到你输出了"粉丝圈反应"纯文本（含「' + _fanMarkers[_fi] + '」），但本任务要求输出剧情 JSON。请改回 JSON 格式：{"narrative":"剧情正文","options":["选项1","选项2","选项3"],"entSimExtras":{...}}，narrative 写剧情而非粉丝讨论。' });
+      return corrections;
+    }
+  }
+  // 字数硬校验（代码约束，不交给 AI 自由判断）：仅拦截近乎空内容，250-600 字剧情降为 warning 放行
+  if (narrative.length < 200) {
+    corrections.push({ severity: 'error', type: 'length', message: '正文过短（仅 ' + narrative.length + ' 字），几乎为空。请扩写至 400-900 字：补充场景细节、人物心理、对话与肢体动作。' });
+  } else if (narrative.length < 600) {
+    corrections.push({ severity: 'warning', type: 'length', message: '正文偏短（' + narrative.length + ' 字），建议扩写到 400-900 字以增强沉浸感。' });
+  } else if (narrative.length > 2200) {
+    corrections.push({ severity: 'warning', type: 'length', message: '正文过长（' + narrative.length + ' 字），建议收敛到 400-900 字。' });
   }
   var options = (parsed && parsed.options) || [];
   if (options.length === 0) {

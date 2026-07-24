@@ -1,6 +1,7 @@
 ﻿import { STORAGE_KEY, SAVE_SIZE_WARN, MISSION_CARDS } from './data.js';
 import { clearStoryCache } from './story-cache.js';
 import { showConfirmModal } from './modals/confirm-modal.js';
+import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from './data.js';
 
 // ==================== 游戏状态 ====================
 export var GS = null;
@@ -130,11 +131,8 @@ export function defaultGameState() {
     entSim: {
       career: { popularity: 30, careerLevel: '', resourcesLevel: '新人' }, // 四维职业基线 + 资源等级（由作品在播数派生）
       cycle: { phaseIndex: 0, stageIndex: 0, roundInPhase: 0, roundInStage: 0, roundTotal: 0 }, // 周期系统：4 相位 × 阶段
-      publicOpinion: { fan: 50, media: 50, professional: 50, anti: 0 }, // 系统3 四维舆论（fan/media/professional/anti）
       npcNetwork: {
-        nodes: {}, // nid -> {id,type,name,intimacy,stance,lastEventRound}（7 类 NPC）
-        paparazzi: { nextRound: 0, armed: false }, // 狗仔"周一见"预告
-        filmSis: { backstabArmed: false } // 站姐回踩
+        nodes: {} // nid -> {id,type,name,intimacy,stance,lastEventRound}（4 类 NPC）
       },
       romance: {
         depth: 0, // 恋爱深度 0-5（0初遇/1暧昧/2暧昧明朗/3恋情/4浓情/5公开）
@@ -428,15 +426,82 @@ export function saveGame() {
 }
 
 export function migrateSave() {
-  // ent-sim 娱乐圈模拟器：补全新字段（合作期 / 营业CP假戏真做），不影响已有进度
+  // ent-sim 娱乐圈模拟器：补全新字段（纯恋爱重构后的字段），不影响已有进度
   if (GS.entSim) {
-    if (!GS.entSim.romance) GS.entSim.romance = {};
-    if (GS.entSim.romance.collabActive === undefined) GS.entSim.romance.collabActive = null;
-    if (typeof GS.entSim.romance.collabSweetAccum !== 'number') GS.entSim.romance.collabSweetAccum = 0;
-    if (!GS.entSim.misc) GS.entSim.misc = {};
-    if (typeof GS.entSim.misc.exposureAccum !== 'number') GS.entSim.misc.exposureAccum = 0;
-    if (typeof GS.entSim.misc.cpRealProgress !== 'number') GS.entSim.misc.cpRealProgress = 0;
-    if (typeof GS.entSim.misc.cpRealTriggered !== 'boolean') GS.entSim.misc.cpRealTriggered = false;
+    var E = GS.entSim;
+    if (typeof E.affection !== 'number') E.affection = 0;
+    if (!E.romance) E.romance = {};
+    var R = E.romance;
+    if (typeof R.depth !== 'number') R.depth = 0;
+    if (!R.stage) R.stage = '初遇';
+    if (!R.emotion) R.emotion = '思念';
+    if (R.seedEvent === undefined) R.seedEvent = '';
+    if (!Array.isArray(R.mannerisms)) R.mannerisms = [];
+    if (typeof R.confessionTimes !== 'number') R.confessionTimes = 0;
+    if (typeof R.dateCount !== 'number') R.dateCount = 0;
+    if (typeof R.confessionDone !== 'boolean') R.confessionDone = false;
+    if (typeof R.confessionResult !== 'string') R.confessionResult = '';
+    if (typeof R.coverUsed !== 'number') R.coverUsed = 0;
+    if (typeof R.publicLine !== 'boolean') R.publicLine = false;
+    if (R.collabActive === undefined) R.collabActive = null;
+    if (typeof R.collabSweetAccum !== 'number') R.collabSweetAccum = 0;
+    if (R.maleLead && !R.maleLead.memberId && R.maleLead.id) R.maleLead.memberId = R.maleLead.id;
+
+    if (!E.memory) E.memory = {};
+    if (!Array.isArray(E.memory.dailySummaries)) E.memory.dailySummaries = [];
+    if (!Array.isArray(E.memory.eventLog)) E.memory.eventLog = [];
+    if (typeof E.memory.lastCompressDay !== 'number') E.memory.lastCompressDay = 0;
+
+    // 女团队友：旧存档可能为空数组，自动重建而非仅兜底 []
+    if (!Array.isArray(E.heroineGroup) || E.heroineGroup.length === 0) E.heroineGroup = buildEntSimHeroineGroup();
+    if (!E.groupMeta) E.groupMeta = buildEntSimGroupMeta();
+
+    if (!E.career) E.career = { popularity: 22, careerLevel: '新人', resourcesLevel: '新人' };
+    if (typeof E.career.popularity !== 'number') E.career.popularity = 22;
+
+    if (!E.npcNetwork) E.npcNetwork = {};
+    if (!E.npcNetwork.nodes) E.npcNetwork.nodes = {};
+
+    if (!E.brother) E.brother = {};
+    if (!E.brother.stance) E.brother.stance = '参谋';
+    if (typeof E.brother.support !== 'number') E.brother.support = 0;
+    if (!Array.isArray(E.brother.pool)) E.brother.pool = [];
+    if (!E.brother.testNudged || typeof E.brother.testNudged !== 'object') E.brother.testNudged = { 1: false, 2: false, 3: false };
+    if (typeof E.brother.rivalAware !== 'boolean') E.brother.rivalAware = false;
+    if (typeof E.brother.talkPending !== 'boolean') E.brother.talkPending = false;
+
+    // v23 新增：日记 + 男主视角碎片 + 日程男主行程
+    if (!Array.isArray(E.diary)) E.diary = [];
+    if (!E._malePOVUnlocked || typeof E._malePOVUnlocked !== 'object') E._malePOVUnlocked = {};
+    if (E.agenda && !E.agenda.maleLead) { E.agenda.maleLead = '行程中'; E.agenda.maleLeadLoc = ''; }
+
+    if (!E.agenda) E.agenda = {};
+    if (!E.agenda.main) E.agenda.main = '';
+    if (!E.agenda.related) E.agenda.related = '';
+    if (!E.agenda.rival) E.agenda.rival = '';
+    if (!E.agenda.doneFlags || typeof E.agenda.doneFlags !== 'object') E.agenda.doneFlags = {};
+
+    if (!E.misc) E.misc = {};
+    if (typeof E.misc.exposureAccum !== 'number') E.misc.exposureAccum = 0;
+    if (typeof E.misc.suspicion !== 'number') E.misc.suspicion = 0;
+    if (typeof E.misc.npcInteractionUsed !== 'number') E.misc.npcInteractionUsed = 0;
+    if (typeof E.misc.cpRealProgress !== 'number') E.misc.cpRealProgress = 0;
+    if (typeof E.misc.cpRealTriggered !== 'boolean') E.misc.cpRealTriggered = false;
+
+    if (!Array.isArray(E.chatHistory)) E.chatHistory = [];
+    if (!Array.isArray(E.moments)) E.moments = [];
+    if (!Array.isArray(E.theaterHistory)) E.theaterHistory = [];
+    if (!Array.isArray(E.careerHistory)) E.careerHistory = [];
+
+    if (!E.cycle) E.cycle = {};
+    if (typeof E.cycle.timeOfDay !== 'number') E.cycle.timeOfDay = 0;
+    if (typeof E.cycle.dayCount !== 'number') E.cycle.dayCount = 1;
+    if (typeof E.cycle.roundTotal !== 'number') E.cycle.roundTotal = 0;
+
+    if (!E.works) E.works = { slots: {}, nextWorkId: 1 };
+    if (!E.dailyBuzz) E.dailyBuzz = { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenRound: -1 };
+    if (!E.secret) E.secret = { items: [], foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 };
+    if (!E.flags || typeof E.flags !== 'object') E.flags = {};
   }
   if (!GS.version || GS.version !== 'v22') {
     if (!GS.version || GS.version === 'v21') {

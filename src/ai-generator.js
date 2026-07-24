@@ -48,7 +48,7 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
     }
     // skipValidate: 1v1 纯文本模式下跳过 JSON blocks 解析
     //（callDeepSeek 返回的是纯叙事文本，非 JSON blocks 格式）
-    if (skipValidate) {
+    if (skipValidate || opts.plainText) {
       return { raw: raw, parsed: { narrative: raw, blocks: [] }, corrections: [], attempts: attempt + 1 };
     }
 
@@ -81,7 +81,8 @@ export async function generateWithRetry(sysPrompt, userMsg, opts) {
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' rawText (first 800 chars):', (raw || '').slice(0, 800));
       // 额外记录 parsed.blocks 状态，判断是解析失败还是 AI 返回空内容
       console.warn('[ai-generator] attempt ' + (attempt + 1) + ' parsed.blocks.length:', (parsed.blocks || []).length);
-      currentUserMsg = currentUserMsg + '\n\n' + formatCorrections(errors);
+      // 隔离注入：每次重试只保留最新一轮修正，避免 prompt 逐轮累积膨胀与指令冲突
+      currentUserMsg = userMsg + '\n\n[INSTRUCTION] ' + formatCorrections(errors);
       continue;
     }
   }
