@@ -34,7 +34,7 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【男主主动】男主每天约 10% 概率主动发起互动（发消息/探班/吃醋/送东西/约你），按好感阶段解锁类型。\n';
   sys += '【吃醋】当女主和别人同台打歌、被搭话要联系方式、或处在赞助商潜规则感的场景时，男主会吃醋。\n';
   sys += '【哥哥设定】SEVENTEEN 成员、女主亲哥哥（团内队友）「' + (bro ? bro.name : '哥哥') + '」。开局他只是女主的哥哥，尚未介入妹妹感情事。随着剧情推进，他可能成为参谋、调侃、被拍时掩护，也可能反对。哥哥若被设定为「反对公开」，会卡住男主告白（需玩家先化解他的顾虑）；否则立场是剧情张力来源。\n';
-  sys += '【团内竞争者】男主的情敌是 SEVENTEEN 的团内另一位成员。开局他也只是普通前辈，随着剧情推进可能对女主产生好感，有递进弧线（初遇→注意→试探→冲突→退出祝福/上位），禁止自创新名字。\n';
+  sys += '【团内竞争者】男主的情敌是 SEVENTEEN 的团内另一位成员。开局他也只是普通前辈，随着剧情推进可能对女主产生好感，有递进弧线（初遇→注意→试探→冲突→退出祝福/上位），禁止自创新名字。竞争者有自己的「亲密度」数值（0~100），在关系网中会显示——互动越频繁亲密度越高。当剧情中出现竞争者与女主的非偶遇互动时，npcEncounter.intimacyDelta 必须填写对应的增量（+2=正向互动、-1=冷淡回避、0=仅偶遇/群聊）。\n';
   // SEVENTEEN 其他队友（哥哥的团内兄弟·可客串出场）
   sys += '【SEVENTEEN 队友（哥哥的团内兄弟·可自然客串）】' + svtTeammateSummary() + '。他们是哥哥的团内兄弟，可在练习室/待机室/公司食堂/走廊等场景自然出场——打招呼、调侃、助攻均可，体现「哥哥队友都是朋友」的氛围。哥哥在场时出场概率更高。队友出场不抢男主戏，每次客串一两句话即可，作为娱乐圈真实感的点缀。\n';
   // 群聊体系（强制规则，防止两个群串台）
@@ -105,7 +105,7 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '{"narrative":"剧情正文（400-800字）","options":["选项1","选项2","选项3"],"entSimExtras":{';
     sys += '"affectionDelta":0,';
     sys += '"romanceBeat":{"affectionDelta":0,"emotion":"","note":"","event":""},';
-    sys += '"npcEncounter":{"type":"","name":"","intimacyDelta":0,"stance":"","event":"","exposure":0},';
+    sys += '"npcEncounter":{"type":"","name":"","intimacyDelta":0,"stance":"","event":"","exposure":0},\n（npcEncounter规则：当本轮剧情中出现团内竞争者/情敌与女主的非偶遇互动时——如主动搭话、送东西、单独相处、吃醋表现——必须填写 type="男主情敌"、name=其名、intimacyDelta=±1~3（正向互动+2，尴尬/冷淡-1）、event="简短概括互动内容"。若仅为偶遇/群聊中顺带出现则填 0。）\n';
     sys += '"exposureEvent":{"magnitude":0,"note":""},';
     sys += '"brother":{"stance":"","supportDelta":0,"note":""},';
     sys += '"secret":{"item":"","foundByRival":false},';
@@ -215,7 +215,7 @@ function buildEntSimContextSnapshot() {
   var npc = [];
   ['npc_broker', 'npc_fanleader', 'npc_suitor'].forEach(function(id) {
     var n = E.npcNetwork.nodes[id];
-    if (n) npc.push(n.name + '(' + n.stance + (n.intimacy ? ',亲密度' + n.intimacy : '') + ')');
+    if (n) npc.push(n.name + '(' + n.stance + ',亲密度' + (n.intimacy || 0) + ')');
   });
   if (npc.length) s += '关系网：' + npc.join('；') + '\n';
   // 秘密
