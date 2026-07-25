@@ -222,7 +222,15 @@ function applyBrotherEffect(b) {
 
 function applySecretEffect(s) {
   var E = GS.entSim;
-  if (s.item && E.secret.items.indexOf(s.item) < 0) E.secret.items.push(s.item);
+  if (s.item) {
+    var dup = false;
+    var key = (s.item.match(/[\u4e00-\u9fa5]{2,}/g) || []).slice(0, 4).join('');
+    for (var i = 0; i < E.secret.items.length; i++) {
+      var existKey = ((E.secret.items[i] || '').match(/[\u4e00-\u9fa5]{2,}/g) || []).slice(0, 4).join('');
+      if (key && existKey && key === existKey) { dup = true; break; }
+    }
+    if (!dup) E.secret.items.push(s.item);
+  }
   if (s.foundByRival) E.secret.foundByRival = true;
 }
 
@@ -339,10 +347,17 @@ export function ensureSeedEvent() {
   // 兜底场景（AI 失败/为空时使用，保证 seedEvent 永不空、不污染回溯锚点）
   var fallback = '练习室里，她练习间隙随口哼起一段旋律，' + mlName + '推门进来拿水时听见，脚步顿了半拍——她哼的是时下正流行的副歌，跑调却自得其乐。他没出声，只是后来在自己的歌单里悄悄把那首歌置了顶。那天之后，他总会不自觉多留意她一眼。';
   var sysPrompt = '你是文风细腻的恋爱小说写手，只输出场景正文。';
-  var prompt = '为男主「' + mlName + '」写一段约 200 字的场景，描写他对女主暗暗上心的契机：可以是女主某句话、某个舞台动作、被哥哥吐槽的瞬间、或某个不经意的相处让他心动。要具体、可被后续剧情回溯引用，用「她」指代女主、不出现女主姓名。直接输出场景正文，不要标题、不要解释、不要选项。';
+  var prompt = '为男主「' + mlName + '」写一段约 200 字的场景，描写他对女主暗暗上心的契机。注意：男主就是「' + mlName + '」，绝不要写成其他任何人——尤其不要写成李知勋、权顺荣、或其他 SEVENTEEN 成员。场景可以是女主某句话、某个舞台动作、被哥哥吐槽的瞬间、或某个不经意的相处让他心动。要具体、可被后续剧情回溯引用，用「她」指代女主、不出现女主姓名。直接输出场景正文，不要标题、不要解释、不要选项。';
   return generateWithRetry(sysPrompt, prompt, { temperature: 0.8, maxTokens: 400, plainText: true, skipValidate: true })
     .then(function(res) {
       var txt = (res && res.raw) ? res.raw.trim() : '';
+      // 代码层校验：seedEvent 必须包含男主名，若含情敌名但不含男主名则丢弃
+      var suitor = E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor'];
+      var suitorName = suitor ? suitor.name : '';
+      if (txt && suitorName && txt.indexOf(suitorName) >= 0 && txt.indexOf(mlName) < 0) {
+        console.warn('[seedEvent] 检测到情敌名"' + suitorName + '"但无男主名"' + mlName + '"，使用兜底');
+        txt = '';
+      }
       E.romance.seedEvent = txt.length >= 40 ? txt : fallback;
       saveGame();
     })
