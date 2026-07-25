@@ -2946,6 +2946,15 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-fan-hist-card { font-size: 12px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: var(--es-soft); border: 1px solid var(--es-card-border); }
 .es-fan-hist-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .es-fan-hist-reason { font-size: 11px; color: var(--es-text-dim); }
+
+/* 营业面板 Tab 样式 */
+.es-business-tabs { display: flex; gap: 0; margin-bottom: 14px; border-bottom: 2px solid var(--es-card-border); }
+.es-biz-tab { flex: 1; padding: 10px 0; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer;
+  border: none; background: none; color: var(--es-text-dim); border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: color .2s, border-color .2s; }
+.es-biz-tab:hover { color: var(--es-text); }
+.es-biz-tab.active { color: #ffb8d4; border-bottom-color: #ffb8d4; }
+.es-biz-content { animation: esFadeIn .25s ease; }
 .es-fan-hist-preview { font-size: 12px; color: var(--es-text); opacity: .7; }
 
 /* 舆论条目可点击 */

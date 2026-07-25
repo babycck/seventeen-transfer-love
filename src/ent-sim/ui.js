@@ -314,7 +314,6 @@ function renderQuickActions() {
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
     { q: 'svtvisit', label: 'SEVENTEEN队友' },
-    { q: 'bubble', label: '💬 粉丝泡泡(今日' + (E.bubble && E.bubble.todayCount || 0) + '/5)' },
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
   ].map(function(b) {
@@ -382,7 +381,7 @@ function renderRight() {
       lovePanel +
       '<div class="es-col-title" style="margin-top:4px">🕸️ 关系网 <small>剩' + (1 - (E.misc.npcInteractionUsed || 0)) + '/1</small></div>' +
       '<div class="es-npc-grid">' + npcs + '</div>' +
-      '<button class="es-rom-btn es-fan-btn" id="es-fan-btn" style="margin-top:8px;width:100%">📝 营业反馈</button>' +
+      '<button class="es-rom-btn es-business-btn" id="es-business-btn" style="margin-top:8px;width:100%">📱 营业' + (E.bubble && E.bubble.todayCount > 0 ? ' · 泡泡' + E.bubble.todayCount + '/5' : '') + '</button>' +
       '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
     '</div>';
 }
@@ -577,7 +576,7 @@ function bindStoryEvents() {
   document.querySelectorAll('.es-sis[data-sis]').forEach(function(b) {
     b.addEventListener('click', function() { showNarrativeLoading(); triggerTeammateEvent(GS.entSim.heroineGroup[parseInt(b.dataset.sis, 10)]); });
   });
-  bindId('es-fan-btn', onFanReaction);
+  bindId('es-business-btn', showBusinessPanel);
   document.querySelectorAll('.es-npc-node[data-npc]').forEach(function(el) {
     el.addEventListener('click', function() { onNpcInteract(el.dataset.npc); });
   });
@@ -724,7 +723,7 @@ function onQuick(q) {
   // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
   if (q === 'visit') { showEntSimVisitChoice(); return; }
   if (q === 'svtvisit') { showSVTVisitPanel(); return; }
-  if (q === 'bubble') { showBubblePanel(); return; }
+  if (q === 'bubble') { showBusinessPanel(); return; }
   if (q === 'ending') { onEnding(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
 
@@ -1501,41 +1500,132 @@ export function showEntSimModal(title, bodyHtml, buttons) {
 function closeEntSimModal() { if (_modalEl && _modalEl.parentNode) { _modalEl.parentNode.removeChild(_modalEl); _modalEl = null; }
 }
 
-// ---------- 营业反馈（三色卡片 + 历史卡片化） ----------
-function onFanReaction() {
+// ---------- 营业面板（泡泡 + 反馈 Tab） ----------
+function showBusinessPanel() {
   var E = GS.entSim;
-  var list = E.fanReactions || [];
-  if (!list.length) { showToast('还没有营业反馈——发生曝光/营业事件后会出现粉丝圈反应'); return; }
-  var latest = list[list.length - 1];
-  // 解析最新反馈三段：·大粉： / ·路人： / ·黑粉：
-  var parts = { fan: '', passer: '', hater: '' };
-  var raw = latest.text || '';
-  var m1 = raw.match(/·大粉[：:]([\s\S]*?)(?=·路人[：:]|·黑粉[：:]|$)/);
-  var m2 = raw.match(/·路人[：:]([\s\S]*?)(?=·黑粉[：:]|$)/);
-  var m3 = raw.match(/·黑粉[：:]([\s\S]*?)$/);
-  if (m1) parts.fan = m1[1].trim();
-  if (m2) parts.passer = m2[1].trim();
-  if (m3) parts.hater = m3[1].trim();
-  // 三段卡
-  var cards = '';
-  if (parts.fan) cards += '<div class="es-fan-card es-fan-pink"><div class="es-fan-card-icon">💗 大粉</div><div class="es-fan-card-body">' + escHtml(parts.fan) + '</div></div>';
-  if (parts.passer) cards += '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-icon">😐 路人</div><div class="es-fan-card-body">' + escHtml(parts.passer) + '</div></div>';
-  if (parts.hater) cards += '<div class="es-fan-card es-fan-dark"><div class="es-fan-card-icon">⚡ 黑粉</div><div class="es-fan-card-body">' + escHtml(parts.hater) + '</div></div>';
-  if (!cards) cards = '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-body">' + escHtml(raw) + '</div></div>'; // 兜底
+  var bubble = E.bubble || {};
+  var todayCount = bubble.todayCount || 0;
+  var maxDaily = 5;
+  var streak = bubble.streak || 0;
+  var sub = bubble.subscribers || 0;
+  var messages = bubble.messages || [];
 
-  // 触发事件区块
-  var eventBlock = '';
-  if (latest.event) {
-    eventBlock = '<div class="es-fan-event"><div class="es-fan-event-label">📌 触发事件</div><div class="es-fan-event-body">' + escHtml(latest.event) + '</div></div>';
+  // ── Tab 1: 泡泡内容 ──
+  var histHtml = '';
+  var recentMsgs = messages.slice(-5).reverse();
+  for (var i = 0; i < recentMsgs.length; i++) {
+    var m = recentMsgs[i];
+    histHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="font-size:12px;color:#d8cdf0;margin-bottom:3px">💬 ' + escHtml(m.msg || '') + '</div>';
+    if (m.replies && m.replies.length) {
+      for (var r = 0; r < m.replies.length; r++) {
+        histHtml += '<div style="font-size:11px;color:rgba(255,200,220,.7);margin-left:10px">❤️ ' + escHtml(m.replies[r]) + '</div>';
+      }
+    }
+    histHtml += '</div>';
+  }
+  var canSend = todayCount < maxDaily;
+  var bubbleContent = '<div style="text-align:center;margin-bottom:10px">' +
+    '📱 <b style="color:#ffb8d4">订阅数 ' + sub + '</b> · ' + (streak >= 7 ? '🔥连续' : '') + streak + '天' +
+    ' · 今日已发 <b>' + todayCount + '/' + maxDaily + '</b>' +
+    '</div>' +
+    '<div style="max-height:35vh;overflow-y:auto;margin-bottom:10px">' +
+    (histHtml || '<div style="color:var(--es-text-dim);text-align:center;padding:20px">还没有发过泡泡～发第一条消息给粉丝吧💜</div>') +
+    '</div>' +
+    '<button id="es-bubble-send" class="primary" style="display:block;width:100%;margin-top:6px"' +
+    (canSend ? '' : ' disabled style="opacity:.4;cursor:not-allowed"') +
+    '>' + (canSend ? '💬 发送泡泡消息' : '🕒 今日已达上限（5/5）') + '</button>';
+
+  // ── Tab 2: 反馈内容（全部历史） ──
+  var list = E.fanReactions || [];
+  var feedbackContent = '';
+  if (!list.length) {
+    feedbackContent = '<div style="color:var(--es-text-dim);text-align:center;padding:30px">还没有粉丝圈反馈<br><small>发生曝光/营业事件后会出现粉丝圈反应</small></div>';
+  } else {
+    for (var j = list.length - 1; j >= 0; j--) {
+      var item = list[j];
+      var parts = { fan: '', passer: '', hater: '' };
+      var raw = item.text || '';
+      var m1 = raw.match(/·大粉[：:]([\s\S]*?)(?=·路人[：:]|·黑粉[：:]|$)/);
+      var m2 = raw.match(/·路人[：:]([\s\S]*?)(?=·黑粉[：:]|$)/);
+      var m3 = raw.match(/·黑粉[：:]([\s\S]*?)$/);
+      if (m1) parts.fan = m1[1].trim();
+      if (m2) parts.passer = m2[1].trim();
+      if (m3) parts.hater = m3[1].trim();
+      var cards = '';
+      if (parts.fan) cards += '<div class="es-fan-card es-fan-pink"><div class="es-fan-card-icon">💗 大粉</div><div class="es-fan-card-body">' + escHtml(parts.fan) + '</div></div>';
+      if (parts.passer) cards += '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-icon">😐 路人</div><div class="es-fan-card-body">' + escHtml(parts.passer) + '</div></div>';
+      if (parts.hater) cards += '<div class="es-fan-card es-fan-dark"><div class="es-fan-card-icon">⚡ 黑粉</div><div class="es-fan-card-body">' + escHtml(parts.hater) + '</div></div>';
+      if (!cards) cards = '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-body">' + escHtml(raw) + '</div></div>';
+
+      var eventBlock = '';
+      if (item.event) {
+        eventBlock = '<div class="es-fan-event"><div class="es-fan-event-label">📌 触发事件</div><div class="es-fan-event-body">' + escHtml(item.event) + '</div></div>';
+      }
+      feedbackContent += '<div class="es-fanreact" style="margin-bottom:12px">' +
+        '<div class="es-fanreact-head">📝 第 ' + item.round + ' 回合' +
+        (item.reason ? '<span class="es-fan-badge" style="margin-left:6px">' + escHtml(item.reason) + '</span>' : '') +
+        '</div>' +
+        eventBlock +
+        '<div class="es-fan-cards">' + cards + '</div>' +
+        '</div>';
+    }
   }
 
-  var html = '<div class="es-fanreact">' +
-    '<div class="es-fanreact-head">📝 营业反馈 · 第 ' + latest.round + ' 回合</div>' +
-    eventBlock +
-    '<div class="es-fanreact-reason">' + (latest.reason ? '<span class="es-fan-badge">' + escHtml(latest.reason) + '</span>' : '') + '</div>' +
-    '<div class="es-fan-cards">' + cards + '</div>' +
+  // ── 组装完整面板（默认显示泡泡 Tab） ──
+  var html = '<div class="es-business-tabs">' +
+    '<button class="es-biz-tab active" data-biz-tab="bubble">💬 泡泡</button>' +
+    '<button class="es-biz-tab" data-biz-tab="feedback">📊 反馈' + (list.length ? ' (' + list.length + ')' : '') + '</button>' +
+    '</div>' +
+    '<div id="es-biz-tab-bubble" class="es-biz-content">' + bubbleContent + '</div>' +
+    '<div id="es-biz-tab-feedback" class="es-biz-content" style="display:none;max-height:50vh;overflow-y:auto">' + feedbackContent + '</div>';
+
+  showEntSimModal('📱 营业', html, [{ id: 'close', label: '关闭' }]);
+
+  // Tab 切换事件
+  setTimeout(function() {
+    document.querySelectorAll('.es-biz-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var target = tab.dataset.bizTab;
+        document.querySelectorAll('.es-biz-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('es-biz-tab-bubble').style.display = (target === 'bubble' ? '' : 'none');
+        document.getElementById('es-biz-tab-feedback').style.display = (target === 'feedback' ? '' : 'none');
+      });
+    });
+    // 泡泡发送按钮
+    if (canSend) {
+      var btn = document.getElementById('es-bubble-send');
+      if (btn) btn.addEventListener('click', function() {
+        closeEntSimModal();
+        showNarrativeLoading();
+        sendBubbleMessage().then(function(res) {
+          if (res) {
+            showBubbleResult(res);
+          } else {
+            showToast('泡泡发送失败');
+          }
+          rerender();
+        });
+      });
+    }
+  }, 100);
+}
+
+// 泡泡发送结果弹窗（保留，泡泡发送后使用）
+function showBubbleResult(res) {
+  var repliesHtml = (res.fanReplies && res.fanReplies.length) ?
+    res.fanReplies.map(function(r) { return '<div style="font-size:12px;color:rgba(255,200,220,.75);margin:3px 0">❤️ ' + escHtml(r) + '</div>'; }).join('') :
+    '<div style="font-size:12px;color:var(--es-text-dim)">（粉丝还没反应…）</div>';
+  var html = '<div style="margin-bottom:10px;line-height:1.8">' +
+    '<div style="font-size:14px;color:#d8cdf0;margin-bottom:8px">📤 <b>你发了：</b><br>' + escHtml(res.msgToFans || '') + '</div>' +
+    '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:8px;margin-top:4px">' +
+    '<div style="font-size:13px;color:#ffb8d4;margin-bottom:4px">📥 <b>粉丝回复：</b></div>' +
+    repliesHtml +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--es-text-dim);margin-top:8px">订阅数 ' + (res.subscribers || 0) + ' · 连续 ' + (res.streak || 0) + '天 · 今日 ' + (res.todayCount || 0) + '/5</div>' +
     '</div>';
-  showEntSimModal('📱 粉丝圈反应', html, [{ id: 'close', label: '关闭'}]);
+  showEntSimModal('💬 泡泡发送成功', html, [{ id: 'close', label: '知道了' }]);
 }
 
 // ---------- 点击右侧舆论条目 → 详情弹窗 ----------
@@ -1850,72 +1940,6 @@ function showMilestoneCard() {
   if (go) go.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
 }
 
-// ── 粉丝泡泡面板 ──
-function showBubblePanel() {
-  var E = GS.entSim;
-  var bubble = E.bubble || {};
-  var todayCount = bubble.todayCount || 0;
-  var maxDaily = 5;
-  var streak = bubble.streak || 0;
-  var sub = bubble.subscribers || 0;
-  var messages = bubble.messages || [];
-  // 消息历史（最新5条）
-  var histHtml = '';
-  var recentMsgs = messages.slice(-5).reverse();
-  for (var i = 0; i < recentMsgs.length; i++) {
-    var m = recentMsgs[i];
-    histHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
-      '<div style="font-size:12px;color:#d8cdf0;margin-bottom:3px">💬 ' + escHtml(m.msg || '') + '</div>';
-    if (m.replies && m.replies.length) {
-      for (var r = 0; r < m.replies.length; r++) {
-        histHtml += '<div style="font-size:11px;color:rgba(255,200,220,.7);margin-left:10px">❤️ ' + escHtml(m.replies[r]) + '</div>';
-      }
-    }
-    histHtml += '</div>';
-  }
-  var canSend = todayCount < maxDaily;
-  var html = '<div style="text-align:center;margin-bottom:10px">' +
-    '📱 <b style="color:#ffb8d4">订阅数 ' + sub + '</b> · ' + (streak >= 7 ? '🔥连续' : '') + streak + '天' +
-    ' · 今日已发 <b>' + todayCount + '/' + maxDaily + '</b>' +
-    '</div>' +
-    '<div style="max-height:40vh;overflow-y:auto;margin-bottom:10px">' +
-    (histHtml || '<div style="color:var(--es-text-dim);text-align:center;padding:20px">还没有发过泡泡～发第一条消息给粉丝吧💜</div>') +
-    '</div>' +
-    '<button id="es-bubble-send" class="primary" style="display:block;width:100%;margin-top:6px"' +
-    (canSend ? '' : ' disabled style="opacity:.4;cursor:not-allowed"') +
-    '>' + (canSend ? '💬 发送泡泡消息' : '🕒 今日已达上限（5/5）') + '</button>';
-  showEntSimModal('💬 粉丝泡泡', html, [{ id: 'close', label: '关闭' }]);
-  if (canSend) {
-    setTimeout(function() {
-      var btn = document.getElementById('es-bubble-send');
-      if (btn) btn.addEventListener('click', function() {
-        closeEntSimModal();
-        showNarrativeLoading();
-        sendBubbleMessage().then(function(res) {
-          if (res) {
-            showBubbleResult(res);
-          } else {
-            showToast('泡泡发送失败');
-          }
-          rerender();
-        });
-      });
-    }, 100);
-  }
-}
-
-// 泡泡发送结果弹窗
-function showBubbleResult(res) {
-  var repliesHtml = (res.fanReplies && res.fanReplies.length) ?
-    res.fanReplies.map(function(r) { return '<div style="font-size:12px;color:rgba(255,200,220,.75);margin:3px 0">❤️ ' + escHtml(r) + '</div>'; }).join('') :
-    '<div style="font-size:12px;color:var(--es-text-dim)">（粉丝还没反应…）</div>';
-  var html = '<div style="margin-bottom:10px;line-height:1.8">' +
-    '<div style="font-size:14px;color:#d8cdf0;margin-bottom:8px">📤 <b>你发了：</b><br>' + escHtml(res.msgToFans || '') + '</div>' +
-    '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:8px;margin-top:4px">' +
-    '<div style="font-size:13px;color:#ffb8d4;margin-bottom:4px">📥 <b>粉丝回复：</b></div>' +
-    repliesHtml +
-    '</div>' +
-    '<div style="font-size:11px;color:var(--es-text-dim);margin-top:8px">订阅数 ' + (res.subscribers || 0) + ' · 连续 ' + (res.streak || 0) + '天 · 今日 ' + (res.todayCount || 0) + '/5</div>' +
-    '</div>';
-  showEntSimModal('💬 泡泡发送成功', html, [{ id: 'close', label: '知道了' }]);
-}
+/**
+ * entSim ui.js — 泡泡/反馈已整合到 showBusinessPanel()，旧独立函数已移除。
+ */
