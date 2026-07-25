@@ -4,6 +4,7 @@
 // buildEntSimUserMessage：玩家动作 + 当前状态快照（含记忆注入）
 // ============================================================
 import { GS } from '../state.js';
+import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
 import { buildMemorySnapshot } from './memory.js';
@@ -41,7 +42,38 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【写作风格】现实向、甜宠暗恋、地下恋视角、有压力感。每段正文剧情 800-1800 字，充分铺陈人物心理描写、环境细节、对话与互动，写出细腻的慢热恋爱张力，不要干瘪叙述。\n';
   sys += '【场景连续性·强制】剧情必须发生在"今日日程"设定的场景内（如主档是「打歌期」，剧情就写在待机室/后台；主档是「合宿」，剧情就在宿舍；主档是「签售会」，就在签售现场）。不要突然跳到无关新地点，场景转换须通过选项或时间推进自然过渡。每次生成都会下发【本场场景·强制锁定】指令，必须严格遵守。\n';
   sys += '【时段写作指引】上午偏练习/工作、下午偏社交/营业/互动、夜晚偏私密/独处/约会，由当前时段标签决定氛围。\n';
-  sys += '【称呼规则】女主 ' + (hp.age || 19) + ' 岁，比男主/哥哥年幼，叫男主「XX哥」、叫哥哥「哥」。年长角色可叫女主名或「妹／妹妹」。禁止年幼者对女主用错位称呼。\n';
+  // SEVENTEEN 13 人年龄辈分对照表（birthYear 越小=越年长）
+  var yearMap = {};
+  for (var mi = 0; mi < MEMBERS.length; mi++) {
+    var mb = MEMBERS[mi];
+    var by = mb.birthYear || 0;
+    if (!yearMap[by]) yearMap[by] = [];
+    yearMap[by].push(mb.name);
+  }
+  var yearKeys = Object.keys(yearMap).sort(); // 1995..1999
+  sys += '【SEVENTEEN 团内辈分对照表·强制遵守】按出生年份排序（数值越小越年长）：\n';
+  for (var yi = 0; yi < yearKeys.length; yi++) {
+    var yr = yearKeys[yi];
+    var label = yr === '1995' ? '（95line·最年长）' : yr === '1999' ? '（忙内·最年幼）' : '';
+    sys += yr + '年生' + label + '：' + yearMap[yr].join('、') + '；';
+    if (yi > 0) sys += '对' + yearKeys.slice(0, yi).map(function(y) { return y + '组'; }).join('/') + '称"哥"；';
+    if (yi < yearKeys.length - 1) sys += '对' + yearKeys.slice(yi + 1).map(function(y) { return y + '组'; }).join('/') + '直呼名字；';
+    sys += '\n';
+  }
+  sys += '【称呼铁律】\n';
+  sys += '- 年幼→年长 可称"XX哥"（如 Dino→S.Coups="胜哲哥"）\n';
+  sys += '- 年长→年幼 严禁称"哥"，直呼名字（如 S.Coups→Dino="灿"）\n';
+  sys += '- 同年 互称名字，互不称"哥"\n';
+  sys += '- 常见错误（绝对禁止）：年长者对年幼者称"哥"——S.Coups叫Dino"灿哥"❌ / Jeonghan叫Seungkwan"胜宽哥"❌ / 同年互称"哥"❌\n';
+  // 女主称呼：动态按男主birthYear判断（女主 19-24 岁，全团比女主年长）
+  var mlBirthYear = ml.birthYear || 0;
+  sys += '【女主称呼规则】女主 ' + (hp.age || 19) + ' 岁（≈' + (2025 - (hp.age || 19)) + '年生），比 SEVENTEEN 全团年幼。';
+  if (mlBirthYear) {
+    sys += '男主「' + (ml.name || '') + '」' + mlBirthYear + '年生。初识期（romanceStage<1）称「' + (ml.name || '') + '前辈」；暧昧期后（romanceStage>=1）可改口称「欧巴」。禁止称"哥/哥哥/형"。';
+  } else {
+    sys += '初识期称男主「前辈」；暧昧期后可改口称「欧巴」。禁止称"哥/哥哥/형"。';
+  }
+  sys += '\n';
   sys += '【叙事人称·强制】整段剧情以第二人称「你」写女主的动作、心理、对话，不要用女主名字自称。例：「你推开待机室的门」「你的心跳漏了一拍」「你低下头躲开他的视线」。只有在其他角色对你的称呼中才出现女主名字。\n';
   sys += '【严禁自创韩文名/韩文台词】女主称呼只能用注入的中文艺名「' + (hp.name || '你') + '」，禁止自创韩文音译名（如 심예 之类）。直播/采访台词用中文，如需韩文必须附中文翻译。全部用中文输出。\n';
   sys += '【重要规则】\n';

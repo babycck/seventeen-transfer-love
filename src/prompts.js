@@ -1153,6 +1153,7 @@ export function buildOneHeartSystemPrompt() {
           var _memYear = member ? member.birthYear : 0;
           var _diff = _memYear - _broYear;
           parts += '\n[哥哥·年龄辈分]\n';
+          parts += '⚠️ 注意：birthYear 数值越小=越年长（1995最早生、1999最晚生）。\n';
           parts += '哥哥「' + rel.name + '」出生年：' + _broYear + '，男主「' + member.name + '」出生年：' + _memYear + '。';
           if (_diff > 0) {
             parts += '男主比哥哥小' + _diff + '岁，男主年幼，可按队内辈分称「' + rel.name.substring(1) + '哥」或「' + (rel.stageName||rel.name) + '哥」；日常也可直呼「' + rel.name.substring(1) + '」或「' + (rel.stageName||rel.name) + '」。\n';
@@ -1240,7 +1241,14 @@ export function buildOneHeartSystemPrompt() {
     '团内相处规则\n' +
     '- 成员之间已相处10年+，非常熟悉。说话直呼名字，不用敬语。\n' +
     '- 可以互怼、吐槽、开玩笑——这是日常相处模式。\n' +
-    '- 常用称呼方式：叫名字、叫"哥/형"（对年长者）、叫外号。\n' +
+    '- 【年龄辈分·强制】按出生年份排序（⚠️ birthYear 数值越小=越年长）：\n' +
+    '  1995年（95line·最年长）：S.Coups(崔胜哲)·Jeonghan(尹净汉)·Joshua(洪知秀) → 对全团年幼者只直呼名字\n' +
+    '  1996年：Jun(文俊辉)·Hoshi(权顺荣)·Wonwoo(全圆佑)·Woozi(李知勋) → 对1995组称"哥"，对97-99组直呼名字\n' +
+    '  1997年：DK(李硕珉)·Mingyu(金珉奎)·The8(徐明浩) → 对95-96组称"哥"，对98-99组直呼名字\n' +
+    '  1998年：Seungkwan(夫胜宽)·Vernon(崔瀚率) → 对95-97组称"哥"，对1999年Dino直呼名字\n' +
+    '  1999年（忙内·最年幼）：Dino(李灿) → 对95-98组称"哥"\n' +
+    '  铁律：年幼→年长可称"XX哥"（例：Dino叫S.Coups="胜哲哥"✓）；年长→年幼严禁称"哥"（例：S.Coups叫Dino"灿哥"❌ 严重错误）；同年互称名字（例：Hoshi↔Woozi都叫名字✓，互称"哥"❌）\n' +
+    '- 常用称呼方式：叫名字、叫"哥/형"（仅年幼对年长）、叫外号。\n' +
     '- 小分队内部更亲密（同队成员经常一起活动）。\n' +
     '- 存在自然的亲密度分组：95line（胜澈/净汉/Joshua）、97line（珉奎/DK/The8）、\n' +
     '  "豪雨"（Hoshi和Woozi是同龄亲故）、"婆队"成员之间等。\n' +
