@@ -506,21 +506,8 @@ export function bindEntSimEvents() {
   }
   // 通用绑定：底部 Tab 切换 + 「‹ 返回」（所有 Tab 页均需可切换/返回，修复进聊天页卡死）
   bindCommonNav();
-  var tab = currentTab();
-  if (tab === 'story') {
-    var cur = getEntSimCurrent();
-    var autoTries = GS._entSimAutoTries || 0;
-    if (!cur.narrative && !GS._entSimGenerating) {
-      if (autoTries >= 2) {
-        GS._entSimCurrent = { narrative: '（剧情生成较慢，请点击「拉回主线」重试）', options: ['拉回主线'], extras: {}, failed: true };
-      } else {
-        GS._entSimAutoTries = autoTries + 1;
-        var loading = document.getElementById('es-narrative');
-        if (loading) loading.innerHTML = '<div class="es-loading">✨ 剧情生成中…</div>';
-        continueEntSimMain().then(function() { if (window.__renderEntSim) window.__renderEntSim(); });
-      }
-    }
-  }
+  // 主剧情自动生成已统一由 renderHtml() 管控，此处不再重复触发。
+  // bindEntSimEvents 仅负责事件绑定，不负责内容生成。
   // 同页内联：所有区块事件统一绑定（不再按 Tab 提前 return）
   bindStoryEvents();
   bindChatEvents();
