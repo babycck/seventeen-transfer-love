@@ -1384,16 +1384,19 @@ export function bindSetupEvents() {
         if (GS.gameMode === 'oneHeart' && GS.worldSetting === 'entertainment') {
           generateOneHeartSchedule();
         }
-        if (GS.aiEnabled) {
+        if (GS.aiEnabled && GS.gameMode !== 'entSim') {
           showLoading('正在准备第一天...');
         }
         renderAll();
         if (GS.aiEnabled) {
           hideLoading();
-          await generatePhaseNarrative();
-          // 首段空结果自动重试，与 transfer 模式对齐，避免偶发空返回留下死空白
-          if (!GS.phaseNarrative) {
+          // entSim 用自有引擎 generateEntSimRound，不经过 generatePhaseNarrative（避免遮罩）
+          if (GS.gameMode !== 'entSim') {
             await generatePhaseNarrative();
+            // 首段空结果自动重试，与 transfer 模式对齐，避免偶发空返回留下死空白
+            if (!GS.phaseNarrative) {
+              await generatePhaseNarrative();
+            }
           }
         }
       });

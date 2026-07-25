@@ -2612,7 +2612,7 @@ export async function generateOneHeartRound(extra) {
   extra = extra || {};
   if (GS._isGenerating) { GS._pendingOneHeartGen = extra; return; } // 协作式：在飞生成结束后由 finally 补跑，避免并发双调用与死空白
   GS._isGenerating = true;
-  showLoading('正在生成剧情...');
+  if (GS.gameMode !== 'entSim') showLoading('正在生成剧情...');
   var _needDiary = false;
   var _needMoment = false;
   var _needLetter = false;
