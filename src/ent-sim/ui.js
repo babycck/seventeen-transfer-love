@@ -139,7 +139,7 @@ function renderHtml() {
   var heartPending = GS._entSimHeartbeatPending;
   // 主剧情：首轮未生成时自动生成（用 started 标志，避免每次渲染都重复触发生成）
   var E = GS.entSim;
-  if (!E.started && !GS._entSimGenerating) {
+  if (!E.started && !GS._entSimGenerating && (!GS._entSimCurrent || !GS._entSimCurrent.narrative)) {
     var autoTries0 = GS._entSimAutoTries || 0;
     if (autoTries0 >= 2) {
       // 首轮连续失败：放弃自动重生成，标记 started 交回 bindEntSimEvents 兜底（点击拉回主线重试）
