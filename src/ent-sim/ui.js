@@ -395,27 +395,41 @@ function renderLovePanel() {
   var html = '<div style="margin-top:4px;padding:8px;background:rgba(255,255,255,.04);border-radius:8px">' +
     '<div class="es-col-title" style="margin:0 0 4px 0">💗 恋情面板</div>' +
     '<div class="es-risk-row"><span>阶段</span><span>' + getRomanceStageIcon() + ' ' + stage + '</span></div>' +
-    '<div class="es-risk-row"><span>好感</span><span>' + E.affection + '/100</span></div>' +
+    '<div class="es-risk-row es-aff-clickable"><span>好感</span><span><b>' + E.affection + '</b>/100</span></div>' +
     '<div class="es-risk-row"><span>曝光</span><span>' + tier.label + ' (' + exp + ')</span></div>' +
     '<div class="es-risk-row"><span>掩护</span><span>' + cover + '/5</span></div>';
   if (E.brother && E.brother.name) {
     html += '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
   }
-  // 好感度来源日志（最近 3 条）
-  var affLog = E._affectionLog || [];
-  if (affLog.length > 0) {
-    html += '<div class="es-aff-log">';
-    var showLogs = affLog.slice(-3).reverse();
-    for (var li = 0; li < showLogs.length; li++) {
-      var l = showLogs[li];
-      var dSign = l.delta > 0 ? '+' : '';
-      html += '<div class="es-aff-log-row"><span class="es-aff-delta' + (l.delta > 0 ? ' up' : ' down') + '">' + dSign + l.delta + '</span><span class="es-aff-reason">' + escHtml(l.reason || '') + '</span><span class="es-aff-total">→ ' + l.total + '</span></div>';
-    }
-    html += '</div>';
-  }
   html += '</div>';
   return html;
 }
+
+// 点击好感度数字 → 弹出完整来源日志
+function showAffectionLogModal() {
+  var E = GS.entSim;
+  var affLog = E._affectionLog || [];
+  if (!affLog.length) { showToast('还没有好感度变动记录～'); return; }
+  var listHtml = '';
+  var allLogs = affLog.slice().reverse(); // 最新在前
+  for (var i = 0; i < allLogs.length; i++) {
+    var l = allLogs[i];
+    var dSign = l.delta > 0 ? '+' : '';
+    var dColor = l.delta > 0 ? '#9ad0a0' : '#f88a8a';
+    listHtml += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px">' +
+      '<span style="min-width:32px;font-weight:700;color:' + dColor + '">' + dSign + l.delta + '</span>' +
+      '<span style="flex:1;color:rgba(255,255,255,.7)">' + escHtml(l.reason || '剧情推进') + '</span>' +
+      '<span style="color:rgba(255,255,255,.3);font-size:11px">→ ' + l.total + '</span>' +
+      '<span style="color:rgba(255,255,255,.2);font-size:10px">第' + (l.day || '?') + '天</span>' +
+      '</div>';
+  }
+  var html = '<div style="max-height:55vh;overflow-y:auto">' +
+    '<div style="font-size:12px;color:rgba(255,200,220,.5);margin-bottom:8px">' + escHtml(GS.heroineProfile && GS.heroineProfile.name || '女主') + ' → 好感度共 ' + (E.affection || 0) + ' ／ ' + affLog.length + ' 条记录</div>' +
+    listHtml +
+    '</div>';
+  showEntSimModal('💗 好感度来源', html, [{ id: 'close', label: '关闭' }]);
+}
+
 function renderNpcList() {
   return getNpcNodes().filter(function(n) { return SHOW_NPC.indexOf(n.type) >= 0; }).map(function(n) {
     var warn = (stanceClass(n.stance) === 'bad') ? ' warn' : '';
@@ -526,6 +540,11 @@ export function bindEntSimEvents() {
   bindMomentsEvents();
   bindTheaterEvents();
   bindBuzzClicks();
+  // 好感度行点击 → 弹出来源日志
+  var affRow = document.querySelector('.es-aff-clickable');
+  if (affRow) {
+    affRow.addEventListener('click', function() { showAffectionLogModal(); });
+  }
 }
 
 // 底部 Tab 切换：story 切到剧情视图，其余弹出手机框蒙层
