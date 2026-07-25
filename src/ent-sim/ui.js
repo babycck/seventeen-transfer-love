@@ -776,7 +776,16 @@ function showCoverPanel(onDone) {
           if (type === 'business') generateFanReaction('营业掩护', '公司安排你和团内另一位成员做营业CP来转移视线，结果粉丝在评论区吵成一片，有人嗑有人骂有人扒细节').catch(function(){});
           closeEntSimModal();
           showToast('已使用 ' + mechs[type].label + '，剩余 ' + res.remaining + '/5');
-          if (onDone) onDone(); else rerender();
+          if (onDone) {
+            onDone();
+          } else {
+            // 单独使用掩护：生成一段掩护剧情叙事
+            showNarrativeLoading();
+            var coverScene = '掩护·' + type + '：刚刚使用「' + mechs[type].label + '」来降低地下恋曝光风险';
+            triggerEntSimEvent(coverScene, {
+              extraNote: '请生成约200-300字的叙事段落，具体描写你如何用「' + mechs[type].label + '」手段来掩护与男主的恋情、实施过程和效果。要符合娱乐圈地下恋的现实逻辑（假装不熟就是公共场合对视后迅速移开/借哥哥打掩护就是让哥哥发三人合照/避嫌约会就是故意和团友一起去以混淆视线/营业掩护就是和队友做CP转移注意力/公司掩护就是经纪人帮忙公关），不要选项。'
+            }).then(rerender);
+          }
         } else {
           showToast(res.reason || '无法使用');
         }
