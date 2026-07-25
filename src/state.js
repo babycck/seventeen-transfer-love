@@ -465,6 +465,9 @@ export function migrateSave() {
     if (!E.brother) E.brother = {};
     if (!E.brother.stance) E.brother.stance = '参谋';
     if (typeof E.brother.support !== 'number') E.brother.support = 0;
+
+    // BUGFIX: 旧存档缺 started 字段 → 刷新后误触发首轮自动生成
+    if (typeof E.started !== 'boolean') E.started = true; // 已存在的旧存档必然已经生成过剧情
     if (!Array.isArray(E.brother.pool)) E.brother.pool = [];
     if (!E.brother.testNudged || typeof E.brother.testNudged !== 'object') E.brother.testNudged = { 1: false, 2: false, 3: false };
     if (typeof E.brother.rivalAware !== 'boolean') E.brother.rivalAware = false;
