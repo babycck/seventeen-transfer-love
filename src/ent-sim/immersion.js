@@ -276,9 +276,20 @@ export function generateDailyBuzz() {
     if (!buzzByTitle(hotSearch, extTitle) && E._lastHotTitles.indexOf(extTitle) < 0) hotSearch.push(ext);
   }
   E._lastHotTitles = hotSearch.map(buzzTitle);
-  // 粉丝讨论：全部外部（不包含女主）
+  // 粉丝讨论：30% 概率注入 1-2 条关于女主的讨论
   E._lastFanTitles = E._lastFanTitles || [];
   var fanDiscussion = [];
+  if (Math.random() < 0.3 && E.romance && E.romance.maleLead && E.romance.maleLead.name) {
+    var hFans = [
+      '粉丝发现' + (E.heroineGroup && E.heroineGroup[0] ? E.heroineGroup[0].name : '女主') + '和' + E.romance.maleLead.name + '戴了同款手链——是巧合还是情侣款？',
+      '有人在签售会问' + (E.heroineGroup && E.heroineGroup[0] ? E.heroineGroup[0].name : '女主') + '理想型，她描述的形象被指和某位SEVENTEEN成员高度重合',
+      '两个团的粉丝在超话吵起来了——原因是有人说' + E.romance.maleLead.name + '最近采访里多次提到另一个团',
+      '站姐发了一张下班照，背景里有人穿着和' + (E.heroineGroup && E.heroineGroup[0] ? E.heroineGroup[0].name : '女主') + '前几天穿的同款卫衣',
+      '论坛热帖：' + (E.heroineGroup && E.heroineGroup[0] ? E.heroineGroup[0].name : '她') + '的泡泡里提到最近在听一首歌，刚好是某位成员的solo曲',
+      '有人翻出三个月前的打歌后台合照，发现' + E.romance.maleLead.name + '的眼神方向刚好是' + (E.heroineGroup && E.heroineGroup[0] ? E.heroineGroup[0].name : '她') + '站的位置'
+    ];
+    fanDiscussion.push({ t: hFans[randInt(0, hFans.length - 1)], c: '' });
+  }
   while (fanDiscussion.length < 3) {
     var fe = EXTERNAL_FAN[randInt(0, EXTERNAL_FAN.length - 1)];
     var feTitle = buzzTitle(fe);

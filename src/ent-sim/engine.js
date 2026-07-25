@@ -4,7 +4,7 @@
 // 换天由玩家点「进入下一天」(goEntSimNextDay) 显式触发。
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { checkChapterAdvance, initEntSimState, popularity, careerLevel } from './state.js';
+import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity } from './state.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { showToast, randInt } from '../utils.js';
 import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
@@ -12,12 +12,12 @@ import { buildEntSimSystemPrompt, buildEntSimUserMessage } from './prompts.js';
 import { rollDailyAgenda, getTimeOfDayLabel } from './cycle.js';
 import { applyDiscoveryBlowback, addExposure } from './public-opinion.js';
 import { recordRomanceBeat, applyEntSimAffection, tickRomanceTimers } from './romance.js';
-import { generateDailyBuzz, generateFanReaction } from './immersion.js';
+import { generateDailyBuzz } from './immersion.js';
 import { evaluateEnding } from './endings.js';
 import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
 import { getNpcNodes } from './npc-network.js';
-import { ENDING_TONE, TEAMMATE_FLAVOR, DAILY_ENGAGEMENT_POOL, SVT_TEAMMATE_EVENT_POOL, SVT_TEAMMATE_PROFILES } from './data.js';
+import { ENDING_TONE, TEAMMATE_FLAVOR, SVT_TEAMMATE_EVENT_POOL, SVT_TEAMMATE_PROFILES } from './data.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
@@ -231,6 +231,12 @@ function maybeCompress() {
 // 进入下一天：换天由玩家显式触发（oneHeart 式手动换天）
 export function goEntSimNextDay() {
   var E = GS.entSim;
+  // 每日结算用：保存昨天末的快照
+  var lastPop = (E.career && typeof E.career.popularity === 'number') ? E.career.popularity : 0;
+  var lastExp = E.misc.exposureAccum || 0;
+  var lastAff = E.affection || 0;
+  // 换天过渡：淡出 →「新的一天 DayX」→淡入
+  showDayTransition(E.cycle.dayCount + 1);
   E.cycle.dayCount++;
   E.cycle.roundTotal++; // 换天才推进回合数，避免每次操作污染冷却/冷战倒计时
   // 秘密信箱：每 7-10 回合自动一封信
@@ -247,15 +253,35 @@ export function goEntSimNextDay() {
   E.cycle.timeOfDay = 0; // 换天重置为上午（时段由「下一个行程」逐档推进）
   E._svtTodaySeen = []; // 每天清空 SVT 队友出场记录
   E.chapter.roundInChapter = (E.chapter.roundInChapter || 0) + 1; // 章节内回合/天数累计
+  // SEVENTEEN 回归波及：每 15-20 天随机触发，持续 5-7 天
+  if (E._svtComebackDays && E._svtComebackDays > 1) {
+    E._svtComebackDays--;
+  } else if (E._svtComebackDays === 1) {
+    E._svtComebackDays = 0; // 回归期结束
+  } else if (E.cycle.dayCount > 0 && E.cycle.dayCount % (15 + randInt(0, 5)) === 0) {
+    E._svtComebackDays = 5 + randInt(0, 2); // 5-7 天回归期
+  }
   tickRomanceTimers(); // 清理过期冷战 / 告白冷却
   rollDailyAgenda();
   generateDailyBuzz();
-  // 每日营业事件：从 100+ 条池子随机抽一条，异步生成粉丝圈反应（不阻塞换天）
-  var pool = DAILY_ENGAGEMENT_POOL.slice();
-  var engEvent = pool[randInt(0, pool.length - 1)];
-  generateFanReaction('每日营业', engEvent).catch(function(){});
+  // [废弃] 旧每日营业事件已替换为粉丝泡泡系统，不再自动生成营业反馈
+  // 泡泡连续天检查：昨天发过→streak++，否则归零
+  if (E.bubble) {
+    if (E.bubble.lastSentDay === E.cycle.dayCount - 1 && E.bubble.todayCount > 0) {
+      E.bubble.streak = (E.bubble.streak || 0) + 1;
+    } else if (E.bubble.lastSentDay < E.cycle.dayCount - 1) {
+      E.bubble.streak = 0;
+    }
+    E.bubble.todayCount = 0;
+    E.bubble.lastSentDay = E.cycle.dayCount;
+  }
   // 曝光累计衰减 30%
   E.misc.exposureAccum = Math.floor((E.misc.exposureAccum || 0) * 0.7);
+  // 公司惩罚：曝光≥80 经纪人警告扣人气
+  if ((E.misc.exposureAccum || 0) >= 80) {
+    showToast('⚠️ 经纪人警告：公司注意到你的私生活影响了工作，人气下降');
+    addPopularity(-5, '公司惩罚·曝光过高经纪警告');
+  }
   // 重置每日 NPC 互动次数
   E.misc.npcInteractionUsed = 0;
   // 章节跨越检查（人气推进，只进不退）
@@ -266,11 +292,16 @@ export function goEntSimNextDay() {
   checkOneHeartEvents();
   // 章节跨越提示：如果刚进入新章节，追加到待触发事件前
   if (chapterCrossed && E.chapter && E.chapter.entered) {
+    showChapterTransition(E.chapter.icon || '', E.chapter.name || '', E.chapter.desc || '');
     var chMsg = '【章节跨越】你进入了「' + (E.chapter.icon || '') + ' ' + (E.chapter.name || '') + '」：' + (E.chapter.desc || '新阶段带来新的机会与风险。') + ' 注意周围目光和粉丝情绪正在变化。';
     GS._entSimPendingEvent = (GS._entSimPendingEvent ? chMsg + '\n' + GS._entSimPendingEvent : chMsg);
     E.chapter.entered = false;
   }
   saveGame();
+  // 每日结算弹窗：显示今日变化（非第一天的第一个回合）
+  if (E.cycle.dayCount > 1) {
+    showDailySettlement(E, lastPop, lastExp, lastAff);
+  }
   // 压缩昨日记忆（AI 提取，慢不怕），随后清空当天剧情并生成新一天开场
   return compressEntSimMemory().then(function() {
     // 换天后清空旧剧情，新一天从零开始
@@ -389,7 +420,27 @@ export async function runEntSimEnding() {
   var ending = enterEntSimEnding();
   if (!ending) return null;
   await generateEntSimEndingNarrative(ending);
+  // 保存到结局画廊（localStorage，最多10条）
+  saveEndingToGallery(ending);
   return ending;
+}
+
+// 结局画廊持久化
+function saveEndingToGallery(ending) {
+  try {
+    var key = 'es_endings_gallery';
+    var raw = localStorage.getItem(key);
+    var gallery = raw ? JSON.parse(raw) : [];
+    gallery.unshift({
+      type: ending.type || 'unknown',
+      label: ending.label || '',
+      icon: ending.icon || '🎬',
+      date: new Date().toISOString().slice(0, 10),
+      text: (ending.text || '').slice(0, 100)
+    });
+    if (gallery.length > 10) gallery = gallery.slice(0, 10);
+    localStorage.setItem(key, JSON.stringify(gallery));
+  } catch(e) {}
 }
 
 // 女团队友支线：点击某位队友触发专属互动事件
@@ -595,15 +646,18 @@ export function generateEntSimTheater(themePrompt) {
   });
 }
 
-// 约会：好感度 >= 30 可约，固定模板（地点池 + AI 填充 + 3 选项），不能翘班
+// 约会：好感度 >= 30 可约，地点不同曝光风险不同（他家+3 / 车里0等）
 export function initiateEntSimDate(venue) {
   var E = GS.entSim;
   if (E.affection < 30) return Promise.reject(new Error('好感度不足 30，暂时约不到他～'));
-  return runEntSimType('date', { dateVenue: venue }, function(narrative, parsed) {
+  var venueName = typeof venue === 'object' ? venue.name : venue;
+  var venueExp = (typeof venue === 'object' && typeof venue.exposure === 'number') ? venue.exposure : 1;
+  var venueDesc = (typeof venue === 'object' && venue.desc) ? venue.desc : '';
+  return runEntSimType('date', { dateVenue: venueName }, function(narrative, parsed) {
     applyEntSimAffection(3);
-    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + 1;
+    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + venueExp;
     E.romance.dateCount++;
-    GS._entSimCurrent = { narrative: narrative, options: parsed.options || [], extras: { dateVenue: venue }, type: 'date' };
+    GS._entSimCurrent = { narrative: narrative, options: parsed.options || [], extras: { dateVenue: venueName }, type: 'date' };
     saveGame();
   });
 }
@@ -619,4 +673,115 @@ export function generateEntSimConfession() {
 // UI 取当前回合
 export function getEntSimCurrent() {
   return GS._entSimCurrent || { narrative: '', options: [], extras: {} };
+}
+
+// ── 换天过渡遮罩 ──
+function showDayTransition(dayNum) {
+  try {
+    if (typeof document === 'undefined') return;
+    var overlay = document.createElement('div');
+    overlay.className = 'es-day-transition';
+    overlay.innerHTML = '<span class="es-day-trans-text">新的一天 · Day' + dayNum + '</span>';
+    document.body.appendChild(overlay);
+    setTimeout(function() {
+      overlay.classList.add('fade-out');
+      setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 400);
+    }, 600);
+  } catch(e) {}
+}
+
+// ── 章节跨越全屏光效 ──
+function showChapterTransition(icon, name, desc) {
+  try {
+    if (typeof document === 'undefined') return;
+    var glow = document.createElement('div');
+    glow.className = 'es-chapter-glow';
+    document.body.appendChild(glow);
+    var text = document.createElement('div');
+    text.className = 'es-chapter-text';
+    text.textContent = (icon || '') + ' ' + (name || '');
+    document.body.appendChild(text);
+    setTimeout(function() {
+      if (glow.parentNode) glow.parentNode.removeChild(glow);
+      if (text.parentNode) text.parentNode.removeChild(text);
+    }, 1600);
+  } catch(e) {}
+}
+
+// ── 每日结算弹窗 ──
+function showDailySettlement(E, lastPop, lastExp, lastAff) {
+  try {
+    if (typeof document === 'undefined') return;
+    var popDelta = ((E.career && E.career.popularity) || 0) - lastPop;
+    var expDelta = (E.misc.exposureAccum || 0) - lastExp;
+    var affDelta = (E.affection || 0) - lastAff;
+    var deltaText = '';
+    if (popDelta !== 0) deltaText += '人气 ' + (popDelta >= 0 ? '+' : '') + popDelta + '  ';
+    if (expDelta !== 0) deltaText += '曝光 ' + (expDelta >= 0 ? '+' : '') + expDelta + '  ';
+    if (affDelta !== 0) deltaText += '好感 ' + (affDelta >= 0 ? '+' : '') + affDelta;
+    if (!deltaText) deltaText = '数值无变化';
+    // 最近一条关键事件
+    var lastEvent = '';
+    if (E.careerHistory && E.careerHistory.length) {
+      var lastH = E.careerHistory[E.careerHistory.length - 1];
+      if (lastH && lastH.day === E.cycle.dayCount - 1) lastEvent = lastH.text || '';
+    }
+    var overlay = document.createElement('div');
+    overlay.className = 'es-stageup-overlay';
+    overlay.innerHTML = '<div class="es-stageup-card" style="border-color:rgba(160,140,220,.35);background:linear-gradient(160deg,#1f1a35,#151020)">' +
+      '<div style="font-size:36px;margin-bottom:4px">📋</div>' +
+      '<div style="font-size:18px;font-weight:700;color:#c8b8f0;margin-bottom:8px">Day ' + (E.cycle.dayCount - 1) + ' 结算</div>' +
+      '<div style="font-size:14px;color:rgba(220,210,255,.8);line-height:1.8;margin-bottom:10px">' + deltaText + '</div>' +
+      (lastEvent ? '<div style="font-size:12px;color:var(--es-text-dim);border-top:1px solid rgba(255,255,255,.08);padding-top:8px;max-width:300px;margin:0 auto;text-align:left">📌 ' + lastEvent + '</div>' : '') +
+      '<button id="es-settle-ok" class="primary" style="margin-top:10px;background:rgba(124,111,240,.25)">继续</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    var btn = document.getElementById('es-settle-ok');
+    if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  } catch(e) {}
+}
+
+// ── 粉丝泡泡：发送一条消息给粉丝 ──
+export async function sendBubbleMessage() {
+  var E = GS.entSim;
+  if (!E || !E.bubble) return;
+  if ((E.bubble.todayCount || 0) >= 5) { showToast('今天已经发够 5 条泡泡啦～明天再来吧'); return; }
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  GS._entSimGenerating = true;
+  try {
+    var sys = buildEntSimSystemPrompt();
+    var streak = E.bubble.streak || 0;
+    var sub = E.bubble.subscribers || 100;
+    var user = [
+      '【任务·粉丝泡泡】你正在使用泡泡（Bubble，粉丝付费订阅平台）给粉丝发消息。',
+      '请生成两段内容，用 ===FAN_REPLIES=== 分隔：',
+      '第一段：msgToFans — 你发了什么（30-60字，可以是自拍描述/语音内容/文字问候/日常分享）',
+      '第二段：3~5条 fanReplies — 粉丝的回复（每条15-30字，仅真粉丝语气：兴奋🥹/关心💜/表白✨/催更📢/甜美评论，不要路人和黑粉）',
+      '当前订阅数：' + sub + '，连续发送天数：' + streak,
+      '要求：不写 JSON、不写系统说明、不写选项。直接输出内容。'
+    ].join('\n');
+    var res = await generateWithRetry(sys, user, { plainText: true, skipValidate: true, maxTokens: 800, temperature: 0.9, sceneType: 'bubble' });
+    var fullText = res.raw || '';
+    var parts = fullText.split('===FAN_REPLIES===');
+    var msgToFans = (parts[0] || '').trim();
+    var fanRepliesStr = (parts[1] || '').trim();
+    var fanReplies = fanRepliesStr ? fanRepliesStr.split('\n').filter(function(l) { return l.trim(); }) : [];
+    // 保存到历史
+    E.bubble.messages = E.bubble.messages || [];
+    E.bubble.messages.push({ msg: msgToFans, replies: fanReplies, day: E.cycle.dayCount, ts: Date.now() });
+    E.bubble.todayCount = (E.bubble.todayCount || 0) + 1;
+    E.bubble.lastSentDay = E.cycle.dayCount;
+    // 人气加成（基于订阅数和连续天）
+    var popBonus = 1 + Math.floor(sub / 500) + (streak >= 7 ? 3 : 0);
+    popBonus = Math.min(5, popBonus);
+    addPopularity(popBonus, '泡泡营业·粉丝互动（连续' + streak + '天）');
+    saveGame();
+    return { msgToFans: msgToFans, fanReplies: fanReplies, subscribers: sub, streak: streak, todayCount: E.bubble.todayCount };
+  } catch(e) {
+    console.error('[sendBubbleMessage]', e);
+    showToast('⚠️ 泡泡发送失败：' + (e.message || '未知错误'));
+    return null;
+  } finally {
+    GS._entSimGenerating = false;
+  }
 }

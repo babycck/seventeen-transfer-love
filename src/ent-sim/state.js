@@ -64,6 +64,8 @@ export function initEntSimState() {
   E.dailyBuzz = { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenDay: -1 };
   E.appointments = []; // { with, place, timeHint, summary, roundCreated, done }
   E._svtTodaySeen = []; // 今天出场的 SVT 队友（name+desc），防同一天重复出场
+  // 粉丝泡泡系统（替代旧营业反馈）
+  E.bubble = { subscribers: 100 + randInt(0, 900), messages: [], todayCount: 0, lastSentDay: 0, streak: 0 };
   E.careerHistory = [];
   E.secret = { items: defaultSecrets(), foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 };
   E.brother = {
@@ -260,6 +262,11 @@ export function checkChapterAdvance() {
     E.chapter.icon = chapterIconOf(target);
     E.chapter.roundInChapter = 0;
     E.chapter.entered = true;
+    // 章节奖励：+1 掩护次数上限（最多7次）
+    if (E.romance && typeof E.romance.coverUsed === 'number') {
+      var newMax = Math.min(7, 5 + (target - old));
+      E.romance._coverMaxBonus = (E.romance._coverMaxBonus || 0) + (target - old);
+    }
     saveGame();
     return true;
   }
@@ -288,8 +295,30 @@ export function addPopularity(delta, reason) {
   if (reason) {
     GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, day: GS.entSim.cycle.dayCount, type: 'popularity', text: reason + ' ' + (delta >= 0 ? '+' : '') + delta });
   }
+  // 人气飘字：页面有 es-pop 元素时浮动显示 +N/-N
+  if (typeof delta === 'number' && delta !== 0 && typeof document !== 'undefined') {
+    spawnPopFloat(delta);
+  }
   saveGame();
   return p;
+}
+
+// 人气飘字：从人气数字上方漂浮 +N/-N（复用 affFloat 动画）
+function spawnPopFloat(delta) {
+  try {
+    var el = document.querySelector('.es-pop b');
+    if (!el) return;
+    var rect = el.getBoundingClientRect();
+    if (!rect) return;
+    var span = document.createElement('span');
+    span.className = 'es-pop-float';
+    span.style.left = rect.right + 'px';
+    span.style.top = rect.top + 'px';
+    span.style.color = delta >= 0 ? '#52c41a' : '#ff4d4f';
+    span.textContent = (delta >= 0 ? '+' : '') + delta;
+    document.body.appendChild(span);
+    setTimeout(function() { if (span.parentNode) span.parentNode.removeChild(span); }, 1300);
+  } catch(e) { /* 静默失败，不阻塞主流程 */ }
 }
 
 // 事业等级由人气阈值派生（弥补初始化后不再重算的缺口）

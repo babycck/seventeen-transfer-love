@@ -20,7 +20,7 @@ export var BROTHER_EVENT_POOL = [
 
 // 男主主动互动池（按好感阶段解锁）
 export var MALE_LEAD_INITIATIVE_POOL = [
-  { minAff: 0, text: '男主在群里发了条无关紧要的消息，却特意 @ 了你一下，像是想引起你注意。' },
+  { minAff: 0, text: '男主在 SEVENTEEN 工作群里发了条无关紧要的消息，却特意 @ 了你一下，像是想引起你注意。' },
   { minAff: 20, text: '男主借着工作名义给你发了条私信：“今天表现不错，辛苦了。”' },
   { minAff: 35, text: '男主“顺路”在公司门口等你，递了杯你爱喝的，说“刚好多了一杯”。' },
   { minAff: 50, text: '男主在只有你们两人的场合，低声问你：“最近……有没有想我？”' },
@@ -74,6 +74,17 @@ export function checkOneHeartEvents() {
   // 4. 女主秘密被撞破（男主发现）
   if (!ev && E.secret && E.secret.items && E.secret.items.length && rnd <= 15) {
     ev = cloneEvent(SECRET_DISCOVERY_EVENTS[randInt(0, SECRET_DISCOVERY_EVENTS.length - 1)]);
+  }
+
+  // 4.5. 狗仔偷拍：曝光≥30 时概率触发（每回合 15%）
+  if (!ev && (E.misc.exposureAccum || 0) >= 30 && rnd <= 20) {
+    var paparazziPool = [
+      { text: '晚上收工后你在便利店门口等车，暗处有快门声——第二天一张模糊的背影照传遍论坛。', key: 'paparazzi', exposure: 2 },
+      { text: '你和男主在楼道里擦肩而过，谁也没说话，但站姐拍到两人「对视为零」，放大后成了热搜。', key: 'paparazzi', exposure: 3 },
+      { text: '有人拍到你们在停车场同时上车，虽然中间隔了五分钟——粉丝做了逐帧分析：「就是同一个停车场」。', key: 'paparazzi', exposure: 2 },
+      { text: '队友帮你挡镜头的样子反而被拍下来成了热搜——粉丝评论：「这掩护也太明显了吧」。', key: 'paparazzi_hidden', exposure: 1 }
+    ];
+    ev = cloneEvent(paparazziPool[randInt(0, paparazziPool.length - 1)]);
   }
 
   // 5. 哥哥支线

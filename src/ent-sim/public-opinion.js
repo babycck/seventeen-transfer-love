@@ -23,7 +23,14 @@ export function addExposure(mag, reason) {
   var E = GS.entSim;
   if (!E) return mag;
   mag = mag || 0;
-  E.misc.exposureAccum = Math.max(0, (E.misc.exposureAccum || 0) + mag);
+  var oldTier = getExposureTier().tier;
+  var oldAccum = E.misc.exposureAccum || 0;
+  E.misc.exposureAccum = Math.max(0, oldAccum + mag);
+  var newTier = getExposureTier().tier;
+  // 曝光升级警告：跨档位时弹 toast
+  if (mag > 0 && newTier !== oldTier && newTier !== '安全') {
+    try { if (typeof showToast !== 'undefined') showToast('⚠️ 曝光等级上升：' + newTier + ' — ' + getExposureTier().label); } catch(e) {}
+  }
   if (reason) {
     E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'exposure', text: reason + '（曝光' + (mag >= 0 ? '+' : '') + mag + '，累计' + E.misc.exposureAccum + '）' });
   }

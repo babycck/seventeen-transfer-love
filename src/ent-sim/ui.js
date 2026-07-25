@@ -15,14 +15,14 @@ import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, bu
 import { getNpcNodes, interactNpc, getNpcInteractions } from './npc-network.js';
 import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
-  tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover
+  tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining
 } from './romance.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
   continueEntSimMain, triggerEntSimEvent, enterEntSimEnding,
   goEntSimNextDay, initiateEntSimDate, generateEntSimConfession,
   generateEntSimChat, generateEntSimMoment, generateEntSimTheater, handleEntSimRegenerate,
-  generateEntSimRound, runEntSimEnding, triggerTeammateEvent, triggerSVTTeammateEvent, restartEntSim
+  generateEntSimRound, runEntSimEnding, triggerTeammateEvent, triggerSVTTeammateEvent, restartEntSim, sendBubbleMessage
 } from './engine.js';
 import { STAGE_CEREMONY, TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './data.js';
 
@@ -94,7 +94,18 @@ function isHeroineRelated(item) {
   return hpName && t.indexOf(hpName) >= 0;
 }
 function suitorName() { var n = GS.entSim.npcNetwork.nodes['npc_suitor']; return (n && n.name) ? n.name : '团员'; }
-var DATE_VENUES = ['私人影院', '深夜江边', '他家', '车里', '天台', '地下停车场'];
+var DATE_VENUES = [
+  { name: '他家', exposure: 3, desc: '高风险，一旦被拍到百口莫辩' },
+  { name: '私人影院', exposure: 2, desc: '暗灯角落，旁人不易察觉' },
+  { name: '深夜江边', exposure: 1, desc: '开放空间，偶遇风险中等' },
+  { name: '天台', exposure: 1, desc: '公司楼顶，不太会有人上来' },
+  { name: '车里', exposure: 0, desc: '密闭私密，相对安全' },
+  { name: '地下停车场', exposure: 0, desc: '无人注意，最低调的选择' },
+  // 章节解锁（跨章时逐步开放）
+  { name: '他录音室', exposure: 1, desc: '以工作为名，偶尔有人经过', chapterMin: 2 },
+  { name: '深夜咖啡店', exposure: 2, desc: '营业到凌晨，适合深夜约会', chapterMin: 2 },
+  { name: '郊区民宿', exposure: 1, desc: '周末远行，远离首尔视线', chapterMin: 3 }
+];
 var THEATER_TYPES = [
   { type: 'malePOV', label: '男主视角', minAff: 20 },
   { type: 'rivalIF', label: '竞争者IF', minAff: 20 },
@@ -118,6 +129,7 @@ export function renderEntSimGameScreen() {
       if (endEl) endEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
     if (GS._entSimStageUpPending) showStageUpCeremony();
+    if (GS._entSimMilestonePending) showMilestoneCard();
   };
   return renderHtml();
 }
@@ -170,6 +182,7 @@ function renderHeader() {
       '</div>' +
       '<div class="es-h-right">' +
         '<span class="es-pop" id="es-pop-btn" style="cursor:pointer" title="点击查看人气变动日志">人气 <b>' + popularity() + '</b> <i style="font-style:normal;color:#9D8BFF">(' + careerLevel() + ')</i></span>' +
+        '<div class="es-pop-bar"><span style="width:' + Math.min(100, popularity()) + '%;background:linear-gradient(90deg,#7c6ff0,#9ad0a0)"></span></div>' +
         '<span class="es-aff-mini">好感 ' + E.affection + '/100</span>' +
         '<span class="es-icon-btn" id="es-settings-btn" title="设置">⚙️</span>' +
       '</div>' +
@@ -205,7 +218,7 @@ function renderLeft() {
       '<div class="es-col-title" style="margin-top:6px">👯 女团队友</div>' +
       '<div class="es-sis-list">' + (sisters || '<div class="es-empty">—</div>') + '</div>' +
       '<div class="es-col-title" style="margin-top:6px">🔍 曝光 ' + tier.label + '</div>' +
-      '<div class="es-exp-bar"><span style="width:' + exp + '%;background:' + expBarColor + '"></span></div>' +
+      '<div class="es-exp-bar' + (exp >= 50 ? ' es-exp-danger' : '') + '"><span style="width:' + exp + '%;background:' + expBarColor + '"></span></div>' +
       '<small style="color:var(--text-dim)">曝光值 ' + (E.misc.exposureAccum || 0) + ' · ' + tier.desc + '</small>' +
     '</div>';
 }
@@ -297,10 +310,11 @@ function renderQuickActions() {
   var quick = [
     { q: 'regenerate', label: '重新生成' },
     { q: 'nextagenda', label: '下一个行程' + (GS.entSim.cycle.timeOfDay >= 2 ? ' → 换天' : '') },
-    { q: 'cover', label: '🛡️ 掩护(' + (5 - (E.romance.coverUsed || 0)) + '/5)', act: 'cover' },
+    { q: 'cover', label: '🛡️ 掩护(' + (getCoverRemaining()) + '/' + (5 + (E.romance._coverMaxBonus || 0)) + ')', act: 'cover' },
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
     { q: 'svtvisit', label: 'SEVENTEEN队友' },
+    { q: 'bubble', label: '💬 粉丝泡泡(今日' + (E.bubble && E.bubble.todayCount || 0) + '/5)' },
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
   ].map(function(b) {
@@ -710,6 +724,7 @@ function onQuick(q) {
   // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
   if (q === 'visit') { showEntSimVisitChoice(); return; }
   if (q === 'svtvisit') { showSVTVisitPanel(); return; }
+  if (q === 'bubble') { showBubblePanel(); return; }
   if (q === 'ending') { onEnding(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
 
@@ -815,7 +830,10 @@ function showSVTVisitPanel() {
 function onRomanceAct(act) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
   if (act === 'date') {
-    var venue = DATE_VENUES[Math.floor(Math.random() * DATE_VENUES.length)];
+    var chap = (GS.entSim && GS.entSim.chapter && GS.entSim.chapter.index) || 1;
+    var available = DATE_VENUES.filter(function(v) { return !v.chapterMin || v.chapterMin <= chap; });
+    if (!available.length) available = DATE_VENUES;
+    var venue = available[Math.floor(Math.random() * available.length)];
     showCoverPanel(function() { initiateEntSimDate(venue).then(rerender); });
   } else if (act === 'confess') {
     generateEntSimConfession().then(rerender);
@@ -1069,13 +1087,80 @@ var _popLogTypeMeta = {
 };
 function onPopLog() {
   var E = GS.entSim;
+  // 人气走势图 Canvas
+  var chartHtml = '<div style="margin-bottom:12px"><canvas id="es-pop-chart" width="400" height="120" style="width:100%;max-width:400px;height:120px;border-radius:8px;background:rgba(20,15,40,.6)"></canvas></div>';
   var logs = (E.careerHistory || []).slice().reverse();
-  var html = logs.length ? logs.map(function(h) {
+  var logHtml = logs.length ? logs.map(function(h) {
     var meta = _popLogTypeMeta[h.type] || { label: h.type, cls: 'etc' };
     return '<div class="es-pop-log-item"><small>Day' + (h.day != null ? h.day : h.round) + '</small>' +
       '<span class="es-pop-tag ' + meta.cls + '">' + meta.label + '</span>' + escHtml(h.text) + '</div>';
   }).join('') : '<div class="es-empty">暂无变动记录</div>';
-  showEntSimModal('📈 人气变动日志', '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 累计曝光：<b>' + ((E.misc && E.misc.exposureAccum) || 0) + '</b></div>' + html, [{ id: 'close', label: '关闭' }]);
+  showEntSimModal('📈 人气走势与变动日志', chartHtml + '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 累计曝光：<b>' + ((E.misc && E.misc.exposureAccum) || 0) + '</b></div>' + logHtml, [{ id: 'close', label: '关闭' }]);
+  // 延迟绘制 Canvas（等待 DOM 就绪）
+  setTimeout(function() { drawPopChart(E); }, 100);
+}
+
+// Canvas 人气走势折线图（最近7天）
+function drawPopChart(E) {
+  try {
+    var canvas = document.getElementById('es-pop-chart');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width, h = canvas.height;
+    var pad = { top: 12, right: 16, bottom: 18, left: 32 };
+    var data = [];
+    // 从 careerHistory 提取每天的人气值（按 day 分组取最新）
+    var dayPop = {};
+    for (var i = 0; i < (E.careerHistory || []).length; i++) {
+      var item = E.careerHistory[i];
+      if (item.type === 'popularity' && typeof item.day === 'number') {
+        dayPop[item.day] = E.career.popularity; // 近似：用当前人气代表
+      }
+    }
+    // 补最近7天
+    var curDay = E.cycle.dayCount || 1;
+    for (var d = Math.max(1, curDay - 6); d <= curDay; d++) {
+      data.push({ day: d, pop: (dayPop[d] != null) ? dayPop[d] : null });
+    }
+    if (data.length < 2) return;
+    // 背景网格
+    ctx.fillStyle = 'rgba(20,15,40,.6)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,.06)';
+    ctx.lineWidth = 1;
+    for (var y = pad.top; y <= h - pad.bottom; y += (h - pad.top - pad.bottom) / 4) {
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    }
+    // 绘制折线
+    var validData = data.filter(function(d) { return d.pop != null; });
+    if (validData.length < 2) return;
+    var xStep = (w - pad.left - pad.right) / Math.max(1, data.length - 1);
+    var yMin = 0, yMax = 100;
+    ctx.strokeStyle = '#9d8bff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var j = 0; j < validData.length; j++) {
+      var x = pad.left + (validData[j].day - data[0].day) * xStep;
+      var yVal = pad.top + (1 - (validData[j].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
+      if (j === 0) ctx.moveTo(x, yVal);
+      else ctx.lineTo(x, yVal);
+    }
+    ctx.stroke();
+    // 数据点
+    ctx.fillStyle = '#d8cdf0';
+    for (var k = 0; k < validData.length; k++) {
+      var px = pad.left + (validData[k].day - data[0].day) * xStep;
+      var py = pad.top + (1 - (validData[k].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    // X 轴标签
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    for (var l = 0; l < data.length; l++) {
+      ctx.fillText('D' + data[l].day, pad.left + l * xStep, h - 4);
+    }
+  } catch(e) { /* 静默失败 */ }
 }
 
 // ---------- 📱 手机框弹窗：聊天 ----------
@@ -1689,13 +1774,36 @@ function showEndingCard(ending, narrative) {
     '<div class="es-ending-narr">' + body + '</div>' +
     '<div class="es-ending-actions">' +
       '<button id="es-ending-restart" class="primary">重新开始（新的一局）</button>' +
+      '<button id="es-ending-gallery" class="ghost">🏆 结局画廊</button>' +
       '<button id="es-ending-close" class="ghost">关闭</button>' +
     '</div></div>';
   document.body.appendChild(overlay);
   var closeBtn = document.getElementById('es-ending-close');
   var restartBtn = document.getElementById('es-ending-restart');
+  var galleryBtn = document.getElementById('es-ending-gallery');
   if (closeBtn) closeBtn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
   if (restartBtn) restartBtn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); restartEntSim(); });
+  if (galleryBtn) galleryBtn.addEventListener('click', function() { showEndingGallery(); });
+}
+
+// 结局画廊：展示所有已解锁结局卡片
+function showEndingGallery() {
+  try {
+    var raw = localStorage.getItem('es_endings_gallery');
+    var gallery = raw ? JSON.parse(raw) : [];
+    if (!gallery.length) { showToast('还没有解锁任何结局～'); return; }
+    var html = '<div style="display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto">';
+    for (var i = 0; i < gallery.length; i++) {
+      var g = gallery[i];
+      html += '<div style="padding:10px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(30,20,50,.5)">' +
+        '<span style="font-size:20px">' + escHtml(g.icon || '🎬') + '</span> ' +
+        '<span style="font-weight:700;color:#d8cdf0">' + escHtml(g.label || '未知') + '</span>' +
+        '<span style="float:right;font-size:11px;color:var(--es-text-dim)">' + escHtml(g.date || '') + '</span>' +
+        '<div style="font-size:12px;color:var(--es-text-dim);margin-top:4px">' + escHtml(g.text || '') + '</div></div>';
+    }
+    html += '</div>';
+    showEntSimModal('🏆 结局画廊（' + gallery.length + '个结局）', html, [{ id: 'close', label: '关闭' }]);
+  } catch(e) { showToast('画廊读取失败'); }
 }
 
 // ---------- 好感阶段升级仪式感 ----------
@@ -1715,4 +1823,99 @@ function showStageUpCeremony() {
   document.body.appendChild(overlay);
   var go = document.getElementById('es-stageup-go');
   if (go) go.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+}
+
+// 好感里程碑卡片（20/40/60/80）
+function showMilestoneCard() {
+  var m = GS._entSimMilestonePending;
+  if (!m) return;
+  GS._entSimMilestonePending = null;
+  var msgs = {
+    20: '他对你的关注不再是礼貌性的了——有时候他会不自觉地多看你一眼，然后迅速移开目光。',
+    40: '你在他身边会感到一种微妙的安心。他记住了你说过的小事，甚至连你讨厌吃什么都知道。',
+    60: '心动的感觉越来越清晰。你开始期待收到他的消息，而他也学会了在你面前露出不设防的笑容。',
+    80: '你们之间的距离只剩下一层薄薄的窗纸。他的眼神里藏着太多没说出口的话，而你也已经准备好了听。'
+  };
+  var desc = msgs[m.threshold] || '你们之间的关系，又近了一步。';
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card" style="border-color:rgba(255,170,200,.4);background:linear-gradient(160deg,#3a2535,#1f1525)">' +
+    '<div class="es-stageup-icon">' + (m.icon || '💗') + '</div>' +
+    '<div class="es-stageup-label" style="color:#ffb8d4">' + escHtml(m.label || '') + '</div>' +
+    '<div class="es-stageup-desc" style="color:rgba(255,200,220,.9)">' + escHtml(desc) + '</div>' +
+    '<button id="es-milestone-go" class="primary" style="background:rgba(255,140,180,.25)">❥ 继续</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var go = document.getElementById('es-milestone-go');
+  if (go) go.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+}
+
+// ── 粉丝泡泡面板 ──
+function showBubblePanel() {
+  var E = GS.entSim;
+  var bubble = E.bubble || {};
+  var todayCount = bubble.todayCount || 0;
+  var maxDaily = 5;
+  var streak = bubble.streak || 0;
+  var sub = bubble.subscribers || 0;
+  var messages = bubble.messages || [];
+  // 消息历史（最新5条）
+  var histHtml = '';
+  var recentMsgs = messages.slice(-5).reverse();
+  for (var i = 0; i < recentMsgs.length; i++) {
+    var m = recentMsgs[i];
+    histHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="font-size:12px;color:#d8cdf0;margin-bottom:3px">💬 ' + escHtml(m.msg || '') + '</div>';
+    if (m.replies && m.replies.length) {
+      for (var r = 0; r < m.replies.length; r++) {
+        histHtml += '<div style="font-size:11px;color:rgba(255,200,220,.7);margin-left:10px">❤️ ' + escHtml(m.replies[r]) + '</div>';
+      }
+    }
+    histHtml += '</div>';
+  }
+  var canSend = todayCount < maxDaily;
+  var html = '<div style="text-align:center;margin-bottom:10px">' +
+    '📱 <b style="color:#ffb8d4">订阅数 ' + sub + '</b> · ' + (streak >= 7 ? '🔥连续' : '') + streak + '天' +
+    ' · 今日已发 <b>' + todayCount + '/' + maxDaily + '</b>' +
+    '</div>' +
+    '<div style="max-height:40vh;overflow-y:auto;margin-bottom:10px">' +
+    (histHtml || '<div style="color:var(--es-text-dim);text-align:center;padding:20px">还没有发过泡泡～发第一条消息给粉丝吧💜</div>') +
+    '</div>' +
+    '<button id="es-bubble-send" class="primary" style="display:block;width:100%;margin-top:6px"' +
+    (canSend ? '' : ' disabled style="opacity:.4;cursor:not-allowed"') +
+    '>' + (canSend ? '💬 发送泡泡消息' : '🕒 今日已达上限（5/5）') + '</button>';
+  showEntSimModal('💬 粉丝泡泡', html, [{ id: 'close', label: '关闭' }]);
+  if (canSend) {
+    setTimeout(function() {
+      var btn = document.getElementById('es-bubble-send');
+      if (btn) btn.addEventListener('click', function() {
+        closeEntSimModal();
+        showNarrativeLoading();
+        sendBubbleMessage().then(function(res) {
+          if (res) {
+            showBubbleResult(res);
+          } else {
+            showToast('泡泡发送失败');
+          }
+          rerender();
+        });
+      });
+    }, 100);
+  }
+}
+
+// 泡泡发送结果弹窗
+function showBubbleResult(res) {
+  var repliesHtml = (res.fanReplies && res.fanReplies.length) ?
+    res.fanReplies.map(function(r) { return '<div style="font-size:12px;color:rgba(255,200,220,.75);margin:3px 0">❤️ ' + escHtml(r) + '</div>'; }).join('') :
+    '<div style="font-size:12px;color:var(--es-text-dim)">（粉丝还没反应…）</div>';
+  var html = '<div style="margin-bottom:10px;line-height:1.8">' +
+    '<div style="font-size:14px;color:#d8cdf0;margin-bottom:8px">📤 <b>你发了：</b><br>' + escHtml(res.msgToFans || '') + '</div>' +
+    '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:8px;margin-top:4px">' +
+    '<div style="font-size:13px;color:#ffb8d4;margin-bottom:4px">📥 <b>粉丝回复：</b></div>' +
+    repliesHtml +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--es-text-dim);margin-top:8px">订阅数 ' + (res.subscribers || 0) + ' · 连续 ' + (res.streak || 0) + '天 · 今日 ' + (res.todayCount || 0) + '/5</div>' +
+    '</div>';
+  showEntSimModal('💬 泡泡发送成功', html, [{ id: 'close', label: '知道了' }]);
 }

@@ -41,18 +41,30 @@ export function affectionDepth(aff) {
 
 // 好感度结算：AI 每回合返回的 affectionDelta 驱动，±1-3 点
 // 跨「暧昧→心动」阈值时触发心动时刻（插当前剧情前）
+// 额外里程碑：20/40/60/80 弹心动小卡片
 export function applyEntSimAffection(delta) {
   var E = GS.entSim;
   if (E === undefined || E === null) return 0;
-  var oldIdx = affectionStageIndex(E.affection);
-  E.affection = Math.max(0, Math.min(100, (E.affection || 0) + (delta || 0)));
+  var oldAff = E.affection || 0;
+  var oldIdx = affectionStageIndex(oldAff);
+  E.affection = Math.max(0, Math.min(100, oldAff + (delta || 0)));
   var newIdx = affectionStageIndex(E.affection);
   E.romance.stage = AFFECTION_STAGES[newIdx].label;
+  // 好感里程碑卡片（20/40/60/80），每阈值仅触发一次
+  var milestones = [20, 40, 60, 80];
+  for (var i = 0; i < milestones.length; i++) {
+    var m = milestones[i];
+    if (oldAff < m && E.affection >= m && !E.flags['milestone_' + m]) {
+      E.flags['milestone_' + m] = true;
+      GS._entSimMilestonePending = { threshold: m, icon: '💗', label: '好感度突破' + m + '！' };
+      break; // 一次只弹一个
+    }
+  }
   // 心动时刻：暧昧(3) → 心动(4) 仅触发一次
   if (oldIdx < 4 && newIdx >= 4 && !E.flags.heartbeatShown) {
     E.flags.heartbeatShown = true;
     GS._entSimHeartbeatPending = true; // UI 在渲染当前剧情前插入心动时刻
-  } else if (newIdx > oldIdx) {
+  } else if (newIdx > oldIdx && !GS._entSimMilestonePending) {
     // 其它阶段跨越：触发阶段升级仪式感（UI 弹卡片）。心动由心动时刻单独处理
     GS._entSimStageUpPending = {
       to: newIdx,
@@ -179,12 +191,16 @@ export function applyCover(type) {
 
 export function canUseCover() {
   var E = GS.entSim;
-  return E && E.romance && E.romance.coverUsed < 5;
+  if (!E || !E.romance) return false;
+  var max = 5 + (E.romance._coverMaxBonus || 0);
+  return E.romance.coverUsed < max;
 }
 
 export function getCoverRemaining() {
   var E = GS.entSim;
-  return E && E.romance ? 5 - E.romance.coverUsed : 0;
+  if (!E || !E.romance) return 0;
+  var max = 5 + (E.romance._coverMaxBonus || 0);
+  return max - (E.romance.coverUsed || 0);
 }
 
 export function getRomanceStageLabel() {

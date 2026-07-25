@@ -2574,6 +2574,70 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
   background: linear-gradient(90deg, #ffb86b, var(--es-red));
   border-radius: 999px; transition: width .4s;
 }
+/* 曝光危险脉冲（≥50时进度条呼吸闪烁） */
+.es-exp-bar.es-exp-danger span {
+  animation: es-exp-pulse 1.8s ease-in-out infinite;
+}
+@keyframes es-exp-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--es-red); }
+  50% { opacity: .55; box-shadow: 0 0 16px rgba(255,95,120,.8); }
+}
+
+/* 人气进度条（header 区，与曝光条同风格） */
+.es-pop-bar {
+  height: 7px; border-radius: 999px; background: var(--es-soft);
+  overflow: hidden; border: 1px solid var(--es-card-border);
+  min-width: 60px; margin-top: 2px;
+}
+.es-pop-bar span {
+  display: block; height: 100%; border-radius: 999px; transition: width .5s;
+}
+
+/* 人气飘字（复用 aff-float 动画） */
+.es-pop-float {
+  position: fixed; z-index: 9999; pointer-events: none;
+  font-weight: 900; font-size: 18px; animation: affFloat 1.2s ease-out forwards;
+  text-shadow: 0 0 8px rgba(0,0,0,.7);
+}
+
+/* 换天过渡遮罩 */
+.es-day-transition {
+  position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center;
+  background: rgba(6,4,20,.88); backdrop-filter: blur(4px);
+  animation: esFadeIn .5s ease;
+}
+.es-day-transition.fade-out { animation: esFadeOut .35s ease forwards; }
+.es-day-trans-text {
+  font-size: 28px; font-weight: 800; color: #d8cdf0; letter-spacing: 4px;
+  animation: esDayPulse 1.2s ease-in-out;
+}
+@keyframes esDayPulse {
+  0% { opacity: 0; transform: scale(.6); }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 章节跨越全屏光效 */
+.es-chapter-glow {
+  position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(124,111,240,.25), transparent 70%);
+  animation: milestoneGlow 1.5s ease-out forwards;
+}
+.es-chapter-text {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 9998; pointer-events: none;
+  font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 6px;
+  text-shadow: 0 0 30px rgba(124,111,240,.8);
+  animation: chapterTextPop 1.5s ease-out forwards;
+}
+@keyframes chapterTextPop {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
+  50% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.5); }
+}
+
+@keyframes esFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes esFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
 /* Header 迷你信息 */
 .es-aff-mini { font-size: 12px; color: var(--es-text-dim); white-space: nowrap; }
