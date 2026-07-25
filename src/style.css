@@ -2356,7 +2356,7 @@ body {
 .es-modal {
   background: linear-gradient(160deg, #241d3d, #1a1530); border: 1px solid var(--es-card-border);
   border-radius: 16px; padding: 20px; max-width: 460px;
-  width: 100%; max-height: 84vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  width: 100%; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5);
 }
 .es-modal-title { font-size: 16px; font-weight: 700; color: var(--es-text); margin-bottom: 12px; }
 .es-modal-body { font-size: 13px; line-height: 1.8; color: var(--es-text); }
