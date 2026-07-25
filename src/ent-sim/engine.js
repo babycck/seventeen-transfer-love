@@ -166,6 +166,25 @@ function applySideEffects(extras) {
   if (extras.brother) applyBrotherEffect(extras.brother);
   if (extras.secret) applySecretEffect(extras.secret);
   if (extras.endingsHint) GS.entSim.endings.hint = extras.endingsHint;
+  // 约定：AI 生成的赴约提议存入状态
+  if (extras.appointments && extras.appointments.length) {
+    var E = GS.entSim;
+    E.appointments = E.appointments || [];
+    var existingPlaces = E.appointments.map(function(a) { return a.place; });
+    extras.appointments.forEach(function(a) {
+      if (existingPlaces.indexOf(a.place) < 0 && E.appointments.length < 3) {
+        E.appointments.push({
+          with: a.with || 'maleLead',
+          place: a.place,
+          timeHint: a.timeHint || '',
+          summary: a.summary || '',
+          roundCreated: E.cycle.roundTotal,
+          done: false
+        });
+      }
+    });
+    saveGame();
+  }
 }
 
 function applyNpcEncounter(enc) {
@@ -225,7 +244,7 @@ export function goEntSimNextDay() {
     E._momentCounter = 0;
     generateEntSimMoment(); // 异步，不阻塞换天流程
   }
-  E.cycle.timeOfDay = 0; // 时段不随操作推进，换天重置为上午
+  E.cycle.timeOfDay = 0; // 换天重置为上午（时段由「下一个行程」逐档推进）
   E.chapter.roundInChapter = (E.chapter.roundInChapter || 0) + 1; // 章节内回合/天数累计
   tickRomanceTimers(); // 清理过期冷战 / 告白冷却
   rollDailyAgenda();
@@ -304,9 +323,25 @@ export function triggerEntSimHypothetical(prompt) {
   return generateEntSimRound('hypothetical', { hypotheticalText: prompt || '另一种可能', noSideEffects: true });
 }
 
-// 继续主线（拉回主线）
+// 继续主线（拉回主线）：推进自己的时段 上午→下午→夜晚→换天
 export function continueEntSimMain() {
-  return generateEntSimRound('phase', {});
+  var E = GS.entSim;
+  var slot = E.cycle.timeOfDay || 0;
+  // 夜晚过后 → 进入下一天
+  if (slot >= 2) {
+    return goEntSimNextDay();
+  }
+  // 推进时段
+  var newSlot = slot + 1;
+  E.cycle.timeOfDay = newSlot;
+  E.cycle.roundTotal = (E.cycle.roundTotal || 0) + 1;
+  saveGame();
+  var slotLabel = ['上午', '下午', '夜晚'][newSlot];
+  return generateEntSimRound('phase', {
+    timeSlot: newSlot,
+    timeSlotLabel: slotLabel,
+    freeSlot: newSlot >= 2
+  });
 }
 
 // 进入终局评估（强制检查条件：好感≥100 且距甜度峰值≥10轮）

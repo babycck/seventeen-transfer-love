@@ -109,5 +109,17 @@ export function parseEntSimExtras(extras) {
       foundByRival: !!extras.secret.foundByRival
     };
   }
+  if (Array.isArray(extras.appointments)) {
+    out.appointments = extras.appointments.filter(function(a) {
+      return a && a.place && a.summary;
+    }).map(function(a) {
+      return {
+        with: a.with || 'maleLead',
+        place: typeof a.place === 'string' ? a.place : '',
+        timeHint: typeof a.timeHint === 'string' ? a.timeHint : '',
+        summary: typeof a.summary === 'string' ? a.summary : ''
+      };
+    });
+  }
   return out;
 }

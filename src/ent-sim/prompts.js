@@ -94,8 +94,10 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '"exposureEvent":{"magnitude":0,"note":""},';
     sys += '"brother":{"stance":"","supportDelta":0,"note":""},';
     sys += '"secret":{"item":"","foundByRival":false},';
-    sys += '"endingsHint":""}}\n';
+    sys += '"endingsHint":"",';
+    sys += '"appointments":[{"with":"maleLead","place":"天台","timeHint":"今晚/明天/下周","summary":"他约你天台见面聊聊心事"}]}}\n';
     sys += '所有数值增量请用正负整数表示微小变化（如 +2/-3）。options 固定 3 个。\n';
+    sys += '【约定系统】如果男主在剧情中主动提出约定（如"今晚天台见""明天咖啡厅等我""下周一起吃饭"等），请在 appointments 数组中输出 1 条约会约定。with 固定 "maleLead"，place 填具体地点，timeHint 用"今晚/明天/下周"等，summary 用一句话概括。不要伪造 AI 没写过的约定。\n';
   }
   return sys;
 }
@@ -109,7 +111,9 @@ export function buildEntSimUserMessage(type, extra) {
 
   if (type === 'phase') {
     if (extra.nextDayOpening) {
-      msg = '【新的一天开始】这是第 ' + (E.cycle.dayCount || 1) + ' 天。请先描写新一天的环境与氛围（天气／练习室／通告安排），让女主从昨夜收束到今晨，再自然推进剧情。';
+      msg = '【新的一天开始】这是第 ' + (E.cycle.dayCount || 1) + ' 天。请先描写新一天上午的环境与氛围（天气／练习室／通告安排），让女主从昨夜收束到今晨，再自然推进剧情。';
+    } else if (extra.timeSlotLabel) {
+      msg = '【时段推进】现在是' + extra.timeSlotLabel + '，推进剧情到新的时段场景。';
     } else {
       msg = '推进一个新回合的剧情。';
     }
@@ -121,9 +125,11 @@ export function buildEntSimUserMessage(type, extra) {
     msg = '触发事件：「' + (extra.eventText || '') + '」。请描写其影响并给出应对选项。\n';
   }
 
-  // 同天上下文：注入今天已发生的全部剧情，保证 AI 场景连续性
+  // 同天上下文：注入最近剧情摘要，限制 1200 字避免 AI 镜像循环
   if (!extra.nextDayOpening && GS._entSimCurrent && GS._entSimCurrent.narrative) {
-    msg += '\n【今天目前为止发生的所有事（请保持场景、人物、时间连续性，不要跳场景或重复已发生的内容）】\n' + GS._entSimCurrent.narrative + '\n';
+    var fullNar = GS._entSimCurrent.narrative;
+    var clipNar = fullNar.length > 1200 ? '（...前面剧情已折叠，以下是最近发生的事）\n' + fullNar.slice(-1200) : fullNar;
+    msg += '\n【今天最近发生的剧情·请保持连续性但不要重复已发生的内容】\n' + clipNar + '\n';
   } else if (type === 'date') {
     msg = '【约会场景】' + (extra.dateVenue || '私人影院') + ' · ' + getTimeOfDayLabel() + '。请生成约会的沉浸式剧情与 3 个选项（每选项标注 affectionDelta 与曝光风险）。\n';
   } else if (type === 'confess') {
@@ -161,12 +167,19 @@ export function buildEntSimUserMessage(type, extra) {
   }
 
   msg += '\n\n【当前状态快照】\n' + buildEntSimContextSnapshot();
-  // 强制场景锁定：剧情必须跟随今日日程（除非玩家主动指定了 scene）
+  // 强制场景锁定：根据当前时段切换场景
   var _ag = GS.entSim.agenda || {};
   if (extra && extra.scene) {
     msg += '\n【本场场景·强制锁定】' + extra.scene + '。本段剧情必须发生在这个场景里，角色位置、对话、动作都要贴合该场景的物理空间与氛围，不要凭空切换到无关地点。\n';
+  } else if (extra && extra.freeSlot) {
+    // 夜晚自由时段：无固定行程，可赴约/社交/回顾/创作
+    msg += '\n【时段·自由】现在是' + (extra.timeSlotLabel || '夜晚') + '，你的核心行程已结束，这是你自己的时间。可以安排约会、和队友聊天、写日记、刷手机、或者回顾今天发生的事。不需要锁定特定场景。\n';
+  } else if (extra && extra.timeSlot === 1) {
+    // 下午：次要行程
+    msg += '\n【本场场景·强制锁定】现在是下午，你的行程：' + (_ag.related || '相关活动') + (_ag.relatedLoc ? '（地点：' + _ag.relatedLoc + '）' : '') + '。本段剧情必须发生在这个行程场景内，角色位置、对话、动作都要贴合该场景的物理空间与氛围，不要凭空切换到无关地点。\n';
   } else if (type === 'phase' || type === 'choice' || type === 'free') {
-    msg += '\n【本场场景·强制锁定】今日核心行程：' + (_ag.main || '待定') + (_ag.mainLoc ? '（地点：' + _ag.mainLoc + '）' : '') + '。本段剧情必须发生在这个行程场景内，角色位置、对话、动作都要贴合该场景的物理空间与氛围，不要凭空切换到无关地点。\n';
+    // 上午（默认）：主档行程
+    msg += '\n【本场场景·强制锁定】现在是上午，今日核心行程：' + (_ag.main || '待定') + (_ag.mainLoc ? '（地点：' + _ag.mainLoc + '）' : '') + '。本段剧情必须发生在这个行程场景内，角色位置、对话、动作都要贴合该场景的物理空间与氛围，不要凭空切换到无关地点。\n';
   }
   if (extra && extra.extraNote) msg += '\n【补充】' + extra.extraNote + '\n';
   msg += '\n请输出 JSON（narrative + options + entSimExtras）。';

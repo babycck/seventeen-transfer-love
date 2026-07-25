@@ -2822,6 +2822,32 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 }
 .es-ag-tag .es-ic { opacity: .65; }
 
+/* 时段指示器 */
+.es-agenda-time {
+  font-size: 12px; color: var(--es-accent); font-weight: 600;
+  padding: 4px 10px; border-radius: 8px;
+  background: rgba(185,174,224,.1); border: 1px solid rgba(185,174,224,.2);
+  margin-bottom: 2px; text-align: center;
+}
+/* 当前时段高亮行程 */
+.es-ag-tag.es-ag-active {
+  opacity: 1; border-color: var(--es-accent);
+  background: rgba(185,174,224,.12); box-shadow: 0 0 8px rgba(185,174,224,.15);
+}
+/* 约定卡片 */
+.es-apt-btn {
+  cursor: pointer; transition: .15s; border: 1px dashed var(--es-accent);
+  background: rgba(185,174,224,.08);
+}
+.es-apt-btn:hover:not([disabled]) {
+  border-style: solid; background: rgba(185,174,224,.16);
+  transform: translateX(2px);
+}
+.es-apt-btn.es-apt-locked {
+  cursor: not-allowed; opacity: .45; border-color: var(--es-card-border);
+  background: var(--es-soft);
+}
+
 /* 女团队友按钮化 */
 .es-sis { cursor: pointer; transition: .15s; width: 100%; text-align: left; }
 .es-sis:hover { border-color: var(--es-accent); background: var(--es-soft-hover); transform: translateY(-1px); }

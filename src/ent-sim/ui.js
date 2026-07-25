@@ -219,22 +219,40 @@ function getExposureTierLabel(accum) {
 }
 function renderAgenda() {
   var E = GS.entSim;
+  var tod = E.cycle.timeOfDay || 0;
+  var slotIcons = ['☀️', '🌤️', '🌙'];
+  var slotLabel = getTimeOfDayLabel();
+  // 时段指示器：当前在哪个时段
+  var header = '<div class="es-agenda-time">' + slotIcons[tod] + ' 当前 · ' + slotLabel + '（第' + (tod + 1) + '/3 档）</div>';
+  // 不同时段高亮自己的行程
+  var highlightKey = tod === 0 ? 'main' : tod === 1 ? 'related' : '';
   var items = [
-    { key: 'main', icon: '🎤', text: (E.agenda.main || '主档') + (E.agenda.mainLoc ? '（' + E.agenda.mainLoc + '）' : '') },
-    { key: 'maleLead', icon: '💜', text: '男主：' + (E.agenda.maleLead || '行程中') + (E.agenda.maleLeadLoc ? '（' + E.agenda.maleLeadLoc + '）' : '') },
-    { key: 'related', icon: '📺', text: E.agenda.related || '相关' },
-    { key: 'rival', icon: '💢', text: suitorName() + '：' + (E.agenda.rival || '行程中') + (E.agenda.rivalLoc ? '（' + E.agenda.rivalLoc + '）' : '') }
+    { key: 'main', icon: '🎤', text: (E.agenda.main || '主档') + (E.agenda.mainLoc ? '（' + E.agenda.mainLoc + '）' : ''), active: highlightKey === 'main' },
+    { key: 'maleLead', icon: '💜', text: '男主：' + (E.agenda.maleLead || '行程中') + (E.agenda.maleLeadLoc ? '（' + E.agenda.maleLeadLoc + '）' : ''), active: false },
+    { key: 'related', icon: '📺', text: E.agenda.related || '相关', active: highlightKey === 'related' },
+    { key: 'rival', icon: '💢', text: suitorName() + '：' + (E.agenda.rival || '行程中') + (E.agenda.rivalLoc ? '（' + E.agenda.rivalLoc + '）' : ''), active: false }
   ];
   if (E.agenda.brother && E.brother && E.brother.name) {
-    items.push({ key: 'brother', icon: '👨', text: (E.agenda.brother || '哥哥') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : '') });
+    items.push({ key: 'brother', icon: '👨', text: (E.agenda.brother || '哥哥') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : ''), active: false });
   }
-  return '<div class="es-agenda">' + items.map(function(it) {
-    if (it.key === 'teammate') {
-      var done = (E.agenda.doneFlags && E.agenda.doneFlags[it.key]) ? ' done' : '';
-      return '<button class="es-ag-btn' + done + '" data-agenda="' + it.key + '"><span class="es-ic">' + it.icon + '</span>' + escHtml(it.text) + '</button>';
-    }
-    return '<div class="es-ag-tag"><span class="es-ic">' + it.icon + '</span>' + escHtml(it.text) + '</div>';
-  }).join('') + '</div>';
+  // 约定卡片：可点击赴约
+  var aptCards = '';
+  var apts = (E.appointments || []).filter(function(a) { return !a.done; });
+  if (apts.length) {
+    aptCards = '<div class="es-col-title" style="margin-top:6px">📅 约定</div>' +
+      apts.map(function(a, i) {
+        var canGo = tod >= 2 || a.timeHint === '今晚' || a.timeHint === slotLabel;
+        var cls = canGo ? '' : ' es-apt-locked';
+        return '<button class="es-ag-btn es-apt-btn' + cls + '" data-apt="' + i + '"' + (canGo ? '' : ' disabled') + '>' +
+          '<span class="es-ic">' + (canGo ? '📍' : '🔒') + '</span>' +
+          escHtml(a.summary || a.place) + ' <small>' + escHtml(a.timeHint || '') + ' · ' + escHtml(a.place || '') + '</small>' +
+          '</button>';
+      }).join('');
+  }
+  return '<div class="es-agenda">' + header + items.map(function(it) {
+    var cls = 'es-ag-tag' + (it.active ? ' es-ag-active' : '');
+    return '<div class="' + cls + '"><span class="es-ic">' + it.icon + '</span>' + escHtml(it.text) + '</div>';
+  }).join('') + aptCards + '</div>';
 }
 
 // ---------- Center · 剧情 ----------
@@ -278,7 +296,7 @@ function renderQuickActions() {
   var E = GS.entSim;
   var quick = [
     { q: 'regenerate', label: '重新生成' },
-    { q: 'nextagenda', label: '下一个行程' },
+    { q: 'nextagenda', label: '下一个行程' + (GS.entSim.cycle.timeOfDay >= 2 ? ' → 换天' : '') },
     { q: 'cover', label: '🛡️ 掩护(' + (5 - (E.romance.coverUsed || 0)) + '/5)', act: 'cover' },
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
@@ -538,6 +556,9 @@ function bindStoryEvents() {
   document.querySelectorAll('.es-ag-btn[data-agenda]').forEach(function(b) {
     b.addEventListener('click', function() { onAgendaClick(b.dataset.agenda); });
   });
+  document.querySelectorAll('.es-ag-btn[data-apt]').forEach(function(b) {
+    b.addEventListener('click', function() { onAppointmentClick(parseInt(b.dataset.apt, 10)); });
+  });
   document.querySelectorAll('.es-sis[data-sis]').forEach(function(b) {
     b.addEventListener('click', function() { showNarrativeLoading(); triggerTeammateEvent(GS.entSim.heroineGroup[parseInt(b.dataset.sis, 10)]); });
   });
@@ -631,6 +652,21 @@ function onAgendaClick(kind) {
   var extraNote = '请重点围绕「' + text + '」这个行程展开剧情，并把场景切换到该行程所在地（' + (loc || '贴合该行程的合理地点') + '），角色互动要贴合此场景氛围。';
   if (E.agenda) { E.agenda.doneFlags = E.agenda.doneFlags || {}; E.agenda.doneFlags[kind] = true; saveGame(); }
   triggerEntSimEvent('今日行程·' + kind + '：' + text, { extraNote: extraNote, scene: scene }).then(rerender);
+}
+// 赴约：点击约定卡片生成赴约剧情
+function onAppointmentClick(idx) {
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  var E = GS.entSim;
+  var apts = E.appointments || [];
+  if (idx < 0 || idx >= apts.length) return;
+  var apt = apts[idx];
+  if (apt.done) return;
+  showNarrativeLoading();
+  apt.done = true; saveGame();
+  triggerEntSimEvent('赴约·' + apt.place + '：' + apt.summary, {
+    scene: apt.place,
+    extraNote: '你按照约定来到了「' + apt.place + '」。请生成约300字的赴约剧情，描写你和男主在这里的相处。要贴合' + (apt.timeHint || '') + '的氛围，注重两人独处时的小细节与情感流动。在选项中要保留"这个约定让你心动"的意味。'
+  }).then(rerender);
 }
 function onNpcInteract(type) {
   var E = GS.entSim;
