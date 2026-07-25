@@ -4,18 +4,19 @@
 // 底部：8阶段好感度条 + 快捷指令(拉回主线/随机事件/探班/走向结局/进入下一天) + 4 Tab(剧情/聊天/朋友圈/剧场)
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { popularity, careerLevel } from './state.js';
+import { popularity, careerLevel, addPopularity } from './state.js';
 import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from '../data.js';
 import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
+import { RELEASE_POOL } from './pools-v2.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
 import { getNpcNodes, interactNpc, getNpcInteractions } from './npc-network.js';
 import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
-  tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining
+  tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining, getJealousLabel
 } from './romance.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
@@ -130,6 +131,7 @@ export function renderEntSimGameScreen() {
     }, 80);
     if (GS._entSimStageUpPending) showStageUpCeremony();
     if (GS._entSimMilestonePending) showMilestoneCard();
+    checkAndShowPendingPopups();
   };
   return renderHtml();
 }
@@ -314,6 +316,7 @@ function renderQuickActions() {
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
     { q: 'svtvisit', label: 'SEVENTEEN队友' },
+    { q: 'release', label: '📀发布作品' + (E._releaseCD > 0 ? ' (CD' + E._releaseCD + ')' : '') },
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
   ].map(function(b) {
@@ -385,6 +388,15 @@ function renderRight() {
       '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
     '</div>';
 }
+// 亲密图标行
+function intimacyIcons() {
+  var E = GS.entSim;
+  var un = E._intimacyUnlocked || { hand: false, hug: false, kiss: false };
+  var h = un.hand ? '🤝 ✓' : '🤝 —';
+  var u = un.hug ? '🤗 ✓' : '🤗 —';
+  var k = un.kiss ? '💋 ✓' : '💋 🔒';
+  return '<span style="font-size:12px;opacity:0.7">' + h + '</span> <span style="font-size:12px;opacity:' + (un.hug ? '0.9' : '0.4') + '">' + u + '</span> <span style="font-size:12px;opacity:' + (un.kiss ? '0.9' : '0.3') + '">' + k + '</span>';
+}
 // 右栏恋情面板：阶段 / 好感 / 曝光 / 已用掩护 / 哥哥支持度
 function renderLovePanel() {
   var E = GS.entSim;
@@ -396,8 +408,15 @@ function renderLovePanel() {
     '<div class="es-col-title" style="margin:0 0 4px 0">💗 恋情面板</div>' +
     '<div class="es-risk-row"><span>阶段</span><span>' + getRomanceStageIcon() + ' ' + stage + '</span></div>' +
     '<div class="es-risk-row es-aff-clickable"><span>好感</span><span><b>' + E.affection + '</b>/100</span></div>' +
+    '<div class="es-intimacy-row"><span>亲密</span><span>' + intimacyIcons() + '</span></div>' +
     '<div class="es-risk-row"><span>曝光</span><span>' + tier.label + ' (' + exp + ')</span></div>' +
     '<div class="es-risk-row"><span>掩护</span><span>' + cover + '/5</span></div>';
+  // v2：吃醋标记
+  var jLvl = E._jealousLevel || 0;
+  if (jLvl >= 2) {
+    var jLabel = getJealousLabel(jLvl);
+    html += '<div class="es-risk-row" style="margin-top:4px;border-top:1px solid rgba(255,255,255,.06);padding-top:4px"><span>🍋吃醋</span><span>' + jLabel.label + '</span></div>';
+  }
   if (E.brother && E.brother.name) {
     html += '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
   }
@@ -742,6 +761,7 @@ function onQuick(q) {
   if (q === 'visit') { showEntSimVisitChoice(); return; }
   if (q === 'svtvisit') { showSVTVisitPanel(); return; }
   if (q === 'bubble') { showBusinessPanel(); return; }
+  if (q === 'release') { showReleasePanel(); return; }
   if (q === 'ending') { onEnding(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
 
@@ -2033,5 +2053,187 @@ function showMilestoneCard() {
 }
 
 /**
- * entSim ui.js — 泡泡/反馈已整合到 showBusinessPanel()，旧独立函数已移除。
+ * entSim ui.js — v2 新增弹窗：发布作品 / 粉丝来信 / 品牌代言 / 季度颁奖
  */
+
+// 发布作品面板（6选1）
+function showReleasePanel() {
+  var E = GS.entSim;
+  if (E._releaseCD > 0) { showToast('📀 作品发布冷却中（还需 ' + E._releaseCD + ' 天）'); return; }
+  if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  try { var ReleasePool = RELEASE_POOL; } catch(e) { showToast('数据加载中…'); return; }
+  if (!ReleasePool) { showToast('数据加载中…'); return; }
+  var pool = ReleasePool;
+  var html = '<div style="max-height:65vh;overflow-y:auto"><p style="margin:0 0 12px;color:var(--es-text-dim);text-align:center">选择要发布的作品类型</p>';
+  var cats = [
+    { cat:'single', icon:'🎵', label:'发行单曲', desc:'在音源平台上线新歌，提升人气和关注度' },
+    { cat:'photobook', icon:'📸', label:'写真集', desc:'发布个人写真集，展现不同面貌' },
+    { cat:'practice', icon:'🪩', label:'练习室直拍', desc:'公开最新编舞练习室版本' },
+    { cat:'vlog', icon:'📹', label:'Vlog', desc:'记录一天的真实日常' },
+    { cat:'cover', icon:'🎤', label:'翻唱', desc:'发布一首前辈歌曲的翻唱' },
+    { cat:'collab', icon:'🤝', label:'合作曲', desc:'与好友发布合作单曲' }
+  ];
+  for (var i = 0; i < cats.length; i++) {
+    var c = cats[i];
+    var item = pool.filter(function(p) { return p.cat === c.cat; });
+    var example = item && item.length ? item[Math.floor(Math.random() * item.length)] : null;
+    html += '<div class="es-release-card" data-cat="' + c.cat + '" style="padding:10px 14px;margin:8px 0;border:1px solid rgba(255,255,255,.08);border-radius:10px;cursor:pointer;background:rgba(255,255,255,.03);transition:all .2s">' +
+      '<span style="font-size:20px;margin-right:8px">' + c.icon + '</span>' +
+      '<span style="font-weight:700;color:#d8cdf0">' + c.label + '</span>' +
+      '<span style="font-size:11px;color:var(--es-text-dim);display:block;margin-top:2px">' + c.desc + '</span>' +
+      (example ? '<span style="font-size:11px;color:rgba(255,200,150,.7)">示例：' + escHtml(example.t) + '</span>' : '') +
+      (example ? '<span style="float:right;font-size:11px;color:var(--es-text-dim)">人气+' + (example.pop||0) + ' 曝光+' + (example.exp||0) + '</span>' : '') +
+      '</div>';
+  }
+  html += '</div>';
+  var modal = showEntSimModalDirect('📀 发布新作品', html, [
+    { id: 'cancel', label: '取消', class: 'ghost' }
+  ]);
+  document.querySelectorAll('.es-release-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var cat = card.dataset.cat;
+      var items = pool.filter(function(p) { return p.cat === cat; });
+      if (!items || !items.length) return;
+      var picked = items[Math.floor(Math.random() * items.length)];
+      E._releaseCD = 15;
+      addPopularity(picked.pop || 3, '发布作品·' + cat);
+      if (picked.exp) E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (picked.exp || 0);
+      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【新作品发布】' + picked.t;
+      saveGame();
+      closeModalDirect(modal);
+      showToast('📀 ' + picked.t.substring(0, 20) + '… 已发布！（CD 15天）');
+      if (typeof rerender === 'function') rerender();
+    });
+    card.addEventListener('mouseenter', function() { card.style.background = 'rgba(255,255,255,.07)'; card.style.borderColor = 'rgba(180,150,255,.3)'; });
+    card.addEventListener('mouseleave', function() { card.style.background = 'rgba(255,255,255,.03)'; card.style.borderColor = 'rgba(255,255,255,.08)'; });
+  });
+}
+
+// 粉丝来信弹窗
+function showFanLetterPopup(letter) {
+  if (!letter) return;
+  var catLabel = letter.cat === 'support' ? '💜 支持信' : letter.cat === 'comeback' ? '📢 催回归' : letter.cat === 'confession' ? '💌 告白信' : '😅 吐槽';
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:420px;border-color:rgba(180,160,220,.3);background:linear-gradient(160deg,#2a2535,#1a1525)">' +
+    '<div style="font-size:28px;margin-bottom:6px">💌</div>' +
+    '<div style="font-size:15px;font-weight:700;color:#c8b8f0;margin-bottom:4px">粉丝来信</div>' +
+    '<div style="display:inline-block;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.06);font-size:11px;color:var(--es-text-dim);margin-bottom:12px">' + catLabel + '</div>' +
+    '<div style="text-align:left;padding:14px 16px;background:rgba(255,255,255,.04);border-radius:8px;font-size:13px;line-height:1.8;color:rgba(220,210,255,.85);max-height:200px;overflow-y:auto">' + escHtml(letter.t) + '</div>' +
+    '<button id="es-fanletter-close" class="primary" style="margin-top:12px;background:rgba(124,111,240,.2)">关闭</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var btn = document.getElementById('es-fanletter-close');
+  if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  setTimeout(function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 15000);
+}
+
+// 品牌代言弹窗（3选项：接受/拒绝/讨价还价）
+function showBrandOfferPopup(offer) {
+  if (!offer) return;
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:420px;border-color:rgba(220,180,140,.3);background:linear-gradient(160deg,#2a2525,#1a1515)">' +
+    '<div style="font-size:28px;margin-bottom:6px">📺</div>' +
+    '<div style="font-size:15px;font-weight:700;color:#e8d0a0;margin-bottom:4px">品牌代言邀约</div>' +
+    '<div style="font-size:13px;color:rgba(220,200,180,.9);margin-bottom:12px">' + escHtml(offer.brand || '') + ' · ' + escHtml(offer.product || '') + '<br><small>地点：' + escHtml(offer.loc || '摄影棚') + '</small></div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+    '<button class="es-brand-accept primary" style="background:rgba(80,200,120,.2)">✅ 接受（+人气' + (offer.pop||0) + ' +曝光' + (offer.exp||0) + '）</button>' +
+    '<button class="es-brand-reject ghost" style="border:1px solid rgba(255,255,255,.1)">❌ 拒绝</button>' +
+    '<button class="es-brand-negotiate ghost" style="border:1px solid rgba(255,255,255,.1);font-size:11px">💰 讨价还价（+人气' + ((offer.pop||0)+2) + ' +曝光' + ((offer.exp||0)+2) + ' 但有50%概率得罪品牌方）</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('.es-brand-accept').addEventListener('click', function() {
+    var E = GS.entSim;
+    addPopularity(offer.pop || 4, '品牌代言·' + offer.brand);
+    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (offer.exp || 0);
+    showToast('📺 接受了' + offer.brand + '的代言邀约！人气+' + (offer.pop||0));
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    if (typeof rerender === 'function') rerender();
+  });
+  overlay.querySelector('.es-brand-reject').addEventListener('click', function() {
+    showToast('拒绝了代言邀约');
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  });
+  overlay.querySelector('.es-brand-negotiate').addEventListener('click', function() {
+    if (Math.random() < 0.5) {
+      var E = GS.entSim;
+      addPopularity((offer.pop||0) + 2, '品牌代言讨价成功·' + offer.brand);
+      E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (offer.exp||0) + 2;
+      showToast('💰 讨价成功！代言费翻倍');
+    } else {
+      showToast('💀 品牌方觉得你要求太多，撤回了邀约…');
+    }
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    if (typeof rerender === 'function') rerender();
+  });
+}
+
+// 季度颁奖弹窗
+function showAwardPopup(award) {
+  if (!award) return;
+  var awardIcon = award.type === 'newcomer' ? '🏆' : award.type === 'popularity' ? '💖' : '🎭';
+  var E = GS.entSim;
+  var popGain = (E && E.career && E.career.popularity >= 35) ? (award.pop || 5) + Math.floor(Math.random() * 5) : 0;
+  addPopularity(popGain, '季度颁奖·' + (award.type || '奖项'));
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:420px;border-color:rgba(255,215,0,.4);background:linear-gradient(160deg,#302520,#1a1510)">' +
+    '<div style="font-size:42px;margin-bottom:8px">' + awardIcon + '</div>' +
+    '<div style="font-size:16px;font-weight:700;color:#ffd700;margin-bottom:8px">季度颁奖</div>' +
+    '<div style="font-size:13px;color:rgba(240,220,180,.9);line-height:1.8;margin-bottom:12px">' + escHtml(award.t) + '</div>' +
+    (popGain > 0 ? '<div style="font-size:13px;color:#52c41a">人气 +' + popGain + '</div>' : '') +
+    '<button id="es-award-close" class="primary" style="margin-top:12px;background:rgba(200,150,50,.2)">继续</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var btn = document.getElementById('es-award-close');
+  if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); if (typeof rerender === 'function') rerender(); });
+}
+
+// 检查并显示待处理弹窗（在render时调用）
+function checkAndShowPendingPopups() {
+  // 粉丝来信
+  if (GS._entSimFanLetter && typeof showFanLetterPopup === 'function') {
+    var letter = GS._entSimFanLetter;
+    GS._entSimFanLetter = null;
+    setTimeout(function() { showFanLetterPopup(letter); }, 500);
+  }
+  // 品牌代言
+  if (GS._entSimBrandOffer && typeof showBrandOfferPopup === 'function') {
+    var offer = GS._entSimBrandOffer;
+    GS._entSimBrandOffer = null;
+    setTimeout(function() { showBrandOfferPopup(offer); }, 600);
+  }
+  // 季度颁奖
+  if (GS._entSimAward && typeof showAwardPopup === 'function') {
+    var awd = GS._entSimAward;
+    GS._entSimAward = null;
+    setTimeout(function() { showAwardPopup(awd); }, 700);
+  }
+}
+
+// 简易弹窗（直接返回容器元素）
+function showEntSimModalDirect(title, body, buttons) {
+  if (typeof showEntSimModal === 'undefined') return null;
+  // 复用现有 showEntSimModal 逻辑：注入临时弹窗然后返回 overlay 以便操作
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.style.zIndex = '9999';
+  var btnsHtml = (buttons || []).map(function(b) {
+    return '<button id="es-mdl-' + b.id + '" class="' + (b.class || 'primary') + '" style="margin:0 6px">' + escHtml(b.label) + '</button>';
+  }).join('');
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:480px;text-align:center">' +
+    '<div style="font-size:16px;font-weight:700;color:#d0c8f0;margin-bottom:12px">' + escHtml(title) + '</div>' +
+    body +
+    '<div style="margin-top:12px">' + btnsHtml + '</div></div>';
+  document.body.appendChild(overlay);
+  buttons.forEach(function(b) {
+    var btn = document.getElementById('es-mdl-' + b.id);
+    if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  });
+  return overlay;
+}
+
+function closeModalDirect(overlay) {
+  if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+}

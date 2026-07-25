@@ -6,6 +6,7 @@ import { GS, saveGame } from '../state.js';
 import { COVER_MECHANISMS, ROMANCE_EMOTIONS, riskLevelText } from './data.js';
 import { getRomanceRiskMultiplier } from './cycle.js';
 import { addPopularity } from './state.js';
+import { showToast } from '../utils.js';
 
 // 8 阶段（阈值 20/35/50/60/70/80/90 切分 0-100 为 8 档）
 export var AFFECTION_STAGES = [
@@ -86,6 +87,8 @@ export function applyEntSimAffection(delta) {
   }
   // 好感满 100：甜蜜恋爱，10 回合后出现「进入大结局」按钮（由 UI 检测）
   if (E.affection >= 100) E.flags.sweetMaxRound = E.cycle.roundTotal;
+  // v2：检查亲密接触解锁
+  checkIntimacyUnlock(E.affection);
   saveGame();
   return E.affection;
 }
@@ -213,6 +216,102 @@ export function getCoverRemaining() {
   if (!E || !E.romance) return 0;
   var max = 5 + (E.romance._coverMaxBonus || 0);
   return max - (E.romance.coverUsed || 0);
+}
+
+// ────────── v2 新增函数 ──────────
+
+// 亲密接触阶梯检查：返回当前解锁状态和下一个里程碑
+export function checkIntimacyUnlock(affection) {
+  var E = GS.entSim;
+  if (!E) return { unlocked: [], nextAt: 0, nextLabel: '' };
+  var unlocked = E._intimacyUnlocked || { hand: false, hug: false, kiss: false };
+  var milestones = [
+    { key: 'hand', label: '牵手', icon: '🤝', minAff: 15 },
+    { key: 'hug', label: '拥抱', icon: '🤗', minAff: 30 },
+    { key: 'kiss', label: '接吻', icon: '💋', minAff: 50 }
+  ];
+  var newlyUnlocked = null;
+  for (var i = 0; i < milestones.length; i++) {
+    var m = milestones[i];
+    if (affection >= m.minAff && !unlocked[m.key]) {
+      unlocked[m.key] = true;
+      E._intimacyUnlocked = unlocked;
+      newlyUnlocked = m;
+      // 记录首次解锁纪念日
+      E._romanceMilestones = E._romanceMilestones || {};
+      if (!E._romanceMilestones['first' + m.key.charAt(0).toUpperCase() + m.key.slice(1) + 'Day']) {
+        E._romanceMilestones['first' + m.key.charAt(0).toUpperCase() + m.key.slice(1) + 'Day'] = E.cycle.dayCount;
+        if (typeof window !== 'undefined' && typeof showToast === 'function') {
+          setTimeout(function() {
+            try { showToast('🎉 亲密里程碑：' + m.icon + ' ' + m.label + ' 已解锁！'); } catch(e) {}
+          }, 200);
+        }
+      }
+      break; // 一次只解锁一个
+    }
+  }
+  // 找到下一个未解锁的
+  var nextAt = 100, nextLabel = '';
+  for (var j = 0; j < milestones.length; j++) {
+    if (!unlocked[milestones[j].key]) {
+      nextAt = milestones[j].minAff;
+      nextLabel = milestones[j].icon + milestones[j].label;
+      break;
+    }
+  }
+  return { unlocked: unlocked, newlyUnlocked: newlyUnlocked, nextAt: nextAt, nextLabel: nextLabel };
+}
+
+// 吃醋值更新：每天情敌互动+N，衰减-N
+export function tickJealousy(rivalInteractionToday) {
+  var E = GS.entSim;
+  if (!E) return 0;
+  var today = E.cycle.dayCount || 1;
+  if (E._jealousLastUpdateDay !== today) {
+    // 每日衰减
+    E._jealousLevel = Math.max(0, (E._jealousLevel || 0) - 1);
+    E._jealousLastUpdateDay = today;
+  }
+  // 情敌互动加分
+  if (rivalInteractionToday && E._jealousLevel < 10) {
+    E._jealousLevel = Math.min(10, E._jealousLevel + (rivalInteractionToday || 1));
+  }
+  return E._jealousLevel;
+}
+
+// 获取吃醋等级描述
+export function getJealousLabel(level) {
+  if (level >= 8) return { label: '💢 爆发', level: 3 };
+  if (level >= 5) return { label: '😤 明显吃醋', level: 2 };
+  if (level >= 2) return { label: '🤔 微醋', level: 1 };
+  return { label: '😊 平静', level: 0 };
+}
+
+// 纪念日检查：首次约会/告白/接吻/牵手/拥抱 每30天倍数提醒
+export function checkAnniversaries() {
+  var E = GS.entSim;
+  if (!E || !E._romanceMilestones) return null;
+  var today = E.cycle.dayCount || 1;
+  var m = E._romanceMilestones;
+  var labels = { firstDateDay: '第一次约会', firstConfessDay: '告白纪念日', firstKissDay: '初吻纪念日', firstHandDay: '第一次牵手', firstHugDay: '第一次拥抱' };
+  var icons = { firstDateDay: '💞', firstConfessDay: '💍', firstKissDay: '💋', firstHandDay: '🤝', firstHugDay: '🤗' };
+  for (var key in labels) {
+    if (m[key] && today > m[key] && (today - m[key]) % 30 === 0 && (today - m[key]) > 0) {
+      return { key: key, label: labels[key], icon: icons[key] || '💗', days: today - m[key] };
+    }
+  }
+  return null;
+}
+
+// 记录纪念日
+export function recordMilestone(key) {
+  var E = GS.entSim;
+  if (!E) return;
+  E._romanceMilestones = E._romanceMilestones || {};
+  if (!E._romanceMilestones[key]) {
+    E._romanceMilestones[key] = E.cycle.dayCount || 1;
+    saveGame();
+  }
 }
 
 export function getRomanceStageLabel() {

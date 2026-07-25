@@ -11,13 +11,14 @@ import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.
 import { buildEntSimSystemPrompt, buildEntSimUserMessage } from './prompts.js';
 import { rollDailyAgenda, getTimeOfDayLabel } from './cycle.js';
 import { applyDiscoveryBlowback, addExposure } from './public-opinion.js';
-import { recordRomanceBeat, applyEntSimAffection, tickRomanceTimers } from './romance.js';
+import { recordRomanceBeat, applyEntSimAffection, tickRomanceTimers, tickJealousy, checkAnniversaries, recordMilestone } from './romance.js';
 import { generateDailyBuzz } from './immersion.js';
 import { evaluateEnding } from './endings.js';
 import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
 import { getNpcNodes } from './npc-network.js';
-import { ENDING_TONE, TEAMMATE_FLAVOR, SVT_TEAMMATE_EVENT_POOL, SVT_TEAMMATE_PROFILES } from './data.js';
+import { ENDING_TONE, TEAMMATE_FLAVOR, SVT_TEAMMATE_EVENT_POOL, SVT_TEAMMATE_PROFILES, FAN_LETTER_POOL, BRAND_OFFER_POOL } from './data.js';
+import { RELEASE_POOL, CONTACT_TYPE_POOL, AWARD_POOL, pickFromPool } from './pools-v2.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
@@ -299,9 +300,68 @@ export function goEntSimNextDay() {
   E.misc.npcInteractionUsed = 0;
   // 章节跨越检查（人气推进，只进不退）
   var chapterCrossed = checkChapterAdvance();
+  // v2：吃醋值每日衰减
+  tickJealousy(0);
+  // v2：男主主动联络倒计时（替代旧 maybeMaleLeadInitiative）
+  var contactTriggered = false;
+  if (E._maleContactTimer >= 0) E._maleContactTimer--;
+  var contactThreshold = (E.affection >= 60) ? 1 : (E.affection >= 30) ? 2 : 4;
+  if (E._maleContactTimer <= 0 && Math.random() < (E.affection >= 60 ? 0.4 : 0.2)) {
+    contactTriggered = true;
+    var contactPool = CONTACT_TYPE_POOL ? CONTACT_TYPE_POOL[Math.floor(Math.random() * CONTACT_TYPE_POOL.length)] : null;
+    if (contactPool && contactPool.length) {
+      var contactItem = contactPool[Math.floor(Math.random() * contactPool.length)];
+      if (contactItem && E.affection >= (contactItem.minAff || 0)) {
+        var catLabel = contactItem.cat === 'call' ? '📞电话' : contactItem.cat === 'call_jealous' ? '📞吃醋来电' : contactItem.cat === 'msg' ? '💬私信' : contactItem.cat === 'msg_code' ? '💬暗号私信' : '👨哥哥转达';
+        GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【男主主动·' + catLabel + '】' + contactItem.t;
+      }
+    }
+    E._maleContactTimer = (E.affection >= 60) ? (5 + randInt(0, 5)) : (8 + randInt(0, 10));
+  }
+  // v2：粉丝来信（每5-7天抽1封）
+  if (E.cycle.dayCount - (E._lastFanLetterDay || 0) >= (5 + randInt(0, 2)) && FAN_LETTER_POOL && FAN_LETTER_POOL.length) {
+    E._lastFanLetterDay = E.cycle.dayCount;
+    var letter = FAN_LETTER_POOL[Math.floor(Math.random() * FAN_LETTER_POOL.length)];
+    if (letter && letter.length) {
+      var pickedLetter = letter[Math.floor(Math.random() * letter.length)];
+      if (pickedLetter) GS._entSimFanLetter = pickedLetter;
+    }
+  }
+  // v2：品牌代言（人气≥35后每12天概率触发）
+  if ((E.career.popularity || 0) >= 35 && E.cycle.dayCount - (E._lastBrandOfferDay || 0) >= 12 && Math.random() < 0.4) {
+    E._lastBrandOfferDay = E.cycle.dayCount;
+    var brCat = BRAND_OFFER_POOL ? BRAND_OFFER_POOL[Math.floor(Math.random() * BRAND_OFFER_POOL.length)] : null;
+    if (brCat && brCat.length) {
+      var brItem = brCat[Math.floor(Math.random() * brCat.length)];
+      if (brItem) GS._entSimBrandOffer = brItem;
+    }
+  }
+  // v2：发布作品CD倒计时
+  if (E._releaseCD > 0) E._releaseCD--;
+  // v2：季度颁奖（每30天触发1次）
+  if (E.cycle.dayCount - (E._lastAwardDay || 0) >= 30 && E.cycle.dayCount >= 30 && Math.random() < 0.5) {
+    E._lastAwardDay = E.cycle.dayCount;
+    var awardTypes = ['newcomer', 'popularity', 'stage'];
+    var at = E.cycle.dayCount <= 60 ? 'newcomer' : awardTypes[Math.floor(Math.random() * 3)];
+    var awardPool = AWARD_POOL ? AWARD_POOL.filter(function(a) { return a.type === at; }) : [];
+    if (awardPool.length) {
+      var aw = awardPool[Math.floor(Math.random() * awardPool.length)];
+      if (aw && E.career.popularity >= 35) {
+        GS._entSimAward = aw;
+      }
+    }
+  }
+  // v2：纪念日检查（每30天倍数toast提醒）
+  var anniversary = checkAnniversaries();
+  if (anniversary) {
+    setTimeout(function() {
+      try { showToast('🎉 纪念日提醒：' + anniversary.icon + ' ' + anniversary.label + ' 已过去 ' + anniversary.days + ' 天啦～'); } catch(e) {}
+    }, 300);
+  }
   // 哥哥事件 15% + 男主主动 10% + 系统每日事件池
   maybeBrotherEvent();
-  maybeMaleLeadInitiative();
+  // 旧男主主动（已被倒计时替代），仅当倒计时未触发时兜底
+  if (!contactTriggered) maybeMaleLeadInitiative();
   checkOneHeartEvents();
   // 章节跨越提示：如果刚进入新章节，追加到待触发事件前
   if (chapterCrossed && E.chapter && E.chapter.entered) {

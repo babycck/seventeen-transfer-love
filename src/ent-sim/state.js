@@ -88,6 +88,20 @@ export function initEntSimState() {
   E.heroineGroup = buildEntSimHeroineGroup();
   E.groupMeta = buildEntSimGroupMeta();
   E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, cpRealProgress: 0, cpRealTriggered: false, npcInteractionUsed: 0 }; // npcInteractionUsed 每日1次限制
+  // v2 新增：吃醋值系统
+  E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
+  E._jealousLastUpdateDay = 0;
+  // v2 新增：亲密行为阶段锁
+  E._intimacyUnlocked = { hand: false, hug: false, kiss: false }; // 牵手≥15/拥抱≥30/接吻≥50
+  // v2 新增：纪念日记录
+  E._romanceMilestones = {}; // { firstDateDay, firstConfessDay, firstKissDay, firstHandDay, firstHugDay }
+  // v2 新增：男主主动联络倒计时
+  E._maleContactTimer = 8 + randInt(0, 10); // 8-18天倒计时
+  // v2 新增：粉丝来信/品牌代言/作品发布/季度颁奖CD
+  E._lastFanLetterDay = 0;
+  E._lastBrandOfferDay = 0;
+  E._releaseCD = 0; // 0=可用 >0=冷却剩余天数
+  E._lastAwardDay = 0;
   E.flags = {};
   E.endings = { hint: '', locked: false, type: '', eligible: false, text: '' }; // 系统10 结局
   E.started = false; // 首轮剧情是否已成功生成（renderHtml 据此避免重复触发生成）
