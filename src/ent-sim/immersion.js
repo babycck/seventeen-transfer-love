@@ -265,24 +265,35 @@ export function generateDailyBuzz() {
   var E = GS.entSim;
   var pop = popularity();
   var hsCount = Math.max(2, Math.round(pop / 20));
-  // 热搜：1 条女主 + 其余外部
-  var hotSearch = pickN(DAILY_BUZZ_TEMPLATES.hotSearch, 1);
+  // 热搜：1 条女主模板（立即 fill 占位符）+ 其余外部（不跟上一天重复）
+  var hotSearch = pickN(DAILY_BUZZ_TEMPLATES.hotSearch, 1).map(function(it) {
+    return { t: fill(it.t), c: fill(it.c || it.t) };
+  });
+  E._lastHotTitles = E._lastHotTitles || [];
   while (hotSearch.length < Math.min(6, hsCount)) {
     var ext = EXTERNAL_HOT[randInt(0, EXTERNAL_HOT.length - 1)];
-    if (!buzzByTitle(hotSearch, buzzTitle(ext))) hotSearch.push(ext);
+    var extTitle = buzzTitle(ext);
+    if (!buzzByTitle(hotSearch, extTitle) && E._lastHotTitles.indexOf(extTitle) < 0) hotSearch.push(ext);
   }
+  E._lastHotTitles = hotSearch.map(buzzTitle);
   // 粉丝讨论：全部外部（不包含女主）
+  E._lastFanTitles = E._lastFanTitles || [];
   var fanDiscussion = [];
   while (fanDiscussion.length < 3) {
     var fe = EXTERNAL_FAN[randInt(0, EXTERNAL_FAN.length - 1)];
-    if (!buzzByTitle(fanDiscussion, buzzTitle(fe))) fanDiscussion.push(fe);
+    var feTitle = buzzTitle(fe);
+    if (!buzzByTitle(fanDiscussion, feTitle) && E._lastFanTitles.indexOf(feTitle) < 0) fanDiscussion.push(fe);
   }
+  E._lastFanTitles = fanDiscussion.map(buzzTitle);
   // 媒体标题：全部外部（不包含女主）
+  E._lastMediaTitles = E._lastMediaTitles || [];
   var mediaTitle = [];
   while (mediaTitle.length < 2) {
     var me = EXTERNAL_MEDIA[randInt(0, EXTERNAL_MEDIA.length - 1)];
-    if (!buzzByTitle(mediaTitle, buzzTitle(me))) mediaTitle.push(me);
+    var meTitle = buzzTitle(me);
+    if (!buzzByTitle(mediaTitle, meTitle) && E._lastMediaTitles.indexOf(meTitle) < 0) mediaTitle.push(me);
   }
+  E._lastMediaTitles = mediaTitle.map(buzzTitle);
   E.dailyBuzz = {
     hotSearch: hotSearch,
     fanDiscussion: fanDiscussion,
