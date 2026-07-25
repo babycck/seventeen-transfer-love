@@ -100,8 +100,8 @@ export function buildEntSimSystemPrompt(mode) {
     // 辅助生成任务：纯文本输出粉丝圈反应，严禁 JSON 包装，避免与主剧情 JSON 约束冲突
     sys += '【输出格式·辅助任务】你正在执行一个辅助生成任务，不是剧情主线。请直接输出纯文本（不要 JSON、不要 markdown 代码块、不要标题），严格遵循用户消息中给出的格式与分段要求。\n';
   } else {
-    sys += '【输出格式】必须只输出一个 JSON 对象（不要 markdown 代码块）：\n';
-    sys += '{"narrative":"剧情正文","options":["选项1","选项2","选项3"],"entSimExtras":{';
+    sys += '【输出格式·严格约束】你的输出必须且只能是下面这个 JSON 结构，除此之外不能有任何其他字段，不允许使用 blocks 数组格式！\n';
+    sys += '{"narrative":"剧情正文（400-800字）","options":["选项1","选项2","选项3"],"entSimExtras":{';
     sys += '"affectionDelta":0,';
     sys += '"romanceBeat":{"affectionDelta":0,"emotion":"","note":"","event":""},';
     sys += '"npcEncounter":{"type":"","name":"","intimacyDelta":0,"stance":"","event":"","exposure":0},';
@@ -110,7 +110,7 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '"secret":{"item":"","foundByRival":false},';
     sys += '"endingsHint":"",';
     sys += '"appointments":[{"with":"maleLead","place":"天台","timeHint":"今晚/明天/下周","summary":"他约你天台见面聊聊心事"}]}}\n';
-    sys += '所有数值增量请用正负整数表示微小变化（如 +2/-3）。options 固定 3 个。\n';
+    sys += '所有数值增量请用正负整数表示微小变化（如 +2/-3）。options 固定 3 个。不允许输出 blocks 数组、markdown 代码块或任何其他包装格式。只输出这一个 JSON 对象。\n';
     sys += '【约定系统】如果男主在剧情中主动提出约定（如"今晚天台见""明天咖啡厅等我""下周一起吃饭"等），请在 appointments 数组中输出 1 条约会约定。with 固定 "maleLead"，place 填具体地点，timeHint 用"今晚/明天/下周"等，summary 用一句话概括。不要伪造 AI 没写过的约定。\n';
   }
   return sys;

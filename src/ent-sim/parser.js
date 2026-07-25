@@ -46,12 +46,30 @@ export function parseEntSimResponse(rawText) {
   if (!rawText) return { narrative: '', options: [], extras: {} };
   var json = safeParseJson(rawText);
   if (json && typeof json === 'object') {
+    // 标准格式：{narrative, options, entSimExtras}
     if (typeof json.narrative === 'string' || Array.isArray(json.options) || json.entSimExtras) {
       return {
         narrative: typeof json.narrative === 'string' ? json.narrative : '',
         options: Array.isArray(json.options) ? json.options : [],
         extras: json.entSimExtras && typeof json.entSimExtras === 'object' ? json.entSimExtras : {}
       };
+    }
+    // 兜底：AI 偶尔返回 {blocks:[{type:"narrative",content:"..."}]} 格式
+    if (Array.isArray(json.blocks) && json.blocks.length) {
+      var narrative = '';
+      var options = [];
+      var extras = {};
+      for (var i = 0; i < json.blocks.length; i++) {
+        var blk = json.blocks[i];
+        if (!blk) continue;
+        if (blk.type === 'narrative' && typeof blk.content === 'string') narrative += (narrative ? '\n\n' : '') + blk.content;
+        if (blk.type === 'options' && Array.isArray(blk.options)) options = options.concat(blk.options);
+        if (blk.type === 'options' && Array.isArray(blk.content)) options = options.concat(blk.content);
+        if (blk.type === 'extras' && typeof blk.content === 'object') extras = blk.content;
+      }
+      if (narrative || options.length) {
+        return { narrative: narrative, options: options, extras: extras };
+      }
     }
   }
   // JSON 截断兜底：从原始文本正则提取关键字段
