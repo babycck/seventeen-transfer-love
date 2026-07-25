@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>泡泡聊天室预览 · Bubble Preview</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* ── 手机外框 ── */
+.phone {
+  width: 390px; max-width: 100vw;
+  background: #16213e;
+  border-radius: 28px; overflow: hidden;
+  box-shadow: 0 0 40px rgba(124,111,240,.25), 0 0 80px rgba(0,0,0,.4);
+  position: relative;
+}
+
+/* ── 顶部信息栏 ── */
+.bubble-header {
+  background: linear-gradient(135deg, #1c1c3a 0%, #2a1a3a 100%);
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(124,111,240,.15);
+}
+.bubble-header-left { display: flex; align-items: center; gap: 10px; }
+.bubble-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff8ec8, #7c6ff0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.bubble-info .name { font-size: 14px; font-weight: 700; color: #ffb8d4; }
+.bubble-info .sub {
+  font-size: 11px; color: rgba(255,200,220,.5);
+  display: flex; gap: 10px;
+}
+.bubble-stats {
+  display: flex; gap: 8px; font-size: 11px; color: rgba(255,200,220,.6);
+}
+.bubble-stats b { color: #ffb8d4; }
+
+/* ── 聊天区域 ── */
+.bubble-chat {
+  padding: 14px 12px;
+  height: 420px; overflow-y: auto;
+  background: linear-gradient(180deg, #1a1a3a 0%, #12122a 100%);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.bubble-chat::-webkit-scrollbar { width: 4px; }
+.bubble-chat::-webkit-scrollbar-thumb { background: rgba(124,111,240,.25); border-radius: 4px; }
+
+/* ── 时间分隔线 ── */
+.bubble-time {
+  text-align: center; font-size: 10px; color: rgba(255,255,255,.25);
+  padding: 6px 0; letter-spacing: 1px;
+}
+
+/* ── 我的消息（靠右·粉色） ── */
+.bubble-msg { display: flex; align-items: flex-end; gap: 6px; }
+.bubble-msg.me { flex-direction: row-reverse; }
+.bubble-msg.me .bubble-bubble {
+  background: linear-gradient(135deg, #d87ab8, #c462a6);
+  color: #fff; border-radius: 18px 18px 4px 18px;
+}
+
+/* ── 粉丝消息（靠左·灰色） ── */
+.bubble-msg.fan { flex-direction: row; }
+.bubble-msg.fan .bubble-bubble {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.06);
+  color: rgba(255,255,255,.8);
+  border-radius: 18px 18px 18px 4px;
+}
+
+/* ── 气泡本体 ── */
+.bubble-bubble {
+  max-width: 78%; padding: 10px 14px;
+  font-size: 13px; line-height: 1.6;
+  word-break: break-word;
+  animation: bubbleIn .35s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(12px) scale(.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── 粉丝名标签 ── */
+.bubble-name {
+  font-size: 10px; color: rgba(255,200,220,.5);
+  margin-bottom: 3px; padding-left: 4px; font-weight: 600;
+}
+.bubble-msg.fan .bubble-name { text-align: left; }
+
+/* ── 底部发送区 ── */
+.bubble-footer {
+  padding: 10px 14px 14px;
+  background: #1c1c3a;
+  border-top: 1px solid rgba(124,111,240,.1);
+  display: flex; align-items: center; gap: 8px;
+}
+.bubble-input {
+  flex: 1; padding: 10px 14px;
+  border-radius: 20px; border: 1px solid rgba(124,111,240,.2);
+  background: rgba(255,255,255,.04); color: #e6e1f5;
+  font-size: 13px; outline: none; transition: border .2s;
+}
+.bubble-input:focus { border-color: rgba(255,184,212,.4); }
+.bubble-input::placeholder { color: rgba(255,255,255,.2); }
+.bubble-send {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff8ec8, #d87ab8);
+  border: none; color: #fff; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, opacity .2s;
+  flex-shrink: 0;
+}
+.bubble-send:hover { transform: scale(1.08); }
+.bubble-send:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.bubble-limit-label {
+  font-size: 10px; color: rgba(255,255,255,.25);
+  text-align: center; padding: 2px 0; display: none;
+}
+
+/* ── 加载动画 ── */
+.bubble-sending {
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px; gap: 6px;
+}
+.bubble-sending .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #ff8ec8; animation: bounce 1.2s infinite ease-in-out;
+}
+.bubble-sending .dot:nth-child(2) { animation-delay: .15s; }
+.bubble-sending .dot:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
+.preview-badge {
+  position: absolute; top: 8px; right: 12px;
+  background: rgba(124,111,240,.3); color: rgba(255,255,255,.5);
+  font-size: 10px; padding: 2px 8px; border-radius: 50px;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="phone" id="app">
+  <div class="preview-badge">PREVIEW</div>
+  <!-- 头部 -->
+  <div class="bubble-header">
+    <div class="bubble-header-left">
+      <div class="bubble-avatar">💜</div>
+      <div class="bubble-info">
+        <div class="name">沈也的泡泡</div>
+        <div class="sub">
+          <span>订阅 <b id="subCount">847</b>人</span>
+          <span>· 连续 <b id="streakDays">12</b>天</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 聊天记录区 -->
+  <div class="bubble-chat" id="chatArea"></div>
+
+  <!-- 底部发送 -->
+  <div class="bubble-footer">
+    <input class="bubble-input" id="msgInput" placeholder="给粉丝发条消息…" maxlength="60"
+      onkeydown="if(event.key==='Enter')sendDemo()">
+    <button class="bubble-send" id="sendBtn" onclick="sendDemo()">✉</button>
+  </div>
+  <div class="bubble-limit-label" id="limitLabel">今日消息已发满</div>
+</div>
+
+<script>
+// ── 粉丝名池（全中文） ──
+var FAN_NAMES = [
+  '小糖果','星星眼','薄荷糖','草莓牛奶','素妍','出道粉','仓鼠饲养员','你的春天',
+  '智恩','樱花落','东海边的','追星少女','露娜','布丁布丁','巧克力牛奶','花路陪你走',
+  '深夜写信的人','一只企鹅','小太阳','练习生时期的老粉',
+  '桃子汽水','月亮不睡','芝士年糕','蓝色围巾','小迷糊','追光者','向日葵','棉花糖',
+  '奶茶三分糖','蜂蜜柚子','小雨伞','饼干怪兽','早起第一名','熬夜冠军','柠檬气泡水',
+  '软糖少女','云朵上面','小熊软糖','夏天结束了','冬日暖阳','橘子汽水','恐龙让梨',
+  '芋泥波波','酸奶盖子','绿豆冰沙','想喝可乐','泡芙小姐','焦糖布丁','提拉米苏',
+  '薯片大人','糯米团子','红豆面包','牛奶面包','空气炸锅','螺蛳粉真爱','火锅底料',
+  '麻辣烫王子','珍珠奶茶','冰美式续命','抹茶星冰乐','杨枝甘露','多肉葡萄','芝芝莓莓',
+  '海边日出','半山听雨','花開彼岸','木槿花开','梧桐树下','橘子海','银河铁道','极光之下',
+  '千与千寻','龙猫巴士','魔女宅急便','天空之城','风之谷','幽灵公主','波妞喜欢宗介',
+  '一闪一闪','夜空中最亮的星','白日梦想家','月亮与六便士','小王子星球','玫瑰与狐狸',
+  '今天也很想你','明天见','后天也是晴天','一直在','永远站','下一站幸福',
+  '追风少女','自由如风','尘埃里开花','逆光飞翔','勇敢的心','微光','小确幸'
+];
+
+// ── 演示数据 ──
+var demoHistory = [
+  { me: true,  text: '今天练习太累了，但想着你们就坚持下来了 💜', time: '14:22' },
+  { me: false, text: '姐姐今天也辛苦了！！看了练习室视频，你们的刀群舞真的绝了 😭💕', name: '出道粉' },
+  { me: false, text: '练习的时候有好好吃饭吗？感觉你又瘦了，好担心…', name: '仓鼠饲养员' },
+  { me: false, text: '你们在待机室打闹的画面太可爱了哈哈哈，团魂满满', name: '星星眼' },
+  { me: false, text: '新歌什么时候出啊，等不及了，每次预告都翻来覆去看八百遍', name: '素妍' },
+  { me: true,  text: '刚拍的自拍！想你们了~', time: '16:08' },
+  { me: false, text: '哇自拍美貌疯了，心脏受不了，太美了真的', name: '小糖果' },
+  { me: false, text: '已经设置成手机壁纸了 ^^', name: '露娜' },
+  { me: false, text: '姐姐今晚七点直播对吧？闹钟已经定好了 🥹', name: '草莓牛奶' }
+];
+
+var todayCount = 1;
+var maxDaily = 5;
+
+// 初始化渲染
+(function init() {
+  renderAll();
+})();
+
+function renderAll() {
+  var html = '';
+  demoHistory.forEach(function(m, i) {
+    html += renderBubble(m, i);
+  });
+  document.getElementById('chatArea').innerHTML = html;
+  scrollBottom();
+  updateSendState();
+}
+
+function updateSendState() {
+  var input = document.getElementById('msgInput');
+  var btn = document.getElementById('sendBtn');
+  var limit = document.getElementById('limitLabel');
+  if (todayCount >= maxDaily) {
+    input.disabled = true;
+    input.placeholder = '今日已发满 5 条';
+    btn.disabled = true;
+    limit.style.display = '';
+  } else {
+    input.disabled = false;
+    input.placeholder = '给粉丝发条消息…';
+    btn.disabled = false;
+    limit.style.display = 'none';
+  }
+}
+
+function renderBubble(m, idx) {
+  if (m.me) {
+    return '<div class="bubble-msg me" style="animation-delay:' + (idx * .05) + 's">' +
+      '<div class="bubble-bubble">' + escHtml(m.text) + '</div>' +
+    '</div>';
+  }
+  return '<div class="bubble-msg fan" style="animation-delay:' + (idx * .05) + 's">' +
+    '<div>' +
+      '<div class="bubble-name">' + escHtml(m.name || '匿名粉丝') + '</div>' +
+      '<div class="bubble-bubble">' + escHtml(m.text) + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function scrollBottom() {
+  var el = document.getElementById('chatArea');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 模拟发送 ──
+function sendDemo() {
+  var input = document.getElementById('msgInput');
+  var text = input.value.trim();
+  if (!text || todayCount >= maxDaily) return;
+
+  todayCount++;
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  // 1. 添加用户消息
+  appendMsg({ me: true, text: text });
+
+  // 2. 显示 loading
+  var loadingHtml = '<div class="bubble-sending" id="sendingDots">' +
+    '<span style="font-size:11px;color:rgba(255,255,255,.3);margin-right:6px">发送中</span>' +
+    '<span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+  document.getElementById('chatArea').insertAdjacentHTML('beforeend', loadingHtml);
+  scrollBottom();
+
+  // 3. 模拟 AI 返回
+  var delay = 1200 + Math.random() * 1400;
+  setTimeout(function() {
+    var dots = document.getElementById('sendingDots');
+    if (dots) dots.remove();
+
+    var replyCount = 2 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < replyCount; i++) {
+      appendMsg({
+        me: false,
+        text: genFanReply(),
+        name: FAN_NAMES[Math.floor(Math.random() * FAN_NAMES.length)]
+      });
+    }
+
+    // 更新订阅数
+    var sub = document.getElementById('subCount');
+    var cur = parseInt(sub.textContent);
+    sub.textContent = cur + (Math.random() < 0.15 ? -Math.floor(Math.random() * 3) : Math.floor(Math.random() * 5) + 1);
+
+    // 更新发送状态
+    updateSendState();
+    if (todayCount < maxDaily) document.getElementById('msgInput').focus();
+  }, delay);
+}
+
+function appendMsg(m) {
+  document.getElementById('chatArea').insertAdjacentHTML('beforeend', renderBubble(m, 0));
+  scrollBottom();
+}
+
+function genFanReply() {
+  var replies = [
+    '姐姐好想你 (ᗒᗨᗕ) 今天也要加油 💜',
+    '天哪这自拍也太好看了吧 ˚✧₊⁎ 疯了真的 Σ(°ロ°)',
+    '吃饭了吗 (╥﹏╥) 要健康地活动啊 会一直支持你的 🥹✨',
+    '刚才签售会太紧张了没说出话…( >﹏< ) 下次一定好好打招呼！',
+    '新专辑什么时候出啊 ˚▱˚ 等得脖子都长了 已经听了八百遍预告了',
+    '今天舞台直拍看了！(๑˃̵ᴗ˂̵)و 表情演技真的绝了 像电影一样',
+    '姐姐你最近越来越美了你知道吗 (◍•ᴗ•◍) 要多吃一点！',
+    '团体小视频笑死我了 ㅋㅋㅋ (≧∇≦)ﾉ 你们也太可爱了吧',
+    '下次回归一定要拿一位 🔥🔥 我们会努力刷音源的！(•̀ᴗ•́)و',
+    '今天从练习室出来的样子看到了 (´;ω;`) 好好休息吧…',
+    '你发的每条消息都能让我开心一整天 ₍ᐢ.ˬ.ᐢ₎ 💕',
+    '海外粉在用翻译器打字呢 爱你爱你 (●\'◡\'●)ﾉ♥',
+    '姐姐你的声音太好听了耳朵要融化了 (◕‿◕✿) 🎧✨',
+    '每天睡前都要看一遍泡泡才睡得着 (ᴗ˳ᴗ) 🌙',
+    '今天下雨了但是看到你发的消息就放晴了 ☀️ (´▽`ʃ♡ƪ)',
+    '刚下班累得要死看到泡泡瞬间满血复活 ⚡️ ᕦ(ò_óˇ)ᕤ',
+    '姐姐什么时候开演唱会 (╯°□°)╯ 钱已经存好了！',
+    '你是我活下去的动力啊 ( ´•̥̥̥ω•̥̥̥` ) 💖',
+    '团综什么时候能安排上 ˚‧º·(˚ ˃̣̣̥᷄⌓˂̣̣̥᷅ )‧º·˚ 想看你们日常',
+    '今天穿了和你同款的卫衣 开心了一整天 (〃▽〃) 💝',
+    '考古了你所有的直拍 以前的你也太青涩了 好可爱 (◍•ᴗ•◍)❤',
+    '姐姐你素颜也好好看 皮肤怎么做到这么好的 (⸝⸝ᵕᴗᵕ⸝⸝) ✨',
+    '今天考试考砸了…但是看到泡泡就觉得没什么大不了的 (´-ω-`)',
+    '妈妈也喜欢你 她说你笑起来特别好看 (◡‿◡✿) 🌸',
+    '正在循环你们的歌 已经听了第两百遍了 (￣▽￣)~* ♪',
+    '生日礼物收到了吗 是我亲手画的画 (๑´ㅂ`๑) 🎂💌',
+    '언니 보고싶어요~ 用韩语说就是想你了的意思 (⁄ ⁄>⁄ ▽ ⁄<⁄ ⁄)',
+    '新染的发色绝了 像森林里的精灵 🧚✨ (✪ω✪)',
+    '姐姐你跳舞的时候真的在发光 像星星一样 ★彡 (◕‿◕✿)',
+    '什么时候发自拍 (╯‵□′)╯ 已经三天没看到新自拍了！'
+  ];
+  return replies[Math.floor(Math.random() * replies.length)];
+}
+</script>
+
+</body>
+</html>

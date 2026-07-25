@@ -472,6 +472,7 @@ export function migrateSave() {
     if (!E.brother.testNudged || typeof E.brother.testNudged !== 'object') E.brother.testNudged = { 1: false, 2: false, 3: false };
     if (typeof E.brother.rivalAware !== 'boolean') E.brother.rivalAware = false;
     if (typeof E.brother.talkPending !== 'boolean') E.brother.talkPending = false;
+    if (!Array.isArray(E._affectionLog)) E._affectionLog = []; // 好感度来源日志迁移
 
     // v23 新增：日记 + 男主视角碎片 + 日程男主行程
     if (!Array.isArray(E.diary)) E.diary = [];

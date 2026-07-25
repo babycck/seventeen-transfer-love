@@ -67,6 +67,16 @@ export function parseEntSimResponse(rawText) {
         if (blk.type === 'options' && Array.isArray(blk.content)) options = options.concat(blk.content);
         if (blk.type === 'extras' && typeof blk.content === 'object') extras = blk.content;
       }
+      if (!options.length && narrative) {
+        // 尝试从原始文本提取 options
+        var om = rawText.match(/"options"\s*:\s*\[([\s\S]*?)\]\s*[,}\]]/);
+        if (om) {
+          var arr = om[1].match(/"((?:[^"\\]|\\.)*)"/g);
+          if (arr) options = arr.map(function(s) { return s.replace(/^"|"$/g,'').replace(/\\"/g,'"').replace(/\\n/g,'\n'); });
+        }
+        // 仍为空：生成通用 fallback，避免 validator 报 error 浪费重试 token
+        if (!options.length) options = ['继续', '换个话题', '自由行动'];
+      }
       if (narrative || options.length) {
         return { narrative: narrative, options: options, extras: extras };
       }
@@ -75,7 +85,7 @@ export function parseEntSimResponse(rawText) {
   // blocks 正则兜底：safeParseJson 解析失败时（如 content 中含未转义引号/换行），直接从原始文本提取
   if (!json && rawText.indexOf('"blocks"') >= 0) {
     var bn = extractBlocksNarrative(rawText);
-    if (bn) return { narrative: bn, options: [], extras: {} };
+    if (bn) return { narrative: bn, options: ['继续', '换个话题', '自由行动'], extras: {} };
   }
   // JSON 截断兜底：从原始文本正则提取关键字段
   var fb = regexEntSimFallback(rawText);

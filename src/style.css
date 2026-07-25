@@ -2955,6 +2955,45 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-biz-tab:hover { color: var(--es-text); }
 .es-biz-tab.active { color: #ffb8d4; border-bottom-color: #ffb8d4; }
 .es-biz-content { animation: esFadeIn .25s ease; }
+
+/* ── 好感度来源日志 ── */
+.es-aff-log { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.06); }
+.es-aff-log-row { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 0; color: rgba(255,255,255,.4); }
+.es-aff-delta { font-weight: 600; font-size: 10px; min-width: 24px; text-align: center; }
+.es-aff-delta.up { color: #9ad0a0; }
+.es-aff-delta.down { color: #f88a8a; }
+.es-aff-reason { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.es-aff-total { color: rgba(255,255,255,.25); font-size: 10px; flex-shrink: 0; }
+
+/* ── 泡泡聊天室 ── */
+.bubble-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; margin-bottom: 8px; font-size: 13px; border-bottom: 1px solid rgba(124,111,240,.12); }
+.bubble-h-left { color: #ffb8d4; }
+.bubble-h-left b { font-size: 14px; }
+.bubble-h-right { color: rgba(255,200,220,.5); font-size: 11px; }
+.bubble-h-right b { color: #ffb8d4; }
+.bubble-chat { max-height: 42vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.bubble-chat::-webkit-scrollbar { width: 4px; }
+.bubble-chat::-webkit-scrollbar-thumb { background: rgba(124,111,240,.2); border-radius: 4px; }
+.bubble-empty { color: rgba(255,255,255,.3); text-align: center; padding: 30px 0; font-size: 13px; }
+.bubble-msg { display: flex; align-items: flex-end; gap: 4px; animation: bubbleIn .3s ease; }
+.bubble-msg.me { flex-direction: row-reverse; }
+.bubble-msg.me .bubble-bubble {
+  background: linear-gradient(135deg, #d87ab8, #c462a6);
+  color: #fff; border-radius: 16px 16px 4px 16px; margin-right: 2px;
+}
+.bubble-msg.fan { flex-direction: row; }
+.bubble-msg.fan .bubble-bubble {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.05);
+  color: rgba(255,255,255,.75); border-radius: 16px 16px 16px 4px; margin-left: 2px;
+}
+.bubble-bubble { max-width: 80%; padding: 8px 12px; font-size: 12.5px; line-height: 1.6; word-break: break-word; }
+.bubble-name { font-size: 10px; color: rgba(255,200,220,.45); margin-bottom: 2px; padding-left: 4px; font-weight: 600; }
+.bubble-send-bar { margin-top: 10px; }
+.bubble-send-btn { display: block; width: 100%; padding: 10px 0; border: none; border-radius: 8px; background: linear-gradient(135deg, #d87ab8, #c462a6); color: #fff; font-size: 14px; cursor: pointer; transition: opacity .2s; }
+.bubble-send-btn:hover { opacity: .9; }
+.bubble-send-btn:disabled { opacity: .35; cursor: not-allowed; }
+@keyframes bubbleIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .es-fan-hist-preview { font-size: 12px; color: var(--es-text); opacity: .7; }
 
 /* 舆论条目可点击 */

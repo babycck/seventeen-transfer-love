@@ -50,6 +50,18 @@ export function applyEntSimAffection(delta) {
   E.affection = Math.max(0, Math.min(100, oldAff + (delta || 0)));
   var newIdx = affectionStageIndex(E.affection);
   E.romance.stage = AFFECTION_STAGES[newIdx].label;
+  // 好感度来源日志（仿 1v1 模式，恋情面板展示最近 3 条）
+  if (delta !== 0) {
+    E._affectionLog = E._affectionLog || [];
+    E._affectionLog.push({
+      day: E.cycle.dayCount || 1,
+      round: E.cycle.roundTotal || 0,
+      delta: delta,
+      reason: (arguments.length >= 2 && arguments[1] && arguments[1]._affReason) ? arguments[1]._affReason : '剧情推进',
+      total: E.affection
+    });
+    if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
+  }
   // 好感里程碑卡片（20/40/60/80），每阈值仅触发一次
   var milestones = [20, 40, 60, 80];
   for (var i = 0; i < milestones.length; i++) {

@@ -66,6 +66,7 @@ export function initEntSimState() {
   E._svtTodaySeen = []; // 今天出场的 SVT 队友（name+desc），防同一天重复出场
   // 粉丝泡泡系统（替代旧营业反馈）
   E.bubble = { subscribers: 100 + randInt(0, 900), messages: [], todayCount: 0, lastSentDay: 0, streak: 0 };
+  E._affectionLog = []; // 好感度来源日志（{day, round, delta, reason, total}）
   E.careerHistory = [];
   E.secret = { items: defaultSecrets(), foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 };
   E.brother = {

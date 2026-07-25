@@ -145,7 +145,12 @@ export function generateEntSimRound(type, extra) {
 // 应用 AI 返回的副作用（恋爱主线 + 娱乐圈背景张力）
 function applySideEffects(extras) {
   if (!extras) return;
-  if (typeof extras.affectionDelta === 'number') applyEntSimAffection(extras.affectionDelta);
+  // 情敌 NPC 专属互动场景不应用 affectionDelta 到男主好感
+  var isRivalOnly = extras._npcType === 'suitor' && !extras._hasMaleLead;
+  if (typeof extras.affectionDelta === 'number' && !isRivalOnly) {
+    extras._affReason = extras._affReason || '剧情推进';
+    applyEntSimAffection(extras.affectionDelta);
+  }
   if (extras.romanceBeat) recordRomanceBeat(extras.romanceBeat);
   if (extras.exposureEvent) {
     var mag = extras.exposureEvent.magnitude || 0;
@@ -775,8 +780,15 @@ export async function sendBubbleMessage() {
     var popBonus = 1 + Math.floor(sub / 500) + (streak >= 7 ? 3 : 0);
     popBonus = Math.min(5, popBonus);
     addPopularity(popBonus, '泡泡营业·粉丝互动（连续' + streak + '天）');
+    // 订阅数动态变化
+    var pop = E.career.popularity || 22;
+    var subDelta = 1 + Math.floor(Math.random() * 5);
+    if (pop >= 60) subDelta += Math.floor(Math.random() * 3);
+    if (streak >= 7) subDelta += 2;
+    if (Math.random() < 0.12) subDelta -= randInt(1, 3);
+    E.bubble.subscribers = Math.max(10, (E.bubble.subscribers || 100) + subDelta);
     saveGame();
-    return { msgToFans: msgToFans, fanReplies: fanReplies, subscribers: sub, streak: streak, todayCount: E.bubble.todayCount };
+    return { msgToFans: msgToFans, fanReplies: fanReplies, subscribers: E.bubble.subscribers, streak: streak, todayCount: E.bubble.todayCount };
   } catch(e) {
     console.error('[sendBubbleMessage]', e);
     showToast('⚠️ 泡泡发送失败：' + (e.message || '未知错误'));

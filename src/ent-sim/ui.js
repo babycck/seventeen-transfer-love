@@ -401,6 +401,18 @@ function renderLovePanel() {
   if (E.brother && E.brother.name) {
     html += '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
   }
+  // 好感度来源日志（最近 3 条）
+  var affLog = E._affectionLog || [];
+  if (affLog.length > 0) {
+    html += '<div class="es-aff-log">';
+    var showLogs = affLog.slice(-3).reverse();
+    for (var li = 0; li < showLogs.length; li++) {
+      var l = showLogs[li];
+      var dSign = l.delta > 0 ? '+' : '';
+      html += '<div class="es-aff-log-row"><span class="es-aff-delta' + (l.delta > 0 ? ' up' : ' down') + '">' + dSign + l.delta + '</span><span class="es-aff-reason">' + escHtml(l.reason || '') + '</span><span class="es-aff-total">→ ' + l.total + '</span></div>';
+    }
+    html += '</div>';
+  }
   html += '</div>';
   return html;
 }
@@ -1496,32 +1508,11 @@ function showBusinessPanel() {
   var streak = bubble.streak || 0;
   var sub = bubble.subscribers || 0;
   var messages = bubble.messages || [];
-
-  // ── Tab 1: 泡泡内容 ──
-  var histHtml = '';
-  var recentMsgs = messages.slice(-5).reverse();
-  for (var i = 0; i < recentMsgs.length; i++) {
-    var m = recentMsgs[i];
-    histHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
-      '<div style="font-size:12px;color:#d8cdf0;margin-bottom:3px">💬 ' + escHtml(m.msg || '') + '</div>';
-    if (m.replies && m.replies.length) {
-      for (var r = 0; r < m.replies.length; r++) {
-        histHtml += '<div style="font-size:11px;color:rgba(255,200,220,.7);margin-left:10px">❤️ ' + escHtml(m.replies[r]) + '</div>';
-      }
-    }
-    histHtml += '</div>';
-  }
   var canSend = todayCount < maxDaily;
-  var bubbleContent = '<div style="text-align:center;margin-bottom:10px">' +
-    '📱 <b style="color:#ffb8d4">订阅数 ' + sub + '</b> · ' + (streak >= 7 ? '🔥连续' : '') + streak + '天' +
-    ' · 今日已发 <b>' + todayCount + '/' + maxDaily + '</b>' +
-    '</div>' +
-    '<div style="max-height:35vh;overflow-y:auto;margin-bottom:10px">' +
-    (histHtml || '<div style="color:var(--es-text-dim);text-align:center;padding:20px">还没有发过泡泡～发第一条消息给粉丝吧💜</div>') +
-    '</div>' +
-    '<button id="es-bubble-send" class="primary" style="display:block;width:100%;margin-top:6px"' +
-    (canSend ? '' : ' disabled style="opacity:.4;cursor:not-allowed"') +
-    '>' + (canSend ? '💬 发送泡泡消息' : '🕒 今日已达上限（5/5）') + '</button>';
+
+  // ── Tab 1: 泡泡内容（聊天室布局） ──
+  var chatHtml = renderBubbleChat(messages, sub, streak, todayCount, maxDaily, canSend);
+  var bubbleContent = chatHtml;
 
   // ── Tab 2: 反馈内容（全部历史） ──
   var list = E.fanReactions || [];
@@ -1580,40 +1571,99 @@ function showBusinessPanel() {
         document.getElementById('es-biz-tab-feedback').style.display = (target === 'feedback' ? '' : 'none');
       });
     });
-    // 泡泡发送按钮
-    if (canSend) {
-      var btn = document.getElementById('es-bubble-send');
-      if (btn) btn.addEventListener('click', function() {
-        closeEntSimModal();
-        showNarrativeLoading();
+    // 泡泡发送按钮：面板内结果不退出
+    var sendBtn = document.getElementById('es-bubble-send');
+    if (sendBtn && canSend) {
+      sendBtn.addEventListener('click', function() {
+        sendBtn.disabled = true;
+        sendBtn.textContent = '⏳ 发送中…';
         sendBubbleMessage().then(function(res) {
           if (res) {
-            showBubbleResult(res);
+            // 刷新泡泡Tab内容（不关闭弹窗）
+            var E = GS.entSim;
+            var bubble = E.bubble || {};
+            var newChatHtml = renderBubbleChat(
+              bubble.messages || [],
+              bubble.subscribers || 0,
+              bubble.streak || 0,
+              bubble.todayCount || 0, 5,
+              (bubble.todayCount || 0) < 5
+            );
+            var tabEl = document.getElementById('es-biz-tab-bubble');
+            if (tabEl) tabEl.innerHTML = newChatHtml;
+            // 滚动到底部
+            var chatEl = document.getElementById('es-bubble-chat');
+            if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
           } else {
-            showToast('泡泡发送失败');
+            sendBtn.disabled = false;
+            sendBtn.textContent = '💬 发送泡泡消息（失败重试）';
           }
-          rerender();
         });
       });
     }
   }, 100);
 }
 
-// 泡泡发送结果弹窗（保留，泡泡发送后使用）
-function showBubbleResult(res) {
-  var repliesHtml = (res.fanReplies && res.fanReplies.length) ?
-    res.fanReplies.map(function(r) { return '<div style="font-size:12px;color:rgba(255,200,220,.75);margin:3px 0">❤️ ' + escHtml(r) + '</div>'; }).join('') :
-    '<div style="font-size:12px;color:var(--es-text-dim)">（粉丝还没反应…）</div>';
-  var html = '<div style="margin-bottom:10px;line-height:1.8">' +
-    '<div style="font-size:14px;color:#d8cdf0;margin-bottom:8px">📤 <b>你发了：</b><br>' + escHtml(res.msgToFans || '') + '</div>' +
-    '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:8px;margin-top:4px">' +
-    '<div style="font-size:13px;color:#ffb8d4;margin-bottom:4px">📥 <b>粉丝回复：</b></div>' +
-    repliesHtml +
-    '</div>' +
-    '<div style="font-size:11px;color:var(--es-text-dim);margin-top:8px">订阅数 ' + (res.subscribers || 0) + ' · 连续 ' + (res.streak || 0) + '天 · 今日 ' + (res.todayCount || 0) + '/5</div>' +
+// 泡泡聊天室渲染
+function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend) {
+  // 粉丝名池（100个中文名，不重复使用）
+  // 静态池，每条AI回复随机分配名字
+  // 聊天历史渲染
+  var histHtml = '';
+  var flatMsgs = [];
+  for (var i = 0; i < (messages || []).length; i++) {
+    var m = messages[i];
+    flatMsgs.push({ me: true, text: m.msg || '' });
+    if (m.replies && m.replies.length) {
+      for (var r = 0; r < m.replies.length; r++) {
+        flatMsgs.push({ me: false, text: m.replies[r], name: pickFanName() });
+      }
+    }
+  }
+  for (var j = 0; j < flatMsgs.length; j++) {
+    var fm = flatMsgs[j];
+    if (fm.me) {
+      histHtml += '<div class="bubble-msg me"><div class="bubble-bubble">' + escHtml(fm.text) + '</div></div>';
+    } else {
+      histHtml += '<div class="bubble-msg fan"><div><div class="bubble-name">' + escHtml(fm.name || '粉丝') + '</div><div class="bubble-bubble">' + escHtml(fm.text) + '</div></div></div>';
+    }
+  }
+
+  var headerHtml = '<div class="bubble-header-bar">' +
+    '<span class="bubble-h-left">📱 <b>' + escHtml((GS.heroineProfile && GS.heroineProfile.name) || '你') + '的泡泡</b></span>' +
+    '<span class="bubble-h-right">订阅 <b>' + sub + '</b>人 · 连续 <b>' + streak + '</b>天</span>' +
     '</div>';
-  showEntSimModal('💬 泡泡发送成功', html, [{ id: 'close', label: '知道了' }]);
+  var chatDiv = '<div class="bubble-chat" id="es-bubble-chat">' +
+    (histHtml || '<div class="bubble-empty">还没有发过泡泡～发第一条消息给粉丝吧 💜</div>') +
+    '</div>';
+  var sendHtml = '<div class="bubble-send-bar">' +
+    '<button id="es-bubble-send" class="bubble-send-btn"' + (canSend ? '' : ' disabled') + '>' +
+    (canSend ? '💬 发送泡泡消息' : '今日已发满') +
+    '</button>' +
+    '</div>';
+  return headerHtml + chatDiv + sendHtml;
 }
+
+// 100个中文粉丝名池
+var FAN_NAME_POOL = [
+  '小糖果','星星眼','薄荷糖','草莓牛奶','素妍','出道粉','仓鼠饲养员','你的春天',
+  '智恩','樱花落','东海边的','追星少女','露娜','布丁布丁','巧克力牛奶','花路陪你走',
+  '深夜写信的人','一只企鹅','小太阳','练习生时期的老粉',
+  '桃子汽水','月亮不睡','芝士年糕','蓝色围巾','小迷糊','追光者','向日葵','棉花糖',
+  '奶茶三分糖','蜂蜜柚子','小雨伞','饼干怪兽','早起第一名','熬夜冠军','柠檬气泡水',
+  '软糖少女','云朵上面','小熊软糖','夏天结束了','冬日暖阳','橘子汽水','恐龙让梨',
+  '芋泥波波','酸奶盖子','绿豆冰沙','想喝可乐','泡芙小姐','焦糖布丁','提拉米苏',
+  '薯片大人','糯米团子','红豆面包','牛奶面包','空气炸锅','螺蛳粉真爱','火锅底料',
+  '麻辣烫丸子','珍珠奶茶','冰美式续命','抹茶星冰乐','杨枝甘露','多肉葡萄','芝芝莓莓',
+  '海边日出','半山听雨','花开彼岸','木槿花开','梧桐树下','橘子海','银河铁道','极光之下',
+  '千与千寻','龙猫巴士','魔女宅急便','天空之城','风之谷','幽灵公主','波妞喜欢宗介',
+  '一闪一闪','夜空中最亮的星','白日梦想家','月亮与六便士','小王子星球','玫瑰与狐狸',
+  '今天也很想你','明天见','后天也是晴天','一直在','永远站','下一站幸福',
+  '追风少女','自由如风','尘埃里开花','逆光飞翔','勇敢的心','微光','小确幸'
+];
+function pickFanName() { return FAN_NAME_POOL[Math.floor(Math.random() * FAN_NAME_POOL.length)]; }
+
+// 泡泡发送结果（保留，面板内渲染使用）
 
 // ---------- 点击右侧舆论条目 → 详情弹窗 ----------
 var BUZZ_LABELS = { hot: '🔥 热搜', fan: '💬 粉丝讨论', media: '📰 媒体热议' };

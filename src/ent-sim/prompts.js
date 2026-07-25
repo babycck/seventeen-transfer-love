@@ -28,7 +28,7 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '【男主上心契机·种子事件】' + E.romance.seedEvent + '\n（这是男主为什么对女主不一样的根，后续告白/吃醋/心动时刻可回溯引用，保持前后一致。）\n';
   }
   if (E.romance && E.romance.mannerisms && E.romance.mannerisms.length) {
-    sys += '【男主小动作】' + E.romance.mannerisms.join('、') + '（每 5-8 回合自然出现一次，用于角色辨识度，不要每次都写）。\n';
+    sys += '【男主小动作】' + E.romance.mannerisms.join('、') + '（每 5-8 回合自然出现一次，用于男主角色辨识度，不要每次都写）。此小动作仅限男主本人，其他 SEVENTEEN 成员各有自己的习惯和性格特征，绝对不要把男主的特征写到其他成员身上。\n';
   }
   sys += '【称呼演变】男主对女主的称呼随感情推进：初期叫全名或「XX前辈/后辈」或不带称呼 → 熟络后叫艺名/全名 → 暧昧期叫「小 X」→ 明确期叫「宝宝/亲爱的」。严禁开局就叫「你妹妹」「妹妹」，那必须是已通过哥哥认识后才可能出现的称呼。\n';
   sys += '【男主主动】男主每天约 10% 概率主动发起互动（发消息/探班/吃醋/送东西/约你），按好感阶段解锁类型。\n';
@@ -45,7 +45,7 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '禁止笼统说「在群里」「群聊」——必须明确写「在女团姐妹群里」或「在 SEVENTEEN 工作群里」。\n';
   // SEVENTEEN 回归期提示
   if (GS.entSim && GS.entSim._svtComebackDays && GS.entSim._svtComebackDays > 0) {
-    sys += '【SEVENTEEN 回归期】目前 SEVENTEEN 处于回归打歌期（剩余' + GS.entSim._svtComebackDays + '天），男主行程密度极高、非常忙碌、可约时间大幅减少；但同台打歌场景概率大幅增加，可在待机室/后台/打歌舞台等场景偶遇。\n';
+    sys += '【SEVENTEEN 回归期】目前仅 SEVENTEEN 处于回归打歌期（剩余' + GS.entSim._svtComebackDays + '天），男主行程密度极高、非常忙碌、可约时间大幅减少；但同台打歌场景概率大幅增加，可在待机室/后台/打歌舞台等场景偶遇。注意：女主的女团（新人/二线团）目前没有回归活动，日常以练习/打歌/签售/跑行程为主，不要描述女主团也在回归。\n';
   }
   // 粉丝泡泡系统规则（仅当生成泡泡相关内容时使用）
   sys += '【粉丝泡泡（Bubble·付费订阅平台）】女主在泡泡上给订阅粉丝发消息/自拍/语音。粉丝回复仅含真粉丝语气——兴奋🥹、关心💜、表白✨、催更📢 等，无路人无黑粉。泡泡是付费订阅服务，只有喜欢女主的人才会订阅。\n';
