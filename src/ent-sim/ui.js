@@ -285,7 +285,11 @@ function renderQuickActions() {
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
   ].map(function(b) {
-    return '<button class="es-quick-btn' + (b.act ? ' es-quick-sm' : '') + '" data-q="' + b.q + '"' + (b.act ? ' data-act="' + b.act + '"' : '') + '>' + b.label + '</button>';
+    var hasQ = !b.act;
+    return '<button class="es-quick-btn' + (b.act ? ' es-quick-sm' : '') + '"' +
+      (hasQ ? ' data-q="' + b.q + '"' : '') +
+      (b.act ? ' data-act="' + b.act + '"' : '') +
+      '>' + b.label + '</button>';
   }).join('');
   return '<div class="es-quick es-quick-center">' + quick + '</div>';
 }
@@ -666,6 +670,11 @@ function onNpcInteract(type) {
 function onQuick(q) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
 
+  // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
+  if (q === 'visit') { showEntSimVisitChoice(); return; }
+  if (q === 'ending') { onEnding(); return; }
+  if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
+
   // 重新生成/下一个行程 加确认防误触
   var confirmActions = { regenerate: '重新生成', nextagenda: '下一个行程' };
   if (confirmActions[q]) {
@@ -684,10 +693,7 @@ function onQuick(q) {
   }
 
   showNarrativeLoading();
-  if (q === 'nextday') { goEntSimNextDay().then(rerender); }
-  else if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
-  else if (q === 'visit') { showEntSimVisitChoice(); }
-  else if (q === 'ending') { onEnding(); }
+  if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
 }
 
 // 探班 3 选 1：从日程构建选项，返回 Promise 链
