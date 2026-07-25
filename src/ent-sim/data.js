@@ -628,6 +628,42 @@ export var TEAMMATE_FLAVOR = {
   '佛系维他命': '天塌下来也先躺平，今天她用松弛感和幽默点亮全团紧绷的练习气氛，是团里不可或缺的气氛调节器。'
 };
 
+// SEVENTEEN 队友精简标签（13 人完整数据，用于探班面板和事件池）
+export var SVT_TEAMMATE_PROFILES = [
+  { id: 'scoups', name: '崔胜澈', stageName: 'S.Coups', emoji: '🍒', desc: '总队长·沉稳可靠', birthYear: 1995 },
+  { id: 'jeonghan', name: '尹净汉', stageName: 'Jeonghan', emoji: '👼', desc: '温柔细腻·老谋深算', birthYear: 1995 },
+  { id: 'joshua', name: '洪知秀', stageName: 'Joshua', emoji: '🦌', desc: '绅士优雅·美式反应', birthYear: 1995 },
+  { id: 'jun', name: '文俊辉', stageName: 'Jun', emoji: '🐱', desc: '安静温柔·武术担当', birthYear: 1996 },
+  { id: 'hoshi', name: '权顺荣', stageName: 'Hoshi', emoji: '🐯', desc: '热情主舞·虎虎生威', birthYear: 1996 },
+  { id: 'wonwoo', name: '全圆佑', stageName: 'Wonwoo', emoji: '🐺', desc: '低音炮·游戏宅', birthYear: 1996 },
+  { id: 'woozi', name: '李知勋', stageName: 'Woozi', emoji: '🍚', desc: '天才制作人·可爱反差', birthYear: 1996 },
+  { id: 'dk', name: '李硕珉', stageName: 'DK', emoji: '⚔️', desc: '开朗主唱·笑点低', birthYear: 1997 },
+  { id: 'mingyu', name: '金珉奎', stageName: 'Mingyu', emoji: '🐶', desc: '热心大狗·料理担当', birthYear: 1997 },
+  { id: 'the8', name: '徐明浩', stageName: 'The8', emoji: '🎱', desc: '东北铁子·艺术感性', birthYear: 1997 },
+  { id: 'seungkwan', name: '夫胜宽', stageName: 'Seungkwan', emoji: '🍊', desc: '综艺天才·济州岛甜橘', birthYear: 1998 },
+  { id: 'vernon', name: '崔韩率', stageName: 'Vernon', emoji: '🐢', desc: '四次元·自由灵魂', birthYear: 1998 },
+  { id: 'dino', name: '李灿', stageName: 'Dino', emoji: '🦕', desc: '忙内·舞蹈机器', birthYear: 1999 }
+];
+
+// SEVENTEEN 队友偶遇事件池（~15 条，按场景 vibe 分类，探班时随机抽取 flavor）
+export var SVT_TEAMMATE_EVENT_POOL = [
+  { vibe: '练习室', text: '你路过 SEVENTEEN 练习室，{{name}}正在练舞，停下来擦汗冲你挥手："找哥哥？他在里面。"' },
+  { vibe: '练习室', text: '你推开练习室门以为没人，结果{{name}}戴着耳机独自加练，被你吓一跳，笑着说"我还以为经纪人来了"' },
+  { vibe: '公司食堂', text: '食堂打饭时{{name}}排在你前面，回头看到你后主动帮你拿了份你常吃的套餐。"上次看你点这个，应该没错吧？"' },
+  { vibe: '公司食堂', text: '你端着餐盘找座位，{{name}}招手让你坐他旁边，顺便聊起最近回归的趣事，氛围轻松自然' },
+  { vibe: '走廊偶遇', text: '{{name}}从录音室出来差点撞到你，连忙扶住你肩膀说"미안해！没看到你"，耳朵微微泛红' },
+  { vibe: '走廊偶遇', text: '你刚从会议室出来，{{name}}远远喊了你一声，小跑过来问"哥哥在不在练习室？我有事找他"' },
+  { vibe: '哥哥牵线', text: '哥哥拉着{{name}}过来说"我妹今天也在公司，你们认识一下"，{{name}}礼貌鞠躬说"안녕하세요"，眼神里带着好奇' },
+  { vibe: '哥哥牵线', text: '哥哥在群聊里说"谁帮我妹搬下器材"，{{name}}秒回"我来！"，到了之后才发现你东西也没那么重' },
+  { vibe: '待机室', text: '你在待机室补妆，{{name}}敲门进来送咖啡，说是经纪人买的太多了分给大家' },
+  { vibe: '待机室', text: '打歌后台，{{name}}在走廊看到你团的海报，停下来认真看了几秒说"这个造型很适合你们"' },
+  { vibe: '群聊', text: '你在 SEVENTEEN 工作群发了个表情包，{{name}}秒回一条，引发其他人排队跟风，群聊热闹了几分钟' },
+  { vibe: '群聊', text: '{{name}}在群里分享了一首新歌推荐，你点赞后他私聊你说"没想到你也喜欢这个风格"' },
+  { vibe: '公司活动', text: '公司年会抽奖环节，{{name}}抽到和你相邻的座位，两人被迫互动，反而熟络了不少' },
+  { vibe: '公司活动', text: '全体艺人拍家族合照时，{{name}}刚好被安排站在你旁边，小声说"笑得自然一点"，他自己先忍不住笑了' },
+  { vibe: '深夜偶遇', text: '你深夜在作曲室加班，{{name}}也还没走，他推门进来递了瓶水说"还不回去？明天又是凌晨打歌"' }
+];
+
 // 每日营业事件池（~100 条）：每进入新一天随机抽取一条，触发粉丝圈反应
 export var DAILY_ENGAGEMENT_POOL = [
   // ── SNS 社交平台 ──

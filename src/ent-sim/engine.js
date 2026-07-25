@@ -11,13 +11,13 @@ import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.
 import { buildEntSimSystemPrompt, buildEntSimUserMessage } from './prompts.js';
 import { rollDailyAgenda, getTimeOfDayLabel } from './cycle.js';
 import { applyDiscoveryBlowback, addExposure } from './public-opinion.js';
-import { recordRomanceBeat, tryConfession, applyConfessionResult, applyCover, applyEntSimAffection, tickRomanceTimers } from './romance.js';
+import { recordRomanceBeat, applyEntSimAffection, tickRomanceTimers } from './romance.js';
 import { generateDailyBuzz, generateFanReaction } from './immersion.js';
 import { evaluateEnding } from './endings.js';
 import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
 import { getNpcNodes } from './npc-network.js';
-import { ENDING_TONE, TEAMMATE_FLAVOR, DAILY_ENGAGEMENT_POOL } from './data.js';
+import { ENDING_TONE, TEAMMATE_FLAVOR, DAILY_ENGAGEMENT_POOL, SVT_TEAMMATE_EVENT_POOL, SVT_TEAMMATE_PROFILES } from './data.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
@@ -245,6 +245,7 @@ export function goEntSimNextDay() {
     generateEntSimMoment(); // 异步，不阻塞换天流程
   }
   E.cycle.timeOfDay = 0; // 换天重置为上午（时段由「下一个行程」逐档推进）
+  E._svtTodaySeen = []; // 每天清空 SVT 队友出场记录
   E.chapter.roundInChapter = (E.chapter.roundInChapter || 0) + 1; // 章节内回合/天数累计
   tickRomanceTimers(); // 清理过期冷战 / 告白冷却
   rollDailyAgenda();
@@ -398,6 +399,29 @@ export function triggerTeammateEvent(member) {
   var extraNote = '请让队友「' + member.name + '（' + member.roleTag + '）」出场，' + flavor +
     '。剧情围绕女团日常展开，男主/哥哥/情敌的互动自然穿插，不要喧宾夺主。';
   triggerEntSimEvent('队友·' + member.name + '（' + member.roleTag + '）', { extraNote: extraNote });
+}
+
+// SEVENTEEN 队友探班：从事件池随机抽取 flavor，记录今日出场，生成 AI 叙事
+export function triggerSVTTeammateEvent(memberId) {
+  var E = GS.entSim;
+  var prof = SVT_TEAMMATE_PROFILES.find(function(p) { return p.id === memberId; });
+  if (!prof) return;
+  // 记录今日出场（防同一人多次出场，prompt 中注入）
+  E._svtTodaySeen = E._svtTodaySeen || [];
+  if (E._svtTodaySeen.some(function(x) { return x.id === prof.id; })) {
+    // 同一天可再见，但不重复记录
+  } else {
+    E._svtTodaySeen.push({ id: prof.id, name: prof.name, desc: prof.desc });
+    saveGame();
+  }
+  // 从事件池随机抽取，注入成员名
+  var pool = SVT_TEAMMATE_EVENT_POOL.length ? SVT_TEAMMATE_EVENT_POOL : [{ vibe: '日常', text: '你在公司碰到了{{name}}，两人简单聊了几句' }];
+  var ev = pool[randInt(0, pool.length - 1)];
+  var sceneText = ev.text.replace(/\{\{name\}\}/g, prof.name);
+  var extraNote = '请让 SEVENTEEN 队友「' + prof.emoji + prof.name + '（' + prof.desc + '）」出场，场景提示：' + sceneText +
+    '。写约 250-400 字的自然互动，体现这位成员' + prof.desc + '的性格特点，不抢男主戏，作为娱乐圈日常点缀。';
+  triggerEntSimEvent('SVTEAM·' + prof.name, { extraNote: extraNote, scene: ev.vibe });
+  saveGame();
 }
 
 // 重新开始一局（结局卡片调用）：重建 entSim 状态并重新渲染

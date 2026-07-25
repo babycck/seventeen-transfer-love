@@ -35,6 +35,8 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【吃醋】当女主和别人同台打歌、被搭话要联系方式、或处在赞助商潜规则感的场景时，男主会吃醋。\n';
   sys += '【哥哥设定】SEVENTEEN 成员、女主亲哥哥（团内队友）「' + (bro ? bro.name : '哥哥') + '」。开局他只是女主的哥哥，尚未介入妹妹感情事。随着剧情推进，他可能成为参谋、调侃、被拍时掩护，也可能反对。哥哥若被设定为「反对公开」，会卡住男主告白（需玩家先化解他的顾虑）；否则立场是剧情张力来源。\n';
   sys += '【团内竞争者】男主的情敌是 SEVENTEEN 的团内另一位成员。开局他也只是普通前辈，随着剧情推进可能对女主产生好感，有递进弧线（初遇→注意→试探→冲突→退出祝福/上位），禁止自创新名字。\n';
+  // SEVENTEEN 其他队友（哥哥的团内兄弟·可客串出场）
+  sys += '【SEVENTEEN 队友（哥哥的团内兄弟·可自然客串）】' + svtTeammateSummary() + '。他们是哥哥的团内兄弟，可在练习室/待机室/公司食堂/走廊等场景自然出场——打招呼、调侃、助攻均可，体现「哥哥队友都是朋友」的氛围。哥哥在场时出场概率更高。队友出场不抢男主戏，每次客串一两句话即可，作为娱乐圈真实感的点缀。\n';
   // 8 阶段好感度指引
   sys += '【恋爱阶段（好感度 0-100 派生）】' + AFFECTION_STAGES.map(function(s) { return s.min + '=' + s.icon + s.label; }).join(' / ') + '。好感度由每回合的 affectionDelta(±1-3) 推进。\n';
   sys += '【告白门槛】好感度 ≥ 80（交往）且 未冷战 且 未告白过，下一个或下下个剧情会自然触发告白，不要一到 80 就生硬告白。\n';
@@ -205,6 +207,9 @@ function buildEntSimContextSnapshot() {
   if (npc.length) s += '关系网：' + npc.join('；') + '\n';
   // 秘密
   if (E.secret.items.length) s += '女主秘密：' + E.secret.items.join('；') + (E.secret.foundByRival ? '（已被团内成员发现）' : '') + '\n';
+  // SVT 队友今日互动（轻量记录，避免重复出场同一人）
+  var svtToday = E._svtTodaySeen || [];
+  if (svtToday.length) s += '今天见过的SEVENTEEN队友：' + svtToday.map(function(x) { return x.name + '(' + x.desc + ')'; }).join('、') + '（本轮避免让这些人再出场）\n';
   // 记忆注入（近 7 天关键词 + 全部关键事件）
   var mem = buildMemorySnapshot();
   if (mem) s += '\n' + mem + '\n';
@@ -215,4 +220,23 @@ function sisterSummary() {
   var g = GS.entSim.heroineGroup || [];
   if (!g.length) return '（5 位姐姐，待具象化）';
   return g.map(function(x) { return x.name + '(' + x.roleTag + ')'; }).join('、');
+}
+
+// SEVENTEEN 队友概要（排除男主/哥哥/情敌 3 人后剩余 ~10 人，emoji + 名字 + 标签）
+function svtTeammateSummary() {
+  var E = GS.entSim || {};
+  var mlId = (E.romance && E.romance.maleLead) ? E.romance.maleLead.id : (GS.oneHeartMember || '');
+  var broId = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
+  var suitorId = '';
+  if (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']) {
+    suitorId = E.npcNetwork.nodes['npc_suitor'].id || '';
+  }
+  var excluded = [mlId, broId, suitorId];
+  var teammates = MEMBERS.filter(function(m) {
+    return excluded.indexOf(m.id) < 0;
+  });
+  if (!teammates.length) return '（无其他队友）';
+  return teammates.map(function(m) {
+    return m.emoji + m.name + '·' + (m.desc || m.pos || '成员');
+  }).join('、');
 }

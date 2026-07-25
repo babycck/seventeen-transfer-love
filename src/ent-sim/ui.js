@@ -21,10 +21,10 @@ import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
   continueEntSimMain, triggerEntSimEvent, enterEntSimEnding,
   goEntSimNextDay, initiateEntSimDate, generateEntSimConfession,
-  generateEntSimChat, generateEntSimMoment, generateEntSimTheater, generateEntSimDiary, handleEntSimRegenerate, generateEntSimLetter,
-  generateEntSimRound, runEntSimEnding, triggerTeammateEvent, restartEntSim
+  generateEntSimChat, generateEntSimMoment, generateEntSimTheater, handleEntSimRegenerate,
+  generateEntSimRound, runEntSimEnding, triggerTeammateEvent, triggerSVTTeammateEvent, restartEntSim
 } from './engine.js';
-import { STAGE_CEREMONY, TEAMMATE_FLAVOR } from './data.js';
+import { STAGE_CEREMONY, TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './data.js';
 
 var SHOW_NPC = ['broker', 'fanleader', 'suitor'];
 
@@ -300,6 +300,7 @@ function renderQuickActions() {
     { q: 'cover', label: '🛡️ 掩护(' + (5 - (E.romance.coverUsed || 0)) + '/5)', act: 'cover' },
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
+    { q: 'svtvisit', label: 'SEVENTEEN队友' },
     { q: 'ending', label: '走向结局' },
     { q: 'nextday', label: '进入下一天' }
   ].map(function(b) {
@@ -708,6 +709,7 @@ function onQuick(q) {
 
   // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
   if (q === 'visit') { showEntSimVisitChoice(); return; }
+  if (q === 'svtvisit') { showSVTVisitPanel(); return; }
   if (q === 'ending') { onEnding(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
 
@@ -768,6 +770,45 @@ function showEntSimVisitChoice() {
       }
     );
   });
+}
+
+// SEVENTEEN 队友探班面板：12 人选单（排除男主/哥哥/情敌）
+function showSVTVisitPanel() {
+  var E = GS.entSim;
+  var mlId = (E.romance && E.romance.maleLead) ? E.romance.maleLead.id : (GS.oneHeartMember || '');
+  var broId = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
+  var suitorId = '';
+  if (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']) {
+    suitorId = E.npcNetwork.nodes['npc_suitor'].id || '';
+  }
+  var excluded = [mlId, broId, suitorId];
+  var available = SVT_TEAMMATE_PROFILES.filter(function(p) { return excluded.indexOf(p.id) < 0; });
+  if (!available.length) { showToast('没有其他 SEVENTEEN 成员可互动'); return; }
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0">';
+  for (var i = 0; i < available.length; i++) {
+    var p = available[i];
+    html += '<button class="es-svt-btn" data-svtid="' + p.id + '" style="padding:10px 14px;border:1px solid var(--es-card-border);border-radius:10px;background:rgba(185,174,224,.08);cursor:pointer;text-align:center;min-width:90px">' +
+      '<div style="font-size:24px">' + p.emoji + '</div>' +
+      '<div style="font-size:13px;font-weight:600;color:var(--es-text)">' + escHtml(p.name) + '</div>' +
+      '<div style="font-size:11px;color:var(--es-muted)">' + escHtml(p.desc) + '</div>' +
+      '</button>';
+  }
+  html += '</div>';
+  showEntSimModal('SEVENTEEN 队友', html, [
+    { id: 'cancel', label: '取消' }
+  ]);
+  // 绑定点击事件
+  setTimeout(function() {
+    document.querySelectorAll('.es-svt-btn[data-svtid]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var sid = b.getAttribute('data-svtid');
+        closeEntSimModal();
+        showNarrativeLoading();
+        triggerSVTTeammateEvent(sid);
+        setTimeout(rerender, 500);
+      });
+    });
+  }, 50);
 }
 
 // 恋爱动作

@@ -11,7 +11,7 @@ import { isSisterSetting, isIdolProfession, getEntSimCareerLevel } from './utils
 import { safeParseJson } from './parser.js';
 import { setGS } from './state.js';
 import { getAffectionHint, getAffectionDesc, spawnAffFloat, updateAffection, addAffectionLog, updateRivalTendency } from './affection.js';
-import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, doAgendaActivity, generateOneHeartSchedule } from './game-engine.js';
+import { handleOptionChoice, handleTruthRound, advancePhase, handleRegenerate, goToNextDay, proceedToNextDay, continueToday, handleFreeAction, generatePhaseNarrative, generateOneHeartRound, generateEventStory, handleExMessageChoice, resetPhaseState, handleQuestionBoxChoice, handleMidnightCall, applyOneHeartOptionAffection, applyOneHeartEventEffects, doActionTask, completeMissionCard, doVisitMember, generateOneHeartSchedule } from './game-engine.js';
 import { getZodiacFromBirthday, generateSeasonAndDates, generateOneHeartDates, generateDailyWeather, getSeasonByMonth } from './formatters.js';
 import { IDENTITY_RELATION_MAP, MEMBER_BIRTHDAYS, HOLIDAYS_1V1, WORLD_IDENTITY_COMPATIBILITY, ONE_HEART_ENDING_TEMPLATES, buildHeroineGirlGroup } from './data.js';
 import { generateAllXArchives } from './x-archive.js';
@@ -2598,7 +2598,7 @@ window.showEntSimChapterTransition = showEntSimChapterTransition;
 // [entSim] 事业面板：展示人气 / 等级 / 章节 / 曝光 / 今日日程进度
 export function showEntSimCareerPanel() {
   var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
-  var _pop = GS.entSimPopularity || 0;
+  var _pop = (GS.entSim && GS.entSim.career && typeof GS.entSim.career.popularity === 'number') ? GS.entSim.career.popularity : 0;
   var _lv = getEntSimCareerLevel(_pop);
   var _chap = GS.entSimChapter || 1;
   var _chapName = _chap === 1 ? '新人期' : (_chap === 2 ? '上升期' : '巅峰期');
@@ -2679,26 +2679,12 @@ function renderOneHeartActions() {
     html += '<span style="font-size:11px;color:#b9aee0">🤝哥哥立场：' + _bsText + ' · ' + _bhome + ' · 🔥绯闻热度 ' + _risk + '/100</span>';
   }
   html += '</div>';
-  // [entSim] 女主今日日程卡片（点击执行，非必做；做了有加成+偶遇剧情）
+  // [entSim] 事业简况（人气 / 章节 / 曝光），后续由日报替代详细日程
   if (GS.gameMode === 'entSim') {
     var _chapName = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
+    var _popStat = (GS.entSim && GS.entSim.career && typeof GS.entSim.career.popularity === 'number') ? GS.entSim.career.popularity : 0;
     html += '<div style="margin:10px 0;padding:10px 12px;border:1px solid var(--border-primary);border-radius:12px;background:rgba(124,111,240,0.06)">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#b9aee0;margin-bottom:6px"><span>🌟 今日日程（点击执行，非必做）　|　人气 ' + (GS.entSimPopularity || 0) + '（' + getEntSimCareerLevel(GS.entSimPopularity || 0) + '）　|　' + _chapName + '　|　曝光 ' + (GS.exposureRisk || 0) + '</span><button class="entSimCareerBtn oneheart-action-btn" style="font-size:11px;padding:2px 10px;margin:0">📊 事业</button></div>';
-    if (GS.entSimRestDay) {
-      html += '<div style="font-size:12px;color:#9ad0a0">🛌 今天没有行程，难得的休息日——可以发发朋友圈、翻翻手机，或静待夜晚的悄悄话。</div>';
-    } else if (!GS.entSimTodayAgenda || !GS.entSimTodayAgenda.length) {
-      html += '<div style="font-size:12px;color:#b9aee0">今天暂时没有档期安排。</div>';
-    } else {
-      html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
-      for (var _ai = 0; _ai < GS.entSimTodayAgenda.length; _ai++) {
-        var _a = GS.entSimTodayAgenda[_ai];
-        var _done = GS.entSimAgendaDone.indexOf(_a.id) >= 0;
-        var _icon = _a.type === 'team' ? '👥' : '🎧';
-        html += '<button class="entSimAgendaBtn oneheart-action-btn" data-aid="' + _a.id + '"' + (_done ? ' disabled style="opacity:.5;cursor:not-allowed"' : '') + '>' +
-          _icon + ' ' + escHtml(_a.task) + (_done ? ' ✓' : '') + '</button>';
-      }
-      html += '</div>';
-    }
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#b9aee0;margin-bottom:6px"><span>🌟 人气 ' + _popStat + '　|　' + _chapName + '　|　曝光 ' + (GS.exposureRisk || 0) + '</span><button class="entSimCareerBtn oneheart-action-btn" style="font-size:11px;padding:2px 10px;margin:0">📊 事业</button></div>';
     html += '</div>';
   }
   box.innerHTML = html;
@@ -2720,18 +2706,8 @@ function bindOneHeartEvents() {
   var _visitBtn = document.getElementById('btnOneHeartVisit');
   if (_visitBtn && GS.oneHeartDateToday) _visitBtn.innerHTML = '🎬 探班（今日已约）';
   renderOneHeartActions();
-  // [entSim] 今日日程活动按钮绑定
+  // [entSim] 事业面板按钮
   if (GS.gameMode === 'entSim') {
-    var _agBtns = document.querySelectorAll('.entSimAgendaBtn');
-    for (var _b = 0; _b < _agBtns.length; _b++) {
-      (function(btn) {
-        btn.addEventListener('click', function() {
-          var _aid = btn.getAttribute('data-aid');
-          if (_aid) doAgendaActivity(_aid);
-        });
-      })(_agBtns[_b]);
-    }
-    // [entSim] 事业面板按钮
     var _careerBtn = document.querySelector('.entSimCareerBtn');
     if (_careerBtn) _careerBtn.addEventListener('click', function() { showEntSimCareerPanel(); });
   }

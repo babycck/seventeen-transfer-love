@@ -63,6 +63,7 @@ export function initEntSimState() {
   E.romance.mannerisms = buildMannerisms(maleLead); // 男主小动作池：1主 + 1备
   E.dailyBuzz = { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenDay: -1 };
   E.appointments = []; // { with, place, timeHint, summary, roundCreated, done }
+  E._svtTodaySeen = []; // 今天出场的 SVT 队友（name+desc），防同一天重复出场
   E.careerHistory = [];
   E.secret = { items: defaultSecrets(), foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 };
   E.brother = {
