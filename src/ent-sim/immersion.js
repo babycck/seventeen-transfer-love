@@ -294,6 +294,8 @@ export function generateDailyBuzz() {
     if (!buzzByTitle(mediaTitle, meTitle) && E._lastMediaTitles.indexOf(meTitle) < 0) mediaTitle.push(me);
   }
   E._lastMediaTitles = mediaTitle.map(buzzTitle);
+  // 清除旧日的网友热议缓存，避免新条目显示昨天的评论
+  E.buzzReplies = {};
   E.dailyBuzz = {
     hotSearch: hotSearch,
     fanDiscussion: fanDiscussion,
