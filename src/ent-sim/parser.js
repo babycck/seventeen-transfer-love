@@ -72,6 +72,11 @@ export function parseEntSimResponse(rawText) {
       }
     }
   }
+  // blocks 正则兜底：safeParseJson 解析失败时（如 content 中含未转义引号/换行），直接从原始文本提取
+  if (!json && rawText.indexOf('"blocks"') >= 0) {
+    var bn = extractBlocksNarrative(rawText);
+    if (bn) return { narrative: bn, options: [], extras: {} };
+  }
   // JSON 截断兜底：从原始文本正则提取关键字段
   var fb = regexEntSimFallback(rawText);
   if (fb.narrative || fb.options.length) {
@@ -80,6 +85,57 @@ export function parseEntSimResponse(rawText) {
   // 兜底：作为 markdown 叙事处理
   var parsed = parseNarrative(rawText);
   return { narrative: parsed.narrative || '', options: parsed.options || [], extras: {} };
+}
+
+// 当 safeParseJson 失败时，从原始文本正则提取 blocks 中的 narrative content
+function extractBlocksNarrative(rawText) {
+  var narrative = '';
+  // 匹配 "type": "narrative" 后紧跟的 "content": "..." 字段
+  // 使用字符串搜索而非正则，更稳健地处理超长中文内容
+  var searchFrom = 0;
+  while (true) {
+    var typeIdx = rawText.indexOf('"type"', searchFrom);
+    if (typeIdx < 0) break;
+    // 找到 "type" 后确认值为 "narrative"
+    var typeColon = rawText.indexOf(':', typeIdx);
+    var typeVal = rawText.slice(typeColon + 1, typeColon + 30).replace(/[\s"]/g, '');
+    if (typeVal.indexOf('narrative') < 0) { searchFrom = typeIdx + 1; continue; }
+    // 找到后续的 "content" 字段
+    var contentIdx = rawText.indexOf('"content"', typeIdx);
+    if (contentIdx < 0) break;
+    var contentColon = rawText.indexOf(':', contentIdx);
+    if (contentColon < 0) break;
+    // 跳过冒号后的空白和第一个引号
+    var start = contentColon + 1;
+    while (start < rawText.length && (rawText[start] === ' ' || rawText[start] === '\t' || rawText[start] === '\n' || rawText[start] === '\r')) start++;
+    if (start >= rawText.length || rawText[start] !== '"') { searchFrom = contentIdx + 1; continue; }
+    // 提取 content 字符串内容（处理转义）
+    var content = '';
+    var pos = start + 1; // 跳过开引号
+    while (pos < rawText.length) {
+      var ch = rawText[pos];
+      if (ch === '\\') {
+        pos++;
+        if (pos < rawText.length) {
+          var next = rawText[pos];
+          if (next === 'n') content += '\n';
+          else if (next === 't') content += '\t';
+          else if (next === 'r') content += '\r';
+          else content += next; // 包括 \\ → \, \" → ", 等
+          pos++;
+        }
+      } else if (ch === '"') {
+        pos++;
+        break; // 到达 content 字符串结束
+      } else {
+        content += ch;
+        pos++;
+      }
+    }
+    if (content.length > 0) narrative += (narrative ? '\n\n' : '') + content;
+    searchFrom = pos;
+  }
+  return narrative;
 }
 
 // 规范化 entSimExtras 字段（防脏数据）
