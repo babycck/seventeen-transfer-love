@@ -1623,7 +1623,17 @@ function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend
   for (var j = 0; j < flatMsgs.length; j++) {
     var fm = flatMsgs[j];
     if (fm.me) {
-      histHtml += '<div class="bubble-msg me"><div class="bubble-bubble">' + escHtml(fm.text) + '</div></div>';
+      var hasPhoto = detectBubblePhoto(fm.text);
+      if (hasPhoto) {
+        var displayText = stripPhotoKeywords(fm.text);
+        histHtml += '<div class="bubble-msg me"><div class="bubble-photo-card">' +
+          '<div class="bubble-photo-pic">📸</div>' +
+          '<div class="bubble-photo-label">' + escHtml(hasPhoto) + '</div>' +
+          (displayText ? '<div class="bubble-photo-caption">' + escHtml(displayText) + '</div>' : '') +
+          '</div></div>';
+      } else {
+        histHtml += '<div class="bubble-msg me"><div class="bubble-bubble">' + escHtml(fm.text) + '</div></div>';
+      }
     } else {
       histHtml += '<div class="bubble-msg fan"><div><div class="bubble-name">' + escHtml(fm.name || '粉丝') + '</div><div class="bubble-bubble">' + escHtml(fm.text) + '</div></div></div>';
     }
@@ -1661,6 +1671,32 @@ var FAN_NAME_POOL = [
   '今天也很想你','明天见','后天也是晴天','一直在','永远站','下一站幸福',
   '追风少女','自由如风','尘埃里开花','逆光飞翔','勇敢的心','微光','小确幸'
 ];
+// 检测泡泡消息中的照片/图片关键词，返回图片类型描述（null=无图片）
+function detectBubblePhoto(text) {
+  if (!text) return null;
+  var t = text;
+  var patterns = [
+    [/\[自拍\]/i, '自拍'], [/\[照片\]/i, '照片'], [/\[图片\]/i, '图片'], [/\[사진\]/i, '사진'],
+    [/\(自拍\)/i, '自拍'], [/\(照片\)/i, '照片'], [/\(사진\)/i, '사진'], [/\(셀카\)/i, '셀카'],
+    [/自拍/g, '自拍'], [/照片/g, '照片'], [/사진/g, '사진'], [/셀카/g, '셀카'],
+    [/拍了一张/g, '照片'], [/拍了个/g, '照片'], [/拍了张/g, '照片'],
+    [/📸/g, '照片'], [/📷/g, '照片'], [/🖼️/g, '图片'], [/🖼/g, '图片']
+  ];
+  for (var i = 0; i < patterns.length; i++) {
+    if (patterns[i][0].test(t)) return patterns[i][1];
+  }
+  return null;
+}
+// 从消息文本中去除照片相关关键词，返回纯文字部分
+function stripPhotoKeywords(text) {
+  if (!text) return '';
+  return text
+    .replace(/\[自拍\]|\[照片\]|\[图片\]|\[사진\]/gi, '')
+    .replace(/\(自拍\)|\(照片\)|\(사진\)|\(셀카\)/gi, '')
+    .replace(/自拍|사진|셀카|拍了一张|拍了个|拍了张|📸|📷|🖼️|🖼/g, '')
+    .replace(/^\s*[,，。.]\s*/, '') // 去掉开头的标点
+    .replace(/\s{2,}/g, ' ').trim();
+}
 function pickFanName() { return FAN_NAME_POOL[Math.floor(Math.random() * FAN_NAME_POOL.length)]; }
 
 // 泡泡发送结果（保留，面板内渲染使用）

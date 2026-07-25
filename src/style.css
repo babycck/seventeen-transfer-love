@@ -2993,6 +2993,14 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .bubble-send-btn { display: block; width: 100%; padding: 10px 0; border: none; border-radius: 8px; background: linear-gradient(135deg, #d87ab8, #c462a6); color: #fff; font-size: 14px; cursor: pointer; transition: opacity .2s; }
 .bubble-send-btn:hover { opacity: .9; }
 .bubble-send-btn:disabled { opacity: .35; cursor: not-allowed; }
+/* 泡泡照片卡片 */
+.bubble-photo-card { max-width: 70%; margin-right: 4px; margin-left: auto; border-radius: 14px; overflow: hidden;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(216,122,184,.2); animation: bubbleIn .3s ease; }
+.bubble-photo-pic { aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(216,122,184,.12), rgba(196,98,166,.08)); font-size: 36px; }
+.bubble-photo-label { text-align: center; padding: 6px 10px 2px; font-size: 11px; color: #d87ab8; font-weight: 600; }
+.bubble-photo-caption { padding: 2px 10px 8px; font-size: 12px; color: rgba(255,255,255,.65); text-align: center;
+  word-break: break-word; line-height: 1.5; }
 @keyframes bubbleIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .es-fan-hist-preview { font-size: 12px; color: var(--es-text); opacity: .7; }
 
