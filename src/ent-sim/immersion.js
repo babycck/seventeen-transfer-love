@@ -8,16 +8,20 @@ import { popularity, maleLead, chapterName } from './state.js';
 import { buildEntSimSystemPrompt } from './prompts.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { buildMemorySnapshot } from './memory.js';
-import { HOT_SEARCH_REPLY_POOL, CHART_POOL, DIARY_TEMPLATES, DAILY_BUZZ, DAILY_BUZZ_TEMPLATES, EXTERNAL_HOT, pickFromPool, pickFromPoolMulti } from './pools/index.js';
+import { HOT_SEARCH_REPLY_POOL, CHART_POOL, DIARY_TEMPLATES, DAILY_BUZZ, DAILY_BUZZ_TEMPLATES, EXTERNAL_HOT, NEWS_TEMPLATES, pickFromPool, pickFromPoolMulti } from './pools/index.js';
 
 function fill(t) {
   var name = (GS.heroineProfile && GS.heroineProfile.name) || '你';
   var ml = maleLead().name || '他';
+  var E = GS.entSim;
+  var gn = (E.groupMeta && E.groupMeta.groupName) || '';
+  var fn = (E.groupMeta && E.groupMeta.fandomName) || '';
+  var rv = (E.rival && E.rival.name) || '';
   // {t,c} 对象：替换两个字段中的占位符
   if (typeof t === 'object' && t.t) {
-    return { t: t.t.replace(/\{name\}/g, name).replace(/\{ml\}/g, ml), c: (t.c || '').replace(/\{name\}/g, name).replace(/\{ml\}/g, ml) };
+    return { t: t.t.replace(/\{name\}/g, name).replace(/\{ml\}/g, ml).replace(/\{groupName\}/g, gn).replace(/\{fandomName\}/g, fn).replace(/\{rival\}/g, rv), c: (t.c || '').replace(/\{name\}/g, name).replace(/\{ml\}/g, ml).replace(/\{groupName\}/g, gn).replace(/\{fandomName\}/g, fn).replace(/\{rival\}/g, rv) };
   }
-  return t.replace(/\{name\}/g, name).replace(/\{ml\}/g, ml);
+  return t.replace(/\{name\}/g, name).replace(/\{ml\}/g, ml).replace(/\{groupName\}/g, gn).replace(/\{fandomName\}/g, fn).replace(/\{rival\}/g, rv);
 }
 function pickN(arr, n) {
   var copy = arr.slice();
@@ -43,6 +47,19 @@ export function generateDailyBuzz() {
   var E = GS.entSim;
   var pop = popularity();
   var isDebut = (E.career && E.career.debutDay > 0);
+  // 练习生阶段：只生成星圈外部热搜，右侧面板保持"出道后解锁"
+  if (!isDebut) {
+    E._lastHotTitles = E._lastHotTitles || [];
+    var traineeStarHot = [];
+    for (var ti = 0; ti < 3; ti++) {
+      var te = EXTERNAL_HOT[randInt(0, EXTERNAL_HOT.length - 1)];
+      var tTitle = buzzTitle(te);
+      if (!buzzByTitle(traineeStarHot, tTitle) && E._lastHotTitles.indexOf(tTitle) < 0) traineeStarHot.push(te);
+    }
+    E._lastHotTitles = traineeStarHot.map(buzzTitle);
+    E.dailyBuzz = { hotSearch:[], starHot:traineeStarHot, fanDiscussion:[], mediaTitle:[], chartItem:null, lastGenDay:E.cycle.dayCount, buzzReplies:{} };
+    return E.dailyBuzz;
+  }
   var hsCount = Math.max(3, Math.round(pop / 20));
   // 练习生阶段：不生成女主相关热搜，仅外部圈内话题
   var hotSearch = [];
@@ -95,7 +112,12 @@ export function generateDailyBuzz() {
   E._lastMediaTitles = E._lastMediaTitles || [];
   var mediaTitle = [];
   while (mediaTitle.length < 2) {
-    var me = DAILY_BUZZ_TEMPLATES.mediaTitle[randInt(0, DAILY_BUZZ_TEMPLATES.mediaTitle.length - 1)];
+    // 40% 概率使用新闻模板池（NEWS_TEMPLATES），60% 使用每日舆论模板
+    var meSource = (Math.random() < 0.4 && NEWS_TEMPLATES && NEWS_TEMPLATES.length)
+      ? NEWS_TEMPLATES
+      : DAILY_BUZZ_TEMPLATES.mediaTitle;
+    var rawItem = meSource[randInt(0, meSource.length - 1)];
+    var me = typeof rawItem === 'string' ? { t: rawItem, c: '' } : rawItem;
     var meFilled = fill(me);
     var meTitle = buzzTitle(meFilled);
     if (!buzzByTitle(mediaTitle, meTitle) && E._lastMediaTitles.indexOf(meTitle) < 0) mediaTitle.push(meFilled);
@@ -124,22 +146,30 @@ export function getDailyBuzz() {
   return E.dailyBuzz;
 }
 
-// 女主相关舆论条目 → 优先生成网友热议评论（池子匹配 > AI兜底）
+// 女主相关舆论条目 → 优先生成网友热议评论（关键词匹配池子 > AI兜底）
 export async function generateBuzzRepliesAI(itemTitle, itemContent) {
-  // 1. 先在池子里找匹配的热搜
-  if (HOT_SEARCH_REPLY_POOL && HOT_SEARCH_REPLY_POOL.length) {
+  // 1. 从标题提取关键词，在池子中匹配
+  if (HOT_SEARCH_REPLY_POOL && HOT_SEARCH_REPLY_POOL.length && itemTitle) {
+    // 提取2字以上关键词（去符号、分词）
+    var rawTitle = itemTitle.replace(/[#🔥「」\[\]【】""''，。！？\s]/g, ' ').trim();
+    var keywords = rawTitle.split(/\s+/).filter(function(k) { return k.length >= 2; });
     var match = null;
+    var bestScore = 0;
     for (var i = 0; i < HOT_SEARCH_REPLY_POOL.length; i++) {
       var entry = HOT_SEARCH_REPLY_POOL[i];
-      if (itemTitle && entry.hotSearch && entry.hotSearch.indexOf(itemTitle) !== -1) { match = entry; break; }
+      if (!entry || !entry.hotSearch || !entry.fanReplies) continue;
+      var score = 0;
+      for (var k = 0; k < keywords.length; k++) {
+        if (entry.hotSearch.indexOf(keywords[k]) >= 0) score++;
+      }
+      if (score > bestScore) { bestScore = score; match = entry; }
     }
-    // 未精确匹配时随机取一条兜底
-    if (!match) match = pickFromPool(HOT_SEARCH_REPLY_POOL, 1)[0];
-    if (match && match.fanReplies && match.fanReplies.length >= 2) {
+    // 至少2个关键词匹配才算有效
+    if (match && bestScore >= 2) {
       return match.fanReplies.slice(0, 3).map(function(r) { return '· ' + r; });
     }
   }
-  // 2. 池子无匹配 → AI 兜底
+  // 2. 池子无匹配 → AI 兜底（不随机取，让AI按话题生成）
   var sys = buildEntSimSystemPrompt('buzzreply');
   var user = [
     '【任务】为下面这条热搜/新闻生成 3 条网友热议评论（每条 40-80 字，不要 JSON）。',

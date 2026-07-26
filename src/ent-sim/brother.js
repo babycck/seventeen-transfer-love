@@ -4,6 +4,7 @@
 // ============================================================
 import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
+import { addExposure, getScandalHeat } from './public-opinion.js';
 import { ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
 import { GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR } from './pools/index.js';
 // npc-network 已移除，情敌名改用 rival 字段
@@ -57,8 +58,8 @@ export function checkOneHeartEvents() {
     ev = cloneEvent(secretPool[randInt(0, secretPool.length - 1)]);
   }
 
-  // 4.5. 狗仔偷拍：曝光≥30 时概率触发（每回合 15%）
-  if (!ev && (E.misc.exposureAccum || 0) >= 30 && rnd <= 20) {
+  // 4.5. 狗仔偷拍：恋情曝光风险≥暗涌(5) 时概率触发（每回合 15%）
+  if (!ev && getScandalHeat() >= 5 && rnd <= 20) {
     var paparazziPool = [
       { text: '晚上收工后你在便利店门口等车，暗处有快门声——第二天一张模糊的背影照传遍论坛。', key: 'paparazzi', exposure: 2 },
       { text: '你和男主在楼道里擦肩而过，谁也没说话，但站姐拍到两人「对视为零」，放大后成了热搜。', key: 'paparazzi', exposure: 3 },
@@ -119,7 +120,7 @@ export function checkOneHeartEvents() {
     // 失败影响暂不直接扣，留给玩家选择时结算；这里只记录 pending
   }
   if (ev.exposure) {
-    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + ev.exposure;
+    addExposure(ev.exposure, '哥哥事件·' + (ev.text || ''));
   }
   if (ev.affect === 'popularity' && typeof ev.delta === 'number') {
     E.career.popularity = Math.max(0, Math.min(100, (E.career.popularity || 0) + ev.delta));

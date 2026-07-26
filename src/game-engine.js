@@ -2217,7 +2217,7 @@ export async function handleBrotherChat() {
       '</div>';
     var _ov = createModal(_html);
     _ov.querySelectorAll('.brother-chat-opt').forEach(function(b) {
-      b.addEventListener('click', function() { _ov.remove(); resolve(_opts[parseInt(this.dataset.i)]); });
+      b.addEventListener('click', function() { _ov.remove(); resolve(_opts[parseInt(this.dataset.i, 10)]); });
     });
     _ov.querySelector('.brother-chat-cancel').addEventListener('click', function() { _ov.remove(); resolve(null); });
   });
@@ -3741,7 +3741,7 @@ export async function sendChatMessage(userMessage) {
     var _affChatCount = Math.floor(GS._chatAffCount / 5);
     if (_affChatCount <= 3) {
       var _mid = GS.oneHeartMember;
-      if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 1; }
+      if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] = Math.min(100, GS.affection[_mid] + 1); }
     }
   }
   // 每天聊天次数限制：最多20条

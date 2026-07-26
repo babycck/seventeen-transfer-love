@@ -927,13 +927,13 @@ export function bindSetupEvents() {
     var hpAge = document.getElementById('hpAge');
     if (hpAge) {
       hpAge.addEventListener('input', function() {
-        GS.heroineProfile.age = parseInt(this.value) || 25;
+        GS.heroineProfile.age = parseInt(this.value, 10) || 25;
         saveGame();
       });
     }
     var updateZodiac = function() {
-      var m = parseInt(document.getElementById('hpBirthMonth').value) || 0;
-      var d = parseInt(document.getElementById('hpBirthDay').value) || 0;
+var m = parseInt(document.getElementById('hpBirthMonth').value, 10) || 0;
+var d = parseInt(document.getElementById('hpBirthDay').value, 10) || 0;
       GS.heroineProfile.birthday = { month: m, day: d };
       GS.heroineProfile.zodiac = getZodiacFromBirthday(m, d);
       var disp = document.getElementById('zodiacDisplay');
@@ -1331,7 +1331,6 @@ export function bindSetupEvents() {
             '你曾是 EXO 的粉丝，手机里至今存着当年追星时的 photo card 和应援棒',
             '你瞒着哥哥偷偷跑去 EXO 的签售会，还排了队要到了签名',
             '你高中时写过 EXO 的同人文，存在某个没告诉任何人的旧文档里',
-            '你会在 SEVENTEEN 某位成员的直播间悄悄刷礼物，假装是路人粉丝',
             '你买过 EXO 的小卡、专辑和海报，藏在自己房间最里层的抽屉',
             '你偷偷收集过「' + (_seedMember ? _seedMember.name : '男主') + '」的小卡和周边，混在 EXO 周边里没人发现'
           ];
@@ -1939,7 +1938,7 @@ export function bindGameEvents() {
 
   document.querySelectorAll('#optionsArea .option-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
-      var idx = parseInt(this.dataset.idx);
+      var idx = parseInt(this.dataset.idx, 10);
 
       // [P0-3] 真心话模式选项处理（3轮制）
       if (GS.truthState && GS.truthState.active) {
@@ -2727,7 +2726,7 @@ function bindOneHeartEvents() {
   // 选项（1v1 简化处理）
   document.querySelectorAll('#operationOptions .option-btn').forEach(function(btn) {
     btn.addEventListener('click', async function() {
-      var idx = parseInt(this.dataset.idx);
+      var idx = parseInt(this.dataset.idx, 10);
       var opt = GS.currentOptions[idx];
       if (!opt) return;
       this.innerHTML = '<span class="opt-label">⋯</span>';
@@ -2902,7 +2901,7 @@ function bindOneHeartEvents() {
   document.getElementById('narrativeBox').addEventListener('click', async function(e) {
     var delBtn = e.target.closest('.consequence-delete');
     if (!delBtn) return;
-    var idx = parseInt(delBtn.dataset.idx);
+    var idx = parseInt(delBtn.dataset.idx, 10);
     if (isNaN(idx) || idx < 0 || idx >= GS.consequenceNarratives.length) return;
     var confirmed = await showConfirmModal('确定要删除这段剧情吗？');
     if (!confirmed) return;
@@ -2966,7 +2965,7 @@ function bindOneHeartEvents() {
   var _eventBtns = document.querySelectorAll('#operationOptions .option-btn[data-event-idx]');
   _eventBtns.forEach(function(btn) {
     btn.addEventListener('click', async function() {
-      var eventIdx = parseInt(this.dataset.eventIdx);
+      var eventIdx = parseInt(this.dataset.eventIdx, 10);
       if (!GS._pendingEvents || GS._pendingEvents.length === 0) return;
       var ev = GS._pendingEvents.shift();
       // 禁用所有按钮

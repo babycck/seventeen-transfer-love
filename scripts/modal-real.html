@@ -1,0 +1,167 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>弹窗实景预览</title>
+<style>
+/* ===== 完全复制 style.css 的 CSS变量 + es-modal 体系 ===== */
+:root {
+  --es-bg: #1A1626; --es-bg2: #221c33;
+  --es-card: rgba(255,255,255,0.06); --es-card-border: rgba(255,255,255,0.12);
+  --es-primary: #7C6FF0; --es-primary2: #9D8BFF;
+  --es-text: #F2EEFF; --es-text2: rgba(242,238,255,0.75);
+  --es-text-dim: rgba(242,238,255,0.6);
+  --es-green: #5BD6A0; --es-red: #FF8A8A; --es-yellow: #FFD479;
+  --es-soft: rgba(255,255,255,0.05); --es-soft-hover: rgba(124,111,240,0.18);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background: radial-gradient(1200px 600px at 20% -10%, #2a2150 0%, var(--es-bg) 55%) fixed;
+  color: var(--es-text); font-family: PingFang-SC,'Microsoft YaHei',sans-serif; font-size:12px;
+  min-height:100vh;
+}
+
+/* ----- 模拟游戏界面背景 ----- */
+.es-header{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:8px; padding:10px 14px; margin:10px;
+  background: var(--es-card); backdrop-filter:blur(14px); border:1px solid var(--es-card-border);
+  border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,.3);
+}
+.es-chip{ font-size:11px; padding:3px 10px; border-radius:999px; background:var(--es-soft); color:var(--es-text); border:1px solid var(--es-card-border); }
+.es-panel{
+  background: var(--es-card); backdrop-filter:blur(14px);
+  border:1px solid var(--es-card-border); border-radius:14px; padding:12px; margin:10px;
+}
+.es-row{ display:flex; justify-content:space-between; padding:3px 0; color:var(--es-text-dim); }
+.es-row b{ color:var(--es-text); }
+.es-col-title{ font-size:11px; color:var(--es-text-dim); font-weight:600; margin-bottom:4px; }
+
+/* ----- 🔥 以下完全复制 style.css 的 es-modal 体系 ----- */
+/* 复制自 style.css:2425-2447 */
+.es-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,8,20,.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3000; padding: 20px;
+}
+.es-modal {
+  background: linear-gradient(160deg, #241d3d, #1a1530);
+  border: 1px solid var(--es-card-border);
+  border-radius: 16px; padding: 20px; max-width: 460px;
+  width: 100%; max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.es-modal-title { font-size: 16px; font-weight: 700; color: var(--es-text); margin-bottom: 12px; }
+.es-modal-body { font-size: 13px; line-height: 1.8; color: var(--es-text); }
+.es-modal-body button, .es-modal-opt {
+  display: block; width: 100%; text-align: left;
+  margin: 6px 0; padding: 10px 12px;
+  border: 1px solid rgba(124,111,240,.3); border-radius: 10px;
+  background: rgba(124,111,240,.1); color: var(--es-text);
+  cursor: pointer; font-family: inherit; font-size: 13px;
+}
+.es-modal-body button:hover, .es-modal-opt:hover { background: rgba(124,111,240,.2); }
+.es-modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+.es-modal-btn {
+  flex: 1; padding: 10px;
+  border: 1px solid var(--es-card-border); border-radius: 10px;
+  background: var(--es-soft); color: var(--es-text);
+  cursor: pointer; font-family: inherit; font-size: 13px; text-align: center;
+}
+.es-modal-btn.primary {
+  background: linear-gradient(135deg, var(--es-primary), var(--es-primary2));
+  color: #fff; border: none; font-weight: 600;
+}
+
+/* 底部按钮 */
+.btn-bar{display:flex;gap:8px;flex-wrap:wrap;padding:10px;margin:10px}
+.btn-bar button{padding:8px 16px;border:1px solid var(--es-card-border);border-radius:10px;background:var(--es-soft);color:var(--es-text);cursor:pointer;font-family:inherit;font-size:12px}
+.btn-bar button:hover{background:var(--es-soft-hover);border-color:var(--es-primary2)}
+</style></head><body>
+
+<!-- 模拟游戏界面内容 -->
+<div class="es-header">
+  <span style="color:var(--es-text)"><b>🌙 ECLIPSE</b></span>
+  <span class="es-chip">人气 63</span>
+  <span class="es-chip">好感 47/100</span>
+</div>
+<div style="display:flex;gap:10px;margin:10px;flex-wrap:wrap">
+  <div class="es-panel" style="flex:1;min-width:200px">
+    <div class="es-col-title">🗓️ 今日日程</div>
+    <div class="es-row"><span>🟣 主档</span><b>练习室排练</b></div>
+    <div class="es-row"><span>💙 Hoshi</span><b>公司</b></div>
+    <div class="es-row"><span>👤 哥哥</span><b>综艺录制</b></div>
+  </div>
+  <div class="es-panel" style="flex:2;min-width:300px;min-height:120px">
+    <div class="es-col-title">📖 剧情</div>
+    <p style="color:var(--es-text);line-height:1.8">练习室里只有你一个人。镜子里映出汗水浸湿的刘海……</p>
+  </div>
+  <div class="es-panel" style="flex:1;min-width:200px">
+    <div class="es-col-title">💗 恋情面板</div>
+    <div class="es-row"><span>阶段</span><span>💚 暧昧期</span></div>
+    <div class="es-row"><span>曝光</span><span style="color:var(--es-yellow)">12 · 升温</span></div>
+  </div>
+</div>
+
+<div class="btn-bar">
+  <button onclick="showModal('settle')">📋 每日结算弹窗</button>
+  <button onclick="showModal('award')">🏆 奖项典礼弹窗</button>
+  <button onclick="showModal('contract')">📜 合约续约弹窗</button>
+  <button onclick="showModal('save')">💾 存档槽弹窗</button>
+  <button onclick="showModal('conflict')">⚠️ 团活冲突弹窗</button>
+  <button onclick="closeAll()">✕ 关闭所有弹窗</button>
+</div>
+
+<div style="margin:10px;color:var(--es-text-dim);font-size:10px">
+  ↑ 点击按钮打开弹窗 —— 弹窗叠在游戏背景上，毛玻璃 blur(4px) 穿透效果完整呈现
+</div>
+
+<!-- 弹窗全部用 showEntSimModal 统一函数生成 -->
+<script>
+(function(){
+  window._open = null;
+  function simModal(title, body, btns){
+    var o = document.createElement('div');
+    o.className = 'es-modal-overlay';
+    o.innerHTML = '<div class="es-modal"><div class="es-modal-title">' + title + '</div><div class="es-modal-body">' + body + '</div><div class="es-modal-btns">' + (btns || '<button class="es-modal-btn primary" onclick="closeAll()">关闭</button>') + '</div></div>';
+    o.addEventListener('click', function(e){ if(e.target===o){ o.remove(); if(window._open===o)window._open=null; } });
+    document.body.appendChild(o);
+    if(window._open) window._open.remove();
+    window._open = o;
+  }
+  window.closeAll = function(){ if(window._open){ window._open.remove(); window._open=null; } };
+
+  window.showModal = function(type){
+    if(type==='settle'){
+      simModal('📋 Day 145 结算',
+        '<div class="es-row"><span>🌟 人气</span><span><b style="color:var(--es-green)">+5</b> (58→63)</span></div>'+
+        '<div class="es-row"><span>⚠️ 曝光</span><span><b style="color:var(--es-yellow)">+2</b></span></div>'+
+        '<div class="es-row"><span>💗 好感</span><span><b style="color:var(--es-green)">+3</b> (44→47)</span></div>'+
+        '<div class="es-row" style="margin-top:6px;border-top:1px solid var(--es-card-border);padding-top:6px"><span>🛡️ 公关次数</span><span><b style="color:var(--es-yellow)">3</b>/5</span></div>');
+    }else if(type==='award'){
+      simModal('🏆 MAMA 颁奖典礼',
+        '<div style="text-align:center;margin-bottom:8px"><span style="font-size:36px">🏆</span><div style="font-size:16px;color:var(--es-yellow);font-weight:700">年度新人奖</div></div>'+
+        '<div class="es-row"><span>人气变化</span><span><b style="color:var(--es-green)">+15</b></span></div>'+
+        '<p style="font-size:11px;color:var(--es-text-dim);margin-top:4px">安可舞台上的泪水被粉丝拍下，转发破万。</p>');
+    }else if(type==='contract'){
+      simModal('📜 合约续约',
+        '<p style="margin-bottom:10px">合约还剩 <b style="color:var(--es-yellow)">1年</b>，公司递来了续约意向书。</p>'+
+        '<button class="es-modal-opt">A. 续约 7 年</button>'+
+        '<button class="es-modal-opt">B. 不续约 · 独立艺人</button>'+
+        '<button class="es-modal-opt">C. 暂不决定</button>');
+    }else if(type==='save'){
+      simModal('💾 存档管理',
+        '<div style="display:flex;flex-direction:column;gap:6px">'+
+        '<div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between"><span>📁 槽位1 · Day 145 · Hoshi</span><span style="color:var(--es-text-dim)">❤️47</span></div>'+
+        '<div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between"><span>📁 槽位2 · 空</span><span style="color:var(--es-primary2)">+</span></div>'+
+        '<div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between"><span>📁 槽位3 · 空</span><span style="color:var(--es-primary2)">+</span></div></div>');
+    }else if(type==='conflict'){
+      simModal('⚠️ 日程冲突',
+        '<p style="color:var(--es-red);margin-bottom:10px">明天下午有 <b>音乐银行打歌</b>，但答应了去汉江公园见Hoshi。</p>'+
+        '<button class="es-modal-opt">A. 去团活（职业优先）<span style="color:var(--es-green);font-size:10px;float:right">团魂+2</span></button>'+
+        '<button class="es-modal-opt" style="border-color:rgba(255,138,138,.4)">B. 偷偷溜去见他<span style="color:var(--es-red);font-size:10px;float:right">风险5</span></button>');
+    }
+  };
+})();
+</script>
+
+</body></html>

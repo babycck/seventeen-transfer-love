@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>entSim 增强方案 UI 预览</title>
+<style>
+:root {
+  --es-bg: #1A1626; --es-bg2: #221c33;
+  --es-card: rgba(255,255,255,0.06);
+  --es-card-border: rgba(255,255,255,0.12);
+  --es-primary: #7C6FF0; --es-primary2: #9D8BFF;
+  --es-text: #F2EEFF;
+  --es-text2: rgba(242,238,255,0.75);
+  --es-text-dim: rgba(242,238,255,0.6);
+  --es-green: #5BD6A0; --es-red: #FF8A8A; --es-yellow: #FFD479;
+  --es-soft: rgba(255,255,255,0.05);
+  --es-soft-hover: rgba(124,111,240,0.18);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: radial-gradient(1200px 600px at 20% -10%, #2a2150 0%, var(--es-bg) 55%) fixed;
+  color: var(--es-text); font-family: -apple-system, 'Microsoft YaHei', sans-serif; font-size: 12px;
+  min-height: 100vh;
+}
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 18px; background: rgba(20,16,32,0.85);
+  border-bottom: 1px solid var(--es-card-border); position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(12px);
+}
+.topbar .title { font-size: 14px; font-weight: 700; color: var(--es-text); }
+.topbar .sub { font-size: 11px; color: var(--es-text2); }
+.chip { font-size: 11px; padding: 3px 10px; border-radius: 999px; background: var(--es-soft); color: var(--es-text); border: 1px solid var(--es-card-border); white-space: nowrap; }
+.chip.pap { background: rgba(255,138,138,.16); color: var(--es-red); border-color: rgba(255,138,138,.4); animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100% {opacity:1} 50% {opacity:.55} }
+
+/* Three column */
+.main { display: flex; gap: 12px; padding: 12px; max-width: 1400px; margin: 0 auto; min-height: calc(100vh - 52px); }
+.col-l { flex: 0 0 270px; display: flex; flex-direction: column; gap: 10px; }
+.col-m { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.col-r { flex: 0 0 270px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Panel */
+.pnl {
+  background: var(--es-card); backdrop-filter: blur(14px);
+  border: 1px solid var(--es-card-border); border-radius: 14px; padding: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.25);
+}
+.pnl-title { font-size: 12px; font-weight: 700; color: #b9aee0; margin-bottom: 8px; display:flex; align-items:center; gap:6px; }
+.pnl-title .badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.badge-new { background: rgba(124,111,240,.25); color: var(--es-primary2); }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; color: var(--es-text-dim); }
+.row b { color: var(--es-text); }
+.row .val { font-weight: 600; }
+.val.up { color: var(--es-green); }
+.val.dn { color: var(--es-red); }
+.val.warn { color: var(--es-yellow); }
+
+/* Progress bar */
+.bar-wrap { flex: 1; height: 6px; background: var(--es-soft); border-radius: 999px; overflow: hidden; margin: 0 8px; }
+.bar-inner { height: 100%; border-radius: 999px; transition: .3s; }
+.bar-inner.purple { background: linear-gradient(90deg, var(--es-primary), var(--es-primary2)); }
+.bar-inner.green { background: linear-gradient(90deg, #3a9, var(--es-green)); }
+.bar-inner.red { background: linear-gradient(90deg, #e55, var(--es-red)); }
+
+/* Story area */
+.story-box {
+  background: var(--es-card); backdrop-filter: blur(14px);
+  border: 1px solid var(--es-card-border); border-radius: 14px;
+  padding: 16px; min-height: 300px; line-height: 1.8; font-size: 13px;
+}
+.story-box p { margin-bottom: 10px; }
+.story-tag { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+.story-tag.scene { background: rgba(124,111,240,.2); color: var(--es-primary2); }
+.story-tag.event { background: rgba(255,212,121,.2); color: var(--es-yellow); }
+.hl { color: var(--es-primary2); font-weight: 600; }
+.hl-r { color: var(--es-red); }
+.hl-g { color: var(--es-green); }
+
+/* Options */
+.opt-wrap { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.opt {
+  display: block; width: 100%; text-align: left; padding: 10px 14px;
+  border: 1px solid rgba(124,111,240,.25); border-radius: 10px;
+  background: rgba(124,111,240,.08); color: var(--es-text);
+  cursor: pointer; font-family: inherit; font-size: 13px; transition: .15s;
+}
+.opt:hover { background: rgba(124,111,240,.18); border-color: var(--es-primary2); }
+.opt .sub { display: block; font-size: 11px; color: var(--es-text-dim); margin-top: 4px; }
+.opt .tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; vertical-align: middle; }
+.tag.good { background: rgba(91,214,160,.15); color: var(--es-green); }
+.tag.risk { background: rgba(255,138,138,.15); color: var(--es-red); }
+.tag.neutral { background: var(--es-soft); color: var(--es-text2); }
+
+/* Quick bar */
+.quick-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.qbtn {
+  font-size: 11px; padding: 5px 12px; border: 1px solid var(--es-card-border);
+  border-radius: 999px; background: var(--es-soft); color: var(--es-text);
+  cursor: pointer; font-family: inherit; transition: .15s; white-space: nowrap;
+}
+.qbtn:hover { background: var(--es-soft-hover); border-color: var(--es-primary2); }
+.qbtn.primary { background: linear-gradient(135deg, var(--es-primary), var(--es-primary2)); color: #fff; border: none; font-weight: 600; }
+
+/* Tabs */
+.tabbar { display: flex; gap: 6px; margin-top: 10px; }
+.tab {
+  font-size: 12px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  color: var(--es-text-dim); background: var(--es-soft); border: 1px solid var(--es-card-border);
+}
+.tab.on { color: #fff; font-weight: 600; background: linear-gradient(135deg, var(--es-primary), var(--es-primary2)); border-color: transparent; }
+
+/* Toast */
+.toast {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: 10px; font-size: 13px; z-index: 2000;
+  background: rgba(28,22,38,.95); border: 1px solid var(--es-card-border);
+  color: var(--es-text); box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.toast.warn { border-color: rgba(255,138,138,.5); }
+
+/* Buzz list */
+.buzz-list { list-style: none; padding: 0; font-size: 11px; color: var(--es-text-dim); line-height: 1.8; }
+.buzz-list li { padding: 3px 0; border-bottom: 1px dashed var(--es-card-border); }
+.buzz-list li .ico { margin-right: 4px; }
+
+/* Enhancement markers */
+.tag-enhance {
+  position: relative;
+}
+.tag-enhance::after {
+  content: '✦'; color: #FFD479; font-size: 9px; margin-left: 3px;
+}
+
+/* Schedule list */
+.sch-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed var(--es-card-border); }
+.sch-item .time { font-size: 10px; color: var(--es-text-dim); width: 36px; }
+.sch-item .label { flex: 1; font-size: 11px; }
+.sch-item .chip-s { font-size: 10px; padding: 2px 6px; border-radius: 6px; }
+.chip-s.done { background: rgba(91,214,160,.15); color: var(--es-green); }
+.chip-s.now { background: rgba(124,111,240,.2); color: var(--es-primary2); }
+.chip-s.lock { background: rgba(255,138,138,.1); color: var(--es-red); }
+.chip-s.new-type { background: rgba(255,212,121,.15); color: var(--es-yellow); }
+
+/* Modal preview section */
+.modal-preview {
+  border: 2px dashed rgba(124,111,240,.3); border-radius: 12px;
+  padding: 14px; margin-top: 8px; background: rgba(124,111,240,.05);
+  position: relative;
+}
+.modal-preview::before {
+  content: attr(data-label); position: absolute; top: -9px; left: 12px;
+  font-size: 10px; color: var(--es-primary2); background: var(--es-bg);
+  padding: 0 6px; font-weight: 700;
+}
+
+/* Mini modal */
+.mini-modal {
+  background: linear-gradient(160deg, #241d3d, #1a1530);
+  border: 1px solid var(--es-card-border); border-radius: 12px; padding: 14px;
+}
+.mini-modal .mm-title { font-size: 14px; font-weight: 700; color: var(--es-text); margin-bottom: 8px; }
+.mini-modal .mm-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: var(--es-text-dim); }
+.mini-modal .mm-row b { color: var(--es-text); }
+.mm-btn {
+  display: inline-block; padding: 6px 14px; border-radius: 8px; font-size: 12px;
+  cursor: pointer; margin: 4px; font-family: inherit;
+  border: 1px solid var(--es-card-border); background: var(--es-soft); color: var(--es-text);
+}
+.mm-btn.primary { background: linear-gradient(135deg, var(--es-primary), var(--es-primary2)); color: #fff; border: none; font-weight: 600; }
+.mm-btn.danger { border-color: rgba(255,138,138,.4); color: var(--es-red); }
+
+/* Footer legend */
+.legend {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 8px 14px; background: rgba(20,16,32,.92);
+  border-top: 1px solid var(--es-card-border);
+  display: flex; align-items: center; gap: 16px; font-size: 10px; color: var(--es-text-dim);
+  justify-content: center; flex-wrap: wrap;
+}
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.new { background: #FFD479; }
+.dot.ui { background: var(--es-primary2); }
+.dot.data { background: var(--es-green); }
+
+/* Timeline for romance */
+.timeline { position: relative; padding-left: 20px; }
+.timeline::before { content:''; position:absolute; left:6px; top:0; bottom:0; width:2px; background: var(--es-primary); opacity:.3; }
+.tl-item { position: relative; padding: 6px 0; font-size: 11px; color: var(--es-text2); }
+.tl-item::before { content:''; position:absolute; left:-17px; top:9px; width:7px; height:7px; border-radius:50%; background: var(--es-primary2); }
+.tl-item .tl-date { font-size: 10px; color: var(--es-text-dim); }
+.tl-item .tl-desc { color: var(--es-text); }
+
+/* Contract bar */
+.contract-mini { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.contract-mini .yr-left { color: var(--es-yellow); font-weight: 700; font-size: 14px; }
+
+/* Fan section */
+.fan-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+.fan-count { font-size: 14px; font-weight: 700; color: var(--es-text); }
+.fan-delta { font-size: 10px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div>
+    <span class="title">⭐ 娱乐圈地下恋</span>
+    <span class="sub" style="margin-left:12px">第 48 天 · 下午 · 回归第二周</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="chip">📜 合约剩 6年</span>
+    <span class="chip pap">🔥 恋情风险 12</span>
+    <span class="chip">💾 存档 ▼</span>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+<!-- LEFT COLUMN -->
+<div class="col-l">
+
+  <!-- #5 回归周期 + #15 训练选项 + #16 新日程类型 -->
+  <div class="pnl">
+    <div class="pnl-title">📅 今日行程 <span class="badge badge-new tag-enhance">#5#15#16</span></div>
+    <div class="sch-item"><span class="time">09:00</span><span class="label">练习室晨练</span><span class="chip-s done">已完成</span></div>
+    <div class="sch-item"><span class="time">13:00</span><span class="label">🎵 M Countdown 打歌</span><span class="chip-s now">进行中</span></div>
+    <div class="sch-item"><span class="time">17:00</span><span class="label">📻 电台节目·深夜DJ</span><span class="chip-s new-type">新!</span></div>
+    <div class="sch-item"><span class="time">20:00</span><span class="label">💞 约会时段</span><span class="chip-s">可选</span></div>
+  </div>
+
+  <!-- #20 13人轮换出场预览 -->
+  <div class="pnl">
+    <div class="pnl-title">👥 今日偶遇队友 <span class="badge badge-new tag-enhance">#20</span></div>
+    <div class="row"><span>🐯 Hoshi</span><span style="color:var(--es-text2);font-size:11px">虎浪嘿！拉着你跳了新编舞</span></div>
+    <div class="row"><span>🍚 Mingyu</span><span style="color:var(--es-text2);font-size:11px">在厨房煮拉面，顺手给你也煮了一碗</span></div>
+  </div>
+
+  <!-- #8 女团队友面板 -->
+  <div class="pnl">
+    <div class="pnl-title">👯 女团队友 <span class="badge badge-new tag-enhance">#8</span></div>
+    <div class="row"><span>👩‍🦰 智恩（大姐）</span><span class="val" style="color:var(--es-text2)">最疼你</span></div>
+    <div class="row"><span>👩 秀雅（三姐）</span><span class="val" style="color:var(--es-red);font-size:10px">最近状态不好…</span></div>
+    <div class="row"><span>👧 恩瑞（忙内）</span><span class="val" style="color:var(--es-text2)">秘密知情人</span></div>
+    <button class="qbtn" style="width:100%;margin-top:6px">展开互动</button>
+  </div>
+
+</div>
+
+<!-- CENTER COLUMN -->
+<div class="col-m">
+
+  <!-- Story + #6 公司博弈 + #12 ANTI 事件 -->
+  <div class="story-box">
+    <span class="story-tag scene" style="tag-enhance">#6 公司博弈</span>
+    <p>经纪人把你叫进办公室，脸色不太好看。</p>
+    <p>"最近外面有些风声。有几个站姐拍到你和<strong class="hl">同公司前辈</strong>在汉江边上的照片。社内已经在传了。"</p>
+    <p>你心里一紧。</p>
+    <p>"公司本来想安排你和这位前辈做一个 <strong class="hl-r">营业CP</strong> 来冲淡传闻。你怎么看？"</p>
+
+    <div class="opt-wrap">
+      <div class="opt">
+        "我知道了，会配合公司安排"
+        <span class="tag risk">曝光+2</span>
+        <span class="sub">营业CP可掩护真实恋情 — #5种掩护手段之一</span>
+      </div>
+      <div class="opt">
+        "拒绝。这不是真的，我不需要澄清"
+        <span class="tag good">保持低调</span>
+        <span class="tag risk">公司不满</span>
+        <span class="sub">坚持己见 → 资源可能减少</span>
+      </div>
+    </div>
+
+    <!-- #12 ANTI 事件嵌入 -->
+    <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--es-card-border)">
+      <span class="story-tag event" style="tag-enhance">#12 ANTI攻击</span>
+      <p style="font-size:12px;color:var(--es-text-dim)">📲 你的INS最新帖子下出现了大量恶意评论：</p>
+      <p style="font-size:11px;color:var(--es-red)">"靠脸上位的花瓶""没有实力只有绯闻""退团吧"</p>
+      <div class="opt-wrap">
+        <div class="opt">冷处理，不回应 <span class="tag neutral">无视</span></div>
+        <div class="opt">发律师函维权 <span class="tag good">公关-1</span></div>
+        <!-- #10 热搜操盘 -->
+        <div class="opt" style="tag-enhance">📈 推正面热搜对冲 <span class="tag good">#10 热搜操盘</span><span class="tag risk">消耗1次公关</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="quick-bar">
+    <button class="qbtn primary tag-enhance">▶ 继续</button>
+    <button class="qbtn">🛡️ 选掩护</button>
+    <button class="qbtn">📀 发布作品</button>
+    <!-- #17 团活冲突提示 -->
+    <button class="qbtn" style="color:var(--es-yellow);border-color:rgba(255,212,121,.3)">⚡ 团活冲突!</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabbar">
+    <div class="tab on">📖 剧情</div>
+    <div class="tab">💬 聊天</div>
+    <div class="tab">📱 朋友圈</div>
+    <div class="tab">🎭 剧场</div>
+  </div>
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="col-r">
+
+  <!-- #3 粉丝数 + #4 销量反馈 + 人气 -->
+  <div class="pnl">
+    <div class="pnl-title">📊 事业面板 <span class="badge badge-new tag-enhance">#3#4</span></div>
+    <div class="row"><span>⭐ 人气</span><span><b>62</b> / 100</span></div>
+    <div class="row">
+      <span class="tag-enhance">👥 粉丝数</span>
+      <span><b class="fan-count">34,280</b> <span class="fan-delta" style="color:var(--es-green)">+1,200</span></span>
+    </div>
+    <div class="row"><span>🎯 事业等级</span><span style="color:var(--es-yellow)">新星 · 上升期</span></div>
+    <div class="row tag-enhance"><span>🔥 恋情风险</span><span><b style="color:var(--es-red)">12</b> / 25+</span></div>
+    <div class="row tag-enhance"><span>📢 事业热度</span><span><b style="color:var(--es-green)">28</b></span></div>
+    <div class="row"><span>🛡️ 公关剩余</span><span>2 次</span></div>
+    <!-- #9 合约倒计时 -->
+    <div class="row tag-enhance">
+      <span class="contract-mini">📜 合约剩余 <span class="yr-left">6</span> 年</span>
+      <span style="font-size:10px;color:var(--es-text-dim)">#9 合约</span>
+    </div>
+    <!-- #19 音乐银行排名 -->
+    <div class="modal-preview" data-label="#19 打歌排名" style="margin-top:8px">
+      <div class="mini-modal">
+        <div class="mm-title">🎵 本周 M Countdown</div>
+        <div class="mm-row"><span>音源分</span><b>31</b></div>
+        <div class="mm-row"><span>销量分</span><b>8</b></div>
+        <div class="mm-row"><span>放送分</span><b>15</b></div>
+        <div class="mm-row"><span>投票分</span><b>6</b></div>
+        <div class="mm-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--es-card-border)">
+          <span>总分</span><b style="font-size:16px;color:var(--es-green)">60</b>
+          <span style="margin-left:12px">🏆 <b style="color:var(--es-yellow)">1位!</b></span>
+        </div>
+        <div style="font-size:10px;color:var(--es-text-dim);margin-top:4px">对手A: 52 · 对手B: 48</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- #1 奖项典礼 + #13 生日 -->
+  <div class="pnl">
+    <div class="pnl-title">🏆 奖项与事件 <span class="badge badge-new tag-enhance">#1#13</span></div>
+    <div class="row"><span>🥇 最新奖项</span><span style="color:var(--es-yellow)">MAMA新人奖</span></div>
+    <div class="row"><span>📅 下次典礼</span><span style="font-size:10px">金唱片大赏(15天后)</span></div>
+    <!-- #13 生日 badge -->
+    <div class="row tag-enhance">
+      <span>🎂 他的生日</span>
+      <span class="chip" style="background:rgba(255,212,121,.15);color:var(--es-yellow);font-size:10px">3天后!</span>
+    </div>
+  </div>
+
+  <!-- #8 队友事件提示 + 今日 buzz -->
+  <div class="pnl">
+    <div class="pnl-title">📡 今日圈内</div>
+    <ul class="buzz-list">
+      <li><span class="ico">🔥</span>新曲《Starlight》空降Melon #1</li>
+      <li><span class="ico">📸</span>站姐拍到疑似汉江约会照在论坛传播</li>
+      <li><span class="ico" style="tag-enhance">👯</span>三姐秀雅偷偷跟你说想退团… <span style="font-size:9px;color:var(--es-yellow)">#8</span></li>
+    </ul>
+  </div>
+</div>
+
+</div>
+
+<!-- TOAST 模拟 #7 狗仔跟拍 -->
+<div class="toast warn" style="top:120px;animation: pulse 1.4s infinite">
+  📸 附近有可疑身影…你可能被跟拍了（恋情风险+3）
+  <span style="font-size:9px;color:var(--es-yellow);margin-left:8px">#7 狗仔增强</span>
+</div>
+
+<!-- MODAL PREVIEWS - shown below main layout -->
+
+<div style="max-width:1400px;margin:0 auto;padding:0 12px 80px">
+
+<!-- #14 约会地点选择 -->
+<div class="pnl" style="margin-top:16px">
+  <div class="pnl-title">#14 更丰富的约会地点 — 约会面板弹窗预览</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px">
+    <div class="opt" style="text-align:center">
+      🌳 汉江公园<br><span class="sub">风险+2 · 好感+2</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      ☕ 咖啡店<br><span class="sub">风险+3 · 好感+2</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🍜 深夜布帐马车<br><span class="sub">风险+4 · 好感+3</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🎬 私人影院<br><span class="sub">风险+5 · 好感+5</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🏠 他的宿舍<br><span class="sub">风险+7 · 好感+6</span><br>
+      <span style="font-size:9px;color:var(--es-red)">🔒 需明确期</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🌃 公司天台<br><span class="sub">风险+2 · 好感+2</span><br>
+      <span style="font-size:9px;color:var(--es-green)">被看到也可解释</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🗼 南山塔<br><span class="sub">风险+3 · 好感+3</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      🛍️ 弘大街头<br><span class="sub">风险+5 · 好感+4</span>
+    </div>
+  </div>
+</div>
+
+<!-- #17 冲突弹窗 -->
+<div class="pnl" style="margin-top:12px">
+  <div class="pnl-title">#17 组合活动 vs 个人约会冲突</div>
+  <div class="mini-modal">
+    <div class="mm-title" style="color:var(--es-yellow)">⚡ 日程冲突警告</div>
+    <p style="font-size:12px;color:var(--es-text-dim);margin-bottom:12px">
+      明天下午有 <b>团队打歌</b>（M Countdown），你确定这个时间约会吗？
+    </p>
+    <div style="display:flex;gap:8px">
+      <button class="mm-btn primary">去团活（职业优先）<br><span style="font-size:10px;opacity:.7">他会理解的…</span></button>
+      <button class="mm-btn danger">溜出去约会<br><span style="font-size:10px;opacity:.7">恋情风险+5 · 经纪人来电</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- #11 纪念日时间线 -->
+<div class="pnl" style="margin-top:12px">
+  <div class="pnl-title">#11 纪念日/回忆录 — 恋情面板·我们的回忆</div>
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-date">Day 12 · 练习生时期</div>
+      <div class="tl-desc">🎵 第一次注意他——他在工作室哼了一首自作曲</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Day 28</div>
+      <div class="tl-desc">💬 第一次深夜聊天，聊到凌晨三点</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Day 35 · 出道后</div>
+      <div class="tl-desc">☕ 第一次正式约会 — 汉江公园散步</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Day 46</div>
+      <div class="tl-desc">💗 第一次牵手 — 待机室后台</div>
+    </div>
+  </div>
+</div>
+
+<!-- #18 粉丝来信增强 -->
+<div class="pnl" style="margin-top:12px">
+  <div class="pnl-title">#18 粉丝来信 — 条件化来信</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="mini-modal">
+      <div style="font-size:10px;color:var(--es-text-dim)">📬 来自真爱粉</div>
+      <p style="font-size:11px;margin:4px 0">"欧尼的新歌我听了100遍！音源女王！请一直走花路吧🌸"</p>
+    </div>
+    <div class="mini-modal" style="border-color:rgba(255,138,138,.3)">
+      <div style="font-size:10px;color:var(--es-red)">📬 来自脱粉</div>
+      <p style="font-size:11px;margin:4px 0">"欧尼……网上说的那些是真的吗？偶像谈恋爱就是对粉丝的背叛。"</p>
+    </div>
+  </div>
+</div>
+
+<!-- #21 结局CG -->
+<div class="pnl" style="margin-top:12px">
+  <div class="pnl-title">#21 结局细分CG — 进入结局时的展示</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="mini-modal" style="text-align:center">
+      <div style="font-size:30px;margin-bottom:8px">💗</div>
+      <div class="mm-title">感情线</div>
+      <p style="font-size:12px;color:var(--es-yellow)">HE · 地下永久</p>
+      <p style="font-size:11px;color:var(--es-text-dim)">秘密恋爱多年，在所有人眼皮底下守护着只属于彼此的温度…</p>
+    </div>
+    <div class="mini-modal" style="text-align:center">
+      <div style="font-size:30px;margin-bottom:8px">🌟</div>
+      <div class="mm-title">事业线</div>
+      <p style="font-size:12px;color:var(--es-green)">顶流艺人</p>
+      <p style="font-size:11px;color:var(--es-text-dim)">人气突破80，成为无可争议的顶级偶像</p>
+    </div>
+  </div>
+  <div style="margin-top:8px">
+    <div class="mini-modal" style="text-align:center">
+      <div class="mm-title">结局组合</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;font-size:11px">
+        <div class="opt" style="text-align:center"><b>HE公开婚礼</b><br><span class="sub">公开恋爱·事业稳固</span></div>
+        <div class="opt" style="text-align:center"><b>HE地下永久</b><br><span class="sub">秘密恋爱·默契守护</span></div>
+        <div class="opt" style="text-align:center"><b>NE暧昧未明</b><br><span class="sub">从未言明·各自安好</span></div>
+        <div class="opt" style="text-align:center;border-color:rgba(255,138,138,.3)"><b>BE塌房</b><br><span class="sub">曝光→脱粉→分手</span></div>
+        <div class="opt" style="text-align:center"><b>NE和平分手</b><br><span class="sub">越走越远·默默祝福</span></div>
+        <div class="opt" style="text-align:center"><b>隐藏·情敌上位</b><br><span class="sub">特殊条件触发</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- #22 存档槽 -->
+<div class="pnl" style="margin-top:12px">
+  <div class="pnl-title">#22 多存档槽 — 标题栏"存档"按钮下拉</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    <div class="opt" style="text-align:center">
+      💾 存档 1<br>
+      <span class="sub">Day 48 · 珉奎</span><br>
+      <span class="sub" style="color:var(--es-green)">好感 72 · 今日 14:22</span>
+    </div>
+    <div class="opt" style="text-align:center">
+      💾 存档 2<br>
+      <span class="sub">Day 12 · 净汉</span><br>
+      <span class="sub">好感 25 · 3天前</span>
+    </div>
+    <div class="opt" style="text-align:center;border-style:dashed">
+      + 空槽位<br>
+      <span class="sub">点击新建存档</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <span><span class="dot new"></span> ✦ = 本预览展示的新增项</span>
+  <span><span class="dot ui"></span> = UI 交互组件</span>
+  <span><span class="dot data"></span> = 数据/逻辑层</span>
+  <span style="margin-left:16px">🟡 色块 = #编号对应建议文档编号</span>
+  <span>| 全部零新增 AI 调用 | 2-3 个新池子</span>
+</div>
+
+</body>
+</html>

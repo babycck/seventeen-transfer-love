@@ -42,6 +42,11 @@ export function evaluateEnding() {
   var careerLv = careerLevel();
   var depth = affectionDepth(E.affection); // 6 档恋爱深度
   var ending = pickEnding(tier, careerLv, depth);
+  // P5 #21: 事业线结局
+  var pop = E.career.popularity || 0;
+  if (pop >= 80) ending.careerOutcome = { tier:'顶流', desc:'你成为无可争议的顶级艺人' };
+  else if (pop >= 50) ending.careerOutcome = { tier:'稳步', desc:'稳扎稳打走着自己的路' };
+  else ending.careerOutcome = { tier:'挣扎', desc:'演艺圈不易，但你还在坚持' };
   E.endings = {
     hint: ending.label,
     locked: true,

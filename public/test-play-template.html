@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>娱乐圈模拟器 · 200轮测试版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#1a1a2e;color:#e0d7f5;min-height:100vh;font-size:15px}
+#app{max-width:700px;margin:0 auto;padding:12px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#16213e;border-radius:10px;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.top-bar .stat{background:#0f3460;padding:4px 10px;border-radius:6px;font-size:13px;white-space:nowrap}
+.top-bar .stat b{color:#ff6b9d}
+.chapter-badge{background:#e94560;color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:bold}
+.narrative{background:#16213e;border-radius:10px;padding:16px;margin-bottom:10px;line-height:1.8;min-height:60px;white-space:pre-wrap}
+.options{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.option-btn{padding:12px 16px;background:#0f3460;border:1px solid #3a5a8c;border-radius:8px;color:#e0d7f5;cursor:pointer;text-align:left;transition:0.2s;font-size:14px}
+.option-btn:hover{background:#1a4a7a;border-color:#ff6b9d}
+.option-btn:active{transform:scale(0.98)}
+.option-btn .tag{color:#ff6b9d;font-size:11px}
+.events-bar{background:#16213e;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;display:flex;flex-wrap:wrap;gap:4px;max-height:80px;overflow-y:auto}
+.events-bar span{background:#0f3460;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.bottom-controls{display:flex;gap:10px;margin-top:8px}
+.bottom-controls button{flex:1;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px}
+.btn-skip{background:#333;color:#aaa}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:100}
+.overlay-box{background:#16213e;padding:24px;border-radius:12px;text-align:center;max-width:360px}
+.overlay-box h2{color:#ff6b9d;margin-bottom:12px}
+.overlay-box p{color:#aaa;margin:6px 0;font-size:13px}
+.overlay-box button{margin-top:14px;padding:10px 24px;background:#e94560;border:none;border-radius:6px;color:#fff;font-weight:bold;cursor:pointer;font-size:15px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* __POOL_DATA_PLACEHOLDER__ */
+
+var STATE = { affection:0, popularity:0, exposure:0, chapter:1, isDebut:false, dayCount:1, gameDay:0, traineePhase:1, traineeDay:0, debutC:0 };
+var ROUND=0,TOTAL=200;
+var CHAPTER_NAMES={1:"新人出道",2:"崭露头角",3:"稳步上升",4:"人气偶像",5:"顶流巨星",6:"传奇殿堂"};
+var PHASES=["上午","下午","夜晚"];var slot=0;
+
+function pick(arr){if(!arr||!arr.length)return"(无)";return arr[Math.floor(Math.random()*arr.length)]}
+function short(txt,n){if(!txt)return"";return txt.length>n?txt.substring(0,n-3)+"...":txt}
+function popToCh(pop){if(pop>=90)return 6;if(pop>=75)return 5;if(pop>=55)return 4;if(pop>=35)return 3;if(pop>=15)return 2;return 1}
+
+function dailyEvents(){
+  var gd=STATE.gameDay,isD=STATE.isDebut,evts=[];
+  if(!isD){
+    var pp=POOLS.TRAINEE_EARLY_POOL||POOLS.TRAINEE_MID_POOL||POOLS.TRAINEE_LATE_POOL;
+    if(STATE.traineePhase===1&&POOLS.TRAINEE_EARLY_POOL)pp=POOLS.TRAINEE_EARLY_POOL;
+    if(STATE.traineePhase===2&&POOLS.TRAINEE_MID_POOL)pp=POOLS.TRAINEE_MID_POOL;
+    if(STATE.traineePhase===3&&POOLS.TRAINEE_LATE_POOL)pp=POOLS.TRAINEE_LATE_POOL;
+    if(pp)evts.push({label:"日程",text:short(pick(pp),80)});
+  }else{
+    var chMaps={1:"CHAPTER1_NOVICE",2:"CHAPTER2_SPROUTING",3:"CHAPTER2_RISING",4:"CHAPTER3_PEAK",5:"CHAPTER5_TOPSTAR",6:"CHAPTER4_LEGEND"};
+    var chP=POOLS[chMaps[STATE.chapter]]||[];
+    var mainP=Math.random()<0.7?chP:(POOLS.COMMON_POOL||[]);
+    if(mainP.length)evts.push({label:"日程",text:short(pick(mainP),80)});
+    if(POOLS.RELATED_POOL&&POOLS.RELATED_POOL.length)evts.push({label:"关联",text:short(pick(POOLS.RELATED_POOL),60)});
+    if(POOLS.FAN_LETTER_POOL&&POOLS.FAN_LETTER_POOL.length)evts.push({label:"粉丝",text:short(pick(POOLS.FAN_LETTER_POOL),70)});
+  }
+  var checks=[
+    {p:"BROTHER_EVENT_POOL",t:"哥哥",r:0.12},{p:"MALE_LEAD_INITIATIVE_POOL",t:"男主",r:0.08},
+    {p:"JEALOUSY_EVENTS_POOL",t:"吃醋",r:STATE.affection>=20?0.12:0},
+    {p:"RIVAL_ADVANCE_EVENTS",t:"情敌",r:STATE.affection>=10?0.10:0},
+    {p:"HEALTH_INJURY_POOL",t:"伤病",r:0.08},{p:"TEAMMATE_BOND_POOL",t:"队友",r:0.10},
+    {p:"TOXIC_FAN_WAR_POOL",t:"毒唯",r:STATE.popularity>=20?0.12:0},
+    {p:"GIRLGROUP_EVENTS",t:"女团",r:isD?0.18:0},
+    {p:"INDUSTRY_EVENTS",t:"行业",r:isD?0.12:0},
+    {p:"JOB_GRADE_POOL",t:"通告",r:isD&&STATE.popularity>=15?0.15:0},
+    {p:"PRESS_INTERVIEW_POOL",t:"采访",r:isD&&STATE.popularity>=20?0.10:0},
+    {p:"MV_FILMING_POOL",t:"MV",r:isD&&STATE.popularity>=25?0.08:0},
+    {p:"HIDDEN_ROUTE_POOL",t:"隐藏",r:isD&&STATE.popularity>=25?0.05:0},
+    {p:"CHEER_CULTURE_POOL",t:"应援",r:isD&&STATE.popularity>=10?0.15:0},
+    {p:"HIATUS_ANXIETY_POOL",t:"空白",r:isD?0.12:0},
+    {p:"DATING_SCANDAL_CHAIN",t:"绯闻",r:isD&&STATE.affection>=40?0.08:0},
+    {p:"VARIETY_MOMENT_POOL",t:"名场面",r:isD&&STATE.popularity>=20?0.10:0}
+  ];
+  for(var ci=0;ci<checks.length;ci++){
+    var c=checks[ci];if(Math.random()<c.r&&POOLS[c.p]&&POOLS[c.p].length)
+    evts.push({label:c.t,text:short(pick(POOLS[c.p]),60)})
+  }
+  return evts;
+}
+
+function sceneHints(){
+  var aff=STATE.affection,hints=[];
+  var sp=[
+    {p:"ATMOSPHERE_WEATHER",l:"天气"},{p:"ATMOSPHERE_MOOD",l:"心情"},{p:"ATMOSPHERE_HIS_STATE",l:"男主"},
+    {p:"ROMANCE_BACKSTAGE",l:"后台",r:aff>=20},{p:"ROMANCE_LATENIGHT",l:"深夜",r:aff>=20},{p:"ROMANCE_PUBLIC",l:"公共",r:aff>=20},
+    {p:"ROMANCE_CRISIS",l:"危机",r:aff>=40},{p:"ROMANCE_JEALOUSY_POOL",l:"吃醋",r:aff>=30},{p:"ROMANCE_CONFESSION",l:"告白",r:aff>=60},
+    {p:"SECRET_COMMS",l:"通讯",r:aff>=30&&STATE.exposure>=10},{p:"SECRET_NEARMISS",l:"暴露",r:aff>=30&&STATE.exposure>=10},
+    {p:"SECRET_FAN_CLUES",l:"线索",r:aff>=30&&STATE.exposure>=10},{p:"SECRET_COMPANY",l:"公司",r:aff>=30&&STATE.exposure>=10},
+    {p:"ENCOUNTER_ML",l:"偶遇男主",r:aff>=20},{p:"ENCOUNTER_RIVAL",l:"偶遇情敌",r:aff>=20},{p:"ENCOUNTER_BROTHER",l:"哥哥",r:aff>=20},
+    {p:"ENCOUNTER_OTHERS",l:"起哄",r:aff>=30},
+    {p:"DRAMA_ALMOST",l:"差点告白",r:aff>=50},{p:"DRAMA_MISUNDERSTAND",l:"误会",r:aff>=30},{p:"DRAMA_COLDWAR",l:"冷战",r:aff>=40},
+    {p:"DRAMA_DATING_RUMOR",l:"绯闻",r:aff>=40},{p:"DRAMA_DILEMMA",l:"二选一",r:aff>=50},
+    {p:"MILESTONE_AWARDS",l:"颁奖",r:STATE.isDebut},{p:"MILESTONE_FIRST_WIN",l:"一位",r:STATE.isDebut&&STATE.chapter>=2},
+    {p:"MILESTONE_DEBUT",l:"出道",r:STATE.isDebut&&STATE.chapter<=1},{p:"CALENDAR_EVENTS",l:"日历"}
+  ];
+  for(var si=0;si<sp.length;si++){
+    var s=sp[si];if(s.r===false)continue;
+    if(POOLS[s.p]&&POOLS[s.p].length){
+      var txt=pick(POOLS[s.p]);if(txt)hints.push("["+s.l+"] "+short(txt,100));
+    }
+  }
+  return hints;
+}
+
+function newDayProc(){
+  if(!STATE.isDebut){
+    STATE.traineeDay=(STATE.traineeDay||0)+1;
+    STATE.traineePhase=STATE.traineeDay<=4?1:STATE.traineeDay<=10?2:3;
+    if(STATE.traineePhase===3){
+      STATE.debutC=(STATE.debutC||0)+1;
+      if(STATE.debutC>=2+Math.floor(Math.random()*3)){STATE.isDebut=true;STATE.popularity=0;}
+    }
+  }
+}
+
+window.nextRound=function(optIdx){
+  ROUND++;slot++;
+  if(slot>=3){slot=0;STATE.dayCount++;STATE.gameDay++;newDayProc();}
+  var deltas=[2,0,-1];
+  STATE.affection=Math.max(0,Math.min(100,STATE.affection+deltas[optIdx]));
+  if(STATE.isDebut&&Math.random()<0.45)STATE.popularity=Math.min(100,STATE.popularity+1);
+  var tCh=popToCh(STATE.popularity);
+  if(tCh>STATE.chapter){STATE.chapter=tCh;var sk={2:30,3:45,4:60,5:75,6:90}[tCh]||0;if(sk)STATE.dayCount+=sk;}
+  if(STATE.isDebut&&STATE.affection>=15)STATE.exposure=Math.min(100,STATE.exposure+0.3+Math.random()*0.7);
+  if(ROUND>=TOTAL){gameOver();return}render();
+};
+
+window.skip10=function(){for(var i=0;i<10&&ROUND<TOTAL;i++)window.nextRound(Math.floor(Math.random()*3))};
+window.skipToEnd=function(){while(ROUND<TOTAL)window.nextRound(Math.floor(Math.random()*3))};
+
+function gameOver(){
+  document.getElementById("app").innerHTML=
+    '<div class="overlay"><div class="overlay-box"><h2>200轮完成！</h2>'+
+    '<p>好感: <b>'+STATE.affection+'</b>/100</p>'+
+    '<p>人气: <b>'+STATE.popularity+'</b></p>'+
+    '<p>章节: <b>Ch'+STATE.chapter+' '+CHAPTER_NAMES[STATE.chapter]+'</b></p>'+
+    '<p>日历: <b>'+STATE.dayCount+'</b>天 | 游戏: <b>'+STATE.gameDay+'</b>天</p>'+
+    '<button onclick="location.reload()">重新开始</button></div></div>';
+}
+
+function render(){
+  var aff=STATE.affection,pop=STATE.popularity,ch=STATE.chapter;
+  var label=STATE.isDebut?"已出道":"练习生·"+(STATE.traineePhase===1?"前期":STATE.traineePhase===2?"中期":"后期");
+  var hints=sceneHints();
+  var hShuff=hints.slice().sort(function(){return Math.random()-0.5});
+  var picked=hShuff.slice(0,Math.min(4,hints.length));
+  var mood=aff<10?"紧张又期待":aff<20?"渐渐习惯练习生活":aff<40?"心里有了一点秘密":aff<60?"每次见面都像在打歌":aff<80?"已经不能没有他":"想把这份感情藏在聚光灯照不到的地方";
+  var locs=["练习室","待机室","保姆车上","公司走廊","宿舍","咖啡店","便利店","天台","录音棚"];
+  var nar=PHASES[slot]+" · Day"+STATE.dayCount+" · 第"+(ROUND+1)+"轮\n\n";
+  nar+=label+" · 人气"+pop+"\n\n";
+  nar+=pick(locs)+"。你站在这里——"+mood+"。\n\n";
+  nar+="场景素材:\n"+picked.join("\n");
+
+  var h='<div class="top-bar">';
+  h+='<span class="stat">好感 <b>'+aff+'</b></span>';
+  h+='<span class="stat">人气 <b>'+pop+'</b></span>';
+  h+='<span class="stat">曝光 <b>'+(STATE.exposure||0).toFixed(0)+'</b></span>';
+  h+='<span class="stat"> <b>'+(aff>=60?"明确期":aff>=20?"暧昧期":"初识")+'</b></span>';
+  h+='<span class="chapter-badge">Ch'+ch+' '+CHAPTER_NAMES[ch]+'</span>';
+  h+='<span class="stat">#'+(ROUND+1)+'/'+TOTAL+'</span>';
+  h+='</div>';
+  h+='<div class="narrative">'+nar.replace(/\n/g,'<br>')+'</div>';
+  h+='<div class="options">';
+  h+='<button class="option-btn" onclick="nextRound(0)"><span class="tag">选项1</span> 继续专注今天的练习和日程</button>';
+  h+='<button class="option-btn" onclick="nextRound(1)"><span class="tag">选项2</span> 和队友随便聊聊日常</button>';
+  h+='<button class="option-btn" onclick="nextRound(2)"><span class="tag">选项3</span> 给某人编辑一条消息...然后删掉</button>';
+  h+='</div>';
+
+  var devts=dailyEvents();
+  if(devts.length){
+    h+='<div class="events-bar">';
+    for(var di=0;di<Math.min(devts.length,6);di++){
+      h+='<span>'+devts[di].label+': '+devts[di].text+'</span>';
+    }
+    h+='</div>';
+  }
+  h+='<div class="bottom-controls">';
+  h+='<button class="btn-skip" onclick="skip10()">跳过10轮</button>';
+  h+='<button class="btn-skip" onclick="skipToEnd()">跳到结局</button>';
+  h+='</div>';
+
+  document.getElementById("app").innerHTML=h;
+}
+
+render();
+</script>
+</body>
+</html>

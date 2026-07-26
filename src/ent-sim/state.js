@@ -13,6 +13,8 @@ export function initEntSimState() {
   // 清空聊天历史（避免新游戏复用旧档）
   GS._entSimChatHistory = {};
   GS._entSimChatSentIdx = {};
+  // 清空场景灵感去重记录（commit-only模型：新游戏所有池子重新可用）
+  if (window.__resetInspUsedTexts) window.__resetInspUsedTexts();
   var E = GS.entSim;
   // 手册规定：队友妹妹世界观下职业固定为「女团爱豆」
   var careerKey = '练习生';
@@ -37,17 +39,21 @@ export function initEntSimState() {
   E.career = {
     profession: careerKey,
     careerKey: careerKey,
-    popularity: 3,
+    popularity: 0,   // 练习生期人气=0，出道后由engine.js初始化
     careerLevel: '新人',
     resourcesLevel: '新人',
     debutDay: 0,
     yearsActive: 0,
     contractYears: 7,
-    contractRemaining: 7
+    contractRemaining: 7,
+    traineePhase: 1,         // 练习生阶段 1=前期 2=中期 3=后期
+    _lastTraineePhase: 1,    // 上次阶段号，防过渡事件重复触发
+    _debutTriggerDay: 0,     // 进入后期累计天数，>=2+randInt触发"出道最终评价"
+    _traineeDayCount: 0      // 独立练习天数（不限日历dayCount，从0起每游戏天+1）
   };
   E.skills = { vocal: 60, dance: 45, variety: 30, visual: 80 };
   E.works = { slots: {} }; // 在播作品槽位（onAirWorkCount 读取，防止 .slots 未初始化抛 TypeError）
-  E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: 1 };
+  E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: Math.floor(Math.random() * 180) + 1, _gameDayCount: 1 }; // dayCount=日历时间戳(季节/节日)，_gameDayCount=独立游戏天数(冷却/阶段推进)
   // 好感度（0-100）：恋爱主线核心驱动，AI 每回合返回 affectionDelta 推进
   E.affection = 0;
   E.npcNetwork = {
@@ -61,6 +67,8 @@ export function initEntSimState() {
     confessionDone: false,
     confessionResult: '',
     coverUsed: 0,
+    _dateConsecutive: 0,      // 约会连续计数，用于冷却检查
+    _lastDateDay: 0,            // 上次约会天数
     publicLine: false,
     seedEvent: '', // AI 在 setup 生成的 200 字上心契机存档
     mannerisms: [], // 男主小动作池（setup 抽取）
@@ -95,7 +103,7 @@ export function initEntSimState() {
   // 女团队友（5 位姐姐）：setup 时具象化，供 AI 客串
   E.heroineGroup = buildEntSimHeroineGroup();
   E.groupMeta = buildEntSimGroupMeta();
-  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, cpRealProgress: 0, cpRealTriggered: false };
+  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, scandalHeat: 0, careerPublicity: 0, cpRealProgress: 0, cpRealTriggered: false };
   // v2 新增：吃醋值系统
   E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
   E._jealousLastUpdateDay = 0;
@@ -129,6 +137,21 @@ export function initEntSimState() {
   GS._entSimAutoTries = 0;
   GS._entSimCurrent = null;
   GS._entSimPendingEvent = '';
+
+  // 队友妹妹设定下开局已认识哥哥与情敌，置位避免 prompt 注入"第一次介绍"
+  if (career.sisterSetting) {
+    GS._relCharIntroduced = true;
+    GS._rivalIntroduced = true;
+  }
+
+  // 随机生成四人组生日（月-日格式，均匀分布在四季）
+  function _randBday() { return (Math.floor(Math.random() * 12) + 1) + '-' + (Math.floor(Math.random() * 28) + 1); }
+  E.career._birthdays = {
+    heroine: _randBday(),
+    brother: _randBday(),
+    ml: _randBday(),
+    rival: _randBday()
+  };
 
   saveGame();
   return E;
@@ -166,12 +189,11 @@ function pickMember(excludeId, isBrother) {
 }
 
 function defaultSecrets() {
-  // 女主秘密：追过 EXO 金珉锡 + 瞒哥去签售会 + 藏了男主/EXO 周边（用户设定）
+  // 女主秘密：追过 EXO 金珉锡（纯 EXO 向，不涉及SEVENTEEN成员直播间）
   var pool = [
     '私下是 EXO 金珉锡的粉丝，手机里存着他很多直拍',
     '瞒着哥哥偷偷去看了 EXO 金珉锡的签售会',
     '床头的抽屉里藏着男主的周边小卡和 EXO 的金珉锡小卡',
-    '练习生时期在男主直播间刷过半年礼物，从没敢说',
     '写过的关于金珉锡的同人文还锁在备忘录里'
   ];
   var copy = pool.slice();
@@ -198,7 +220,7 @@ export function popularity() { return (GS.entSim && GS.entSim.career.popularity)
 export function careerLevel() { return (GS.entSim && GS.entSim.career.careerLevel) || '新人'; }
 export function resourcesLevel() { return (GS.entSim && GS.entSim.career.resourcesLevel) || '新人'; }
 export function chapterIndex() { return (GS.entSim && GS.entSim.chapter.index) || 1; }
-export function chapterName() { return (GS.entSim && GS.entSim.chapter.name) || '新人期'; }
+export function chapterName() { return (GS.entSim && GS.entSim.chapter.name) || ''; }
 export function cyclePhaseIndex() { return (GS.entSim && GS.entSim.cycle.phaseIndex) || 0; }
 export function romanceDepth() { return (GS.entSim && GS.entSim.romance.depth) || 0; }
 export function romanceDepthLabel() { return (ROMANCE_DEPTH_LABELS[romanceDepth()] || {}).label || '初遇'; }
@@ -224,45 +246,80 @@ export function isSisterSettingOn() {
 
 // ---------- 派生 ----------
 export function careerLevelOf(pop) {
-  if (pop >= 85) return '传奇';
-  if (pop >= 70) return '顶流';
+  if (pop >= 90) return '传奇';
+  if (pop >= 75) return '顶流';
   if (pop >= 55) return '当红';
   if (pop >= 35) return '走红';
-  if (pop >= 15) return '上升期';
+  if (pop >= 15) return '上升';
   return '新人';
 }
+// 练习生阶段：纯天数驱动，dayCount驱动1=前期/2=中期/3=后期
+export function traineePhaseOf(dayCount) {
+  if (dayCount <= 4) return 1;
+  if (dayCount <= 10) return 2;
+  return 3;
+}
+// 日期推导：365天周期，从dayCount算季节和模拟月份（防止天气/节日池穿帮）
+// dayCount 0 = 实际日期 2024-01-01（由 _startDayOffset 偏移）
+export function gameDayOf(dayCount) {
+  return ((dayCount - 1) % 365) % 30 + 1; // 1-30
+}
+export function gameMonthOf(dayCount) {
+  return Math.floor(((dayCount - 1) % 365) / 30) + 1; // 1-12
+}
+export function gameSeasonOf(dayCount) {
+  var m = gameMonthOf(dayCount);
+  if (m === 12 || m <= 2) return 'winter';   // 12-2月
+  if (m >= 3 && m <= 5) return 'spring';     // 3-5月
+  if (m >= 6 && m <= 8) return 'summer';     // 6-8月
+  return 'autumn';                             // 9-11月
+}
+export function gameYearOf(dayCount) {
+  return 2024 + Math.floor((dayCount - 1) / 365);
+}
+// 格式化为中文日期字符串，如 "2024年3月14日"
+export function formatGameDate(dayCount) {
+  return gameYearOf(dayCount) + '年' + gameMonthOf(dayCount) + '月' + gameDayOf(dayCount) + '日';
+}
+// 练习生期简易日期：dayCount直接当"练习第N天"
+export function formatTraineeDate(dayCount) {
+  return '练习第' + dayCount + '天';
+}
 function chapterNameOf(idx) {
-  return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].name) || '新人期';
+  return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].name) || '新人出道';
 }
 function chapterIconOf(idx) {
   return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].icon) || '🌱';
 }
-// 根据人气阈值计算应处章节（1-4），只进不退
+// 根据人气阈值计算应处章节（1-6），只进不退。出道后6阶段参考明星志愿3称号体系。
 export function chapterByPopularity(pop, startChapter) {
   var start = startChapter || 1;
   var threshold = 1;
-  if (pop >= 88) threshold = 4;
-  else if (pop >= 65) threshold = 3;
-  else if (pop >= 35) threshold = 2;
+  if (pop >= 90) threshold = 6;
+  else if (pop >= 75) threshold = 5;
+  else if (pop >= 55) threshold = 4;
+  else if (pop >= 35) threshold = 3;
+  else if (pop >= 15) threshold = 2;
   return Math.max(start, threshold);
 }
-// 检查并推进章节，返回是否发生跨越
+// 章节跨越时的时间跳跃（天），模拟事业积累需要时间
+export var CHAPTER_TIME_SKIP = { 2: 30, 3: 45, 4: 60, 5: 75, 6: 90 };
+// 检查并推进章节，返回是否发生跨越。跨越时自动加时间跳
 export function checkChapterAdvance() {
   var E = GS.entSim;
   if (!E || !E.chapter || !E.career) return false;
   var target = chapterByPopularity(E.career.popularity, E.career.startChapter || E.chapter.index || 1);
   var old = E.chapter.index || 1;
   if (target > old) {
+    // 章节跨越：自动时间跳（防止30天成顶流）
+    var skip = CHAPTER_TIME_SKIP[target] || 0;
+    if (skip > 0) { E.cycle.dayCount += skip; }
     E.chapter.index = target;
     E.chapter.name = chapterNameOf(target);
     E.chapter.icon = chapterIconOf(target);
     E.chapter.roundInChapter = 0;
     E.chapter.entered = true;
-    // 首次跨越：练习生 → 出道（debutDay 从0变为当天）
-    if (E.career.debutDay === 0 && target >= 2) {
-      E.career.debutDay = E.cycle.dayCount || 1;
-      E.career.yearsActive = 0;
-    }
+    // 出道由 engine.js 的 _debutTriggerDay 驱动，此处只处理出道后人气跨阈值切换章节
     // 章节奖励：+1 掩护次数上限（最多7次）
     if (E.romance && typeof E.romance.coverUsed === 'number') {
       var newMax = Math.min(7, 5 + (target - old));
@@ -272,6 +329,49 @@ export function checkChapterAdvance() {
     return true;
   }
   return false;
+}
+// 检测今天是谁的生日（通用版，返回通用标签）
+export function todayBirthday(dayCount, birthdays) {
+  if (!birthdays) return null;
+  var m = gameMonthOf(dayCount);
+  var d = gameDayOf(dayCount);
+  var today = m + '-' + d;
+  if (birthdays.heroine === today) return { who: 'heroine', label: '你的生日', name: '你' };
+  if (birthdays.brother === today) return { who: 'brother', label: '哥哥的生日', name: '哥哥' };
+  if (birthdays.ml === today) return { who: 'ml', label: '男主的生日', name: '男主' };
+  if (birthdays.rival === today) return { who: 'rival', label: '情敌的生日', name: '情敌' };
+  return null;
+}
+// 检测今天是谁的生日（真实姓名版，注入 prompt 用）
+export function birthdayInfo(dayCount, E) {
+  if (!E || !E.career || !E.career._birthdays) return null;
+  var m = gameMonthOf(dayCount);
+  var d = gameDayOf(dayCount);
+  var today = m + '-' + d;
+  var bd = E.career._birthdays;
+  var mlName = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '他';
+  var brotherName = (E.brother && E.brother.name) || (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.name) || '哥哥';
+  var rivalNode = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']) || {};
+  var rivalName = rivalNode.name || '情敌';
+  if (bd.heroine === today) return { who: 'heroine', label: '今天是你的生日', name: '你' };
+  if (bd.brother === today) return { who: 'brother', label: '今天是哥哥 ' + brotherName + ' 的生日', name: brotherName };
+  if (bd.ml === today) return { who: 'ml', label: '今天是男主 ' + mlName + ' 的生日', name: mlName };
+  if (bd.rival === today) return { who: 'rival', label: '今天是情敌 ' + rivalName + ' 的生日', name: rivalName };
+  return null;
+}
+// 检测今天是什么节日（返回 null 或节日名）
+export function todayHoliday(dayCount) {
+  var m = gameMonthOf(dayCount);
+  var d = gameDayOf(dayCount);
+  if (m === 1 && d === 1) return '元旦';
+  if (m === 2 && d === 14) return '情人节';
+  if (m === 3 && d === 14) return '白色情人节';
+  if (m === 9 && d >= 15 && d <= 17) return '中秋/秋夕';
+  if (m === 10 && d >= 28 && d <= 31) return '万圣节';
+  if (m === 11 && d === 11) return 'Pepero Day·光棍节';
+  if (m === 12 && d === 25) return '圣诞节';
+  if (m === 12 && d === 31) return '跨年夜';
+  return null;
 }
 export function stageNameOf(idx) {
   return (CYCLE_STAGE_META[idx] && CYCLE_STAGE_META[idx].key) || '新人期';
@@ -289,6 +389,8 @@ export function recomputeResourcesLevel() {
 // reason 非空时写 careerHistory（Bug 9：人气变动可见）
 export function addPopularity(delta, reason) {
   if (!GS.entSim) return 0;
+  // 练习生期：未出道=无人气概念，累积人气被屏蔽
+  if (GS.entSim.career && GS.entSim.career.debutDay === 0) return 0;
   var p = (GS.entSim.career.popularity || 0) + (delta || 0);
   p = Math.max(0, Math.min(100, p));
   GS.entSim.career.popularity = p;
@@ -326,4 +428,50 @@ function spawnPopFloat(delta) {
 export function recomputeCareerLevel() {
   if (!GS.entSim) return;
   GS.entSim.career.careerLevel = careerLevelOf(GS.entSim.career.popularity);
+}
+
+// P1 #22: 存档槽系统
+var SAVE_KEY_PREFIX = 'svt_entsim_slot_';
+export function saveEntSimGame(slot) {
+  slot = slot || 0;
+  var data = JSON.stringify({
+    day: GS.entSim.cycle.dayCount,
+    member: GS.oneHeartMember || '',
+    aff: GS.entSim.affection || 0,
+    pop: GS.entSim.career.popularity || 0,
+    timestamp: Date.now(),
+    state: GS.entSim
+  });
+  try { localStorage.setItem(SAVE_KEY_PREFIX + slot, data); } catch(e) {}
+}
+export function loadEntSimGame(slot) {
+  slot = slot || 0;
+  var raw = localStorage.getItem(SAVE_KEY_PREFIX + slot);
+  if (!raw) { showToast('槽位' + (slot+1) + '为空'); return; }
+  var data;
+  try { data = JSON.parse(raw); } catch(e) { showToast('存档损坏'); return; }
+  if (!data || !data.state) { showToast('存档数据不完整'); return; }
+  // 恢复 entSim 状态
+  Object.assign(GS.entSim, data.state);
+  // 恢复关键引用
+  if (!GS.entSim.careerHistory) GS.entSim.careerHistory = [];
+  if (!GS.entSim._affectionLog) GS.entSim._affectionLog = [];
+  saveGame();
+  showToast('📂 已加载槽位' + (slot+1) + ' · Day ' + (data.day||'?') + ' · ❤' + (data.aff||0));
+  if (typeof renderPopups === 'function') renderPopups();
+}
+export function listSaves() {
+  var result = [];
+  for (var i = 0; i < 3; i++) {
+    var raw = localStorage.getItem(SAVE_KEY_PREFIX + i);
+    if (raw) {
+      try {
+        var d = JSON.parse(raw);
+        result.push({ slot: i, day: d.day, member: d.member, aff: d.aff, timestamp: d.timestamp });
+      } catch(e) { result.push(null); }
+    } else {
+      result.push(null);
+    }
+  }
+  return result;
 }

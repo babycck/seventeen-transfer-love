@@ -4,19 +4,21 @@
 // 底部：8阶段好感度条 + 快捷指令(拉回主线/随机事件/探班/走向结局/进入下一天) + 4 Tab(剧情/聊天/朋友圈/剧场)
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { popularity, careerLevel, addPopularity } from './state.js';
+import { popularity, careerLevel, addPopularity, formatGameDate, formatTraineeDate, saveEntSimGame, loadEntSimGame, listSaves } from './state.js';
 import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from '../data.js';
 import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ACK_BROTHER, CHAT_ACK_RIVAL, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
 import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
   tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining, getJealousLabel
 } from './romance.js';
+import { addCareerPublicity, getCareerPublicity } from './public-opinion.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
   continueEntSimMain, triggerEntSimEvent, enterEntSimEnding,
@@ -27,62 +29,72 @@ import {
 import { STAGE_CEREMONY } from './data.js';
 import { TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './pools/index.js';
 
-// 通用评论池：展开讨论串时随机抽 2 条（无需 AI，省额度）
+// 分类评论池：按条目类型倾向性抽选（c=category: stage/visual/variety/gossip/fan/neutral/reco/practice/common）
 var BUZZ_COMMENT_POOL = [
-  '前排吃瓜 蹲后续','已阅 下一个','笑死 评论区比正文精彩','这是真的吗 有没有锤',
-  '有人科普一下前因后果吗','大家都好激动 冷静冷静','不管怎样 作品才是最重要的',
-  '说实话 我觉得还行 没那么夸张','一看就是对家买的 太明显了','走过路过不要错过 粉丝别吵了',
-  '这话题居然上热搜了 是不是有人花钱了','看了三遍 还是没看懂大家在吵什么',
-  '有一说一 这个讨论挺低质的','求指路 原帖在哪','非粉 但这个真挺好笑的',
-  '我也觉得 终于有人说了','不懂就问 这是在说谁','关注作品 别关注私生活',
-  '相信她 这么多年了还没看清吗','这圈子不就是这样 习惯就好','粉丝都散了吧 越吵越热',
-  '别理黑子 专注自家','纯路人 觉得还挺有意思的','刚吃完饭回来 发生了什么',
-  '反正我不信 等官方回应','心疼妹妹 又被拉出来挡枪','为什么大家都在骂 我觉得挺正常啊',
-  '路转粉了 就喜欢这种真实感','果然是饭圈 这也能吵起来','真相只有一个 吃瓜不信瓜',
-  '好家伙 今天这瓜可真多','默默点个赞 不敢说话','没有人觉得她最近状态超好吗',
-  '这个舞台看了四五遍了 出不去了','路人表示被圈粉了','今天妆造绝了谁懂',
-  '什么时候打歌 我想看完整版','这次回归的歌真的越听越上头','她瘦了好多 心疼',
-  '说真的 这次编舞比上次好','我投一票 这绝对今年最佳','官方什么时候出高清图',
-  '不知道有没有练习室版','笑死 黑粉今天又破费了','别吵了 听歌不香吗',
-  '有人跟我一样从出道就在追吗','第一次看她舞台 被震撼到了','舞蹈力度绝了好吧',
-  '声音太有辨识度了 闭眼都能听出','新造型好适合她','这个表情管理真是没谁了',
-  '眼睛里真的有光','今天又是被治愈的一天','不懂就问 这是仙女吗',
-  '颜值这块真的没输过','路人想问一句 这个妹妹多大了','想去看现场 有一起的吗',
-  '今天直播有人录屏吗 错过了一半','就喜欢这种又甜又有态度的','看了一圈 还是她的舞台最舒服',
-  '我觉得挺好听的啊为什么有人在骂','就她一个还在认真对嘴 其他人呢','这反应速度真的快 综艺感拉满',
-  '刚下班就刷到这个 太幸福了','感觉她最近是真的开心啊','有人知道她用什么香水吗 好好闻的样子',
-  '签名好认真啊 每个都写了小爱心','为什么有人不喜欢 我无法理解','这个直拍我可以看一辈子',
-  '新人求安利 从哪里补比较好','看完这期综艺彻底入坑了','太可爱了 想把她带回家',
-  '这团真的越来越好了 肉眼可见的进步','粉丝发的应援视频好好哭','凌晨还在练舞 真的太拼了',
-  '今天打歌舞台的灯光绝了','有没有人去拼盘演唱会 组队吗','求一个原图 当壁纸',
-  '这个背景音是谁唱的 好好听','我宣布我是她的新粉了','生图都能打 这就是天生爱豆',
-  '饭圈能不能少点撕 多看舞台','今天上班路上偶遇 本人真的好小一只','吃了安利来了 已关注',
-  '每天靠她的动态续命','这种实力真的不需要解释','拍手会去了 本人比照片好看一万倍',
-  '粉丝别招黑了 让她安静发展吧','弹幕刷屏的好烦 能不能让人好好看','她演的综艺这段我笑了十分钟',
-  '听她唱歌真的好治愈','这才是真正的全能','路人粉也忍不住评论一下了',
-  '好想知道她用的什么护肤品','这舞到底怎么跳的 太快了','今天这波操作真的牛',
-  '有人说她划水 我笑了 看直拍了吗','这明明就很真诚啊 哪装了','别带节奏了 人挺好的',
-  '有人囤了专辑吗 出不出小卡','今天签售的动图有人有吗 求私','音乐银行这周的直拍必看',
-  '黑粉别来沾边好吧','看到她拿奖了 真替她开心','有没有粉丝群 想加',
-  '这个团的团综太下饭了','今天的新歌听了吗 好听到炸','这个发色染到我心巴上了',
-  '路人来看热闹 结果出不去了','终于有人说实话了','最喜欢这种安静做事的人',
-  '站姐拍的这套图美疯了','二倍速跳舞那一段我反复拖进度条','又有yxh在带节奏了 别上当',
-  '她写的这首词……真的有点东西','这个表情我真的存了 太好用了','今晚直播蹲到了 幸福',
-  '人家说了最近在好好练习 别再问了','官咖的手写信有人翻译吗','搞笑和实力共存 有点意思',
-  '出道到现在 肉眼可见的进步','不理解骂她的人 是作业太少吗','今天音源排名涨了 大家继续冲',
-  '这次回归的造型团队真的强','不知道她看过这些评论没 希望能看到好的','这编舞细节太多了 每遍都有新发现',
-  '考古了一下 她从小就这么可爱','为什么每次回归都有人拿她开刀','请公司做人 给点资源吧',
-  '刚从签售回来 她主动跟我击掌了','纯好奇 有多少人是男粉','这次回归后涨粉好快',
-  '感觉这波黑有点过了 没实锤的事到处传','每次看她跳舞都起鸡皮疙瘩','今天舞台ending是她设计的吗 太会了',
-  '黑子：没表情 粉丝：这不叫没表情这叫情绪控制','综艺上被整蛊那段真的笑死我了','有没有人发现她今天换了新耳麦',
-  '你可以永远相信她的舞台','这才出道几年啊就这么稳了','团里最努力的就是她了 有目共睹',
-  '今天下班图 她好像累了 眼神有点疲惫','别说了 我已经开始单曲循环了','这个团真的需要更多关注 实力被低估',
-  '刚看完直拍 准备去看第二遍','有没有去签售的姐妹分享一下后记','粉色那套打歌服真的封神',
-  '看到有人吐槽她穿搭 我笑了 这还不好看？','路人表示 已经被圈粉了','她真的很努力 每次舞台都进步',
-  'get不到的人有难了','这个团什么时候开演唱会 我一定去','有被惊艳到 谢谢',
-  '这期综艺值得反复看 太搞笑了','什么时候出个人综艺 想看','今天就指着这个视频活',
-  '别吵了别吵了 和和气气看妹妹不好吗','黑酸请退散','看到这么多人喜欢她 好感动',
-  '某站热点又被屠了 笑死','谁懂 今晚刷到根本停不下来','为了她买的第一张专辑 值得'
+  {t:'前排吃瓜 蹲后续',c:'gossip'},{t:'已阅 下一个',c:'common'},{t:'笑死 评论区比正文精彩',c:'common'},{t:'这是真的吗 有没有锤',c:'gossip'},
+  {t:'有人科普一下前因后果吗',c:'neutral'},{t:'大家都好激动 冷静冷静',c:'common'},{t:'不管怎样 作品才是最重要的',c:'common'},
+  {t:'说实话 我觉得还行 没那么夸张',c:'common'},{t:'一看就是对家买的 太明显了',c:'gossip'},{t:'走过路过不要错过 粉丝别吵了',c:'fan'},
+  {t:'这话题居然上热搜了 是不是有人花钱了',c:'gossip'},{t:'看了三遍 还是没看懂大家在吵什么',c:'neutral'},
+  {t:'有一说一 这个讨论挺低质的',c:'common'},{t:'求指路 原帖在哪',c:'neutral'},{t:'非粉 但这个真挺好笑的',c:'neutral'},
+  {t:'我也觉得 终于有人说了',c:'common'},{t:'不懂就问 这是在说谁',c:'neutral'},{t:'关注作品 别关注私生活',c:'common'},
+  {t:'相信她 这么多年了还没看清吗',c:'fan'},{t:'这圈子不就是这样 习惯就好',c:'common'},{t:'粉丝都散了吧 越吵越热',c:'fan'},
+  {t:'别理黑子 专注自家',c:'fan'},{t:'纯路人 觉得还挺有意思的',c:'neutral'},{t:'刚吃完饭回来 发生了什么',c:'neutral'},
+  {t:'反正我不信 等官方回应',c:'gossip'},{t:'心疼妹妹 又被拉出来挡枪',c:'fan'},{t:'为什么大家都在骂 我觉得挺正常啊',c:'neutral'},
+  {t:'路转粉了 就喜欢这种真实感',c:'reco'},{t:'果然是饭圈 这也能吵起来',c:'common'},{t:'真相只有一个 吃瓜不信瓜',c:'gossip'},
+  {t:'好家伙 今天这瓜可真多',c:'gossip'},{t:'默默点个赞 不敢说话',c:'neutral'},{t:'没有人觉得她最近状态超好吗',c:'fan'},
+  // ── 舞台/作品 (stage) ──
+  {t:'这个舞台看了四五遍了 出不去了',c:'stage'},{t:'这次编舞比上次好太多了',c:'stage'},{t:'声音太有辨识度了 闭眼都能听出',c:'stage'},{t:'舞蹈力度绝了好吧',c:'stage'},
+  {t:'我投一票 这绝对今年最佳舞台',c:'stage'},{t:'这高音直接破防了 太好听了',c:'stage'},{t:'打歌舞台灯光也加分了 氛围绝了',c:'stage'},{t:'官方什么时候出高清直拍',c:'stage'},
+  {t:'这个背景音是她的吧 好好听',c:'stage'},{t:'消音版我也看了 稳得像CD',c:'stage'},{t:'不知道有没有练习室版本',c:'stage'},
+  {t:'就她一个还在认真对嘴 其他人呢',c:'stage'},{t:'看了一圈 还是她的舞台最舒服',c:'stage'},{t:'我觉得挺好听的啊为什么有人在骂',c:'stage'},{t:'这才是真正的全能爱豆',c:'stage'},
+  {t:'这次回归的歌真的越听越上头',c:'stage'},{t:'粉色那套打歌服真的封神',c:'stage'},{t:'她写的这首词……真的有点东西',c:'stage'},
+  // ── 颜值/造型 (visual) ──
+  {t:'今天妆造绝了谁懂',c:'visual'},{t:'新造型好适合她',c:'visual'},{t:'颜值这块真的没输过',c:'visual'},{t:'这个表情管理真是没谁了',c:'visual'},
+  {t:'生图都能打 这就是天生爱豆',c:'visual'},{t:'她瘦了好多 状态超好',c:'visual'},{t:'不懂就问 这是仙女吗',c:'visual'},{t:'眼睛里真的有光 好美',c:'visual'},
+  {t:'机场穿搭太有品味了',c:'visual'},{t:'这个发色染到我心巴上了',c:'visual'},{t:'求一个原图 当壁纸',c:'visual'},{t:'拍手会去了 本人比照片好看一万倍',c:'visual'},
+  {t:'看到有人吐槽她穿搭 我笑了 这还不好看？',c:'visual'},{t:'站姐拍的这套图美疯了',c:'visual'},{t:'有人知道她用什么香水吗 好好闻',c:'visual'},{t:'这次回归的造型团队真的强',c:'visual'},
+  // ── 综艺/搞笑 (variety) ──
+  {t:'这反应速度真的快 综艺感拉满',c:'variety'},{t:'她演的综艺这段我笑了十分钟',c:'variety'},{t:'太可爱了 想把她带回家',c:'variety'},{t:'刚下班就刷到这个 太幸福了',c:'variety'},
+  {t:'就喜欢这种又甜又有态度的',c:'variety'},{t:'今天直播有人录屏吗 错过了一半',c:'variety'},{t:'看完这期综艺彻底入坑了',c:'variety'},{t:'这个综艺太好笑了 建议加常驻',c:'variety'},
+  {t:'她跟主持人的互动好自然',c:'variety'},{t:'看了直播 本人性格真的好好',c:'variety'},{t:'这期综艺值得反复看 太搞笑了',c:'variety'},{t:'综艺上被整蛊那段真的笑死我了',c:'variety'},
+  {t:'什么时候出个人综艺 想看',c:'variety'},{t:'这个团的团综太下饭了',c:'variety'},
+  // ── 吃瓜/争议 (gossip) ──
+  {t:'果然是无事生非 散了散了',c:'gossip'},{t:'等一个反转 先不站队',c:'gossip'},{t:'这瓜保熟吗 别又是造谣',c:'gossip'},{t:'爆料的人实名了吗 没实名不认',c:'gossip'},
+  {t:'如果是真的那确实有点离谱了',c:'gossip'},{t:'无聊 又是这些没营养的话题',c:'gossip'},{t:'又有yxh在带节奏了 别上当',c:'gossip'},{t:'别带节奏了 人挺好的',c:'gossip'},
+  {t:'不理解骂她的人 是作业太少吗',c:'gossip'},{t:'黑酸请退散',c:'gossip'},{t:'有人说她划水 我笑了 看直拍了吗',c:'gossip'},
+  // ── 粉丝/应援 (fan) ──
+  {t:'粉丝发的应援视频好好哭',c:'fan'},{t:'有人跟我一样从出道就在追吗',c:'fan'},{t:'这团真的越来越好了 肉眼可见的进步',c:'fan'},{t:'每天靠她的动态续命',c:'fan'},
+  {t:'今天又是被治愈的一天',c:'fan'},{t:'她开心就好 其他不重要',c:'fan'},{t:'看到这么多人喜欢她 好感动',c:'fan'},{t:'看到她拿奖了 真替她开心',c:'fan'},
+  {t:'不管外面怎么说 我们一直在',c:'fan'},{t:'她每一次鞠躬都让人觉得值得',c:'fan'},{t:'今天音源排名涨了 大家继续冲',c:'fan'},{t:'黑粉别来沾边好吧',c:'fan'},
+  {t:'这个团真的需要更多关注 实力被低估',c:'fan'},{t:'今天下班图 她好像累了 眼神有点疲惫',c:'fan'},{t:'有人囤了专辑吗 出不出小卡',c:'fan'},
+  // ── 安利/入坑 (reco) ──
+  {t:'路人表示被圈粉了',c:'reco'},{t:'新人求安利 从哪里补比较好',c:'reco'},{t:'吃了安利来了 已关注',c:'reco'},
+  {t:'我宣布我是她的新粉了',c:'reco'},{t:'第一次看她舞台 被震撼到了',c:'reco'},{t:'路人粉也忍不住评论一下了',c:'reco'},{t:'入坑三天 已经补了所有综艺',c:'reco'},
+  {t:'请问有没有推荐的直拍 想给朋友安利',c:'reco'},{t:'她的歌每一首都符合我的取向',c:'reco'},{t:'get不到的人有难了',c:'reco'},{t:'有被惊艳到 谢谢',c:'reco'},
+  {t:'路人来看热闹 结果出不去了',c:'reco'},
+  // ── 练习/努力 (practice) ──
+  {t:'凌晨还在练舞 真的太拼了',c:'practice'},{t:'这种实力真的不需要解释',c:'practice'},{t:'肉眼可见的进步 努力不会骗人',c:'practice'},{t:'出道前就练了那么久 值得被看到',c:'practice'},
+  {t:'每次舞台都肉眼可见更稳了',c:'practice'},{t:'从练习室到舞台 一直在发光',c:'practice'},{t:'为什么有人黑她 明明那么努力',c:'practice'},{t:'她说过一句话—累了就再练一遍',c:'practice'},
+  {t:'团里最努力的就是她了 有目共睹',c:'practice'},{t:'这才出道几年啊就这么稳了',c:'practice'},{t:'她真的很努力 每次舞台都进步',c:'practice'},{t:'人家说了最近在好好练习 别再问了',c:'practice'},
+  // ── 兜底 (common) ──
+  {t:'别吵了 听歌不香吗',c:'common'},{t:'弹幕刷屏的好烦',c:'common'},{t:'终于有人说实话了',c:'common'},{t:'最喜欢这种安静做事的人',c:'common'},
+  {t:'搞笑和实力共存 有点意思',c:'common'},{t:'今晚直播蹲到了 幸福',c:'common'},{t:'考古了一下 她从小就这么可爱',c:'common'},
+  {t:'二倍速跳舞那一段我反复拖进度条',c:'stage'},{t:'她写了这首词……真的有点东西',c:'stage'},
+  {t:'今天这波操作真的牛',c:'common'},{t:'今天签售的动图有人有吗 求私',c:'fan'},{t:'音乐银行这周的直拍必看',c:'stage'},
+  {t:'感觉这波黑有点过了 没实锤的事到处传',c:'gossip'},{t:'每次看她跳舞都起鸡皮疙瘩',c:'stage'},{t:'今天舞台ending是她设计的吗 太会了',c:'stage'},
+  {t:'你可以永远相信她的舞台',c:'stage'},{t:'有没有去签售的姐妹分享一下后记',c:'fan'},
+  {t:'刚看完直拍 准备去看第二遍',c:'stage'},{t:'今天就指着这个视频活',c:'variety'},
+  {t:'这个团什么时候开演唱会 我一定去',c:'fan'},{t:'有没有粉丝群 想加',c:'fan'},
+  {t:'纯好奇 有多少人是男粉',c:'neutral'},{t:'别说了 我已经开始单曲循环了',c:'stage'},{t:'今天下班图 她好像累了 眼神有点疲惫',c:'practice'},
+  {t:'这次回归的造型团队真的强',c:'visual'},{t:'这编舞细节太多了 每遍都有新发现',c:'stage'},{t:'请公司做人 给点资源吧',c:'fan'},
+  {t:'刚从签售回来 她主动跟我击掌了',c:'fan'},{t:'这次回归后涨粉好快',c:'fan'},{t:'黑子：没表情 粉丝：这叫情绪控制',c:'gossip'},
+  {t:'有没有人发现她今天换了新耳麦',c:'stage'},{t:'签名好认真啊 每个都写了小爱心',c:'fan'},{t:'这明明就很真诚啊 哪装了',c:'fan'},{t:'这个直拍我可以看一辈子',c:'stage'},
+  {t:'好想知道她用的什么护肤品',c:'visual'},{t:'这舞到底怎么跳的 太快了',c:'stage'},{t:'官咖的手写信有人翻译吗',c:'fan'},
+  {t:'想去看现场 有一起的吗',c:'fan'},{t:'感觉她最近是真的开心啊',c:'fan'},{t:'今天打歌舞台的灯光绝了',c:'stage'},
+  {t:'有没有人去拼盘演唱会 组队吗',c:'fan'},{t:'听她唱歌真的好治愈',c:'stage'},{t:'这才是真正的全能',c:'stage'},
+  {t:'今天上班路上偶遇 本人真的好小一只',c:'visual'},{t:'粉丝别招黑了 让她安静发展吧',c:'fan'},
+  {t:'黑子：没表情 粉丝：这不叫没表情这叫情绪控制',c:'gossip'},{t:'什么时候打歌 我想看完整版',c:'stage'},
+  {t:'不知道该说什么 反正喜欢就完事了',c:'fan'},{t:'这期综艺真的好看 建议反复观看',c:'variety'},
 ];
 
 
@@ -92,7 +104,28 @@ function isHeroineRelated(item) {
   var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '';
   return hpName && t.indexOf(hpName) >= 0;
 }
-function suitorName() { var n = GS.entSim.npcNetwork.nodes['npc_suitor']; return (n && n.name) ? n.name : '团员'; }
+function suitorName() {
+  var E = GS.entSim;
+  var n = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']) || null;
+  if (n && n.name) return n.name;
+  // 兜底：从可选成员中取一个不是男主/哥哥的
+  var mlId = (E.romance && E.romance.maleLead) ? E.romance.maleLead.id : '';
+  var broId = (E.brother && E.brother.id) || (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
+  var candidates = [];
+  var all = MEMBERS || [];
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].id !== mlId && all[i].id !== broId) candidates.push(all[i]);
+  }
+  if (candidates.length) {
+    // 用 dayCount 做 seed，同一天固定不跳变
+    var idx = (E.cycle._gameDayCount || 1) % candidates.length;
+    var picked = candidates[idx];
+    // 写入 npcNetwork 持久化
+    if (E.npcNetwork && E.npcNetwork.nodes) E.npcNetwork.nodes['npc_suitor'] = { name: picked.name, id: picked.id, intimacy: 0, stance: '观望' };
+    return picked.name;
+  }
+  return '团内成员';
+}
 var DATE_VENUES = [
   { name: '他家', exposure: 3, desc: '高风险，一旦被拍到百口莫辩' },
   { name: '私人影院', exposure: 2, desc: '暗灯角落，旁人不易察觉' },
@@ -100,6 +133,11 @@ var DATE_VENUES = [
   { name: '天台', exposure: 1, desc: '公司楼顶，不太会有人上来' },
   { name: '车里', exposure: 0, desc: '密闭私密，相对安全' },
   { name: '地下停车场', exposure: 0, desc: '无人注意，最低调的选择' },
+  { name: '汉江公园', exposure: 1, desc: '江边散步吹风，低风险日常约会' },
+  { name: '南山塔', exposure: 2, desc: '挂锁的经典约会地，人多眼杂' },
+  { name: '深夜布帐马车', exposure: 2, desc: '烧酒配辣鸡爪，深夜食堂氛围' },
+  { name: '弘大街头', exposure: 3, desc: '混入人群逛街，高风险高回报' },
+  { name: '公司天台', exposure: 1, desc: '练习间隙偷偷见面，被看到也可解释' },
   // 章节解锁（跨章时逐步开放）
   { name: '他录音室', exposure: 1, desc: '以工作为名，偶尔有人经过', chapterMin: 2 },
   { name: '深夜咖啡店', exposure: 2, desc: '营业到凌晨，适合深夜约会', chapterMin: 2 },
@@ -171,11 +209,13 @@ function renderHtml() {
 // ---------- Header ----------
 function renderHeader() {
   var E = GS.entSim;
-  var chName = (E.chapter && E.chapter.name) ? (' ' + (E.chapter.icon || '') + ' ' + E.chapter.name) : '';
+  var isDebut = E.career && E.career.debutDay > 0;
+  // 练习生阶段不显示章节名（无章可归），只显示练习天数
+  var chName = (isDebut && E.chapter && E.chapter.name) ? (' ' + (E.chapter.icon || '') + ' ' + E.chapter.name) : '';
   return '' +
     '<div class="es-header">' +
       '<div class="es-h-left">' +
-        '<span class="es-cycle-tag">💗 地下恋 · Day' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</span>' +
+        '<span class="es-cycle-tag">💗 地下恋 · ' + (isDebut ? formatGameDate(E.cycle.dayCount || 1) : formatTraineeDate(E.cycle.dayCount || 1)) + ' ' + getTimeOfDayLabel() + '</span>' +
         (chName ? '<span class="es-chap-badge">' + chName + '</span>' : '') +
         '<span class="es-chap-badge">' + getRomanceStageIcon() + ' ' + getRomanceStageLabel() + '</span>' +
       '</div>' +
@@ -196,9 +236,10 @@ function renderLeft() {
   var sisters = (E.heroineGroup || []).map(function(s, i) {
     return '<button class="es-sis" data-sis="' + i + '"><span class="es-sis-name">' + escHtml(s.name) + '</span><small>' + escHtml(s.roleTag) + '</small></button>';
   }).join('');
-  var exp = Math.min(100, (E.misc.exposureAccum || 0) * 4);
-  var tier = getExposureTierLabel(E.misc.exposureAccum || 0);
-  var expBarColor = exp >= 80 ? 'var(--es-danger)' : exp >= 60 ? '#ff7e7e' : exp >= 40 ? '#ffd166' : exp >= 20 ? '#ffee88' : '#7ee787';
+  var heat = (typeof E.misc.scandalHeat === 'number') ? E.misc.scandalHeat : (E.misc.exposureAccum || 0);
+  var exp = Math.min(100, heat * 4);
+  var tier = getExposureTierLabel(heat);
+  var expBarColor = exp >= 80 ? 'var(--es-red)' : exp >= 60 ? 'var(--es-red)' : exp >= 40 ? 'var(--es-yellow)' : exp >= 20 ? 'var(--es-yellow)' : 'var(--es-green)';
   // 团设卡片：仅出道后展示
   var groupCard = '';
   if (gm.groupName && isDebut) {
@@ -208,7 +249,7 @@ function renderLeft() {
     var recentHtml = buildRecentActivities(E);
     groupCard = '<div class="es-gm-card">' +
       '<div class="es-gm-name">' + escHtml(gm.groupName) + '</div>' +
-      '<div class="es-gm-line">🏢 ' + escHtml(gm.company || '') + '</div>' +
+      '<div class="es-gm-line">🏢 ' + escHtml((gm.company && gm.company.name) || gm.company || '') + '</div>' +
       '<div class="es-gm-line">🎵 ' + escHtml(gm.concept || '') + '</div>' +
       '<div class="es-gm-line">💎 粉丝：' + escHtml(gm.fandom || '') + '  ·  ' + (gm.debutYears ? '出道 ' + gm.debutYears + ' 年' : '刚出道新人团') + '</div>' +
       (songsHtml ? '<div class="es-gm-songs">🔥 出圈曲：' + songsHtml + '</div>' : '') +
@@ -222,9 +263,6 @@ function renderLeft() {
       '<div class="es-col-title">🗓️ 今日日程</div>' +
       renderAgenda() +
       sisHtml +
-      '<div class="es-col-title" style="margin-top:6px">🔍 曝光 ' + tier.label + '</div>' +
-      '<div class="es-exp-bar' + (exp >= 50 ? ' es-exp-danger' : '') + '"><span style="width:' + exp + '%;background:' + expBarColor + '"></span></div>' +
-      '<small style="color:var(--text-dim)">曝光值 ' + (E.misc.exposureAccum || 0) + ' · ' + tier.desc + '</small>' +
     '</div>';
 }
 // 从 careerHistory 构建最近活动（近30天，按类型各取一条）
@@ -265,6 +303,7 @@ function getExposureTierLabel(accum) {
 }
 function renderAgenda() {
   var E = GS.entSim;
+  var isDebut = E.career && E.career.debutDay > 0;
   var tod = E.cycle.timeOfDay || 0;
   var slotIcons = ['☀️', '🌤️', '🌙'];
   var slotLabel = getTimeOfDayLabel();
@@ -272,14 +311,18 @@ function renderAgenda() {
   var header = '<div class="es-agenda-time">' + slotIcons[tod] + ' 当前 · ' + slotLabel + '（第' + (tod + 1) + '/3 档）</div>';
   // 不同时段高亮自己的行程
   var highlightKey = tod === 0 ? 'main' : tod === 1 ? 'related' : '';
+  var suitorNameVal = suitorName();
+  var mlName = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '他';
+  var broName = (E.brother && E.brother.name) || '哥哥';
   var items = [
     { key: 'main', icon: '🎤', text: (E.agenda.main || '主档') + (E.agenda.mainLoc ? '（' + E.agenda.mainLoc + '）' : ''), active: highlightKey === 'main' },
-    { key: 'maleLead', icon: '💜', text: '男主：' + (E.agenda.maleLead || '行程中') + (E.agenda.maleLeadLoc ? '（' + E.agenda.maleLeadLoc + '）' : ''), active: false },
+    { key: 'maleLead', icon: '💜', text: mlName + '：' + (E.agenda.maleLead || '行程中') + (E.agenda.maleLeadLoc ? '（' + E.agenda.maleLeadLoc + '）' : ''), active: false, hide: !isDebut },
     { key: 'related', icon: '📺', text: E.agenda.related || '相关', active: highlightKey === 'related' },
-    { key: 'rival', icon: '💢', text: suitorName() + '：' + (E.agenda.rival || '行程中') + (E.agenda.rivalLoc ? '（' + E.agenda.rivalLoc + '）' : ''), active: false }
+    { key: 'rival', icon: '💢', text: suitorNameVal + '：' + (E.agenda.rival || '行程中') + (E.agenda.rivalLoc ? '（' + E.agenda.rivalLoc + '）' : ''), active: false, hide: !isDebut }
   ];
+  items = items.filter(function(item) { return !item.hide; });
   if (E.agenda.brother && E.brother && E.brother.name) {
-    items.push({ key: 'brother', icon: '👨', text: (E.agenda.brother || '哥哥') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : ''), active: false });
+    items.push({ key: 'brother', icon: '👨', text: broName + '：' + (E.agenda.brother || '行程中') + (E.agenda.brotherLoc ? '（' + E.agenda.brotherLoc + '）' : ''), active: false });
   }
   // 约定卡片：可点击赴约
   var aptCards = '';
@@ -329,9 +372,10 @@ function renderCenter(cur, heartPending) {
   var heartTitle = heartPending ? '<div class="es-heartbeat-title">💗 心动时刻</div>' : '';
   var nHtml = cur.narrative ? escHtml(cur.narrative).replace(/\n/g, '<br>') : '';
   nHtml = nHtml.replace(/── (.+?) ──/g, '<div class="es-branch-sep">$1</div>');
+  var isDebut2 = E.career && E.career.debutDay > 0;
   return '' +
     '<div class="es-panel es-center-panel">' +
-      '<div class="es-col-title">📖 剧情 · Day ' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</div>' +
+      '<div class="es-col-title">📖 剧情 · ' + (isDebut2 ? formatGameDate(E.cycle.dayCount || 1) : formatTraineeDate(E.cycle.dayCount || 1)) + ' ' + getTimeOfDayLabel() + '</div>' +
       ongoingHtml +
       heartTitle +
       '<div class="' + nCls + '" id="es-narrative">' + nHtml + '<div id="es-narrative-end"></div></div>' +
@@ -352,21 +396,22 @@ function renderFreeInput() {
 // 快捷指令（移到剧情框下方，靠近剧情内容）
 function renderQuickActions() {
   var E = GS.entSim;
-  var today = E.cycle.dayCount || 1;
-  // 冷却计算：代言3天/综艺5天/画报3天/CD7天
-  var brandCD = (E._lastBrandOfferDay && today - E._lastBrandOfferDay < 3) ? (3 - (today - E._lastBrandOfferDay)) : 0;
-  var varietyCD = (E._lastVarietyDay && today - E._lastVarietyDay < 5) ? (5 - (today - E._lastVarietyDay)) : 0;
-  var magazineCD = (E._lastMagazineDay && today - E._lastMagazineDay < 3) ? (3 - (today - E._lastMagazineDay)) : 0;
+  var today = E.cycle._gameDayCount || 1;
+  // 待处理邀约（popup关闭后暂存的），有就亮 没就灰
+  var pendingOffers = (typeof GS !== 'undefined' && GS._entSimPendingOffers) || {};
+  var brandLabel = pendingOffers['brand'] ? '💼待定·代言' : '💼暂无邀约';
+  var varietyLabel = pendingOffers['variety'] ? '🎬待定·综艺' : '🎬暂无邀约';
+  var magazineLabel = pendingOffers['magazine'] ? '📸待定·画报' : '📸暂无邀约';
   var releaseCD = E._releaseCD || 0;
   function cdLabel(base, cd) { return cd > 0 ? base + ' (冷却' + cd + '天)' : base; }
   function cdDisabled(cd) { return cd > 0 ? ' disabled' : ''; }
+  var isDebut = E.career && E.career.debutDay > 0;
+  function notDebutDisabled() { return isDebut ? '' : ' disabled'; }
   var row1 = [
-    { q: 'letters', label: '📬信箱' + (GS._entSimPopupQueue && GS._entSimPopupQueue.some(function(p){return p.type==='fanLetter'}) ? ' 🆕' : ''), disabled: '' },
-    { q: 'awards', label: '🏆奖项', disabled: '' },
-    { q: 'brands', label: cdLabel('💼代言', brandCD), disabled: cdDisabled(brandCD) },
-    { q: 'variety', label: cdLabel('🎬综艺', varietyCD), disabled: cdDisabled(varietyCD) },
-    { q: 'magazine', label: cdLabel('📸画报', magazineCD), disabled: cdDisabled(magazineCD) },
-    { q: 'release', label: cdLabel('📀发布', releaseCD), disabled: cdDisabled(releaseCD) }
+    { q: 'brands', label: brandLabel, disabled: (!isDebut || !pendingOffers['brand']) ? ' disabled' : '' },
+    { q: 'variety', label: varietyLabel, disabled: (!isDebut || !pendingOffers['variety']) ? ' disabled' : '' },
+    { q: 'magazine', label: magazineLabel, disabled: (!isDebut || !pendingOffers['magazine']) ? ' disabled' : '' },
+    { q: 'release', label: cdLabel('📀发布', releaseCD), disabled: cdDisabled(releaseCD) + notDebutDisabled() }
   ].map(function(b) {
     return '<button class="es-quick-btn' + (b.disabled ? ' es-quick-disabled' : '') + '" data-q="' + b.q + '"' + b.disabled + '>' + b.label + '</button>';
   }).join('');
@@ -435,10 +480,16 @@ function renderRight() {
       '<div class="es-col-title" style="margin-top:4px">💬 粉丝讨论</div>' +
       '<div class="es-fan">' + (fan || '<div class="es-empty">暂无讨论</div>') + '</div>' +
       lovePanel +
+      // P1 #3: 粉丝数（人气联动涨跌粉）
+      '<div class="es-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--es-card-border)"><span>👥 粉丝数</span><span><b>' + formatSubCount(E) + '</b>' + subDeltaText(E) + '</span></div>' +
+      // P1 #9: 合约剩余年数
+      '<div class="es-row"><span>📜 经纪约</span><span>' + contractLabel(E) + '</span></div>' +
       '<button class="es-rom-btn es-business-btn" id="es-business-btn" style="margin-top:8px;width:100%">📱 手机' + (E.bubble && E.bubble.todayCount > 0 ? ' · 泡泡' + E.bubble.todayCount + '/5' : '') + '</button>' +
       '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
       '<button class="es-rom-btn" id="es-theater-rom-btn" style="margin-top:6px;width:100%">🎭 剧场</button>' +
       '<button class="es-rom-btn" id="es-ending-btn" style="margin-top:6px;width:100%">🌟 结局</button>' +
+      // P1 #22: 存档按钮
+      '<button class="es-rom-btn" id="es-save-btn" style="margin-top:6px;width:100%;background:rgba(124,111,240,.08);border-color:var(--es-primary2)">💾 存档管理</button>' +
     '</div>';
 }
 // 亲密图标行（7阶段）
@@ -460,11 +511,39 @@ function intimacyIcons() {
          '<span style="font-size:12px;opacity:' + (un.public ? '0.9' : '0.3') + '">' + p + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.marry ? '0.9' : '0.3') + '">' + m + '</span>';
 }
+
+// P1 #3: 粉丝数格式化（人气联动涨跌粉）
+function formatSubCount(E) {
+  var pop = E.career.popularity || 0;
+  var base = E.bubble && E.bubble.subscribers ? E.bubble.subscribers : 500;
+  var subs = base + Math.floor((pop - 25) * 80);
+  if (subs < 100) subs = 100;
+  if (subs >= 1000000) return (subs / 1000000).toFixed(1) + 'M';
+  if (subs >= 10000) return (subs / 10000).toFixed(1) + '万';
+  if (subs >= 1000) return (subs / 1000).toFixed(1) + 'k';
+  return String(subs);
+}
+function subDeltaText(E) {
+  var pop = E.career.popularity || 0;
+  var lastPop = E._lastPopSnapshot || pop;
+  if (pop > lastPop) return ' <span style="color:var(--es-green);font-size:10px">↑</span>';
+  if (pop < lastPop) return ' <span style="color:var(--es-red);font-size:10px">↓</span>';
+  return '';
+}
+
+// P1 #9: 合约标签
+function contractLabel(E) {
+  var remaining = E.career.contractRemaining || 7;
+  if (remaining <= 0) return '<b style="color:var(--es-yellow)">即将到期</b>';
+  if (remaining === 1) return '<b style="color:var(--es-yellow)">⚠ 还剩1年</b>';
+  return '<b>' + remaining + '年</b> / ' + (E.career.contractYears || 7) + '年';
+}
+
 // 右栏恋情面板：阶段 / 好感 / 曝光 / 已用掩护 / 哥哥支持度
 function renderLovePanel() {
   var E = GS.entSim;
   var stage = getRomanceStageLabel();
-  var exp = E.misc.exposureAccum || 0;
+  var exp = (typeof E.misc.scandalHeat === 'number') ? E.misc.scandalHeat : (E.misc.exposureAccum || 0);
   var tier = getExposureTierLabel(exp);
   var cover = E.romance.coverUsed || 0;
   var html = '<div style="margin-top:4px;padding:8px;background:rgba(255,255,255,.04);border-radius:8px">' +
@@ -482,6 +561,12 @@ function renderLovePanel() {
   }
   if (E.brother && E.brother.name) {
     html += '<div class="es-risk-row es-brother-clickable"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
+  }
+  // P1 #11: 查看纪念日按钮
+  var milestones = E._romanceMilestones || {};
+  var msCount = Object.keys(milestones).length;
+  if (msCount > 0) {
+    html += '<button class="es-rom-btn" id="es-milestone-btn" style="margin-top:6px;width:100%;color:var(--es-yellow)">💫 查看纪念日 · ' + msCount + '个回忆</button>';
   }
   html += '</div>';
   return html;
@@ -579,13 +664,30 @@ function renderLettersInner() {
 }
 // 手机版渲染函数
 function renderLettersInnerFS() {
-  var E2 = GS.entSim;
-  var letters = E2.fanLetters || [];
-  if (!letters.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📬 信箱为空<br><small style="color:#555">粉丝的来信会出现在这里</small></div>';
+  var hist = GS._entSimLetterHistory || [];
+  if (!hist.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📬 信箱为空<br><small style="color:#555">粉丝的来信会出现在这里</small></div>';
   var h = '';
-  for (var l = letters.length - 1; l >= 0; l--) {
-    var item = letters[l];
-    h += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">✉️ 来自粉丝</div><div style="font-size:12px;color:#ccc;line-height:1.5">' + escHtml(item.text || item.content || '') + '</div></div>';
+  for (var l = hist.length - 1; l >= 0; l--) {
+    var item = hist[l];
+    var txt = (item.data && item.data.t) ? item.data.t : (typeof item.data === 'string' ? item.data : '');
+    h += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px">' +
+      '<div style="font-size:11px;color:#666;margin-bottom:4px">✉️ 第' + (item.day||'?') + '天 · 来自粉丝</div>' +
+      '<div style="font-size:12px;color:#ccc;line-height:1.5">' + escHtml(txt) + '</div></div>';
+  }
+  return h;
+}
+
+function renderAwardsInnerFS() {
+  var hist = GS._entSimAwardHistory || [];
+  if (!hist.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">🏆 暂无奖项<br><small style="color:#555">每4天可能触发季度颁奖</small></div>';
+  var h = '';
+  for (var i = hist.length - 1; i >= 0; i--) {
+    var item = hist[i];
+    var d = item.data;
+    h += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px">' +
+      '<div style="font-size:11px;color:#666;margin-bottom:4px">🏆 第' + (item.day||'?') + '天</div>' +
+      '<div style="font-size:13px;color:#f0c040;font-weight:600;margin-bottom:2px">' + escHtml(d.t || '') + '</div>' +
+      '<div style="font-size:11px;color:#888">人气+' + (d.pop || 0) + '</div></div>';
   }
   return h;
 }
@@ -681,6 +783,8 @@ function bindStoryEvents() {
   bindId('es-settings-btn', function() { showApiSettingsModal(); });
   bindId('es-pop-btn', onPopLog);
   bindId('es-memory-btn', onMemoryLog);
+  bindId('es-save-btn', showSaveSlotsModal);    // P1 #22
+  bindId('es-milestone-btn', showMilestoneModal); // P1 #11
   document.querySelectorAll('.es-ag-btn[data-agenda]').forEach(function(b) {
     b.addEventListener('click', function() { onAgendaClick(b.dataset.agenda); });
   });
@@ -796,15 +900,15 @@ function onAppointmentClick(idx) {
 // 工作冷却检查（代言3天/综艺5天/画报3天，CD已在showReleasePanel内检查）
 function checkWorkCooldown(type) {
   var E = GS.entSim;
-  var today = E.cycle.dayCount || 1;
+  var today = E.cycle._gameDayCount || 1;
   if (type === 'brands') {
     if (E._lastBrandOfferDay && today - E._lastBrandOfferDay < 3) {
       showToast('💼 代言冷却中（还需 ' + (3 - (today - E._lastBrandOfferDay)) + ' 天）'); return true;
     }
     E._lastBrandOfferDay = today; saveGame();
   } else if (type === 'variety') {
-    if (E._lastVarietyDay && today - E._lastVarietyDay < 5) {
-      showToast('🎬 综艺冷却中（还需 ' + (5 - (today - E._lastVarietyDay)) + ' 天）'); return true;
+    if (E._lastVarietyDay && today - E._lastVarietyDay < 3) {
+      showToast('🎬 综艺冷却中（还需 ' + (3 - (today - E._lastVarietyDay)) + ' 天）'); return true;
     }
     E._lastVarietyDay = today; saveGame();
   } else if (type === 'magazine') {
@@ -819,15 +923,18 @@ function checkWorkCooldown(type) {
 // 快捷指令
 function onQuick(q) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
+  var E = GS.entSim;
 
   // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
   if (q === 'visit') { showEntSimVisitChoice(); return; }
 
   if (q === 'bubble') { showBusinessPanel(); return; }
+  if (q === 'release' || q === 'brands' || q === 'variety' || q === 'magazine') {
+    var isD = E.career && E.career.debutDay > 0;
+    if (!isD) { showToast('出道后才解锁此功能'); return; }
+  }
   if (q === 'release') { showReleasePanel(); return; }
-  if (q === 'letters') { showLetterHistory(); return; }
   if (q === 'brands') { if (checkWorkCooldown('brands')) return; showBrandHistory(); return; }
-  if (q === 'awards') { showAwardHistory(); return; }
   if (q === 'variety') { if (checkWorkCooldown('variety')) return; showVarietyPopup(); return; }
   if (q === 'magazine') { if (checkWorkCooldown('magazine')) return; showMagazinePopup(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
@@ -848,6 +955,8 @@ function onQuick(q) {
       });
     return;
   }
+
+  if (q === 'cover') { showCoverPanel(); return; }
 
   showNarrativeLoading();
   if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
@@ -1160,7 +1269,7 @@ function onPopLog() {
     return '<div class="es-pop-log-item"><small>Day' + (h.day != null ? h.day : h.round) + '</small>' +
       '<span class="es-pop-tag ' + meta.cls + '">' + meta.label + '</span>' + escHtml(h.text) + '</div>';
   }).join('') : '<div class="es-empty">暂无变动记录</div>';
-  showEntSimModal('📈 人气走势与变动日志', chartHtml + '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 累计曝光：<b>' + ((E.misc && E.misc.exposureAccum) || 0) + '</b></div>' + logHtml, [{ id: 'close', label: '关闭' }]);
+  showEntSimModal('📈 人气走势与变动日志', chartHtml + '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 恋情风险：<b>' + ((E.misc && (typeof E.misc.scandalHeat === 'number' ? E.misc.scandalHeat : E.misc.exposureAccum)) || 0) + '</b>· 事业热度：<b>' + getCareerPublicity() + '</b></div>' + logHtml, [{ id: 'close', label: '关闭' }]);
   // 延迟绘制 Canvas（等待 DOM 就绪）
   setTimeout(function() { drawPopChart(E); }, 100);
 }
@@ -1385,7 +1494,7 @@ export function showEntSimModal(title, bodyHtml, buttons) {
         b.addEventListener('click', function() { var r = b.dataset.res; closeEntSimModal(); resolve(r); });
       });
     }
-    overlay.addEventListener('click', function(e) { if (e.target === overlay && !btns) { closeEntSimModal(); resolve(null); } });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) { closeEntSimModal(); resolve('dismiss'); } });
   });
 }
 function closeEntSimModal() { if (_modalEl && _modalEl.parentNode) { _modalEl.parentNode.removeChild(_modalEl); _modalEl = null; }
@@ -1424,6 +1533,7 @@ function showBusinessPanel() {
             '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'moments\')"><div class="icon" style="background:linear-gradient(135deg,#2ECC71,#27AE60)">📱</div><div class="label">朋友圈</div></div>' +
             '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'diary\')"><div class="icon" style="background:linear-gradient(135deg,#E67E22,#D35400)">📔</div><div class="label">日记</div></div>' +
             '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'letters\')"><div class="icon" style="background:linear-gradient(135deg,#3498DB,#2980B9)">📬</div><div class="label">信箱</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'awards\')"><div class="icon" style="background:linear-gradient(135deg,#F39C12,#E67E22)">🏆</div><div class="label">奖项</div></div>' +
           '</div>' +
         '</div>' +
         '<div class="es-phone-homebar"><div></div></div>' +
@@ -1440,7 +1550,8 @@ function showBusinessPanel() {
         '<div class="es-phone-back" onclick="window.__phoneBack()" style="padding-bottom:6px">← 联系人</div>' +
         '<div class="es-phone-chat-header" id="es-phone-chat-header"></div>' +
         '<div class="es-phone-chat-msgs" id="es-phone-chat-msgs"></div>' +
-        '<div class="es-phone-input-row"><input class="es-phone-input" id="es-phone-chat-input" placeholder="发送消息..."><button class="es-phone-send" onclick="window.__phoneSend()">↑</button></div>' +
+        '<div class="es-phone-quick-replies" id="es-phone-quick-replies" style="display:flex;flex-direction:column;gap:4px;padding:6px 10px;border-top:1px solid #1e2a3a"></div>' +
+        '<div class="es-phone-input-row"><input class="es-phone-input" id="es-phone-chat-input" placeholder="输入回复..."><button class="es-phone-send" onclick="window.__phoneSend()">↑</button></div>' +
       '</div>' +
       // 泡泡页
       '<div class="es-phone-page" id="es-phone-page-bubble">' +
@@ -1473,6 +1584,12 @@ function showBusinessPanel() {
         '<div class="es-phone-title">📬 信箱</div>' +
         '<div class="es-phone-screen" style="padding:12px 16px" id="es-phone-letters-content"></div>' +
       '</div>' +
+      // 奖项页
+      '<div class="es-phone-page" id="es-phone-page-awards">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">🏆 奖项</div>' +
+        '<div class="es-phone-screen" style="padding:12px 16px" id="es-phone-awards-content"></div>' +
+      '</div>' +
     '</div>';
   overlay.innerHTML = phoneHTML;
   document.body.appendChild(overlay);
@@ -1481,9 +1598,10 @@ function showBusinessPanel() {
   var contacts = [
     { id:'maleLead', name: (E.maleLead && E.maleLead.name) || '男主', avatar: '💙', bg: '#3b82f6' },
     { id:'brother', name: (E.brother && E.brother.name) || '哥哥', avatar: '👨', bg: '#22c55e' },
-    { id:'rival', name: (E.rival && E.rival.name) || '情敌', avatar: '⚠️', bg: '#f59e0b' },
+    { id:'rival', name: suitorName() || '情敌', avatar: '⚠️', bg: '#f59e0b' },
     { id:'manager', name: '经纪人', avatar: '📋', bg: '#8b5cf6' },
-    { id:'group', name: '团群', avatar: '👥', bg: '#ec4899' }
+    { id:'group', name: '团群', avatar: '👥', bg: '#ec4899' },
+    { id:'sasaeng', name: 'Unknown', avatar: '👁️', bg: '#ef4444' }
   ];
   // 成员池查找：联系人与真实 SEVENTEEN 成员匹配时注入特质
   var memberPools = {
@@ -1533,6 +1651,11 @@ function showBusinessPanel() {
   // 全局导航函数
   window.__phoneCurChannel = 'maleLead';
   window.__phoneOpenApp = function(app) {
+    // 练习生期不可用的功能
+    var E2 = GS.entSim;
+    var isD = E2.career && E2.career.debutDay > 0;
+    if (app === 'letters' && !isD) { showToast('出道后才解锁信箱功能'); return; }
+    if (app === 'awards' && !isD) { showToast('出道后才解锁奖项功能'); return; }
     document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
     var targetPage = document.getElementById('es-phone-page-' + app);
     if (targetPage) {
@@ -1546,6 +1669,8 @@ function showBusinessPanel() {
       if (app === 'moments') document.getElementById('es-phone-moments-content').innerHTML = renderMomentsInnerFS();
       if (app === 'diary') document.getElementById('es-phone-diary-content').innerHTML = renderDiaryInnerFS();
       if (app === 'letters') document.getElementById('es-phone-letters-content').innerHTML = renderLettersInnerFS();
+      if (app === 'awards') document.getElementById('es-phone-awards-content').innerHTML = renderAwardsInnerFS();
+      if (app === 'feedback') document.getElementById('es-phone-feedback-content').innerHTML = renderFeedbackContent(E2);
     }
   };
   window.__phoneBack = function() {
@@ -1567,9 +1692,58 @@ function showBusinessPanel() {
       '<div style="flex:1"><div class="name">' + escHtml(name) + '</div><div style="font-size:10px;color:#666;margin-top:1px">在线</div></div>' +
       '<div style="font-size:20px;color:#555">⋯</div>';
     window.__phoneCurChannel = ch;
+    // 经纪人/私生为单向推送，禁用输入框
+    var input = document.getElementById('es-phone-chat-input');
+    var sendBtn = document.querySelector('.es-phone-send');
+    if (ch === 'manager' || ch === 'group' || ch === 'sasaeng') {
+      if (input) { input.disabled = true; input.placeholder = '此聊天不支持回复'; input.style.opacity = '0.3'; }
+      if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.3'; }
+    } else {
+      if (input) { input.disabled = false; input.placeholder = '输入回复...'; input.style.opacity = '1'; }
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+    }
     renderPhoneChatMsgs(ch);
   };
-  window.__phoneSend = function() {
+  window.__quickReply = function(ch, idx) {
+  if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+  if (!GS._entSimChatHistory[ch]) GS._entSimChatHistory[ch] = [];
+  var container = document.getElementById('es-phone-quick-replies');
+  var keys = container && container._replyKeys;
+  var q = keys && keys[idx] ? keys[idx] : '';
+  // 1. 推玩家回复到聊天记录
+  GS._entSimChatHistory[ch].push({ role: 'user', content: q || '嗯' });
+  renderPhoneChatMsgs(ch);
+  // 2. 根据频道类型决定对方回复逻辑
+  var replyContent = '';
+  var isPaired = (ch === 'brother' || ch === 'rival');
+  var isMaleLead = (ch === 'maleLead');
+  if (isMaleLead) {
+    // 男主频道：q/r 格式，findChatPoolReply 查找匹配条目取 r
+    var found = findChatPoolReply(q);
+    if (found && found.r && found.r.length) {
+      replyContent = found.r[Math.floor(Math.random() * found.r.length)];
+    } else if (found && found.msg) {
+      replyContent = found.msg;
+    }
+    if (!replyContent) replyContent = '嗯。';
+  } else if (isPaired) {
+    // 哥哥/情敌频道：取确认回应池
+    var ackPool = ch === 'brother' ? (CHAT_ACK_BROTHER || ['嗯。']) : (CHAT_ACK_RIVAL || ['嗯。']);
+    replyContent = ackPool[Math.floor(Math.random() * ackPool.length)];
+    // 清除 pending（本轮对话结束，不再显示预设）
+    if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
+  } else {
+    // 其他频道：简单随机
+    replyContent = '嗯。';
+  }
+  // 3. 延迟推对方回复
+  setTimeout(function() {
+    GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(replyContent) });
+    renderPhoneChatMsgs(ch);
+    saveGame();
+  }, 400 + Math.random() * 600);
+};
+window.__phoneSend = function() {
     var input = document.getElementById('es-phone-chat-input');
     var ch = window.__phoneCurChannel;
     if (!input || !input.value.trim() || !ch) return;
@@ -1579,20 +1753,47 @@ function showBusinessPanel() {
     if (!GS._entSimChatHistory[ch]) GS._entSimChatHistory[ch] = [];
     GS._entSimChatHistory[ch].push({ role: 'user', content: msg });
     renderPhoneChatMsgs(ch);
-    // 池子匹配回复
+    // 回复逻辑
     setTimeout(function() {
-      var reply = null;
-      if (ch === 'maleLead') reply = findChatPoolReply(msg);
-      else {
-        var poolMap = { brother: CHAT_BROTHER, rival: CHAT_RIVAL, manager: CHAT_MANAGER, group: GROUP_CHAT, sasaeng: CHAT_SASAENG };
-        var pool = poolMap[ch];
-        if (pool && pool.length) reply = pool[Math.floor(Math.random() * pool.length)];
+      if (ch === 'maleLead') {
+        // 1. 先尝试池子精确匹配
+        var found2 = findChatPoolReply(msg);
+        if (found2 && found2.r && found2.r.length) {
+          var poolReply = found2.r[Math.floor(Math.random() * found2.r.length)];
+          GS._entSimChatHistory.maleLead.push({ role: 'ai', content: resolveChatTemplates(poolReply) });
+          renderPhoneChatMsgs(ch);
+          return;
+        }
+        // 2. 池子未命中 → 调用 AI
+        if (typeof generateEntSimChat === 'function') {
+          input.placeholder = 'AI 正在回复...';
+          generateEntSimChat(msg).then(function(aiReply) {
+            input.placeholder = '输入回复...';
+            if (aiReply && aiReply !== 'dailyLimit' && typeof aiReply === 'string') {
+              GS._entSimChatHistory.maleLead.push({ role: 'ai', content: resolveChatTemplates(aiReply) });
+            } else if (aiReply === 'dailyLimit') {
+              GS._entSimChatHistory.maleLead.push({ role: 'ai', content: '（今天聊得够多了，明天再发吧）' });
+            } else {
+              GS._entSimChatHistory.maleLead.push({ role: 'ai', content: '嗯。' });
+            }
+            renderPhoneChatMsgs(ch);
+          }).catch(function() {
+            input.placeholder = '输入回复...';
+            GS._entSimChatHistory.maleLead.push({ role: 'ai', content: '（网络开小差了，再发一次试试）' });
+            renderPhoneChatMsgs(ch);
+          });
+        } else {
+          GS._entSimChatHistory.maleLead.push({ role: 'ai', content: '嗯。' });
+          renderPhoneChatMsgs(ch);
+        }
+      } else if (ch === 'brother' || ch === 'rival') {
+        var ackPool2 = ch === 'brother' ? (CHAT_ACK_BROTHER || ['嗯。']) : (CHAT_ACK_RIVAL || ['嗯。']);
+        replyContent = ackPool2[Math.floor(Math.random() * ackPool2.length)];
+        if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
       }
-      if (reply) {
-        var replyContent = reply.r && reply.r.length ? reply.r[Math.floor(Math.random() * reply.r.length)] : (reply.t || reply.text || '...');
-        GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(replyContent) });
-        renderPhoneChatMsgs(ch);
-      }
+      if (!replyContent) replyContent = '嗯。';
+      GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(replyContent) });
+      renderPhoneChatMsgs(ch);
     }, 500 + Math.random() * 800);
   };
   window.__phoneBubbleSend = function() {
@@ -1611,14 +1812,61 @@ function showBusinessPanel() {
   overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 }
 
+function updateQuickReplies(ch, presets) {
+  var container = document.getElementById('es-phone-quick-replies');
+  if (!container) return;
+  if (!presets.length) { container.innerHTML = ''; return; }
+  // 存 q-key 用于精确匹配池子回复
+  container._replyKeys = presets.map(function(p) { return p.q; });
+  var btns = '';
+  for (var i = 0; i < Math.min(presets.length, 3); i++) {
+    var txt = (presets[i].t || presets[i].q || '').substring(0, 24);
+    btns += '<button style="width:100%;padding:8px 12px;background:#0f3460;border:1px solid #3a5a8c;border-radius:8px;color:#e0d7f5;cursor:pointer;font-size:13px;text-align:left" onclick="window.__quickReply(\'' + escHtml(ch) + '\',' + i + ')">' + escHtml(txt) + '</button>';
+  }
+  container.innerHTML = btns;
+}
+
 function renderPhoneChatMsgs(ch) {
   var msgs = document.getElementById('es-phone-chat-msgs');
   if (!msgs) return;
   var hist = (GS._entSimChatHistory || {})[ch] || [];
   if (!hist.length) {
-    msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>开始聊天吧</div></div>';
+    msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>暂无消息</div></div>';
+    updateQuickReplies(ch, []);
     return;
   }
+
+  // 渲染预设回复按钮：getChatPoolByChannel 已统一处理所有频道+阶段过滤
+  var presets = [];
+  var pending = (GS._entSimPendingChat || {})[ch];
+  var isPaired = (ch === 'brother' || ch === 'rival');
+  if (isPaired && pending && pending.reply) {
+    // 哥哥/情敌有 pending：以该条目的 reply 作为唯一预设，加2条随机 reply 做备选
+    presets.push({ q: pending.reply, t: pending.reply });
+    var pool = getChatPoolByChannel(ch) || [];
+    var shuffled2 = pool.slice().sort(function() { return Math.random() - 0.5; });
+    for (var si = 0; si < shuffled2.length && presets.length < 3; si++) {
+      var alt = shuffled2[si];
+      var altText = alt.reply || alt.q || alt.msg || '';
+      if (altText && altText !== pending.reply) presets.push({ q: altText, t: altText });
+    }
+  } else if (isPaired) {
+    // 哥哥/情敌无 pending（已回复完）：不显示预设
+    presets = [];
+  } else {
+    // 男主/其他频道：随机抽3条
+    var pool2 = getChatPoolByChannel(ch) || [];
+    var hasReplies2 = pool2.some(function(m) { return m && (m.r || m.reply); });
+    if (pool2.length && hasReplies2) {
+      var shuffled3 = pool2.slice().sort(function() { return Math.random() - 0.5; });
+      presets = shuffled3.slice(0, Math.min(3, shuffled3.length)).map(function(m) {
+        var key = m.q || m.reply || m.msg || '';
+        var disp = m.reply || m.q || m.msg || m.t || '';
+        return { q: key, t: disp };
+      });
+    }
+  }
+  updateQuickReplies(ch, presets);
   var html = '';
   var lastRole = '';
   hist.forEach(function(m, idx) {
@@ -1659,126 +1907,206 @@ function resolveChatTemplates(text) {
   return text;
 }
 
+// 稳定的伪随机数（基于字符串hash，确保同一标题每次渲染数据一致）
+function stableRand(seed, min, max) {
+  var h = 0;
+  for (var i = 0; i < seed.length; i++) { h = ((h << 5) - h) + seed.charCodeAt(i); h = h & h; }
+  return min + Math.abs(h) % (max - min + 1);
+}
+
 function renderFeedbackContent(E) {
-  // 合并来源：每日热搜 + 粉丝反应(AI) + 事件粉丝评论(池子)
-  var posts = [];
-  // 每日热搜：星圈用独立条目（starHot），与右边面板热搜不重复
   var buzz = E.dailyBuzz || {};
-  var hotItems = buzz.starHot || buzz.hotSearch || [];
-  for (var hi = 0; hi < hotItems.length; hi++) {
-    posts.push({ type: 'hotSearch', title: hotItems[hi].t || '', body: hotItems[hi].c || '', round: buzz.lastGenDay || E.cycle.roundTotal });
-  }
-  // 粉丝反应（AI生成长文）
-  var list = E.fanReactions || [];
-  for (var j = 0; j < list.length; j++) {
-    posts.push({ type: 'fanReaction', item: list[j], round: list[j].round });
-  }
-  // 事件粉丝评论（池子 fanReactions，来自 injectFanReactions）
-  var poolReactions = (typeof GS !== 'undefined' && GS._entSimFanReactions) || [];
-  for (var k = 0; k < poolReactions.length; k++) {
-    posts.push({ type: 'buzz', text: poolReactions[k], round: buzz.lastGenDay || E.cycle.roundTotal });
-  }
-  if (!posts.length) {
-    return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:#555;font-size:13px;gap:8px">' +
-      '<div style="font-size:40px;margin-bottom:4px">🌐</div><div>星圈暂无动态</div>' +
-      '<div style="font-size:11px;color:#444">热搜、曝光、营业后粉丝会在这里讨论</div></div>';
-  }
   var name = (GS.heroineProfile && GS.heroineProfile.name) || '你';
   var html = '';
-  for (var i = posts.length - 1; i >= 0; i--) {
-    var post = posts[i];
-    if (post.type === 'hotSearch') {
-      // 热搜卡片
-      html += '<div style="padding:0 0 10px 0">' +
-        '<div style="display:flex;align-items:center;padding:14px 16px 10px">' +
-          '<div style="width:36px;height:36px;border-radius:18px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-right:10px">✦</div>' +
-          '<div style="flex:1"><div style="font-size:14px;color:#eee;font-weight:600">' + escHtml(name) + '的星圈</div>' +
-          '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px">热搜</div></div>' +
-          '<div style="font-size:10px;color:rgba(255,255,255,.2);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:10px">关注</div>' +
-        '</div>' +
-        '<div style="padding:0 16px 8px;font-size:15px;color:#fff;font-weight:600;line-height:1.4">🔥 ' + escHtml(post.title) + '</div>' +
-        '<div style="margin:0 14px;padding:12px 14px;background:rgba(99,102,241,.06);border-radius:12px;font-size:12px;color:rgba(255,255,255,.5);line-height:1.7">' + escHtml(post.body) + '</div>' +
-        '<div style="display:flex;align-items:center;gap:24px;padding:8px 18px 12px;font-size:12px;color:rgba(255,255,255,.25)">' +
-          '<span>❤️ ' + Math.floor(Math.random()*400+80) + '</span><span>💬 ' + Math.floor(Math.random()*40+3) + '</span><span style="margin-left:auto">📤</span></div>' +
-        '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.03)"></div></div>';
-    } else if (post.type === 'fanReaction') {
-      // 粉丝反应卡片（原有逻辑）
-      var item = post.item;
+  var hasContent = false;
+
+  // ── 1. 合并帖子流（AI粉丝反应 + popup注入事件）──
+  var combined = [];
+  // AI 粉丝反应帖
+  var fanList = E.fanReactions || [];
+  for (var ai = 0; ai < fanList.length; ai++) {
+    combined.push({ src: 'ai', data: fanList[ai], time: fanList[ai].round || 0, title: fanList[ai].reason || fanList[ai].event || '' });
+  }
+  // Popup 注入事件帖（今日营业/事业波折等）
+  var fanEvents = (typeof GS !== 'undefined' && GS._entSimFanEvents) || [];
+  for (var ei = 0; ei < fanEvents.length; ei++) {
+    combined.push({ src: 'popup', data: fanEvents[ei], time: fanEvents[ei].day || 0, title: fanEvents[ei].title || '' });
+  }
+  // 按时间降序（新 → 旧），同名去重（AI 优先）
+  combined.sort(function(a, b) { return b.time - a.time; });
+  var shownTitles = {};
+  var rendered = [];
+  for (var ci = 0; ci < combined.length; ci++) {
+    var c = combined[ci];
+    var cTitle = c.title.slice(0, 30);
+    if (c.src === 'popup' && shownTitles[cTitle]) continue; // popup 已被 AI 版本覆盖
+    if (c.src === 'ai') {
+      // AI 覆盖同标题的 popup，但自己也只保留一次
+      if (shownTitles[cTitle] === 'ai') continue;
+      shownTitles[cTitle] = 'ai';
+    } else {
+      shownTitles[cTitle] = 'popup';
+    }
+    rendered.push(c);
+  }
+
+  var roleCfg = {
+    '大粉': { icon: '💎', color: '#FF6B8A', name: '守护' + name + '的站姐', sub: '铁粉' },
+    '路人': { icon: '👤', color: '#8E8E93', name: '路过看看', sub: '' },
+    '黑粉': { icon: '👻', color: '#555', name: '匿名', sub: '' },
+    '热议': { icon: '🔥', color: '#FF9F43', name: '星圈热帖', sub: '' }
+  };
+
+  for (var ri = 0; ri < rendered.length; ri++) {
+    var rc = rendered[ri];
+    if (rc.src === 'ai') {
+      // ── AI 粉丝反应帖 ──
+      var item = rc.data;
       var raw = item.text || '';
-    var parts = [];
-    var re = /·(大粉|路人|黑粉)[：:]([\s\S]*?)(?=·(?:大粉|路人|黑粉)[：:]|$)/g;
-    var m;
-    while ((m = re.exec(raw)) !== null) { parts.push({ role: m[1], text: m[2].trim().replace(/\n/g, ' ') }); }
-    if (!parts.length && raw) parts = [{ role: '热议', text: raw.slice(0, 200) }];
+      var parts = [];
+      var re = /·(大粉|路人|黑粉)[：:]([\s\S]*?)(?=·(?:大粉|路人|黑粉)[：:]|$)/g;
+      var m2;
+      while ((m2 = re.exec(raw)) !== null) { parts.push({ role: m2[1], text: m2[2].trim().replace(/\n/g, ' ') }); }
+      if (!parts.length && raw) parts = [{ role: '热议', text: raw.slice(0, 200) }];
 
-    var roleCfg = {
-      '大粉': { icon: '⁂', color: '#FF6B8A', name: '守护' + name + '的站姐', sub: '铁粉' },
-      '路人': { icon: '◎', color: '#8E8E93', name: '路过看看', sub: '' },
-      '黑粉': { icon: '◉', color: '#555', name: '匿名', sub: '' },
-      '热议': { icon: '✦', color: '#FF9F43', name: '星圈热帖', sub: '' }
-    };
+      var titleText = item.reason || item.event || '粉丝热议';
+      var titleSeed = titleText + (item.round || 0);
 
-    // 帖子容器
-    html += '<div style="padding:0 0 10px 0">';
-    // 标题：优先事件名，其次从评论区提取关键词
-    var titleText = item.reason || '';
-    if (!titleText && item.event) titleText = item.event;
-    if (!titleText && parts.length && parts[0].text) titleText = parts[0].text.slice(0, 30) + '…';
-    if (!titleText) titleText = '粉丝热议';
-    html += '<div style="display:flex;align-items:center;padding:14px 16px 10px">' +
-      '<div style="width:36px;height:36px;border-radius:18px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-right:10px">✦</div>' +
-      '<div style="flex:1">' +
-        '<div style="font-size:14px;color:#eee;font-weight:600;line-height:1.2">' + escHtml(name) + '的星圈</div>' +
-        '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px">回合 ' + item.round + '</div>' +
-      '</div>' +
-      '<div style="font-size:10px;color:rgba(255,255,255,.2);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:10px">关注</div>' +
-    '</div>';
-    // 帖子标题
-    html += '<div style="padding:0 16px 8px;font-size:15px;color:#fff;font-weight:600;line-height:1.4">🔥 ' + escHtml(titleText) + '</div>';
-    // 事件摘要
-    if (item.event) {
-      html += '<div style="margin:0 16px 8px;padding:8px 12px;background:rgba(99,102,241,.08);border-radius:10px;font-size:12px;color:#A5B4FC;line-height:1.6;border-left:2px solid #6366F1">📌 ' + escHtml(item.event) + '</div>';
-    }
-    // 评论
-    for (var k = 0; k < parts.length; k++) {
-      var p = parts[k], cfg = roleCfg[p.role] || roleCfg['热议'];
-      var hasSub = cfg.sub && cfg.sub.length > 0;
-      html += '<div style="margin:4px 14px;padding:12px 14px;background:rgba(255,255,255,.025);border-radius:12px;display:flex;gap:10px">' +
-        '<div style="width:32px;height:32px;border-radius:16px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:' + cfg.color + '">' + cfg.icon + '</div>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">' +
-            '<span style="font-size:13px;color:#ddd;font-weight:500">' + cfg.name + '</span>' +
-            (hasSub ? '<span style="font-size:10px;color:' + cfg.color + ';background:rgba(255,255,255,.04);padding:1px 6px;border-radius:6px">' + cfg.sub + '</span>' : '') +
-          '</div>' +
-          '<div style="font-size:13px;color:rgba(255,255,255,.65);line-height:1.6">' + escHtml(p.text) + '</div>' +
-        '</div></div>';
-    }
-    // 底栏
-    var likes = Math.floor(Math.random()*400+80);
-    var cmts = Math.floor(Math.random()*40+3);
-    html += '<div style="display:flex;align-items:center;gap:24px;padding:8px 18px 12px;font-size:12px;color:rgba(255,255,255,.25)">' +
-      '<span>❤️ ' + likes + '</span><span>💬 ' + cmts + '</span><span style="margin-left:auto">📤</span></div>';
-    // 分割
-    html += '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.03)"></div>';
-    html += '</div>';
-    } else if (post.type === 'buzz') {
-      // 事件粉丝评论（池子 fanReactions：简单短评样式）
-      var buzzText = post.text || '';
-      if (!buzzText) continue;
-      html += '<div style="padding:0 0 10px 0">' +
-        '<div style="display:flex;align-items:center;padding:12px 16px">' +
-          '<div style="width:28px;height:28px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-right:10px">💬</div>' +
-          '<div style="flex:1"><div style="font-size:12px;color:#eee;line-height:1.5">' + escHtml(buzzText) + '</div></div>' +
-          '<div style="font-size:10px;color:rgba(255,255,255,.15);flex-shrink:0;margin-left:8px">刚刚</div>' +
+      html += '<div class="es-weibo-card">';
+      html += '<div class="es-weibo-header">' +
+        '<div class="es-weibo-avatar" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">✦</div>' +
+        '<div class="es-weibo-user">' +
+          '<div class="es-weibo-name">' + escHtml(name) + '的星圈</div>' +
+          '<div class="es-weibo-sub">' + (item.round ? '回合 ' + item.round : '刚刚') + ' · 粉丝热议</div>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;gap:24px;padding:4px 18px 8px 54px;font-size:11px;color:rgba(255,255,255,.2)">' +
-          '<span>❤️ ' + Math.floor(Math.random()*80+5) + '</span><span>💬 ' + Math.floor(Math.random()*8+1) + '</span>' +
-        '</div>' +
-        '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.02)"></div>' +
       '</div>';
+      html += '<div class="es-weibo-title">🔥 ' + escHtml(titleText) + '</div>';
+      if (item.event) html += '<div class="es-weibo-event">📌 ' + escHtml(item.event) + '</div>';
+      for (var k = 0; k < parts.length; k++) {
+        var p = parts[k], cfg = roleCfg[p.role] || roleCfg['热议'];
+        html += '<div class="es-weibo-comment">' +
+          '<div class="es-weibo-cmt-avatar" style="color:' + cfg.color + '">' + cfg.icon + '</div>' +
+          '<div class="es-weibo-cmt-body">' +
+            '<span class="es-weibo-cmt-name">' + cfg.name + '</span>' +
+            (cfg.sub ? '<span class="es-weibo-cmt-badge" style="color:' + cfg.color + '">' + cfg.sub + '</span>' : '') +
+            '<span class="es-weibo-cmt-text">' + escHtml(p.text) + '</span>' +
+          '</div>' +
+        '</div>';
+      }
+      var likes = stableRand(titleSeed + '_likes', 120, 2800);
+      var cmts = parts.length + stableRand(titleSeed + '_cmts', 8, 200);
+      var shares = stableRand(titleSeed + '_shares', 5, 80);
+      html += '<div class="es-weibo-actions">' +
+        '<span>❤️ ' + likes + '</span><span>💬 ' + cmts + '</span><span>📤 ' + shares + '</span>' +
+      '</div>';
+      html += '</div>';
+      hasContent = true;
+    } else {
+      // ── Popup 事件帖（今日营业/事业波折等）──
+      var fe = rc.data;
+      var popTitle = fe.title || '今日热议';
+      var popSeed = popTitle + (fe.day || 0);
+      html += '<div class="es-weibo-card">';
+      html += '<div class="es-weibo-header">' +
+        '<div class="es-weibo-avatar" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">✦</div>' +
+        '<div class="es-weibo-user">' +
+          '<div class="es-weibo-name">' + escHtml(name) + '的星圈</div>' +
+          '<div class="es-weibo-sub">第 ' + (fe.day || '?') + ' 天</div>' +
+        '</div>' +
+      '</div>';
+      html += '<div class="es-weibo-title">🔥 ' + escHtml(popTitle) + '</div>';
+      for (var rf = 0; rf < fe.texts.length; rf++) {
+        html += '<div class="es-weibo-comment">' +
+          '<div class="es-weibo-cmt-avatar" style="color:#ec4899">💬</div>' +
+          '<div class="es-weibo-cmt-body">' +
+            '<span class="es-weibo-cmt-name">粉丝评论</span>' +
+            '<span class="es-weibo-cmt-text">' + escHtml(fe.texts[rf]) + '</span>' +
+          '</div>' +
+        '</div>';
+      }
+      var flk = stableRand(popSeed + '_likes', 80, 600);
+      var fcm = fe.texts.length + stableRand(popSeed + '_cmts', 5, 50);
+      html += '<div class="es-weibo-actions">' +
+        '<span>❤️ ' + flk + '</span><span>💬 ' + fcm + '</span><span>📤 ' + Math.floor(flk * 0.1) + '</span>' +
+      '</div>';
+      html += '</div>';
+      hasContent = true;
     }
   }
+
+  // ── 2. 外部热搜帖（外部 K-pop 热点）──
+  var hotItems = buzz.starHot || buzz.hotSearch || [];
+  for (var i = hotItems.length - 1; i >= 0; i--) {
+    var hi = hotItems[i];
+    // 兼容字符串和 {t,c} 对象两种格式
+    var hTitle = (typeof hi === 'object' && hi.t) ? hi.t : (typeof hi === 'string' ? hi : '');
+    var hBody = (typeof hi === 'object' && hi.c) ? hi.c : '';
+    if (!hTitle) continue;
+    var seed2 = hTitle + (buzz.lastGenDay || 0);
+
+    html += '<div class="es-weibo-card">';
+    // 头部
+    html += '<div class="es-weibo-header">' +
+      '<div class="es-weibo-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706)">🌐</div>' +
+      '<div class="es-weibo-user">' +
+        '<div class="es-weibo-name">星圈热帖</div>' +
+        '<div class="es-weibo-sub">实时热搜 · 第 ' + (buzz.lastGenDay || '?') + ' 天</div>' +
+      '</div>' +
+    '</div>';
+    // 标题
+    html += '<div class="es-weibo-title">🔥 ' + escHtml(hTitle) + '</div>';
+    // 内容
+    if (hBody) {
+      html += '<div class="es-weibo-body">' + escHtml(hBody) + '</div>';
+    }
+    // 池子匹配评论（HOT_SEARCH_REPLY_POOL 中标题含有关键词的取 fanReplies）
+    var matchedReplies = matchHotSearchReplies(hTitle);
+    if (matchedReplies && matchedReplies.length) {
+      var replyLabels = ['粉丝热评', '路人视角', '热议'];
+      for (var ri = 0; ri < Math.min(matchedReplies.length, 3); ri++) {
+        var label = replyLabels[ri] || '评论';
+        html += '<div class="es-weibo-comment">' +
+          '<div class="es-weibo-cmt-avatar" style="color:#f59e0b">💬</div>' +
+          '<div class="es-weibo-cmt-body">' +
+            '<span class="es-weibo-cmt-name">' + label + '</span>' +
+            '<span class="es-weibo-cmt-text">' + escHtml(matchedReplies[ri]) + '</span>' +
+          '</div>' +
+        '</div>';
+      }
+    }
+    // 底栏
+    var hLikes = stableRand(seed2 + '_likes', 80, 1500);
+    var hCmts = stableRand(seed2 + '_cmts', 10, 300);
+    var hShares = stableRand(seed2 + '_shares', 3, 60);
+    html += '<div class="es-weibo-actions">' +
+      '<span>❤️ ' + hLikes + '</span><span>💬 ' + hCmts + '</span><span>📤 ' + hShares + '</span>' +
+    '</div>';
+    html += '</div>';
+    hasContent = true;
+  }
+
+  if (!hasContent) {
+    return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:#555;font-size:13px;gap:8px">' +
+      '<div style="font-size:48px;margin-bottom:4px">🌐</div><div style="font-size:15px;color:#777">星圈暂无动态</div>' +
+      '<div style="font-size:12px;color:#555">热搜、曝光、营业后粉丝会在这里讨论</div></div>';
+  }
   return html;
+}
+
+// 匹配热搜回复池：标题含关键词则返回 fanReplies
+function matchHotSearchReplies(title) {
+  // 从 HOT_SEARCH_REPLY_POOL 尝试匹配
+  if (typeof HOT_SEARCH_REPLY_POOL === 'undefined' || !HOT_SEARCH_REPLY_POOL) return null;
+  for (var i = 0; i < HOT_SEARCH_REPLY_POOL.length; i++) {
+    var e = HOT_SEARCH_REPLY_POOL[i];
+    if (!e || !e.hotSearch || !e.fanReplies) continue;
+    // 提取关键词匹配
+    var ks = e.hotSearch.replace(/#\{[^}]+\}/g, '').replace(/#/g, '').split(/\s+/);
+    for (var k = 0; k < ks.length; k++) {
+      if (ks[k].length >= 2 && title.indexOf(ks[k]) >= 0) return e.fanReplies;
+    }
+  }
+  return null;
 }
 
 
@@ -1973,7 +2301,7 @@ function showBuzzDetail(type, idx) {
         if (nextIdx >= 0) { closeEntSimModal(); showBuzzDetail(b.dataset.buzzNext, nextIdx); }
       });
     });
-    // 已有缓存：自动展示回复
+    // 已有缓存：直接渲染，无需重新生成
     var cacheKey = type + '_' + idx;
     var E = GS.entSim;
     E.buzzReplies = E.buzzReplies || {};
@@ -1982,15 +2310,13 @@ function showBuzzDetail(type, idx) {
       renderBuzzReplies(cached.lines);
       var expandBtn2 = document.getElementById('es-buzz-expand');
       if (expandBtn2) { expandBtn2.disabled = true; expandBtn2.textContent = '✅ 已展开'; }
+      return; // ← 关键：有缓存就不再往下走，防止重新随机生成
     }
-    // 非女主相关：直接从池子抽 2 条展示，不需要点击
-    if (!isHeroineRelated(item) && !cached) {
-      var pool = BUZZ_COMMENT_POOL.slice();
-      var autoLines = [];
-      for (var ai = 0; ai < 2 && pool.length; ai++) {
-        var ri = Math.floor(Math.random() * pool.length);
-        autoLines.push(pool.splice(ri, 1)[0]);
-      }
+    // 非女主相关：按标题倾向抽 3 条展示，写入缓存
+    if (!isHeroineRelated(item)) {
+      var autoLines = pickBuzzComments(item, 3);
+      // 写入缓存，同天再次打开不再随机
+      E.buzzReplies[cacheKey] = { lines: autoLines };
       renderBuzzReplies(autoLines);
     }
     var expandBtn = document.getElementById('es-buzz-expand');
@@ -2030,24 +2356,13 @@ async function expandBuzzThread(type, idx) {
     var itemContent = buzzContent(item);
     if (itemContent === itemTitle) itemContent = '';
     lines = await generateBuzzRepliesAI(itemTitle, itemContent);
-    // AI 失败时回退到池子
+    // AI 失败时回退到倾向池子
     if (!lines || lines.length < 2) {
-      var pool = BUZZ_COMMENT_POOL.slice();
-      lines = [];
-      for (var i = 0; i < 2 && pool.length; i++) {
-        var ri = Math.floor(Math.random() * pool.length);
-        lines.push(pool.splice(ri, 1)[0]);
-      }
+      lines = pickBuzzComments(item, 2);
     }
   } else {
-    // 非女主条目 → 预写池子随机抽 2 条
-    var n = 2;
-    var pool2 = BUZZ_COMMENT_POOL.slice();
-    lines = [];
-    for (var j = 0; j < n && pool2.length; j++) {
-      var ri2 = Math.floor(Math.random() * pool2.length);
-      lines.push(pool2.splice(ri2, 1)[0]);
-    }
+    // 非女主条目 → 按标题倾向抽 2 条
+    lines = pickBuzzComments(item, 2);
   }
 
   // 缓存
@@ -2242,13 +2557,22 @@ function showReleasePanel() {
       var items = pool.filter(function(p) { return p.cat === cat; });
       if (!items || !items.length) return;
       var picked = items[Math.floor(Math.random() * items.length)];
-      E._releaseCD = 15;
-      addPopularity(picked.pop || 3, '发布作品·' + cat);
-      if (picked.exp) E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (picked.exp || 0);
-      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【新作品发布】' + picked.t;
+      // P1 #4: 五档随机排名
+      var pop = E.career.popularity || 30;
+      var roll = Math.random();
+      var rankResult;
+      if (roll < 0.08)       rankResult = { tier: '扑街', pop: 1, msg: '音源不入榜，还需更多努力' };
+      else if (roll < 0.25)  rankResult = { tier: '平稳', pop: 3, msg: '音源在榜尾，还需更多曝光' };
+      else if (roll < 0.65)  rankResult = { tier: '不错', pop: 5, msg: '空降 Bugs 前 50！关注度上升中' };
+      else if (roll < 0.88)  rankResult = { tier: '大热', pop: 8, msg: '空降 Melon Top 10！全网热议' };
+      else                   rankResult = { tier: '爆火', pop: 12, msg: 'PAK Perfect All Kill！🎉 音源+MV双爆' };
+      E._releaseCD = 3;
+      addPopularity((picked.pop || 2) + rankResult.pop, '发布作品·' + cat + '·' + rankResult.tier);
+      if (picked.exp) addCareerPublicity(picked.exp, '发布作品·' + cat);
+      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【新作品发布】' + picked.t + ' — ' + rankResult.msg;
       saveGame();
       closeModalDirect(modal);
-      showToast('📀 ' + picked.t.substring(0, 20) + '… 已发布！（CD 15天）');
+      showToast('📀 ' + picked.t.substring(0, 16) + '… ' + rankResult.msg);
       if (typeof rerender === 'function') rerender();
     });
     card.addEventListener('mouseenter', function() { card.style.background = 'rgba(255,255,255,.07)'; card.style.borderColor = 'rgba(180,150,255,.3)'; });
@@ -2287,13 +2611,14 @@ function showBrandOfferPopup(offer) {
     '<div style="display:flex;flex-direction:column;gap:8px">' +
     '<button class="es-brand-accept primary" style="background:rgba(80,200,120,.2)">✅ 接受（+人气' + (offer.pop||0) + ' +曝光' + (offer.exp||0) + '）</button>' +
     '<button class="es-brand-reject ghost" style="border:1px solid rgba(255,255,255,.1)">❌ 拒绝</button>' +
+    '<button class="es-brand-close ghost" style="border:1px solid rgba(255,255,255,.06);font-size:11px">关闭</button>' +
     '<button class="es-brand-negotiate ghost" style="border:1px solid rgba(255,255,255,.1);font-size:11px">💰 讨价还价（+人气' + ((offer.pop||0)+2) + ' +曝光' + ((offer.exp||0)+2) + ' 但有50%概率得罪品牌方）</button>' +
     '</div></div>';
   document.body.appendChild(overlay);
   overlay.querySelector('.es-brand-accept').addEventListener('click', function() {
     var E = GS.entSim;
     addPopularity(offer.pop || 4, '品牌代言·' + offer.brand);
-    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (offer.exp || 0);
+    addCareerPublicity(offer.exp || 0, '品牌代言·' + offer.brand);
     showToast('📺 接受了' + offer.brand + '的代言邀约！人气+' + (offer.pop||0));
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     if (typeof rerender === 'function') rerender();
@@ -2302,11 +2627,14 @@ function showBrandOfferPopup(offer) {
     showToast('拒绝了代言邀约');
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
   });
+  overlay.querySelector('.es-brand-close').addEventListener('click', function() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  });
   overlay.querySelector('.es-brand-negotiate').addEventListener('click', function() {
     if (Math.random() < 0.5) {
       var E = GS.entSim;
       addPopularity((offer.pop||0) + 2, '品牌代言讨价成功·' + offer.brand);
-      E.misc.exposureAccum = (E.misc.exposureAccum || 0) + (offer.exp||0) + 2;
+      addCareerPublicity((offer.exp||0) + 2, '品牌代言讨价成功·' + offer.brand);
       showToast('💰 讨价成功！代言费翻倍');
     } else {
       showToast('💀 品牌方觉得你要求太多，撤回了邀约…');
@@ -2371,7 +2699,7 @@ function findChatPoolReply(msg) {
   return null;
 }
 
-// 频道初始化（首次切换只推1-2条初始消息，不整池倒出）
+// 频道初始化（首次切换只推1-2条对方初始消息）
 window.initChatChannel = function(ch) {
   if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
   if (GS._entSimChatHistory[ch] && GS._entSimChatHistory[ch].length) return;
@@ -2379,29 +2707,103 @@ window.initChatChannel = function(ch) {
   if (ch === 'sasaeng') return; // 私生只读
   var pool = getChatPoolByChannel(ch);
   if (pool && pool.length) {
-    var init = pool.slice(0, Math.min(2, pool.length));
-    GS._entSimChatHistory[ch] = init.map(function(m) {
+    var initEntries = [];
+    // 哥哥/情敌：只取对方发的（from ≠ 'you'）
+    if (ch === 'brother' || ch === 'rival') {
+      for (var j = 0; j < pool.length && initEntries.length < 1; j++) {
+        if (pool[j] && pool[j].from !== 'you') initEntries.push(pool[j]);
+      }
+    } else {
+      initEntries = pool.slice(0, Math.min(2, pool.length));
+    }
+    GS._entSimChatHistory[ch] = initEntries.map(function(m) {
       var isFromPlayer = m.from === 'you';
       return { role: isFromPlayer ? 'user' : 'ai', content: resolveChatTemplates(m.msg || m.t || '...') };
     });
-    GS._entSimChatSentIdx[ch] = init.length; // 记录已发送位置
+    GS._entSimChatSentIdx[ch] = initEntries.length;
   }
 };
 
-// 根据频道取对应池子（按当前状态）
+// 根据频道取对应池子（按当前状态，阶段过滤）
 function getChatPoolByChannel(ch) {
   var E = GS.entSim;
-  if (ch === 'brother') return CHAT_BROTHER || [];
-  if (ch === 'rival') return CHAT_RIVAL || [];
-  if (ch === 'manager') return CHAT_MANAGER || [];
+  var isD = E.career && E.career.debutDay > 0;
+  if (ch === 'maleLead') return flattenMaleLeadPool(isD);
+  if (ch === 'brother') return filterChatPool(CHAT_BROTHER, isD);
+  if (ch === 'rival') return filterChatPool(CHAT_RIVAL, isD);
+  if (ch === 'manager') return filterChatPool(CHAT_MANAGER, isD);
   if (ch === 'group') {
-    if (E._justGotFirstWin) return (GROUP_CHAT && GROUP_CHAT.first_win) || [];
-    if (E._scandalActive) return (GROUP_CHAT && GROUP_CHAT.scandal) || [];
-    if (E._negativeNewsActive) return (GROUP_CHAT && GROUP_CHAT.negative_news) || [];
-    if (E._comebackActive) return (GROUP_CHAT && GROUP_CHAT.comeback) || [];
-    return (GROUP_CHAT && GROUP_CHAT.daily) || [];
+    var gPool = null;
+    if (E._justGotFirstWin) gPool = (GROUP_CHAT && GROUP_CHAT.first_win) || [];
+    else if (E._scandalActive) gPool = (GROUP_CHAT && GROUP_CHAT.scandal) || [];
+    else if (E._negativeNewsActive) gPool = (GROUP_CHAT && GROUP_CHAT.negative_news) || [];
+    else if (E._comebackActive) gPool = (GROUP_CHAT && GROUP_CHAT.comeback) || [];
+    else gPool = (GROUP_CHAT && GROUP_CHAT.daily) || [];
+    return filterChatPool(gPool, isD);
   }
   return null;
+}
+
+// 阶段+好感过滤
+function requireMatch(e, isDebut) {
+  if (!e || !e.require) return true;
+  var req = e.require;
+  // 出道检查
+  if (!isDebut && req.indexOf('debut') >= 0) return false;
+  // 好感检查
+  var affMatch = req.match(/aff>=(\d+)/);
+  if (affMatch) {
+    var aff = (GS.entSim && GS.entSim.affection) || 0;
+    if (aff < parseInt(affMatch[1], 10)) return false;
+  }
+  // 章节检查
+  var chMatch = req.match(/chapter>=(\d+)/);
+  if (chMatch) {
+    var ch = GS.entSim && GS.entSim.chapter ? GS.entSim.chapter.index : 1;
+    if (ch < parseInt(chMatch[1], 10)) return false;
+  }
+  return true;
+}
+
+// 阶段+好感过滤
+function filterChatPool(pool, isDebut) {
+  if (!pool) return [];
+  return pool.filter(function(e) { return requireMatch(e, isDebut); });
+}
+
+// 男主池子扁平化 + 子池级别+条目级别双重过滤
+function flattenMaleLeadPool(isDebut) {
+  if (!CHAT_MALE_LEAD) return [];
+  // 子池级别默认门控（无 require 的条目自动继承）
+  var subPoolGates = {
+    trainee: null,           // 仅练习生期（出道后被过滤）
+    greet: null,             // 全阶段
+    stage: 'debut',          // 出道后
+    worry: 'debut',          // 出道后
+    romantic: 'debut&&aff>=40',
+    jealous: 'debut&&aff>=30',
+    night: 'debut&&aff>=30',
+    secret: 'debut&&aff>=60'
+  };
+  var all = [];
+  for (var key in CHAT_MALE_LEAD) {
+    var sub = CHAT_MALE_LEAD[key];
+    if (!sub) continue;
+    // 子池级别过滤
+    var gate = subPoolGates[key];
+    if (gate !== undefined) {
+      if (key === 'trainee' && isDebut) continue; // 出道后不需要练习生池
+      if (gate && !requireMatch({require:gate}, isDebut)) continue;
+    }
+    for (var i = 0; i < sub.length; i++) {
+      var e = sub[i];
+      if (!e) continue;
+      // 条目级别补充过滤（叠加在子池门控之上）
+      if (!requireMatch(e, isDebut)) continue;
+      all.push(e);
+    }
+  }
+  return all;
 }
 
 // 每日自动推进聊天消息（每个频道推0-1条，按场景）——由 goEntSimNextDay 调用
@@ -2409,14 +2811,23 @@ window.pushDailyChats = function() {
   if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
   if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
   var E = GS.entSim;
-  var today = E.cycle.dayCount || 1;
-  // 哥哥频道：每2天推1条
-  tryPushOneChat('brother', CHAT_BROTHER, today % 2 === 0);
-  // 情敌频道：每3天推1条
-  tryPushOneChat('rival', CHAT_RIVAL, today % 3 === 0);
+  var isDebut = E.career && E.career.debutDay > 0;
+  var today = E.cycle._gameDayCount || 1;
+  // 经纪人/团群/私生仅出道后推送，哥哥/情敌全程可聊（练习生期过滤出道关键词）
+  if (!isDebut) {
+    pushPairedChat('brother', filterChatPool(CHAT_BROTHER, false), today % 2 === 0);
+    pushPairedChat('rival', filterChatPool(CHAT_RIVAL, false), today % 3 === 0);
+    return;
+  }
+  // 哥哥频道：每2天推1条（配对推送）
+  pushPairedChat('brother', filterChatPool(CHAT_BROTHER, isDebut), today % 2 === 0);
+  // 情敌频道：每3天推1条（配对推送）
+  pushPairedChat('rival', filterChatPool(CHAT_RIVAL, isDebut), today % 3 === 0);
+  // 男主频道：每1-2天推1条（不配对——打开聊天后从 flattenMaleLeadPool 随机取预设）
+  tryPushMLDailyStarter(isDebut, today);
   // 经纪人频道：每4天推1条
   tryPushOneChat('manager', CHAT_MANAGER, today % 4 === 0);
-  // 团群聊：每2天推1条日常（有特殊事件时优先推事件池）
+  // 团群聊：每2天推1条
   var groupPool = getChatPoolByChannel('group');
   tryPushOneChat('group', groupPool, today % 2 === 0);
   // 私生：每7天低概率推1条
@@ -2445,6 +2856,48 @@ function tryPushOneChat(ch, pool, condition) {
   }
 }
 
+// 男主每日主动推送：过滤章节，每1-3天推1条（不等于哥哥的每天一推）
+function tryPushMLDailyStarter(isDebut, today) {
+  if (!CHAT_ML_DAILY_STARTERS || !CHAT_ML_DAILY_STARTERS.length) return;
+  // 练习生期每天推，出道后每1-3天推（比哥哥少）
+  if (isDebut && today % 3 !== 0 && today % 2 !== 0) return;
+  var pool = filterChatPool(CHAT_ML_DAILY_STARTERS, isDebut);
+  if (!pool.length) return;
+  if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+  if (!GS._entSimChatHistory.maleLead) GS._entSimChatHistory.maleLead = [];
+  if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
+  if (typeof GS._entSimChatSentIdx.maleLead !== 'number') GS._entSimChatSentIdx.maleLead = 0;
+  var idx = GS._entSimChatSentIdx.maleLead % pool.length;
+  var m = pool[idx];
+  if (m && m.msg) {
+    GS._entSimChatHistory.maleLead.push({ role: 'ai', content: resolveChatTemplates(m.msg) });
+    GS._entSimChatSentIdx.maleLead = idx + 1;
+  }
+}
+
+// 配对池推送（哥哥/情敌）：只推 from≠'you' 的条目，记录 pending 供预设匹配
+function pushPairedChat(ch, pool, condition) {
+  if (!condition || !pool || !pool.length) return;
+  if (!GS._entSimChatHistory[ch]) GS._entSimChatHistory[ch] = [];
+  if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
+  if (!GS._entSimPendingChat) GS._entSimPendingChat = {};
+  // 已有未回复的 pending，不推新消息
+  if (GS._entSimPendingChat[ch]) return;
+  // 只取对方发的条目（from≠'you'）
+  var oppEntries = [];
+  for (var i = 0; i < pool.length; i++) {
+    if (pool[i] && pool[i].from !== 'you') oppEntries.push(pool[i]);
+  }
+  if (!oppEntries.length) return;
+  if (typeof GS._entSimChatSentIdx[ch] !== 'number') GS._entSimChatSentIdx[ch] = 0;
+  var idx = GS._entSimChatSentIdx[ch] % oppEntries.length;
+  var entry = oppEntries[idx];
+  GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(entry.msg) });
+  GS._entSimChatSentIdx[ch] = idx + 1;
+  // 记录 pending：条目引用 + 供预设渲染的 reply 文本
+  GS._entSimPendingChat[ch] = { reply: entry.reply || entry.msg || '', entryIdx: idx };
+}
+
 function checkAndShowPendingPopups() {
   var queue = GS._entSimPopupQueue;
   if (!queue || !queue.length) return;
@@ -2456,21 +2909,24 @@ function checkAndShowPendingPopups() {
     setTimeout(function() { checkAndShowPendingPopups(); }, 200);
   };
   
+  var today = (GS.entSim && GS.entSim.cycle) ? (GS.entSim.cycle._gameDayCount || 1) : 1;
+  
   switch (item.type) {
-    case 'fanLetter': showFanLetterPopup(item.data); injectFanReactions(item.data); break;
-    case 'brandOffer': showBrandOfferPopup(item.data); injectFanReactions(item.data); break;
-    case 'award': showAwardPopup(item.data); injectFanReactions(item.data); break;
-    case 'variety': showVarietyPopupFromItem(item.data); injectFanReactions(item.data); break;
+    case 'fanLetter': showFanLetterPopup(item.data); if (!GS._entSimLetterHistory) GS._entSimLetterHistory = []; GS._entSimLetterHistory.push({ day: today, data: item.data }); break;
+    case 'brandOffer': scheduleEvent('brand', item.data); break;
+    case 'award': showAwardPopup(item.data); if (!GS._entSimAwardHistory) GS._entSimAwardHistory = []; GS._entSimAwardHistory.push({ day: today, data: item.data }); break;
+    case 'variety': scheduleEvent('variety', item.data); break;
     case 'dispatch': showDispatchPopup(item.data); injectFanReactions(item.data); break;
-    case 'magazine': showMagazinePopup(); injectFanReactions(item.data); break;
+    case 'magazine': scheduleEvent('magazine', item.data); break;
     case 'rumor': showRumorPopup(item.data); injectFanReactions(item.data); break;
     case 'maleContact': showMaleContactPopup(item.data, item.label); break;
+    case 'jobOffer': showGenericEventPopup('📋 通告邀约', item.data); injectFanReactions(item.data); break;
     case 'fansign': showGenericEventPopup('💜 粉丝签售会', item.data); injectFanReactions(item.data); break;
     case 'concert': showGenericEventPopup('🎪 演唱会后记', item.data); injectFanReactions(item.data); break;
     case 'comeback': showGenericEventPopup('🎵 回归周期', item.data); injectFanReactions(item.data); break;
     case 'musicShow': showGenericEventPopup('🎬 打歌节目', item.data); injectFanReactions(item.data); break;
     case 'setback': showGenericEventPopup('⚠️ 事业波折', item.data); injectFanReactions(item.data); break;
-    case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); break;
+    case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); generateFanReaction(item.data.t || '今日营业', '').catch(function(){}); break;
     default: break;
   }
   showNext();
@@ -2486,7 +2942,7 @@ function showVarietyPopupFromItem(item) {
   html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
-  if (item.pop) GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + (item.pop || 0);
+  if (item.pop) { GS.entSim.career.popularity = Math.max(0, Math.min(100, (GS.entSim.career.popularity || 0) + (item.pop || 0))); saveGame(); }
   
 }
 
@@ -2538,7 +2994,8 @@ function showMaleContactPopup(item, label) {
   document.body.appendChild(overlay);
   window.pickContactOption = function(affD, jealousD) {
     if (affD) applyEntSimAffection(affD);
-    if (jealousD) { GS.entSim._jealousLevel = (GS.entSim._jealousLevel || 0) + jealousD; }
+    if (jealousD) { GS.entSim._jealousLevel = Math.min(10, Math.max(0, (GS.entSim._jealousLevel || 0) + jealousD)); }
+    saveGame();
     closeModalDirect(overlay);
   };
   window.closeEntSimModal = function() { closeModalDirect(overlay); };
@@ -2570,16 +3027,16 @@ function showLetterHistory() {
   var overlay = document.createElement("div");
   overlay.className = "es-stageup-overlay";
   var html = '<div class="es-stageup-card" style="max-width:420px"><div class="es-stageup-label">📬 粉丝信箱</div>';
-  var E = GS.entSim;
-  if (GS._entSimPopupQueue && GS._entSimPopupQueue.length) {
-    GS._entSimPopupQueue.forEach(function(p) {
-      if (p.type === 'fanLetter' && p.data) {
-        html += '<div style="padding:8px;margin:4px 0;background:rgba(255,255,255,.04);border-radius:6px">' + escHtml(p.data.t || p.data) + '</div>';
-      }
-    });
-  }
-  if (!GS._entSimPopupQueue || !GS._entSimPopupQueue.some(function(p){return p.type==='fanLetter'})) {
-    html += '<p style="opacity:.5">暂无未读来信。每天会自动收到粉丝来信。</p>';
+  var hist = GS._entSimLetterHistory || [];
+  if (hist.length) {
+    for (var i = hist.length - 1; i >= 0; i--) {
+      var h = hist[i];
+      var txt = (h.data && h.data.t) ? h.data.t : (typeof h.data === 'string' ? h.data : '');
+      html += '<div style="padding:8px;margin:4px 0;background:rgba(255,255,255,.04);border-radius:6px;font-size:13px;color:#ccc">' +
+        '<span style="color:#666">第' + (h.day||'?') + '天</span> ' + escHtml(txt) + '</div>';
+    }
+  } else {
+    html += '<p style="opacity:.5">暂无来信记录。出道后每天会收到粉丝来信。</p>';
   }
   html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
   overlay.innerHTML = html;
@@ -2613,8 +3070,9 @@ function showBrandHistory() {
   window.acceptBrand = function(idx) {
     var q = GS._entSimPopupQueue || [];
     if (q[idx] && q[idx].data) {
-      GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + (q[idx].data.pop || 0);
-      GS.entSim.misc.exposureAccum = (GS.entSim.misc.exposureAccum || 0) + (q[idx].data.exp || 0);
+      GS.entSim.career.popularity = Math.max(0, Math.min(100, (GS.entSim.career.popularity || 0) + (q[idx].data.pop || 0)));
+      addCareerPublicity(q[idx].data.exp || 0, '代言签约·' + (q[idx].data.brand || ''));
+      saveGame();
       showToast('✅ 代言签约！人气+' + (q[idx].data.pop || 0));
     }
     q.splice(idx, 1);
@@ -2628,28 +3086,27 @@ function showAwardHistory() {
   var overlay = document.createElement("div");
   overlay.className = "es-stageup-overlay";
   var html = '<div class="es-stageup-card" style="max-width:400px"><div class="es-stageup-icon">🏆</div><div class="es-stageup-label">颁奖记录</div>';
-  var queue = GS._entSimPopupQueue || [];
-  var found = false;
-  for (var i = 0; i < queue.length; i++) {
-    if (queue[i].type === 'award' && queue[i].data) {
-      found = true;
-      var d = queue[i].data;
+  var hist = GS._entSimAwardHistory || [];
+  if (hist.length) {
+    for (var i = hist.length - 1; i >= 0; i--) {
+      var h = hist[i];
+      var d = h.data;
       html += '<div style="padding:8px;margin:6px 0;background:rgba(255,255,255,.05);border-radius:6px">';
-      html += '<b>' + escHtml(d.t || '') + '</b>';
-      if (d.fanReactions) html += '<br><span style="font-size:11px;color:rgba(255,255,255,.35)">💬 ' + escHtml(d.fanReactions.slice(0,3).join(' · ')) + '</span>';
+      html += '<span style="color:#666">第' + (h.day||'?') + '天</span> <b>' + escHtml(d.t || '') + '</b>';
       html += '<br><span style="font-size:12px;opacity:.6">人气+' + (d.pop || 0) + '</span>';
       html += '</div>';
     }
+  } else {
+    html += '<p style="opacity:.5">暂无颁奖记录。每4天可能触发季度颁奖。</p>';
   }
-  if (!found) html += '<p style="opacity:.5">暂无颁奖记录。每4天可能触发季度颁奖。</p>';
   html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
   window.closeEntSimModal = function() { closeModalDirect(overlay); };
 }
 
-// 统一日程事件调度（代言/综艺/画报/CD）
-function scheduleEvent(type) {
+// 统一日程事件调度（代言/综艺/画报/CD），passedItem 来自弹窗队列推送
+function scheduleEvent(type, passedItem) {
   var E = GS.entSim;
   var pool, label, icon, textFn, locFn;
   if (type === 'variety') { pool = VARIETY_SHOW_POOL; label = '综艺通告'; icon = '🎬'; textFn = function(d) { return '录制' + (d.show || '综艺'); }; locFn = function(d) { return '电视台/摄影棚'; }; }
@@ -2657,19 +3114,44 @@ function scheduleEvent(type) {
   else if (type === 'brand') { pool = BRAND_OFFER_POOL; label = '代言邀约'; icon = '💼'; textFn = function(d) { return '代言拍摄：' + (d.brand || '品牌'); }; locFn = function(d) { return '摄影棚'; }; }
   else if (type === 'release') { pool = RELEASE_POOL; label = '作品发布'; icon = '📀'; textFn = function(d) { return '发布' + (d.t || '作品'); }; locFn = function(d) { return '工作室/公司'; }; }
   else return;
-  if (!pool || !pool.length) { showToast('暂无' + label); return; }
-  var item = pool[Math.floor(Math.random() * pool.length)];
-  if (Array.isArray(item)) item = item[Math.floor(Math.random() * item.length)];
-  if (!item) { showToast('暂无' + label); return; }
-  var t = textFn(item);
-  var l = locFn(item);
+  // 优先使用 passedItem（弹窗推送）或 pending（上次关闭暂存的）
+  var pendingOffers = (typeof GS !== 'undefined' && GS._entSimPendingOffers) || {};
+  var pending = pendingOffers[type];
+  var item, t, l;
+  if (passedItem) {
+    // 弹窗队列推送：使用传来的数据
+    item = passedItem; t = textFn(item); l = locFn(item);
+  } else if (pending && pending.day === (E.cycle._gameDayCount || 1)) {
+    // 待处理邀约（上次点了关闭）
+    item = pending.item; t = pending.t; l = pending.l;
+  } else {
+    // 品牌/综艺/画报：不再随机抽→提示没有
+    if (type === 'release') {
+      if (!pool || !pool.length) { showToast('暂无发布内容'); return; }
+      item = pool[Math.floor(Math.random() * pool.length)];
+      if (Array.isArray(item)) item = item[Math.floor(Math.random() * item.length)];
+    }
+    if (!item) { showToast('暂无' + label + '邀约，只能等经纪人联系'); return; }
+    t = textFn(item);
+    l = locFn(item);
+  }
   var detail = (item.show || item.brand || item.mag || item.t || '') + ' · 人气+' + (item.pop || 2) + (item.exp ? ' 曝光+' + item.exp : '');
   // 确认弹窗
   showEntSimModal(icon + ' ' + label, '<p style="text-align:center;padding:8px 0">' + escHtml(detail) + '<br><small style="color:var(--text-muted)">接受后将排入明日日程，AI自动生成工作剧情并结算奖励</small></p>', [
+    { id: 'dismiss', label: '关闭' },
     { id: 'cancel', label: '拒绝' },
     { id: 'confirm', label: '接受', primary: true }
   ]).then(function(r) {
+    if (r === 'dismiss') {
+      // 关闭不消费——存入待处理，当天可再点
+      if (!GS._entSimPendingOffers) GS._entSimPendingOffers = {};
+      GS._entSimPendingOffers[type] = { type: type, item: item, t: t, l: l, day: E.cycle._gameDayCount || 1 };
+      showToast('已暂存，可随时再点');
+      return;
+    }
     if (r !== 'confirm') return;
+    // 接受后清除待处理
+    if (GS._entSimPendingOffers) delete GS._entSimPendingOffers[type];
     E._scheduledEvents = E._scheduledEvents || [];
     var targetDay = E.cycle.dayCount + 1;
     E._scheduledEvents.push({ id: type + '_' + targetDay + '_' + randInt(1000, 9999), type: type, data: item, targetDay: targetDay, text: t, loc: l, done: false });
@@ -2700,17 +3182,24 @@ function showGenericEventPopup(title, data) {
     '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button>' +
   '</div>';
   document.body.appendChild(overlay);
-  if (typeof data.pop === 'number') GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + data.pop;
+  if (typeof data.pop === 'number') { GS.entSim.career.popularity = Math.max(0, Math.min(100, (GS.entSim.career.popularity || 0) + data.pop)); saveGame(); }
 }
 
-// 从事件条目fanReactions抽取3条注入右栏粉丝讨论区
+// 从事件条目fanReactions抽取3条，带标题存储供星圈帖子渲染
 function injectFanReactions(item) {
   if (!item || !item.fanReactions || !item.fanReactions.length) return;
   var reactions = item.fanReactions.slice(0, 3);
+  var tag = '';
+  if (item.t) tag = item.t.slice(0, 30);
+  else if (item.text) tag = item.text.slice(0, 30);
+  else if (item.reason) tag = item.reason.slice(0, 30);
+  else if (item.cat) tag = item.cat;
+  if (!GS._entSimFanEvents) GS._entSimFanEvents = [];
+  GS._entSimFanEvents.push({ title: tag || '今日热议', texts: reactions, day: (GS.entSim.cycle._gameDayCount || 1) });
+  if (GS._entSimFanEvents.length > 10) GS._entSimFanEvents.splice(0, GS._entSimFanEvents.length - 10);
+  // 兼容旧版 _entSimFanReactions
   if (!GS._entSimFanReactions) GS._entSimFanReactions = [];
-  for (var i = 0; i < reactions.length; i++) {
-    GS._entSimFanReactions.push(reactions[i]);
-  }
+  for (var i = 0; i < reactions.length; i++) GS._entSimFanReactions.push(reactions[i]);
   if (GS._entSimFanReactions.length > 15) GS._entSimFanReactions.splice(0, GS._entSimFanReactions.length - 15);
 }
 
@@ -2719,6 +3208,62 @@ function createOverlay() {
   d.className = "es-stageup-overlay";
   return d;
 }
+
+// P1 #22: 存档槽弹窗（es-stageup-card 风格）
+function showSaveSlotsModal() {
+  var E = GS.entSim;
+  var slots = listSaves();
+  var body = '';
+  for (var i = 0; i < 3; i++) {
+    var s = slots[i];
+    if (s) {
+      body += '<div style="padding:10px;background:rgba(255,255,255,.05);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">' +
+        '<div><b>📁 槽位' + (i+1) + '</b><br><span style="font-size:10px;color:rgba(255,255,255,.5)">Day ' + (s.day||'?') + ' · ❤' + (s.aff||0) + ' · ' + escHtml(s.member||'?') + '</span></div>' +
+        '<div style="display:flex;gap:6px"><button class="es-chip" style="cursor:pointer" onclick="window._saveGameSlot(' + i + ')">💾 存</button><button class="es-chip" style="cursor:pointer" onclick="window._loadGameSlot(' + i + ')">📂 读</button></div></div>';
+    } else {
+      body += '<div style="padding:10px;background:rgba(255,255,255,.05);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;color:var(--es-text-dim)">' +
+        '<span>📁 槽位' + (i+1) + ' · 空</span><button class="es-chip" style="cursor:pointer" onclick="window._saveGameSlot(' + i + ')">+ 存档</button></div>';
+    }
+  }
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card">' +
+    '<div class="es-stageup-icon">💾</div>' +
+    '<div class="es-stageup-label">存档管理</div>' +
+    '<div class="es-stageup-desc">' + body + '</div>' +
+    '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove()">关闭</button></div>';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  document.body.appendChild(overlay);
+  // 全局回调
+  window._saveGameSlot = function(slot) { saveEntSimGame(slot); showToast('💾 已保存到槽位' + (slot+1)); };
+  window._loadGameSlot = function(slot) { loadEntSimGame(slot); };
+}
+
+// P1 #11: 纪念日弹窗（es-stageup-card 风格）
+function showMilestoneModal() {
+  var E = GS.entSim;
+  var ms = E._romanceMilestones || {};
+  var keys = Object.keys(ms);
+  if (!keys.length) { showToast('还没有纪念日回忆～'); return; }
+  var body = '';
+  for (var i = keys.length - 1; i >= 0; i--) {
+    var m = ms[keys[i]];
+    body += '<div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px;margin-bottom:4px;border-left:3px solid var(--es-primary2)">' +
+      '<span style="font-size:10px;color:var(--es-text-dim)">Day ' + (m.day || '?') + '</span><br>' +
+      '<b style="color:var(--es-text)">' + escHtml(m.label || '回忆') + '</b><br>' +
+      '<span style="font-size:11px;color:var(--es-text-dim)">' + escHtml(m.desc || '') + '</span></div>';
+  }
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card">' +
+    '<div class="es-stageup-icon">💫</div>' +
+    '<div class="es-stageup-label">我们的纪念日</div>' +
+    '<div class="es-stageup-desc">' + body + '</div>' +
+    '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove()">关闭</button></div>';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  document.body.appendChild(overlay);
+}
+
 function closeModalDirect(overlay) {
   if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
 }

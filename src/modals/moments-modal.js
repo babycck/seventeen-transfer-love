@@ -68,7 +68,7 @@ export function showMomentsModal() {
       var m = GS.moments && GS.moments[idx];
       if (!m) return;
       m.liked = !m.liked;
-      if (m.liked) { var _mid = GS.oneHeartMember; if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] += 1; } }
+      if (m.liked) { var _mid = GS.oneHeartMember; if (_mid) { if (!GS.affection[_mid]) GS.affection[_mid] = 0; GS.affection[_mid] = Math.min(100, GS.affection[_mid] + 1); } }
       saveGame();
       overlay.remove();
       showMomentsModal();

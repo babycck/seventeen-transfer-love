@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>弹窗对比</title><style>
+:root{--es-bg:#1A1626;--es-card:rgba(255,255,255,.06);--es-card-border:rgba(255,255,255,.12);--es-primary:#7C6FF0;--es-primary2:#9D8BFF;--es-text:#F2EEFF;--es-text-dim:rgba(242,238,255,.6);--es-green:#5BD6A0;--es-red:#FF8A8A;--es-yellow:#FFD479;--es-soft:rgba(255,255,255,.05);--es-soft-hover:rgba(124,111,240,.18)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:radial-gradient(1200px 600px at 20% -10%,#2a2150 0%,#1A1626 55%)fixed;color:var(--es-text);font-family:PingFang-SC,'Microsoft YaHei',sans-serif;font-size:12px;min-height:100vh;padding:20px}
+h2{font-size:18px;margin-bottom:12px;text-align:center}
+h2 span{font-size:12px;font-weight:400;color:var(--es-text-dim)}
+.cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:960px;margin:0 auto}
+.card{background:rgba(255,255,255,.04);border-radius:16px;padding:16px 20px;flex:1;min-width:300px;max-width:460px;border:1px solid var(--es-card-border)}
+
+/* es-modal 统一体系 */
+.m-overlay{background:rgba(10,8,20,.65);backdrop-filter:blur(4px);border-radius:14px;padding:4px}
+.es-modal{background:linear-gradient(160deg,#241d3d,#1a1530);border:1px solid var(--es-card-border);border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.es-modal-title{font-size:16px;font-weight:700;color:var(--es-text);margin-bottom:12px}
+.es-modal-body{font-size:13px;line-height:1.8;color:var(--es-text)}
+.es-modal-btns{display:flex;gap:8px;margin-top:14px}
+.es-modal-btn{flex:1;padding:10px;border:1px solid var(--es-card-border);border-radius:10px;background:var(--es-soft);color:var(--es-text);cursor:pointer;font-family:inherit;font-size:13px;text-align:center}
+.es-modal-btn.primary{background:linear-gradient(135deg,var(--es-primary),var(--es-primary2));color:#fff;border:none;font-weight:600}
+.es-modal-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:10px 12px;border:1px solid rgba(124,111,240,.3);border-radius:10px;background:rgba(124,111,240,.1);color:var(--es-text);cursor:pointer;font-family:inherit;font-size:13px}
+.es-modal-opt:hover{background:rgba(124,111,240,.2)}
+
+/* stageup 旧体系 */
+.su-overlay{background:rgba(6,4,20,.6);backdrop-filter:blur(4px);border-radius:14px;padding:4px}
+.su-card{border-color:rgba(160,140,220,.35);background:linear-gradient(160deg,#1f1a35,#151020);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:34px 28px;text-align:center}
+
+.row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--es-text-dim)}
+.label{margin:8px 0 4px;font-size:11px;color:var(--es-primary2)}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600}
+.tag.g{background:rgba(91,214,160,.15);color:var(--es-green)}
+.tag.r{background:rgba(255,138,138,.15);color:var(--es-red)}
+.tag.y{background:rgba(255,212,121,.15);color:var(--es-yellow)}
+</style></head><body>
+
+<h2>📦 全局弹窗统一样式 <span>— showEntSimModal() 标准模板</span></h2>
+<div style="text-align:center;color:var(--es-text-dim);margin-bottom:20px">
+  结构：<code style="color:var(--es-primary2)">es-modal-overlay &gt; .es-modal &gt; (.es-modal-title + .es-modal-body + .es-modal-btns)</code>
+</div>
+
+<div class="cards">
+
+<!-- ===== 每日结算（统一后） ===== -->
+<div class="card">
+  <div class="label"><span class="tag g">P0 统一后</span> 每日结算弹窗</div>
+  <div class="m-overlay">
+    <div class="es-modal">
+      <div class="es-modal-title">📋 Day 145 结算</div>
+      <div class="es-modal-body">
+        <div class="row"><span>🌟 人气</span><span><b style="color:var(--es-green)">+5</b> (58→63)</span></div>
+        <div class="row"><span>💗 好感</span><span><b style="color:var(--es-green)">+3</b> (44→47)</span></div>
+        <div class="row" style="margin-top:6px;border-top:1px solid var(--es-card-border);padding-top:6px"><span>🛡️ 公关次数</span><span><b style="color:var(--es-yellow)">3</b>/5</span></div>
+      </div>
+      <div class="es-modal-btns">
+        <button class="es-modal-btn primary">继续</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 奖项典礼 ===== -->
+<div class="card">
+  <div class="label"><span class="tag g">P2 新增</span> 奖项典礼弹窗</div>
+  <div class="m-overlay">
+    <div class="es-modal">
+      <div class="es-modal-title">🏆 MAMA 颁奖典礼</div>
+      <div class="es-modal-body">
+        <div style="text-align:center;margin-bottom:8px">
+          <span style="font-size:36px">🏆</span>
+          <div style="font-size:16px;color:var(--es-yellow);font-weight:700">年度新人奖</div>
+        </div>
+        <div class="row"><span>人气</span><span><b style="color:var(--es-green)">+15</b></span></div>
+        <div style="font-size:11px;color:var(--es-text-dim);margin-top:4px">安可舞台上的眼泪被粉丝拍下，转发破万。</div>
+      </div>
+      <div class="es-modal-btns"><button class="es-modal-btn primary">确认</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 合约续约 ===== -->
+<div class="card">
+  <div class="label"><span class="tag g">P1 新增</span> 合约续约弹窗</div>
+  <div class="m-overlay">
+    <div class="es-modal">
+      <div class="es-modal-title">📜 合约续约</div>
+      <div class="es-modal-body">
+        <p style="margin-bottom:10px">合约还剩 <b style="color:var(--es-yellow)">1年</b>，公司递来了续约意向书。</p>
+        <button class="es-modal-opt">A. 续约 7 年（稳定但依旧是偶像）</button>
+        <button class="es-modal-opt">B. 不续约 · 考虑成为独立艺人</button>
+        <button class="es-modal-opt">C. 暂不决定</button>
+      </div>
+      <div class="es-modal-btns"><button class="es-modal-btn">关闭</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 存档槽 ===== -->
+<div class="card">
+  <div class="label"><span class="tag g">P1 新增</span> 存档槽弹窗</div>
+  <div class="m-overlay">
+    <div class="es-modal">
+      <div class="es-modal-title">💾 存档管理</div>
+      <div class="es-modal-body">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between;cursor:pointer">
+            <span>📁 槽位1 · Day 145 · Hoshi</span><span style="color:var(--es-text-dim)">❤️47</span>
+          </div>
+          <div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between;cursor:pointer">
+            <span>📁 槽位2 · Day 72 · Hoshi</span><span style="color:var(--es-text-dim)">❤️28</span>
+          </div>
+          <div style="padding:10px;background:var(--es-soft);border-radius:8px;display:flex;justify-content:space-between;color:var(--es-text-dim);cursor:pointer">
+            <span>📁 槽位3 · 空</span><span style="color:var(--es-primary2)">+ 保存</span>
+          </div>
+        </div>
+      </div>
+      <div class="es-modal-btns"><button class="es-modal-btn">关闭</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 团活冲突 ===== -->
+<div class="card">
+  <div class="label"><span class="tag y">P2 新增</span> 团活冲突弹窗</div>
+  <div class="m-overlay">
+    <div class="es-modal">
+      <div class="es-modal-title">⚠️ 日程冲突</div>
+      <div class="es-modal-body">
+        <p style="margin-bottom:10px;color:var(--es-red)">明天下午有 <b>音乐银行打歌</b>，但你答应了去汉江公园见Hoshi。</p>
+        <button class="es-modal-opt">A. 去团活（职业优先）<span class="tag g" style="float:right">团魂+2</span></button>
+        <button class="es-modal-opt" style="border-color:rgba(255,138,138,.4)">B. 偷偷溜去见他<span class="tag r" style="float:right">风险5</span></button>
+      </div>
+      <div class="es-modal-btns"><button class="es-modal-btn">关闭</button></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ===== 对比图 ===== -->
+<div style="max-width:960px;margin:32px auto">
+  <div class="label" style="font-size:14px;color:var(--es-text)">📊 P0 修复前后对比：每日结算弹窗</div>
+  <div class="cards">
+    <div class="card">
+      <div class="label"><span class="tag r">修复前</span> es-stageup-overlay + 硬编码颜色</div>
+      <div class="su-overlay">
+        <div class="su-card">
+          <div style="font-size:36px">📋</div>
+          <div style="font-size:18px;font-weight:700;color:#c8b8f0;margin:8px 0">Day 145 结算</div>
+          <div style="font-size:14px;color:rgba(220,210,255,.8);line-height:1.8;margin-bottom:10px">人气 +5  曝光 +2  好感 +3</div>
+          <div style="font-size:12px;color:rgba(242,238,255,.6);border-top:1px solid rgba(255,255,255,.08);padding-top:8px">📌 发布新作品《Shining Diamond》</div>
+          <button style="margin-top:10px;background:rgba(124,111,240,.25);border:none;color:var(--es-text);padding:8px 24px;border-radius:10px;font-size:13px;cursor:pointer">继续</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--es-red);margin-top:6px">
+        ✘ 使用 es-stageup-overlay（另一套体系）<br>
+        ✘ 硬编码 #c8b8f0 / rgba(220,210,255,.8)<br>
+        ✘ lastEvent 与 renderLeft 最近活动重复<br>
+        ✘ 按钮无 es-modal-btn 样式类
+      </div>
+    </div>
+    <div style="font-size:24px;align-self:center;color:var(--es-text-dim)">→</div>
+    <div class="card">
+      <div class="label"><span class="tag g">修复后</span> showEntSimModal + CSS变量</div>
+      <div class="m-overlay">
+        <div class="es-modal">
+          <div class="es-modal-title">📋 Day 145 结算</div>
+          <div class="es-modal-body">
+            <div class="row"><span>🌟 人气</span><span><b style="color:var(--es-green)">+5</b></span></div>
+            <div class="row"><span>⚠️ 曝光</span><span><b style="color:var(--es-yellow)">+2</b></span></div>
+            <div class="row"><span>💗 好感</span><span><b style="color:var(--es-green)">+3</b></span></div>
+          </div>
+          <div class="es-modal-btns"><button class="es-modal-btn primary">继续</button></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--es-green);margin-top:6px">
+        ✔ 统一 es-modal-overlay + .es-modal<br>
+        ✔ 全部 CSS 变量（--es-green/--es-yellow）<br>
+        ✔ 删除 lastEvent（去重）<br>
+        ✔ 按钮用 .es-modal-btn.primary 标准样式
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 结构说明 ===== -->
+  <div style="margin-top:24px;padding:16px;background:rgba(255,255,255,.04);border-radius:12px;border:1px solid var(--es-card-border)">
+    <div style="font-size:13px;color:var(--es-text);margin-bottom:8px"><b>🔧 showEntSimModal() 调用模板</b></div>
+    <pre style="font-size:11px;color:var(--es-text2);background:rgba(0,0,0,.3);padding:12px;border-radius:8px;overflow-x:auto;line-height:1.6">
+showEntSimModal(
+  '📋 Day ' + day + ' 结算',   <span style="color:var(--es-text-dim)">// title: emoji + 描述</span>
+  '&lt;div class="es-row"&gt;...&lt;/div&gt;',  <span style="color:var(--es-text-dim)">// bodyHtml: CSS变量 + es-类名</span>
+  [{ id: 'ok', label: '继续', primary: true }]  <span style="color:var(--es-text-dim)">// buttons: id+label+primary</span>
+);
+</pre>
+    <div style="font-size:11px;color:var(--es-text-dim);margin-top:8px">
+      <b>所有弹窗共用此函数</b>：每日结算 · 奖项典礼 · 合约续约 · 存档槽 · 团活冲突 · 纪念日 · 粉丝来信 · 约会选择 · 结局
+    </div>
+  </div>
+</div>
+
+</body></html>

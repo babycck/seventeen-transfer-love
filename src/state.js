@@ -476,7 +476,7 @@ export function migrateSave() {
     // v23 新增：日记 + 男主视角碎片 + 日程男主行程
     if (!Array.isArray(E.diary)) E.diary = [];
     if (!E._malePOVUnlocked || typeof E._malePOVUnlocked !== 'object') E._malePOVUnlocked = {};
-    if (E.agenda && !E.agenda.maleLead) { E.agenda.maleLead = '行程中'; E.agenda.maleLeadLoc = ''; }
+    if (E.agenda && E.agenda.maleLead === undefined) { E.agenda.maleLead = '行程中'; E.agenda.maleLeadLoc = ''; }
 
     if (!E.agenda) E.agenda = {};
     if (!E.agenda.main) E.agenda.main = '';
@@ -486,6 +486,9 @@ export function migrateSave() {
 
     if (!E.misc) E.misc = {};
     if (typeof E.misc.exposureAccum !== 'number') E.misc.exposureAccum = 0;
+    // v2 拆分曝光：scandalHeat=恋情风险，careerPublicity=事业曝光度
+    if (typeof E.misc.scandalHeat !== 'number') E.misc.scandalHeat = (typeof E.misc.exposureAccum === 'number') ? E.misc.exposureAccum : 0;
+    if (typeof E.misc.careerPublicity !== 'number') E.misc.careerPublicity = 0;
     if (typeof E.misc.suspicion !== 'number') E.misc.suspicion = 0;
     if (typeof E.misc.npcInteractionUsed !== 'number') E.misc.npcInteractionUsed = 0;
     if (typeof E.misc.cpRealProgress !== 'number') E.misc.cpRealProgress = 0;

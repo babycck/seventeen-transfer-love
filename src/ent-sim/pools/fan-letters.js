@@ -61,3 +61,32 @@ export var FAN_LETTER_POOL = [].concat(
    {cat:'support',t:'{heroineName}！我用纸折了你——不是折纸技术很好，是折了个大概。但队友帮我抽的那张便签纸刚好是你应援色的。它现在在我的电脑旁边。每次编译程序报错我就看一眼。不是在祈求debug——是在想你是怎么从报错里重新编译的。',fanReactions:['折纸偶像','应援色便签','程序员粉丝','编译报错','重新编译']},
    {cat:'support',t:'{heroineName}姐姐——今天没什么特别的。只是想告诉你，在六百多天前我开始每天给你写一句晚安。在备忘录里。不发出去。因为不需要你回复。只是在地球另一个地方，有人在用两秒想一下你。这件事本身——就是祝福。',fanReactions:['六百多天晚安','备忘录里','不需要回复','两秒想一下','最安静的陪伴']}
 ]);
+
+// P2 #18: 条件化粉丝来信
+export function getFanLetter(E) {
+  var pool = [];
+  if (!E) return pool;
+  var pop = E.career.popularity || 0;
+  var aff = E.affection || 0;
+  var heat = (E.misc && E.misc.scandalHeat) || 0;
+  // 基础来信
+  pool.push({cat:'support',t:'欧尼好美！每天看你的直拍续航充能量！'});
+  pool.push({cat:'support',t:'姐姐今天舞台的服装绝了！cody老师请加鸡腿！'});
+  if (pop >= 40) {
+    pool.push({cat:'support',t:'新歌听了一百遍了！音源女王实至名归！'});
+  }
+  if (pop >= 30) {
+    pool.push({cat:'comeback',t:'什么时候回归啊姐姐TT 已经等了三个月了！'});
+  }
+  if (aff >= 40) {
+    pool.push({cat:'confession',t:'欧尼最近气色好好，是不是谈恋爱了？😏（开玩笑的）'});
+  }
+  if (heat >= 8) {
+    pool.push({cat:'worry',t:'欧尼…网上说的那些是真的吗？不管怎样我都会一直支持你的。'});
+    pool.push({cat:'defend',t:'不要管黑粉说什么！我们MOONLIGHT永远相信你！'});
+  }
+  if (heat >= 15) {
+    pool.push({cat:'anger',t:'我脱粉了。偶像谈恋爱就是背叛粉丝。希望你想清楚。'});
+  }
+  return pool.sort(function(){ return 0.5 - Math.random(); }).slice(0, 2);
+}

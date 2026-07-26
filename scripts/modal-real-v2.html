@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>StageUp 弹窗实景</title>
+<style>
+/* ===== 完全复制 style.css 第3270-3285行 es-stageup 体系 ===== */
+:root {
+  --es-primary: #7C6FF0; --es-primary2: #9D8BFF; --es-text: #F2EEFF;
+  --es-text-dim: rgba(242,238,255,0.6); --es-green: #5BD6A0; --es-red: #FF8A8A; --es-yellow: #FFD479;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background: radial-gradient(1200px 600px at 20% -10%, #2a2150 0%, #1A1626 55%) fixed;
+  color: #fff; font-family: PingFang-SC,'Microsoft YaHei',sans-serif; font-size:12px; min-height:100vh;
+}
+
+/* ---- 游戏界面模拟 ---- */
+.es-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin:10px;background:rgba(255,255,255,.06);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.12);border-radius:14px}
+.es-chip{font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.05);color:#F2EEFF;border:1px solid rgba(255,255,255,.12)}
+.es-p{background:rgba(255,255,255,.06);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px;margin:10px}
+.es-r{display:flex;justify-content:space-between;padding:3px 0;color:rgba(242,238,255,.6)}
+.es-r b{color:#F2EEFF}
+
+/* 🔥🔥🔥 精确复制 style.css:3270-3285 的 es-stageup 弹窗体系 🔥🔥🔥 */
+.es-stageup-overlay {
+  position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center;
+  background: rgba(6,4,20,.6); backdrop-filter: blur(4px); padding: 20px; animation: esFadeIn .35s ease;
+}
+.es-stageup-card {
+  max-width: 420px; width: 100%; text-align: center; padding: 34px 28px; border-radius: 20px; color: #fff;
+  background: linear-gradient(160deg, rgba(124,111,240,.22), rgba(255,126,179,.18));
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 20px 60px rgba(124,111,240,.4);
+  animation: esStagePop .4s cubic-bezier(.2,.9,.3,1.2);
+}
+.es-stageup-icon { font-size: 54px; margin-bottom: 12px; animation: esBeat 1.4s ease-in-out infinite; }
+.es-stageup-label { font-size: 20px; font-weight: 800; letter-spacing: 2px; margin-bottom: 12px; color: #ffd479; }
+.es-stageup-desc { font-size: 14px; line-height: 1.9; color: rgba(255,255,255,.88); margin-bottom: 22px; }
+.es-stageup-card .primary { padding: 11px 26px; border: none; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--es-primary), var(--es-primary2)); }
+@keyframes esStagePop { 0%{transform:scale(.85);opacity:0} 100%{transform:scale(1);opacity:1} }
+@keyframes esBeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+@keyframes esFadeIn { from{opacity:0} to{opacity:1} }
+
+/* 弹窗内自定义按钮 */
+.stageup-btn {
+  display:block;width:100%;margin:6px 0;padding:10px 14px;border-radius:10px;cursor:pointer;
+  font-family:inherit;font-size:13px;text-align:left;color:#fff;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);
+}
+.stageup-btn:hover{background:rgba(255,255,255,.15)}
+.stageup-btn.opt{background:rgba(124,111,240,.15);border-color:rgba(124,111,240,.35)}
+.stageup-btn.opt:hover{background:rgba(124,111,240,.25)}
+.stageup-btn.danger{border-color:rgba(255,138,138,.35);background:rgba(255,138,138,.1)}
+
+.btn-bar{display:flex;gap:8px;flex-wrap:wrap;padding:10px;margin:10px}
+.btn-bar button{padding:8px 16px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);color:var(--es-text);cursor:pointer;font-family:inherit;font-size:12px}
+.btn-bar button:hover{background:rgba(124,111,240,.18)}
+</style></head><body>
+
+<div class="es-h"><span style="color:#F2EEFF"><b>🌙 ECLIPSE</b></span><span class="es-chip">人气 63</span><span class="es-chip">好感 47</span></div>
+<div style="display:flex;gap:10px;margin:10px;flex-wrap:wrap">
+  <div class="es-p" style="flex:1;min-width:180px"><div class="es-r"><span>🗓️ 日程</span><b>练习室</b></div><div class="es-r"><span>💙 Hoshi</span><b>公司</b></div><div class="es-r"><span>👤 哥哥</span><b>综艺</b></div></div>
+  <div class="es-p" style="flex:2;min-width:300px"><p style="color:var(--es-text);line-height:1.8">练习室里只有你一个人。镜子里映出汗水浸湿的刘海……突然，门被推开了。</p></div>
+  <div class="es-p" style="flex:1;min-width:180px"><div class="es-r"><span>阶段</span><span>💚 暧昧</span></div><div class="es-r"><span>曝光</span><span style="color:#FFD479">12·升温</span></div></div>
+</div>
+
+<div class="btn-bar">
+  <button onclick="showSU('settle')">📋 每日结算</button>
+  <button onclick="showSU('release')">📀 作品发布</button>
+  <button onclick="showSU('award')">🏆 奖项典礼</button>
+  <button onclick="showSU('brand')">📺 品牌代言</button>
+  <button onclick="showSU('letter')">💌 粉丝来信</button>
+  <button onclick="showSU('stage')">💞 阶段升级</button>
+  <button onclick="closeAll()">✕ 全部关闭</button>
+</div>
+
+<script>
+var _o=null;
+function closeAll(){if(_o){_o.remove();_o=null}}
+
+function makeSU(title,body,icon,labelClr){
+  closeAll();
+  var o=document.createElement('div');
+  o.className='es-stageup-overlay';
+  o.innerHTML='<div class="es-stageup-card">'+
+    (icon?'<div class="es-stageup-icon">'+icon+'</div>':'')+
+    '<div class="es-stageup-label"'+(labelClr?' style="color:'+labelClr+'"':'')+'>'+title+'</div>'+
+    '<div class="es-stageup-desc">'+body+'</div>'+
+    '<button class="primary" onclick="closeAll()">❥ 继续</button></div>';
+  o.addEventListener('click',function(e){if(e.target===o)closeAll()});
+  document.body.appendChild(o);
+  _o=o;
+}
+
+function showSU(t){
+  if(t==='settle'){
+    makeSU('📋 Day 145 结算',
+      '<div style="text-align:left;font-size:13px;color:rgba(255,255,255,.7);line-height:2">'+
+      '人气：<b style="color:#5BD6A0">+5</b>（58→63）<br>'+
+      '曝光：<b style="color:#FFD479">+2</b><br>'+
+      '好感：<b style="color:#5BD6A0">+3</b>（44→47）<br>'+
+      '公关次数：<b style="color:#FFD479">3</b>/5</div>',
+      '📋', '#ffd479');
+  }else if(t==='release'){
+    makeSU('📀 新作品发布',
+      '<div style="text-align:center;margin-bottom:8px"><span style="font-size:13px;color:rgba(255,255,255,.7)">《Shining Diamond》</span></div>'+
+      '<div style="font-size:18px;color:#FFD479;font-weight:700">🎵 空降 Melon 第1位！</div>'+
+      '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:6px">ALL KILL · 人气+12</div>',
+      '📀', '#ffd479');
+  }else if(t==='award'){
+    makeSU('🏆 季度颁奖',
+      '<div style="text-align:center;margin-bottom:8px"><span style="font-size:16px;color:#ffd700">年度新人奖</span></div>'+
+      '<div style="font-size:13px;color:rgba(240,220,180,.9);line-height:1.8">Eclipse以出道曲《Shadow Dance》横扫年末颁奖礼，获得年度新人奖！安可舞台上的泪水被粉丝拍下，转发破万。</div>',
+      '🏆', '#ffd700');
+  }else if(t==='brand'){
+    makeSU('📺 品牌代言邀约',
+      '<div style="font-size:13px;color:rgba(220,200,180,.9);margin-bottom:8px">NARS · 唇釉系列<br>地点：摄影棚</div>'+
+      '<button class="stageup-btn opt" onclick="closeAll()">接受（人气+4）</button>'+
+      '<button class="stageup-btn" onclick="closeAll()">拒绝</button>',
+      '📺', '#e8d0a0');
+  }else if(t==='letter'){
+    makeSU('💌 粉丝来信',
+      '<div style="text-align:left;font-size:13px;color:rgba(255,255,255,.7);line-height:2">'+
+      '"欧尼的新歌我听了100遍！音源女王！每天都在刷直拍续命~"'+
+      '<div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,.35)">—— 来自 MOONLIGHT 的匿名信</div></div>',
+      '💌', '#c8b8f0');
+  }else if(t==='stage'){
+    makeSU('💞 阶段升级',
+      '<div style="font-size:15px;color:rgba(255,255,255,.88)">暧昧的空气中，有什么正在悄悄改变。</div>',
+      '💞', '#ffb8d4');
+  }
+}
+</script>
+
+</body></html>

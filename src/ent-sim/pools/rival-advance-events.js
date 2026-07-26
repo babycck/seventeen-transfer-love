@@ -1,9 +1,28 @@
 // ============================================================
-// 情敌主动事件池（rival intimacy 驱动）
+// 情敌主动事件池（rival intimacy 驱动）4→10→19→28条
 // ============================================================
 export var RIVAL_ADVANCE_EVENTS = [
   { key: 'rival_nudge', text: '团内成员"无意"在男主面前提起你，眼神却在你这边停留得比正常久了一点。', minIntimacy: 10, exposure: 0 },
   { key: 'rival_close', text: '团内成员借着工作名义坐到你旁边，递了杯咖啡："你最近很累吧，别太拼。"', minIntimacy: 20, exposure: 1 },
   { key: 'rival_confess', text: '团内成员在只有你们两人的楼梯间停下脚步，说："如果先遇见你的人是我，结果会不会不一样？"', minIntimacy: 40, exposure: 2, flag: 'rivalConfession' },
-  { key: 'rival_fake_cp', text: '公司安排你和团内成员营业 CP，拍摄花絮里他低头帮你整理耳麦，镜头外男主攥紧了手。', minIntimacy: 30, exposure: 2, flag: 'rivalFakeCp' }
+  { key: 'rival_fake_cp', text: '公司安排你和团内成员营业 CP，拍摄花絮里他低头帮你整理耳麦，镜头外男主攥紧了手。', minIntimacy: 30, exposure: 2, flag: 'rivalFakeCp' },
+  { key: 'rival_groupchat_defend', text: '你在群聊里被开玩笑（不是恶意的），团内成员忽然帮你接了一句——不是帮你怼回去，是笑着帮你解围。你愣了一下才意识到他一直在看。', minIntimacy: 15, exposure: 0 },
+  { key: 'rival_song_recommend', text: '团内成员分享了一首歌到群聊。所有人都没在意。你点开听完了——歌词每一句都像是在说某个不能说的名字。你私信他问"这是...？"他说"就是你听到的那个意思。"', minIntimacy: 25, exposure: 1 },
+  { key: 'rival_studio_invite', text: '团内成员说在录音室有一个demo想让你听听——说是"需要女声的意见"。你去了才发现录音室里只有他一个人。他说"别人都走了"。你站在门口犹豫了一下。', minIntimacy: 30, exposure: 1 },
+  { key: 'rival_price_gift', text: '团内成员送了你一副贵重的耳返。"上次看到你耳返有杂音。这个是定制的——和你音域匹配。"你不知道该收还是不该收。他说"先试试，不喜欢就退。"你知道退不了。', minIntimacy: 35, exposure: 1 },
+  { key: 'rival_backstage_hands', text: '待机室里你在弄背后的拉链够不到。团内成员正好进来——没有问，只是走过来帮你拉上了。手指在你后背停留了两秒。你回头的时候他已经在看别处了。', minIntimacy: 20, exposure: 1 },
+  { key: 'rival_concert_cam', text: '他的演唱会上，导播忽然把镜头切到了你——你在大屏幕上愣了一下。全场尖叫。他在台上对你笑了笑——那个笑不是营业的。你旁边队友戳了你一下说"今天你比他更火。"', minIntimacy: 30, exposure: 2 },
+  { key: 'rival_rain_umbrella', text: '突降大雨——你在公司门口没带伞。他刚好经过——把伞撑到了你头顶。两个人站在雨里等了几分钟。他的肩膀淋湿了一半。你说"伞可以斜一点——你那边全湿了。"他说"没关系——湿一半比让你淋更划算。"', minIntimacy: 20, exposure: 1 },
+  { key: 'rival_group_vote_you', text: '队内投票选择下一首主打的方向——你在两个方案之间有点犹豫。他在投票板旁边等了一会儿——等所有人走了——他在你的选项格子里画了一颗小星。"我只是觉得你的选择是对的——不是因为是你选的。是真的更好。"', minIntimacy: 25, exposure: 0 },
+  { key: 'rival_early_morning_practice', text: '你很早去练习室——以为没有人。推开门发现他已经在对着镜子跳舞了——全身都是汗。他看到你——动作没停。"来——一起——这首歌的副歌你比我熟。"你把外套脱了——站到他旁边的镜子前。清晨的光还没全亮——但是练习室里的热度已经够了。', minIntimacy: 30, exposure: 1 },
+  { key: 'rival_unreleased_song', text: '他在群里发了一段demo——说是随便写的。你点开——听到第三小节的时候发现旋律里的和声轨迹——是你上次随口哼过的。你私信他说"这是...我的？"他说"对——采样了你。不收费——授权费是一个微笑。"', minIntimacy: 35, exposure: 1 },
+  { key: 'rival_last_dance', text: '最后一次合作舞台——编舞的ending pose是他牵了你的手。不是设计——是彩排时他即兴的。导演说很好保留。演出那天——牵手的瞬间你在灯光里看不清他的表情。但他的手是抖的。你以前从来没发现——他跟你跳舞的时候手是抖的。', minIntimacy: 40, exposure: 2 },
+  { key:'rival_subway_meet', text:'你在地铁站等车——他刚好从另一个方向走过来。耳机里在听同一首歌——你看到他的播放界面，他看不到你的。但他抬头看到你的瞬间把耳机摘下来了。你说:你也在听这个。他说:对——因为上次看到你推荐了。你说我没有公开推荐过。他笑了笑——是那种被发现秘密的笑。', minIntimacy: 25, exposure: 1 },
+  { key:'rival_cold_medicine', text:'你感冒了——嗓子哑得说不出话。他在待机室门口放了一袋药——没有敲门，没有留言，没有签名。但你知道是他——因为里面有一盒枇杷膏，是你上次在群聊里提过的牌子。那时候没人回复你——只有他默默记住了。', minIntimacy: 30, exposure: 0 },
+  { key:'rival_songwriting_help', text:'你在工作室卡了一整天——副歌怎么都写不好。他推门进来的时候手里拿着两杯咖啡。不是来找你——是来隔壁录音。但他站在你身后看了五分钟你的工程文件——然后随手拿起旁边的笔在纸上写了一个音符。"试这个。"那个音符解决了你六个小时的问题。', minIntimacy: 35, exposure: 1 },
+  { key:'rival_fan_art_gift', text:'有粉丝画了一张你和他的同人图——不是真实照片，是二次元风格。他在泡泡里发了一条说"现在的粉丝都很有才华"。然后他私信你发了原图。你说你也看到了。他说:是很好看。但真人比画好看。然后他撤回了。但你已经看到了。', minIntimacy: 30, exposure: 1 },
+  { key:'rival_shared_earphone', text:'在待机室——你的耳机电量用完了。他什么都没说——把一只耳机递给了你。两个人各戴一边——音乐是同一个。侧面坐着的队友看了你们一眼——笑了。歌单是他的。从头到尾是你喜欢的歌。你怎么知道他歌单里有你喜欢的歌。', minIntimacy: 35, exposure: 1 },
+  { key:'rival_ending_fairy', text:'今天的打歌ending镜头——你没有对着摄像机，你对着台下某个方向笑了一下。那个方向是他站的地方。不是设计——是你看到他手里的应援棒是你上次聊到的颜色。他居然带了你团的应援棒——藏在人群里。', minIntimacy: 30, exposure: 2 },
+  { key:'rival_lyric_reveal', text:'他发表了一首自作曲——歌词里有一句提到"某个戴细链的女生的侧脸"。你觉得不像是在说你。但你那天——刚好戴着一条细链。刚好接住了他在走廊里看你的侧脸。你没问。他也没说。但那首歌的评论区——所有粉丝都在猜是谁。', minIntimacy: 40, exposure: 2 },
+  { key:'rival_silent_car_ride', text:'收工太晚——公司安排的拼车。后排只有你们两个人。他靠在车窗那边——你靠着另一边。车厢很安静，没有对话。但你从车窗反光里看到他手机屏幕上的聊天背景——是你们的合影。很旧的——一张饭拍。他没锁屏。也没有翻页。', minIntimacy: 40, exposure: 1 }
 ];

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>池子压力测试 5×200轮</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0814;color:#dcd2ff;font-family:system-ui,monospace;padding:20px;max-width:1300px;margin:0 auto}
+h1{font-size:20px;margin-bottom:4px;color:#c8b8f0}
+#status{font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.stat-card{background:rgba(124,111,240,.1);border:1px solid rgba(124,111,240,.2);border-radius:6px;padding:8px 12px;min-width:90px}
+.stat-card b{display:block;color:#c8b8f0;font-size:16px}
+.stat-card span{color:rgba(255,255,255,.5);font-size:9px}
+#out{font-size:11px;line-height:1.6;white-space:pre-wrap}
+h2{font-size:13px;margin:16px 0 6px;color:#b0a0d8;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:3px}
+</style></head>
+<body>
+<h1>🎯 池子压力测试 — 5×200轮</h1>
+<div id="status">加载中…</div>
+<div id="stats"></div>
+<div id="out"></div>
+
+<script type="module">
+var statusEl = document.getElementById('status');
+var statsEl = document.getElementById('stats');
+var outEl = document.getElementById('out');
+
+// 直接读取所有池子模块
+var pools = {};
+
+async function loadPools() {
+  var modules = {
+    awards: () => import('../src/ent-sim/pools/awards.js'),
+    calendar: () => import('../src/ent-sim/pools/calendar-events.js'),
+    comeback: () => import('../src/ent-sim/pools/comeback-cycle.js'),
+    concert: () => import('../src/ent-sim/pools/concert-pool.js'),
+    dispatch: () => import('../src/ent-sim/pools/dispatch-news.js'),
+    fanletters: () => import('../src/ent-sim/pools/fan-letters.js'),
+    girlgroup: () => import('../src/ent-sim/pools/girlgroup-events.js'),
+    music: () => import('../src/ent-sim/pools/music-show-pool.js'),
+    svt: () => import('../src/ent-sim/pools/svt-teammate.js'),
+    company: () => import('../src/ent-sim/pools/company-events.js'),
+    career: () => import('../src/ent-sim/pools/career-setbacks.js'),
+    contact: () => import('../src/ent-sim/pools/contact-progression.js'),
+    chat: () => import('../src/ent-sim/pools/chat-male-lead.js'),
+    dailyEng: () => import('../src/ent-sim/pools/daily-engagement.js'),
+    brother: () => import('../src/ent-sim/pools/brother-events.js'),
+    brotherSide: () => import('../src/ent-sim/pools/brother-side-plots.js'),
+    brotherTests: () => import('../src/ent-sim/pools/brother-tests.js'),
+    jealousy: () => import('../src/ent-sim/pools/jealousy-events.js'),
+    oneheart: () => import('../src/ent-sim/pools/oneheart-events.js'),
+    fansign: () => import('../src/ent-sim/pools/fansign-pool.js'),
+    magazine: () => import('../src/ent-sim/pools/magazine-shoots.js'),
+    diary: () => import('../src/ent-sim/pools/diary-templates.js'),
+    buzz: () => import('../src/ent-sim/pools/daily-buzz.js'),
+    releases: () => import('../src/ent-sim/pools/releases.js'),
+    brands: () => import('../src/ent-sim/pools/brand-offers.js'),
+    debutMilestone: () => import('../src/ent-sim/pools/milestone-debut.js'),
+    sasaeng: () => import('../src/ent-sim/pools/sasaeng-escalation.js'),
+    rumors: () => import('../src/ent-sim/pools/dating-rumors.js'),
+    schedule: () => import('../src/ent-sim/pools/ent-schedules.js'),
+    tmate: () => import('../src/ent-sim/pools/teammate-flavor.js'),
+  };
+
+  for (var key in modules) {
+    try {
+      pools[key] = await modules[key]();
+    } catch(e) {
+      console.warn('加载失败:', key, e.message);
+    }
+  }
+  statusEl.textContent = '已加载 ' + Object.keys(pools).length + ' 个模块，开始模拟…';
+}
+
+// 扁平化：取导出数组（处理 [].concat() 包裹、子数组、对象等）
+function flattenToArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    // 检查是否 [].concat([[items...]]) 或 [].concat([items...])
+    if (val.length === 1 && Array.isArray(val[0]) && val[0].length > 0) {
+      // concat展平的结果: [item1, item2, ...] → 直接返回
+      if (typeof val[0] === 'string' || typeof val[0] === 'object') return val;
+    }
+    // 尝试展平一层子数组
+    var flat = [];
+    for (var i = 0; i < val.length; i++) {
+      if (Array.isArray(val[i])) {
+        for (var j = 0; j < val[i].length; j++) flat.push(val[i][j]);
+      } else {
+        flat.push(val[i]);
+      }
+    }
+    return flat;
+  }
+  if (typeof val === 'object') {
+    // 对象型池子：取所有子数组并合并
+    var all = [];
+    for (var k in val) {
+      if (Array.isArray(val[k])) {
+        for (var j = 0; j < val[k].length; j++) all.push(val[k][j]);
+      }
+    }
+    return all;
+  }
+  return [];
+}
+
+// 注册池子: name, poolValue, perRun, conditionFunc
+var POOL_LIST = [];
+function reg(name, poolVal, perRun, cond) {
+  var arr = flattenToArray(poolVal);
+  if (!arr.length) { console.warn('池子为空:', name); return; }
+  POOL_LIST.push({ name: name, pool: arr, perRun: perRun, cond: cond || null });
+}
+
+function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+// 模拟状态
+var E = {
+  career: { popularity: 30, debutDay: 30, contractRemaining: 7 },
+  cycle: { _gameDayCount: 30, dayCount: 30, roundTotal: 0 },
+  affection: 25, misc: { scandalHeat: 3 },
+  brother: { name: 'S.Coups' },
+  heroineGroup: [{name:'秀雅',roleTag:'最疼你的大姐'},{name:'智恩',roleTag:'舞台疯子'},{name:'多荣',roleTag:'想退团的'},{name:'彩妍',roleTag:'综艺担当'},{name:'恩瑞',roleTag:'佛系维他命'}],
+  _lastComebackDay:0, _svtRotationLastDay:0, _cbCycle:{phase:'idle',week:0,startDay:0}
+};
+
+function scenario(t){
+  E.career.popularity = Math.min(120, 25 + Math.floor(t*0.5));
+  E.affection = Math.min(100, Math.floor(t*0.4));
+  E.cycle._gameDayCount = 30 + t;
+  E.cycle.dayCount = 30 + t;
+  E.cycle.roundTotal = t;
+  E.misc.scandalHeat = Math.min(30, Math.floor(Math.random()*15 + (E.affection>40?10:0)));
+}
+
+function simulateDay(t) {
+  scenario(t);
+  if(E._cbCycle.phase==='idle' && E.cycle._gameDayCount-(E._lastComebackDay||0)>50+randInt(0,30)){
+    E._cbCycle={phase:'teaser',week:0,startDay:E.cycle._gameDayCount};E._lastComebackDay=E.cycle._gameDayCount;
+  }
+  var el=E.cycle._gameDayCount-(E._cbCycle.startDay||0);
+  if(el>=3&&E._cbCycle.phase==='teaser')E._cbCycle.phase='release';
+  if(el>=7&&E._cbCycle.phase==='release'){E._cbCycle.phase='musicShow1';E._cbCycle.week=1;}
+  if(el>=14&&E._cbCycle.phase==='musicShow1'){E._cbCycle.phase='musicShow2';E._cbCycle.week=2;}
+  if(el>=21&&E._cbCycle.phase==='musicShow2'){E._cbCycle.phase='musicShow3';E._cbCycle.week=3;}
+  if(el>=28&&E._cbCycle.phase==='musicShow3'){E._cbCycle.phase='idle';E._cbCycle.startDay=0;}
+  for(var i=0;i<POOL_LIST.length;i++){
+    var p=POOL_LIST[i];
+    if(p.cond&&!p.cond())continue;
+    if(Math.random()<p.perRun){
+      var idx=Math.floor(Math.random()*p.pool.length);
+      p._hits=(p._hits||0)+1;
+      p._touched=p._touched||{};
+      p._touched[idx]=true;
+    }
+  }
+}
+
+function runOnce() {
+  E.career.popularity=30;E.career.debutDay=30;E.affection=25;E.misc.scandalHeat=3;
+  E.cycle._gameDayCount=30;E.cycle.dayCount=30;E.cycle.roundTotal=0;
+  E._lastComebackDay=0;E._svtRotationLastDay=0;
+  E._cbCycle={phase:'idle',week:0,startDay:0};
+  for(var i=0;i<POOL_LIST.length;i++){POOL_LIST[i]._hits=0;POOL_LIST[i]._touched={};}
+  for(var t=0;t<200;t++)simulateDay(t);
+  var res=[];
+  for(var j=0;j<POOL_LIST.length;j++){
+    var p=POOL_LIST[j];
+    res.push({name:p.name,sz:p.pool.length,hits:p._hits,dist:Object.keys(p._touched).length});
+  }
+  return res;
+}
+
+// ========== 主流程 ==========
+await loadPools();
+
+// 用实际导出的 key 注册（按 name:poolKey 映射）
+var regMap = {
+  'AWARD_POOL': ['awards','AWARD_POOL',0.06,function(){return E.career.debutDay>0&&E.career.popularity>=20;}],
+  'CALENDAR_EVENTS': ['calendar','CALENDAR_EVENTS',0.03,function(){return true;}],
+  'COMEBACK_CYCLE_POOL': ['comeback','COMEBACK_CYCLE_POOL',0.04,function(){return E._cbCycle.phase!=='idle';}],
+  'CONCERT_POOL': ['concert','CONCERT_POOL',0.03,function(){return E.career.popularity>=30;}],
+  'DISPATCH_POOL': ['dispatch','DISPATCH_POOL',0.08,function(){return E.misc.scandalHeat>0;}],
+  'FAN_LETTER_POOL': ['fanletters','FAN_LETTER_POOL',1.0,function(){return E.career.debutDay>0;}],
+  'GIRLGROUP_EVENTS': ['girlgroup','GIRLGROUP_EVENTS',0.12,function(){return E.heroineGroup&&E.heroineGroup.length>0;}],
+  'MUSIC_SHOW_POOL': ['music','MUSIC_SHOW_POOL',0.06,function(){return E._cbCycle.phase.indexOf('musicShow')===0;}],
+  'VARIETY_SHOW_POOL': ['variety','VARIETY_SHOW_POOL',0.08,function(){return E.career.debutDay>0;}],
+  'SVT_TEAMMATE_EVENT_POOL': ['svt','SVT_TEAMMATE_EVENT_POOL',0.4,function(){return true;}],
+  'COMPANY_EVENT_POOL': ['company','COMPANY_EVENT_POOL',0.08,function(){return E.career.debutDay>0;}],
+  'CAREER_SETBACKS': ['career','CAREER_SETBACKS',0.05,function(){return E.career.debutDay>0;}],
+  'CONTACT_PROGRESSION': ['contact','CONTACT_PROGRESSION',0.15,function(){return E.affection>=20;}],
+  'BROTHER_EVENT_POOL': ['brother','BROTHER_EVENT_POOL',0.10,function(){return true;}],
+  'BROTHER_SIDE_PLOTS': ['brotherSide','BROTHER_SIDE_PLOTS',0.04,function(){return true;}],
+  'BROTHER_ADVANCE_TESTS': ['brotherTests','BROTHER_ADVANCE_TESTS',0.02,function(){return E.cycle.roundTotal>=15;}],
+  'JEALOUSY_EVENTS_POOL': ['jealousy','JEALOUSY_EVENTS_POOL',0.05,function(){return E.affection>=40;}],
+  'ONEHEART_RANDOM_EVENTS': ['oneheart','ONEHEART_RANDOM_EVENTS',0.10,function(){return true;}],
+  'FANSIGN_POOL': ['fansign','FANSIGN_POOL',0.05,function(){return E.career.popularity>=20;}],
+  'MAGAZINE_POOL': ['magazine','MAGAZINE_POOL',0.04,function(){return E.career.popularity>=30;}],
+  'DIARY_TEMPLATES': ['diary','DIARY_TEMPLATES',0.08,function(){return true;}],
+  'RELEASE_POOL': ['releases','RELEASE_POOL',0.04,function(){return E.career.debutDay>0;}],
+  'BRAND_OFFER_POOL': ['brands','BRAND_OFFER_POOL',0.06,function(){return E.career.popularity>=20;}],
+  'MILESTONE_DEBUT': ['debutMilestone','MILESTONE_DEBUT',0.01,function(){return E.career.debutDay===0;}],
+  'SASAENG_ESCALATION_POOL': ['sasaeng','SASAENG_ESCALATION_POOL',0.10,function(){return E.career.popularity>=30;}],
+  'RUMOR_POOL': ['rumors','RUMOR_POOL',0.06,function(){return E.misc.scandalHeat>=3;}],
+  'COMMON_POOL（日程）': ['schedule','COMMON_POOL',1.0,function(){return true;}],
+  'DAILY_ENGAGEMENT_POOL': ['dailyEng','DAILY_ENGAGEMENT_POOL',0.25,function(){return E.career.debutDay>0;}],
+  // 聊天池（对象型）
+  'CHAT_MALE_LEAD': ['chat','CHAT_MALE_LEAD',0.12,function(){return E.affection>=25;}],
+  'CHAT_BROTHER': ['chat','CHAT_BROTHER',0.08,function(){return true;}],
+  'CHAT_RIVAL': ['chat','CHAT_RIVAL',0.06,function(){return E.affection>=15;}],
+  'CHAT_MANAGER': ['chat','CHAT_MANAGER',0.04,function(){return E.career.debutDay>0;}],
+  'GROUP_CHAT': ['chat','GROUP_CHAT',0.05,function(){return true;}],
+  'CHAT_SASAENG': ['chat','CHAT_SASAENG',0.03,function(){return E.career.popularity>=40;}],
+  // buzz（对象型，合并子数组）
+  'DAILY_BUZZ（合并）': ['buzz','DAILY_BUZZ',0.20,function(){return E.career.debutDay>0;}],
+};
+
+var errors=[];
+for(var label in regMap){
+  var spec=regMap[label];
+  var modN=spec[0], keyN=spec[1], pr=spec[2], cd=spec[3];
+  if(!pools[modN]){errors.push(label+' — 模块 '+modN+' 未加载');continue;}
+  if(!(keyN in pools[modN])){errors.push(label+' — 模块 '+modN+' 中无 '+keyN);continue;}
+  reg(label, pools[modN][keyN], pr, cd);
+}
+
+statusEl.textContent = '已注册 '+POOL_LIST.length+' 个池子。若显示错误: '+errors.join('; ');
+if(errors.length) console.warn('注册错误:',errors);
+
+if(POOL_LIST.length===0){statusEl.textContent='❌ 所有池子加载失败，无法测试'; outEl.textContent=errors.join('\n');}
+
+// 运行5轮
+var allResults=[];
+for(var r=0;r<5;r++){allResults.push(runOnce());}
+
+// 汇总
+var summary=[], exhausted=[], nearExhaust=[], neverHit=[];
+for(var i=0;i<POOL_LIST.length;i++){
+  var hs=[],ds=[];
+  for(var j=0;j<5;j++){hs.push(allResults[j][i].hits);ds.push(allResults[j][i].dist);}
+  var avgH=hs.reduce(function(a,b){return a+b;},0)/5;
+  var maxH=Math.max.apply(null,hs);
+  var avgD=ds.reduce(function(a,b){return a+b;},0)/5;
+  var maxD=Math.max.apply(null,ds);
+  var sz=POOL_LIST[i].pool.length;
+  var st=sz===0?'—':(maxD>=sz?'🔴耗尽':(maxD>=sz*0.8?'🟡高风险':(avgH===0?'⚪未触发':'🟢正常')));
+  summary.push({name:POOL_LIST[i].name,sz:sz,avgH:avgH,maxH:maxH,avgD:avgD,maxD:maxD,st:st});
+  if(maxD>=sz&&sz>0)exhausted.push({name:POOL_LIST[i].name,sz:sz,maxD:maxD});
+  if(maxD>=sz*0.8&&maxD<sz&&sz>0)nearExhaust.push({name:POOL_LIST[i].name,sz:sz,maxD:maxD});
+  if(avgH===0)neverHit.push(POOL_LIST[i].name);
+}
+
+// 渲染
+var s='<div class="stats">';
+s+='<div class="stat-card"><b>'+POOL_LIST.length+'</b><span>池子</span></div>';
+s+='<div class="stat-card"><b style="color:#ff7e7e">'+exhausted.length+'</b><span>🔴耗尽</span></div>';
+s+='<div class="stat-card"><b style="color:#f0c040">'+nearExhaust.length+'</b><span>🟡高风险</span></div>';
+s+='<div class="stat-card"><b>'+neverHit.length+'</b><span>⚪未触发</span></div>';
+s+='</div>';
+statsEl.innerHTML=s;
+
+var out='══════════════════════════════════════════════════════\n';
+out+='  entSim 池子压力测试 · 5×200轮=1000天模拟\n';
+out+='══════════════════════════════════════════════════════\n\n';
+
+// 风险报告
+out+='🔴 耗尽风险（5轮中有1轮达到唯一条目=池子总大小）：\n';
+out+='──────────────────────────────────────────────────────\n';
+if(exhausted.length===0){out+='  （无）\n';}else{
+  exhausted.forEach(function(e){
+    out+='  '+e.name.padEnd(30)+' 池子: '+String(e.sz).padStart(3)+'条  → 最大去重: '+String(e.maxD).padStart(3)+'条\n';
+  });
+}
+out+='\n';
+
+out+='🟡 接近耗尽（最大去重≥池子80%）：\n';
+out+='──────────────────────────────────────────────────────\n';
+if(nearExhaust.length===0){out+='  （无）\n';}else{
+  nearExhaust.forEach(function(e){
+    out+='  '+e.name.padEnd(30)+' 池子: '+String(e.sz).padStart(3)+'条  → 最大去重: '+String(e.maxD).padStart(3)+'条（'+Math.round(e.maxD/e.sz*100)+'%）\n';
+  });
+}
+out+='\n';
+
+out+='⚪ 从未触发（5轮平均命中0）：\n';
+out+='──────────────────────────────────────────────────────\n';
+if(neverHit.length===0){out+='  （无）\n';}else{
+  neverHit.forEach(function(n){out+='  '+n+'\n';});
+}
+out+='\n';
+
+// 完整排名表格
+out+='📊 按5轮平均去重数排序（池子大小 → 平均命中 → 平均去重 → 状态）：\n';
+out+='──────────────────────────────────────────────────────────\n';
+summary.sort(function(a,b){return b.avgD-a.avgD;});
+summary.forEach(function(r){
+  out+=r.name.padEnd(30)+' 大小'+String(r.sz).padStart(4)+'  均命中'+String(r.avgH.toFixed(1)).padStart(7)+'  均去重'+String(r.avgD.toFixed(1)).padStart(7)+'  最大去重'+String(r.maxD).padStart(4)+'  '+r.st+'\n';
+});
+out+='──────────────────────────────────────────────────────────\n\n';
+
+// 13人轮换风味检查
+out+='👥 13人轮换风味：\n';
+var tm=pools['tmate'];
+var ids=['scoups','jeonghan','joshua','jun','hoshi','wonwoo','woozi','dk','mingyu','the8','seungkwan','vernon','dino'];
+if(tm&&tm._svtMemberFlavors){
+  ids.forEach(function(id){
+    var cnt=tm._svtMemberFlavors[id]?tm._svtMemberFlavors[id].length:0;
+    out+='  '+id.padEnd(14)+(cnt>=4?'✅ '+cnt+'条':cnt>=3?'🟡 '+cnt+'条':'🔴 '+cnt+'条')+'\n';
+  });
+}else{out+='  （无法读取 _svtMemberFlavors）\n';}
+out+='\n';
+
+// 结论
+out+='💡 结论：\n';
+if(exhausted.length===0&&nearExhaust.length===0){
+  out+='  ✅ 所有池子充足，1000天模拟无任何耗尽风险。\n';
+}else{
+  out+='  以下池子建议扩充：\n';
+  exhausted.concat(nearExhaust).forEach(function(e){
+    var need=Math.max(e.sz*2,Math.ceil(e.maxD*1.5));
+    out+='    '+e.name+'：'+e.sz+'条→建议≥'+need+'条（最大使用率'+Math.round(e.maxD/e.sz*100)+'%）\n';
+  });
+}
+
+outEl.textContent=out;
+statusEl.textContent='✅ 测试完成！'+POOL_LIST.length+'个池子 · 5×200=1000天 · 耗尽:'+exhausted.length+' · 高风险:'+nearExhaust.length;
+</script>
+</body>
+</html>

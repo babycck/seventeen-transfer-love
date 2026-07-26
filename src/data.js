@@ -46,7 +46,7 @@ export function buildEntSimGroupMeta() {
   var songs = pickFromPoolMulti(HIT_SONGS, 2 + (Math.random() < 0.5 ? 0 : 1));
   return {
     groupName: groupName,
-    company: pick(COMPANY_NAMES),
+    company: (function() { var c = pick(COMPANY_NAMES); return (c && c.name) ? c.name : String(c); })(),
     concept: pick(GROUP_CONCEPTS),
     fandom: picked.fandom,
     songs: songs || [],

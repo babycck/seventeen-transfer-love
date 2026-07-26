@@ -110,12 +110,14 @@ export function recordRomanceBeat(beat) {
   saveGame();
 }
 
-// 评估当前恋爱曝光风险（0-100）：仅由曝光阶梯 exposureAccum 驱动（旧四维舆论已移除）
+// 评估当前恋爱曝光风险（0-100）：仅由恋情曝光 scandalHeat 驱动（旧四维舆论已移除）
 export function assessRomanceRisk(extraExposure) {
   var E = GS.entSim;
+  if (!E) return { score: 0, level: '安全', multiplier: 1 };
   var mult = getRomanceRiskMultiplier();
   // 风险分与曝光档位对齐：安全<20 / 暗涌20-39 / 升温40-59 / 哗然60-79 / 引爆>=80
-  var accum = (E.misc.exposureAccum || 0) * 3.5;
+  var heat = (typeof E.misc.scandalHeat === 'number') ? E.misc.scandalHeat : (E.misc.exposureAccum || 0);
+  var accum = heat * 3.5;
   var coverPenalty = E.romance.coverUsed >= 3 ? 15 : 0;
   var extra = extraExposure || 0;
   var score = Math.round(accum + coverPenalty + extra);
@@ -154,18 +156,19 @@ export function tryConfession() {
 
 export function applyConfessionResult(result) {
   var E = GS.entSim;
+  if (!E || !E.romance) return result;
   E.romance.confessionDone = true;
   E.romance.confessionResult = result;
   E.romance.confessionTimes = (E.romance.confessionTimes || 0) + 1;
   if (result === 'accepted') {
-    E.affection = Math.min(100, E.affection + 10);
+    E.affection = Math.max(0, Math.min(100, (E.affection || 0) + 10));
     E.romance.stage = affectionStageLabel(E.affection);
     E.romance.emotion = '坚定';
     // 交往后依旧地下恋（尊重职业），不公开
     E.romance.publicLine = false;
-    if (E.brother.support !== undefined) E.brother.support = Math.min(100, E.brother.support + 5);
+    if (E.brother && E.brother.support !== undefined) E.brother.support = Math.min(100, E.brother.support + 5);
   } else if (result === 'rejected') {
-    E.affection = Math.max(0, E.affection - 10);
+    E.affection = Math.max(0, Math.min(100, (E.affection || 0) - 10));
     E.romance.emotion = '不安';
     E.flags.coldWar = true;
     E.flags.coldWarUntil = E.cycle.roundTotal + 2; // 内向冷战 2 回合
@@ -175,7 +178,7 @@ export function applyConfessionResult(result) {
   } else if (result === 'delayed') {
     // 拖延不扣好感，但启动冷却与哥哥谈话支线
     E.flags.confessCooldown = E.cycle.roundTotal + 5;
-    if (E.brother.support !== undefined) E.brother.support = Math.max(-100, E.brother.support - 3);
+    if (E.brother && E.brother.support !== undefined) E.brother.support = Math.max(-100, E.brother.support - 3);
     E.brother.talkPending = true; // 哥哥找女主谈话支线
   }
   saveGame();
@@ -330,6 +333,27 @@ export function getRomanceStageIcon() {
 export function getRomanceEmotion() { return (GS.entSim && GS.entSim.romance && GS.entSim.romance.emotion) || '平静'; }
 export function getRomanceRisk() { return assessRomanceRisk(0); }
 export function getCoverMechanisms() { return COVER_MECHANISMS; }
+// 好感-事业门控：5档关系阶段（仿明星志愿3），综合aff+事业阶段+oneHeartRomanceStage判断
+export function checkRomanceUnlock() {
+  var E = GS.entSim;
+  if (!E) return { stage: 0, label: '初识', unlocked: true, reason: '' };
+  var aff = E.affection || 0;
+  var chapter = E.chapter ? (E.chapter.index || 1) : 1;
+  var debut = E.career ? (E.career.debutDay || 0) : 0;
+  var tPhase = E.career ? (E.career.traineePhase || 1) : 1;
+  // 取 oneHeartRomanceStage 和 entSim 自身判断的较高值（双系统统一）
+  var ohs = GS.oneHeartRomanceStage || 0;
+  // 0=初识 1=暧昧 2=约会 3=恋爱 4=公开
+  if ((aff >= 85 && chapter >= 4) || ohs >= 3) return { stage: 4, label: '公开', unlocked: true, reason: '' };
+  if ((aff >= 70 && chapter >= 2) || ohs >= 2) return { stage: 3, label: '恋爱', unlocked: true, reason: '' };
+  if (aff >= 50 && debut > 0) return { stage: 2, label: '约会', unlocked: true, reason: '' };
+  if (aff >= 20 && tPhase >= 2) return { stage: 1, label: '暧昧', unlocked: true, reason: '' };
+  // 未解锁时返回原因
+  if (aff >= 70 && chapter < 2) return { stage: 2, label: '约会', unlocked: false, reason: '需要崭露头角(人气≥15)' };
+  if (aff >= 50 && debut === 0) return { stage: 1, label: '暧昧', unlocked: false, reason: '需要出道' };
+  if (aff >= 20 && tPhase < 2) return { stage: 0, label: '初识', unlocked: false, reason: '需要练习生中期(day5起)' };
+  return { stage: 0, label: '初识', unlocked: true, reason: '' };
+}
 export function setEmotion(em) {
   if (!GS.entSim || !GS.entSim.romance) return;
   if (ROMANCE_EMOTIONS.indexOf(em) >= 0) GS.entSim.romance.emotion = em;

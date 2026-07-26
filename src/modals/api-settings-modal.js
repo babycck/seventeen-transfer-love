@@ -511,7 +511,7 @@ export function showApiSettingsModal() {
 
   // === 打字机速度事件 ===
   overlay.querySelector('#settingsTypewriterSpeed').addEventListener('change', function() {
-    GS.typewriterSpeed = parseInt(this.value);
+    GS.typewriterSpeed = parseInt(this.value, 10);
     saveGame();
     if (GS.typewriterSpeed === 0) {
       window.stopTypewriter && window.stopTypewriter('narrativeBox');

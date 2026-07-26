@@ -566,3 +566,353 @@ src/
 | 1v1 横幅残留 | ✅ 已完成 | narrative-box.js, ui-renderer.js | 1v1 渲染守卫+初始化清零 |
 | Day1 情敌过于激进 | ✅ 已完成 | ui-renderer.js | 初始好感 randInt(10,25)→(10,19) 保证 stage<2 |
 
+---
+
+# 娱乐圈模拟器（entSim）— 明星志愿3式完整文档
+
+## 设计哲学
+
+- **本地游戏，AI 只代写主线剧情（省手）**，其余全部池子驱动
+- **池子决定"发生什么"，AI 只负责写 1000-1500 字沉浸式叙事**
+- 每个池子一个文件 → 好找好改，便于增删
+- **数据驱动调度**：条目自带 `require` 标签，`_utils.js` 统一 `filterByRequire` 过滤
+- 娱乐圈是恋爱背景板，出道必然发生
+
+### AI 叙事流程
+
+```
+代码提取阶段状态(traineePhase/chapter/affection/debutDay)
+        │
+        ↓  filterByRequire 过滤
+池子抽取（天气 + 心情 + 日程 + 事件 + 偶遇 + 氛围...）
+        │
+        ↓  拼接 AI prompt
+AI 收到：「你是练习生中期，今天下雨，心情疲惫，
+         日程是月末评价，偶遇了男主在走廊...
+         写 1000-1500 字剧情 + 2-3 个选项」
+        │
+        ↓  AI 输出 JSON
+代码解析 → 渲染界面 → 玩家选择 → 更新状态 → 下一回合
+```
+
+**代码负责所有"选什么"**（池子、门控、调度），**AI 只负责"怎么写"**（叙事、对话、选项文案）。
+
+### 数据驱动调度 (_utils.js)
+
+```js
+// 池子条目格式，自带 require 标签
+{ key: '月末评价', require: 'trainee', text: '...' }
+{ key: '打歌初放送', require: 'debut', text: '...' }
+{ key: '男主告白', require: 'aff>=60&&chapter>=2', text: '...' }
+
+// 统一过滤
+canTrigger(entry, E)  →  boolean
+filterByRequire(pool, E)  →  filtered array
+```
+
+支持的 require 条件：`'debut'`（已出道）、`'trainee'`（练习生）、`'traineePhase=N'`（子阶段）、`'aff>=N'`（好感度）、`'chapter>=N'`（章节）、`'romance>=N'`（恋爱阶段）。
+
+---
+
+## 事业阶段体系（9 状态）
+
+### 练习生 3 子阶段（人气=0，天数驱动）
+
+| 子阶段 | 图标 | 天数 | 人气 | 核心氛围 |
+|--------|------|------|------|---------|
+| 前期 | 🌱 | day 1-4 | 0 | 刚进公司、基础训练、迷茫 |
+| 中期 | 🌿 | day 5-10 | 0 | 适应节奏、月末评价、同期竞争 |
+| 后期 | 🌸 | day 11+ | 0 | 出道组筛选、出道曲排练、紧张期待 |
+
+**出道触发**：进入后期 → 累计 2-4 天触发"出道最终评价"事件 → debutDay 置位 → 人气 = startPopularity（默认 12）
+
+### 出道后 6 阶段（人气驱动，参考明星志愿3）
+
+| 阶段 | 图标 | 人气阈值 | 含义 |
+|------|------|---------|------|
+| 新人出道 | 🌱 | 0-14 | 刚出道，街上没人认识，台下零星应援 |
+| 崭露头角 | 🌿 | 15-34 | 第一批死忠粉，圈内有名字，打歌能进候补 |
+| 稳步上升 | 🌸 | 35-54 | 粉丝稳定增长，综艺商演不断，品牌关注 |
+| 人气偶像 | 🔥 | 55-74 | 热搜常客，代言不断，回归必拿一位 |
+| 顶流巨星 | 👑 | 75-89 | 国民级热度，一言一行上头条，巡演秒空 |
+| 传奇殿堂 | 🏆 | 90+ | 现象级存在，后辈仰望的传说 |
+
+**关键规则**：
+- 练习生期 `addPopularity` 直接 return 0（无公众曝光）
+- `checkChapterAdvance` 只处理出道后人气跨阈值切换
+- 出道由 `engine.js` → `_debutTriggerDay` 驱动，不走 `chapterByPopularity`
+
+### 好感-事业三层门控（仿明星志愿3）
+
+| 恋爱阶段 | 解锁条件 | 效果 |
+|---------|---------|------|
+| 初识 | 默认 | 通过哥哥认识，偶尔碰面 |
+| 暧昧 | 好感≥20 + 练习生中期起 | 私下交流，AI 可写小动作 |
+| 约会 | 好感≥50 + 出道 | 正式约会解锁，出道前仅"偶遇" |
+| 恋爱 | 好感≥70 + 崭露头角 | 告白/确认关系 |
+| 公开 | 好感≥85 + 人气偶像 | 被拍也不怕 |
+| 约会冷却 | 连约 2 次 → 强制冷却 3 天 | 仿明3"连续约会上限" |
+
+**关键文件**：`src/ent-sim/romance.js` → `checkRomanceUnlock()` 统一查询当前可解锁的恋爱阶段及未解锁原因。
+
+---
+
+## 模块文件索引
+
+```
+src/ent-sim/
+├── engine.js           — 核心引擎（goEntSimNextDay/出道触发/addPopularity守卫/约会冷却）
+├── state.js            — 状态管理（traineePhase/chapterByPopularity/checkChapterAdvance/addPopularity）
+├── cycle.js            — 日程调度（chapterPoolByIndex 6分支 + filterByRequire）
+├── data.js             — 静态数据（CHAPTERS 6阶段/ENT_SIM_CAREERS/成员/礼物等）
+├── prompts.js          — AI prompt 构建（含练习生阶段注入+禁止SEVENTEEN直播间约束）
+├── ui.js               — 娱乐模拟器 UI（状态栏/聊天/面板渲染）
+├── ui-renderer.js      — 1v1 界面渲染（含秘密池 _secPool）
+├── romance.js          — 好感-事业门控（checkRomanceUnlock/约会冷却/掩护机制）
+├── brother.js          — 哥哥线（事件/支线/考验）
+├── immersion.js        — 沉浸感（热搜/榜单/舆论）
+├── economy.js          — 经济（已废弃）
+├── pools/              — 池子系统（80 个文件，详情见下方完整表格）
+│   ├── _utils.js       — 工具函数（pickFromPool/canTrigger/filterByRequire）
+│   └── index.js        — 统一导出入口（~120 行）
+```
+
+---
+
+## 完整池子清单（80 个文件，20 大类）
+
+> 每个池子一个文件，文件名 = 小写连字符，导出常量 = 大写下划线。
+> 条数含模板/占位符，实际使用时 `filterByRequire` 进一步筛选。
+
+### 一、世界设定（6 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `company-names.js` | `COMPANY_NAMES` | 公司名池 | 韩国经纪公司名，含虚构与真实风格 | 20 |
+| `group-names.js` | `GROUP_NAMES` | 女团名池 | 虚拟女团英文名 + 粉丝名配对 | 60 |
+| `group-concepts.js` | `GROUP_CONCEPTS` | 团概念池 | K-pop 女团风格概念分类 | 40 |
+| `hit-songs.js` | `HIT_SONGS` | 出圈曲池 | 女团代表歌曲描述文本 | 80 |
+| `teammate-names.js` | `TEAMMATE_NAMES` | 队友名池 | 韩国女爱豆常见姓名 | 100 |
+| `sister-roles.js` | `SISTER_ROLES` | 姐姐角色池 | 女团队友角色定位模板（5 位按模板拼装） | 30 |
+
+### 二、SEVENTEEN 成员（16 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `svt-teammate-profiles.js` | `SVT_TEAMMATE_PROFILES` | 成员标签池 | 13 人完整数据（艺名/emoji/性格/出生年） | 13 |
+| `svt-teammate.js` | `SVT_TEAMMATE_EVENT_POOL` | 队友事件池 | 队友客串场景（27 种氛围） | 200 |
+| `teammate-flavor.js` | `TEAMMATE_FLAVOR` | 队友支线池 | 按 roleTag 触发不同互动 | 5 |
+| `members.js` | `MEMBER_SCOUPS` ~ `MEMBER_DINO` | 单成员行为池 | 13 人各自 pre-written 触发行为 | 各 2-3 |
+| （members.js 含 13 个独立 export，此处不逐一列出） |
+
+### 三、练习生三阶段（5 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `trainee-early.js` | `TRAINEE_EARLY_POOL` | 练习生前期日程池 | 基础声乐/舞蹈/礼仪/体测/第一天迷路/第一次月末评价 | 30 |
+| `trainee-mid.js` | `TRAINEE_MID_POOL` | 练习生中期日程池 | 编舞/和声/综艺感/镜头感/团队合作 | 30 |
+| `trainee-late.js` | `TRAINEE_LATE_POOL` | 练习生后期日程池 | 出道组筛选/出道曲排练/MV 概念会议/最终名单 | 30 |
+| `trainee-events.js` | `TRAINEE_EVENTS` | 练习生事件池 | 月末评价/被前辈夸/同期被刷/社内Showcase/出道触发（含 `require` 标签） | 50 |
+| `trainee-chat.js` | `TRAINEE_CHAT` | 练习生聊天池 | 哥哥鼓励 30 条 + 情敌暗自较劲 30 条 | 60 |
+
+### 四、章节日程（10 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `ent-schedules.js` | `COMMON_POOL` | 通用日程池 | 出道后通用，30% 概率抽取 | 50 |
+| `ent-schedules.js` | `RELATED_POOL` | 相关行程池 | 与男主/情敌/哥哥相关的特殊行程 | 50 |
+| `ent-schedules.js` | `TRAINEE_POOL` | 旧练习生日程池 | 保留作 fallback | 50 |
+| `ent-schedules.js` | `CHAPTER1_NOVICE` | 新人出道日程池 | 首次打歌/首签售/新人采访 | 50 |
+| `ent-schedules.js` | `CHAPTER2_SPROUTING` | 崭露头角日程池 🆕 | 小型打歌/电台/路演/首次专访 | 30 |
+| `ent-schedules.js` | `CHAPTER2_RISING` | 稳步上升日程池 | 回归/巡演/代言/综艺 | 50 |
+| `ent-schedules.js` | `CHAPTER3_PEAK` | 人气偶像日程池 | 大赏/世巡/顶级代言 | 50 |
+| `ent-schedules.js` | `CHAPTER5_TOPSTAR` | 顶流巨星日程池 🆕 | 世界巡演/Billboard/自传/纪录片 | 30 |
+| `ent-schedules.js` | `CHAPTER4_LEGEND` | 传奇殿堂日程池 | 致敬表演/终身成就 | 50 |
+| `ent-schedules.js` | `BOYGROUP_POOL` | 男团日程池 | 与男主/情敌/哥哥行程交叉点 | 50 |
+| `ent-schedule.js` | `ENT_SCHEDULE_POOL` | 偶像日程池 | 按职业分池：trainee/idol/actress/singer/model/backstage | 50 |
+
+### 五、聊天系统（含原有 + 练习生，共 8 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `chat-male-lead.js` | `CHAT_MALE_LEAD` | 男主聊天池 | 5 个频道含快捷回复选项 | ~300 |
+| `chat-male-lead.js` | `CHAT_BROTHER` | 哥哥聊天池 | 哥哥线纯文本消息 | 60 |
+| `chat-male-lead.js` | `CHAT_RIVAL` | 情敌聊天池 | 情敌线纯文本消息 | 60 |
+| `chat-male-lead.js` | `CHAT_MANAGER` | 经纪人聊天池 | 经纪人工作消息 | 60 |
+| `chat-male-lead.js` | `GROUP_CHAT` | 团群聊池 | 女团群聊日常（6 场景） | ~60 |
+| `chat-male-lead.js` | `CHAT_SASAENG` | 私生聊天池 | 私生骚扰消息 | 60 |
+| `trainee-chat.js` | `TRAINEE_CHAT` | 练习生聊天池 🆕 | 哥哥鼓励 30 + 情敌较劲 30 | 60 |
+
+### 六、男主/感情线（6 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `male-lead-init.js` | `MALE_LEAD_INITIATIVE_POOL` | 男主主动池 | 按好感 0→80 分档解锁主动互动 | 200 |
+| `male-contact.js` | `CONTACT_TYPE_POOL` | 男主联络池 | 电话/私信/哥哥转达，每条含 3 选项 | 60 |
+| `contact-progression.js` | `CONTACT_PROGRESSION` | 好感铺垫池 | 好感阈值 0→60 分档，D1-D9 每日触发 | 200 |
+| `jealousy-events.js` | `JEALOUSY_EVENTS_POOL` | 吃醋事件池 | 男主吃醋/前任吃醋/情敌视角 | 200 |
+| `dating-rumors.js` | `RUMOR_POOL` | 绯闻池 | 同款/私生照/Dispatch 爆料 | 200 |
+| `oneheart-events.js` | `ONEHEART_RANDOM_EVENTS` | 1v1 随机池 | 暧昧/日常/情感/戏剧/试探/告白前 | 200 |
+
+### 七、哥哥线（3 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `brother-events.js` | `BROTHER_EVENT_POOL` | 哥哥事件池 | 按支持度 -3 到 +3 触发 | 30 |
+| `brother-side-plots.js` | `BROTHER_SIDE_PLOTS` | 哥哥支线池 | 不影响主线的哥哥个人支线 | 3 |
+| `brother-tests.js` | `BROTHER_ADVANCE_TESTS` | 哥哥考验池 | 按好感 15/40/70 递进试探 | 3 |
+
+### 八、情敌/秘密（4 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `rival-advance-events.js` | `RIVAL_ADVANCE_EVENTS` | 情敌进攻池 | intimacy 驱动的主动事件 | 4 |
+| `secret-discovery-events.js` | `SECRET_DISCOVERY_EVENTS` | 秘密撞破池 | EXO 追星秘密被发现场景（纯 EXO 向） | 3 |
+| `industry-events.js` | `INDUSTRY_EVENTS` | 行业事件池 | 台前幕后通用行业事件 | 6 |
+| `special-events.js` | `SPECIAL_EVENTS` | 特殊事件池 | 行业/情敌/秘密混合 | 200 |
+
+### 九、事业/女团（4 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `career-setbacks.js` | `CAREER_SETBACKS` | 事业挫折池 | 8 phase 练习生→巅峰挫折 | 200 |
+| `girlgroup-events.js` | `GIRLGROUP_EVENTS` | 女团事件池 | 11 分类：回归/舞台/签售/宿舍/危机等 | 200 |
+| `incident-events.js` | `INCIDENT_EVENTS_POOL` | 突发事件池 | 12 类：惊喜/丑闻/生病/深夜/队友/外界/困境等 | 200 |
+| `daily-engagement.js` | `DAILY_ENGAGEMENT_POOL` | 每日营业池 | 6 类：SNS/Live/舞台/时尚/综艺/粉丝 | 200 |
+
+### 十、媒体/舆论（7 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `daily-buzz.js` | `DAILY_BUZZ` | 每日舆论池 | 热搜标题/粉丝讨论/媒体标题 | ~70 |
+| `daily-buzz-templates.js` | `DAILY_BUZZ_TEMPLATES` | 舆论模板池 | 3 类模板各 ~100 条 | ~300 |
+| `hot-search-replies.js` | `HOT_SEARCH_REPLY_POOL` | 热搜评论区池 | 热搜 + 粉丝评论 + 媒体口径三元组 | 200 |
+| `dispatch-news.js` | `DISPATCH_POOL` | 八卦新闻池 | Dispatch 偷拍/独家/分析 | 200 |
+| `external-hot.js` | `EXTERNAL_HOT` | 外部热搜池 | BTS/BLACKPINK 等外部话题 | ~90 |
+| `news-templates.js` | `NEWS_TEMPLATES` | 新闻模板池 | 含 {name}/{groupName} 占位符 | 50 |
+
+### 十一、作品/品牌/奖项（4 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `releases.js` | `RELEASE_POOL` | 作品发布池 | 单曲/写真/练习室/合作曲/OST | 200 |
+| `brand-offers.js` | `BRAND_OFFER_POOL` | 品牌代言池 | 10 品类：美妆/时尚/饮品/食品/数码等 | 200 |
+| `awards.js` | `AWARD_POOL` | 奖项池 | 4 类各 50：新人奖/本赏/大赏/特别奖 | 200 |
+| `music-charts.js` | `CHART_POOL` | 音源榜池 | 多平台 × 多变化类型 | 200 |
+
+### 十二、打歌/演唱会/签售/回归/杂志（5 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `music-show-pool.js` | `MUSIC_SHOW_POOL` | 打歌节目池 | 6 节目轮换：MCD/音银/人歌/音中等 | 200 |
+| `concert-pool.js` | `CONCERT_POOL` | 演唱会池 | 官宣→售票→彩排→现场全周期 | 200 |
+| `fansign-pool.js` | `FANSIGN_POOL` | 签售会池 | 入场/互动/发箍/手写信/视频签售 | 200 |
+| `comeback-cycle.js` | `COMEBACK_CYCLE_POOL` | 回归周期池 | 预告→概念照→MV→一位→末放 | 200 |
+| `magazine-shoots.js` | `MAGAZINE_POOL` | 杂志画报池 | W/Elle/Dazed/BAZAAR 等多杂志 | 200 |
+
+### 十三、综艺/粉丝/日记（3 个）
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `variety-shows.js` | `VARIETY_SHOW_POOL` | 综艺节目池 | 5 种：谈话/游戏/音乐/真人秀/观察 | 200 |
+| `fan-letters.js` | `FAN_LETTER_POOL` | 粉丝来信池 | support 类含占位符 | 60 |
+| `diary-templates.js` | `DIARY_TEMPLATES` | 日记模板池 | daily/stage/practice/emotion/dream 框架 | 30 |
+
+### 十四、日历+通告（2 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `calendar-events.js` | `CALENDAR_EVENTS` | 日历节日池 | 情人节/圣诞/出道纪念日/男主生日 | 30 |
+| `job-offers.js` | `JOB_OFFER_POOL` | 通告选择池 | 试镜/CF/综艺/OST/杂志/MC（含需求标签） | 40 |
+
+### 十五、恋爱场景（6 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `romance-backstage.js` | `ROMANCE_BACKSTAGE` | 后台相遇池 | 待机室/走廊/彩排偶遇男主（含 require 标签） | 20 |
+| `romance-latenight.js` | `ROMANCE_LATENIGHT` | 深夜联系池 | 凌晨消息/失眠通话/醉酒发来/他说在楼下 | 15 |
+| `romance-public.js` | `ROMANCE_PUBLIC` | 公共克制池 | 综艺克制/颁奖礼眼神/签售会碰面 | 20 |
+| `romance-crisis.js` | `ROMANCE_CRISIS` | 危机支撑池 | 被黑/事故/生病时的互相守护 | 15 |
+| `romance-jealousy.js` | `ROMANCE_JEALOUSY_POOL` | 吃醋触发池 | 男方吃醋/女方吃醋触发场景 | 20 |
+| `romance-confession.js` | `ROMANCE_CONFESSION` | 告白节点池 | 差点告白/正式告白/和好契机 | 20 |
+
+### 十六、地下恋专属（4 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `secret-comms.js` | `SECRET_COMMS` | 秘密通讯池 | 暗号/小号/托人传话/歌词暗语 | 15 |
+| `secret-nearmiss.js` | `SECRET_NEARMISS` | 差点暴露池 | 狗仔蹲点/私生跟踪/粉丝巧合撞见 | 15 |
+| `secret-fan-clues.js` | `SECRET_FAN_CLUES` | 粉丝线索池 | 同款被扒/定位重叠/聊天截图泄漏 | 10 |
+| `secret-company-warning.js` | `SECRET_COMPANY` | 公司警告池 | 经纪人暗示/社长谈话/合约提醒 | 10 |
+
+### 十七、氛围情绪（3 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `atmosphere-weather.js` | `ATMOSPHERE_WEATHER` | 天气氛围池 | 初雪/暴雨/台风/樱花季/凌晨/黎明 | 15 |
+| `atmosphere-mood.js` | `ATMOSPHERE_MOOD` | 女主心情池 | 疲惫/兴奋/孤独/幸福/不安 | 10 |
+| `atmosphere-his-state.js` | `ATMOSPHERE_HIS_STATE` | 男主状态池 | 今天他的状态——拿一位/被黑/想你 | 10 |
+
+### 十八、里程碑高光（3 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `milestone-debut.js` | `MILESTONE_DEBUT` | 出道日场景池 | 出道舞台/初放送/后台紧张/哥哥消息 | 10 |
+| `milestone-first-win.js` | `MILESTONE_FIRST_WIN` | 一位场景池 | 第一次拿一位/安可/获奖感言/他发来祝贺 | 10 |
+| `milestone-awards.js` | `MILESTONE_AWARDS` | 颁奖场景池 | 红毯碰面/提名/落选/获奖感言/后台相遇 | 20 |
+
+### 十九、偶遇场景（4 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `encounter-ml.js` | `ENCOUNTER_ML` | 偶遇男主池 | 他找借口/碰巧同一地点/他来探班 | 20 |
+| `encounter-rival.js` | `ENCOUNTER_RIVAL` | 偶遇情敌池 | 三人同框/修罗场/暗中比较 | 15 |
+| `encounter-brother.js` | `ENCOUNTER_BROTHER` | 哥哥撞见池 | 撞破你们的秘密互动 | 15 |
+| `encounter-others.js` | `ENCOUNTER_OTHERS` | 旁人起哄池 | 队友/工作人员/前辈起哄 | 10 |
+
+### 二十、剧情节奏（5 个）🆕
+
+| 文件名 | 导出常量 | 中文名 | 用途 | 条数 |
+|--------|---------|--------|------|------|
+| `drama-almost.js` | `DRAMA_ALMOST` | 差点告白池 | 话到嘴边被打断/电话断了/有人推门 | 15 |
+| `drama-misunderstand.js` | `DRAMA_MISUNDERSTAND` | 误会池 | 误会男主 vs 情敌/被成员误会/你误会他 | 20 |
+| `drama-coldwar.js` | `DRAMA_COLDWAR` | 冷战和解池 | 冷战原因→状态→和解契机 | 20 |
+| `drama-dating-rumor.js` | `DRAMA_DATING_RUMOR` | 绯闻危机池 | 被传绯闻/公司声明/粉丝反应两极 | 15 |
+| `drama-dilemma.js` | `DRAMA_DILEMMA` | 二选一困境池 | 事业 vs 爱情抉择场景 | 15 |
+
+### 工具文件（2 个）
+
+| 文件名 | 作用 |
+|--------|------|
+| `_utils.js` | `pickFromPool` / `canTrigger` / `filterByRequire` / `pickFanReactions` / `pickFromPoolRotate` |
+| `index.js` | 统一导出入口（~120 行，按 20 类分组） |
+
+---
+
+## 统计数据
+
+| 分类 | 文件数 | 主要条数 |
+|------|--------|---------|
+| 一、世界设定 | 6 | 约 330 条 |
+| 二、SEVENTEEN 成员 | 16 | 约 260 条 |
+| 三、练习生三阶段 | 5 | 约 200 条 |
+| 四、章节日程 | 10 | 约 410 条 |
+| 五、聊天系统 | 8 | 约 660 条 |
+| 六、男主/感情线 | 6 | 约 1060 条 |
+| 七、哥哥线 | 3 | 约 36 条 |
+| 八、情敌/秘密 | 4 | 约 213 条 |
+| 九、事业/女团 | 4 | 约 800 条 |
+| 十、媒体/舆论 | 7 | 约 960 条 |
+| 十一、作品/品牌/奖项 | 4 | 约 600 条 |
+| 十二、打歌/演唱会/签售/回归/杂志 | 5 | 约 1000 条 |
+| 十三、综艺/粉丝/日记 | 3 | 约 290 条 |
+| 十四、日历+通告 | 2 | 约 70 条 |
+| 十五、恋爱场景 | 6 | 约 110 条 |
+| 十六、地下恋专属 | 4 | 约 50 条 |
+| 十七、氛围情绪 | 3 | 约 35 条 |
+| 十八、里程碑高光 | 3 | 约 40 条 |
+| 十九、偶遇场景 | 4 | 约 60 条 |
+| 二十、剧情节奏 | 5 | 约 85 条 |
+| 工具 | 2 | — |
+| **合计** | **80 池子 + 2 工具 = 82 文件** | **约 7200+ 条素材** |
+

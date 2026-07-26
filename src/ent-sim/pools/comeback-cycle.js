@@ -42,5 +42,50 @@ export var COMEBACK_CYCLE_POOL = [].concat([
   {stage:'viral_moment',t:'你某一场ending做了一个与平时不同的手势。粉丝发现那是你练习生时期常做的。有人在评论区:"她在跟练习生时的自己说——我做到了。"',pop:2,fanReactions:['不同手势','练习生的自己','被挖出细节','我做到了','考古泪目']},
   {stage:'artist_card',t:'线上签售——你抽到自己的小卡。举着它对着镜头尖叫。然后把那张卡给了镜头另一边第一个签售粉丝。"给你。我第一次抽到自己——现在到你抽到。"',pop:1,fanReactions:['线上签售','抽到自己卡','送粉丝了','第一次抽到','好真诚']},
   {stage:'last_stage',t:'末放——在ending镜头里你比了一个只有粉丝看得懂的手势。不是编舞要求的。是你们之间的暗号。',pop:1,fanReactions:['末放手势','粉丝暗号','不是编舞','只有你们懂','双向暗号']},
-  {stage:'farewell_video',t:'末放后你录了一段告别视频——没有化妆，素颜。你说:"这次回归——谢谢你们让我站在这里。下次也是这里——我们。"画面最后是你关掉镜头的瞬间——眼睛里有光在闪。',pop:1,fanReactions:['告别素颜','下次也是这里','眼里有光','不是眼泪','是光']}
+  {stage:'farewell_video',t:'末放后你录了一段告别视频——没有化妆，素颜。你说:"这次回归——谢谢你们让我站在这里。下次也是这里——我们。"画面最后是你关掉镜头的瞬间——眼睛里有光在闪。',pop:1,fanReactions:['告别素颜','下次也是这里','眼里有光','不是眼泪','是光']},
+  {stage:'jacket_photo',t:'专辑封面照公开——你站在一面满是裂纹的玻璃前。裂纹刚好穿过你的脸——但不是碎掉的感觉。是光从裂缝里透出来。',pop:1,fanReactions:['裂纹玻璃','光从裂缝出来','不是碎是透光','好美的隐喻','封面太绝了']},
+  {stage:'light_stick',t:'新版应援棒概念图公开——是你参与设计的。顶部有一颗六角星——代表六个人。你画的第一版草图——笔迹还歪的。公司把它印在了限定的首批包装上。',pop:1,fanReactions:['设计应援棒','六角星','第一版草图印包装','笔迹歪的','好用心']},
+  {stage:'credits_reveal',t:'专辑credits公开——你参与了4首作词、2首作曲、1首编曲。制作人说:"这次没让她参与更多——不是不想——是她已经在做下一张了。"',pop:2,fanReactions:['自作曲占比','已经是下一张了','作词作曲编曲','全能偶像','最强出品']},
+  {stage:'fanchant',t:'Fanchant官方示范——你录了。录的时候因为太用力磕到了下巴。把NG的版本也放出去了。粉丝说:"不NG反而更好笑——这才是真正的她。"',pop:0,fanReactions:['Fanchant示范','磕到下巴','NG版也放了','最好笑的版本','太可爱了']},
+  {stage:'relay_dance',t:'接力舞蹈——你们在练习室从头跳到尾。你忘了动作——在镜头前愣了半秒——然后自己跳了一串完全不相关的舞。队友笑到蹲下。那段被单独剪出来——播放量比正式接力高。',pop:1,fanReactions:['接力舞蹈','忘动作后瞎跳','队友笑蹲下','自己的舞','播放超正式']},
+  {stage:'first_week',t:'回归首周销量统计出来——破了你们出道以来最高纪录。你在待机室里看了那个数字许久。然后把手机翻过去扣在桌上。不是不看——是够了。你要的不是数字。是数字背后的每一次播放。',pop:2,fanReactions:['首周销售','新纪录','翻过手机','不是数字不够','要的是背后的人']},
+  {stage:'music_core',t:'音中回归——今天的妆容有一只眼尾画了一小片金色的贴纸。不是品牌——是你自己剪的。三片碎金——掉了一片在锁骨。站哥放大图:"锁骨上的金——不是掉——是去另一个地方发光。"',pop:1,fanReactions:['音中回归','自己剪的贴纸','金片锁骨','去别处发光','细节满分']},
+  {stage:'midnight_release',t:'凌晨音源上线——你一个人在宿舍刷新页面。不是等排名——是等第一条粉丝评论。然后你睡了——不是不期待。是明天要早起。接下来的事——交给歌。',pop:0,fanReactions:['凌晨上线','等第一条评论','然后睡了','交给歌','最好的心态']},
+  {stage:'dance_practice',t:'练习室版公开——你穿着旧T恤。领口洗到松了。但那个视频——比正式MV多两百万播放。因为你跳舞的时候笑了。在练习室的灯下——笑得和舞台不一样。',pop:2,fanReactions:['练习室版','旧T恤','比MV播放多','和舞台不一样','真实最美']},
+  {stage:'radio_teaser',t:'你上了深夜电台——用吉他弹了一段未公开的小样。全程没有说话。弹完之后DJ说:"我不用问你这是什么——因为它会出现在专辑里对吗。"你点了点头。',pop:1,fanReactions:['深夜电台','吉他小样','没说话','会出现在专辑','好期待']},
+  {stage:'album_unboxing',t:'你录了专辑开箱——自己的专辑。你打开时没有激动——但翻到内页某一页停住了。是练习生时期写的第一句歌词。公司把它印在了最不起眼的位置。但被你找到了。',pop:0,fanReactions:['自己开箱','停在内页','练习生歌词','被你找到了','最不起眼但最珍贵']},
+  {stage:'staff_gift',t:'回归前你给每一位工作人员准备了小礼物——每个人的都不一样。编舞老师收到了护膝。造型师收到了眼罩。经纪人收到了一张手写兑换券:"我答应你——回归结束后休一天假——真的。"',pop:0,fanReactions:['给工作人员礼物','每个人的都不一样','经纪人收到假条','真的休一天','最暖的回归仪式']},
+  {stage:'first_weekend',t:'回归首个周末——音中+人歌连续两天打歌。你在人歌后台靠在墙上——说了一句话给最小的队友:"这两天——我们做了所有能做的。剩下的——不勉强了。"她:"这两天也是我们最好的周末。"',pop:1,fanReactions:['第一个周末','两天打歌','不勉强了','我们最好的周末','知足也努力']},
+  {stage:'encore_stage_promise',t:'安可舞台上——你对着镜头说:"下一张——也在这里见。"不是计划好的。是你看着他们的眼睛突然想说的。然后你回头对队友说:"我替我们全答应了。"队友在后台:"你又自作主张!""但你们想答应——对吧。""……是。"',pop:1,fanReactions:['下一张也在这见','突然说的','替全团答应','你们也想答应','最好的队长时刻']},
+  {stage:'popup_store',t:'回归Pop-Up Store开业——你在第一天偷偷去了。戴着帽子口罩混在粉丝里。你看到有人在翻你写的歌词本——一页页翻。你站在旁边——想说你旁边站的是写那页的人。但你没说。你走了——买了一本自己的歌词本。',pop:1,fanReactions:['Pop-Up Store','混进粉丝','看人翻歌词本','没暴露','买了一本自己的','最有趣的秘密行动']},
+  {stage:'collab_teaser',t:'合作曲预告——你和某位前辈的声音叠在一起。粉丝猜了三天——没猜到。公布时——是你们从来没有合作过的人。歌名只有一个字。你说:"这个字——是我的第一首歌的第一个字。"',pop:2,fanReactions:['合作曲预告','猜了三天没猜到','从未合作过的','第一首歌第一个字','好有意境']},
+  {stage:'media_showcase',t:'媒体Showcase——你被问到"上一张专辑和这张最大的不同。"你说:"上一张是和别人比较。这一张——是和上一次的自己比。""赢了没。""还没——但近了。"',pop:1,fanReactions:['媒体Showcase','不和别人比','和上一次的自己比','还没但近了','最真实的答案']},
+  {stage:'fan_sign_event',t:'回归线下签售——你第一次看到粉丝手里拿的已经不止是这张专辑。有前一张、有再前一张、有机场照、有演唱会门票存根。你自己从台上俯身看了一眼那堆东西——像看一部属于你和她的编年史。',pop:1,fanReactions:['线下签售','手里不止一张专辑','门票存根','你们的编年史','最好的累积']},
+  {stage:'goodbye_stage_letter',t:'末放结束——你在后台待机室的镜子上写了一句话。用的不是口红——是你随身带的白板笔。写完之后用纸巾擦了。但你走后——下一组进来的艺人有一个人看到了没擦干净的字迹。只认出了三个字:下次。',pop:0,fanReactions:['后台镜子写字','下次','用白板笔','被下一个艺人看到','只认出下次','最好的暗号']}
 ]);
+
+// P4 #5: 回归周期状态机
+export function initComebackCycle(E) {
+  if (!E._cbCycle) E._cbCycle = { phase:'idle', week:0, startDay:0, title:'' };
+}
+export function tickComebackCycle(E) {
+  if (!E._cbCycle) { initComebackCycle(E); return null; }
+  var cb = E._cbCycle;
+  var day = E.cycle._gameDayCount || E.cycle.dayCount || 1;
+  // 每50-80天自动触发一次回归
+  if (cb.phase === 'idle') {
+    if (day - (E._lastComebackDay || 0) > (50 + Math.floor(Math.random() * 30)) && E.career.debutDay > 0) {
+      cb.phase = 'teaser'; cb.startDay = day; cb.week = 0; cb.title = '';
+      E._lastComebackDay = day;
+      return { phase:'teaser', label:'🎵 回归预告' };
+    }
+    return null;
+  }
+  var elapsed = day - cb.startDay;
+  if (elapsed >= 3 && cb.phase === 'teaser') { cb.phase = 'release'; return { phase:'release', label:'🎵 音源公开日' }; }
+  if (elapsed >= 7 && cb.phase === 'release') { cb.phase = 'musicShow1'; cb.week = 1; return { phase:'musicShow1', label:'🎵 打歌第一周·M Countdown' }; }
+  if (elapsed >= 14 && cb.phase === 'musicShow1') { cb.phase = 'musicShow2'; cb.week = 2; return { phase:'musicShow2', label:'🎵 打歌第二周·音乐银行' }; }
+  if (elapsed >= 21 && cb.phase === 'musicShow2') { cb.phase = 'musicShow3'; cb.week = 3; return { phase:'musicShow3', label:'🎵 打歌第三周·人气歌谣' }; }
+  if (elapsed >= 28) { cb.phase = 'idle'; cb.startDay = 0; return { phase:'finish', label:'🎵 末放舞台·告别舞台' }; }
+  return null;
+}

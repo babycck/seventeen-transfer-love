@@ -4,11 +4,28 @@
 // buildEntSimUserMessage：玩家动作 + 当前状态快照（含记忆注入）
 // ============================================================
 import { GS } from '../state.js';
+import { formatGameDate, formatTraineeDate, birthdayInfo, todayHoliday, gameSeasonOf } from './state.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
 import { buildMemorySnapshot } from './memory.js';
+import { getScandalHeat } from './public-opinion.js';
 // npc-network 已移除，情敌名改用 rival 字段
+// ── 场景灵感池子（26个，为AI提供素材参考） ──
+import { ROMANCE_BACKSTAGE, ROMANCE_LATENIGHT, ROMANCE_PUBLIC, ROMANCE_CRISIS, ROMANCE_JEALOUSY_POOL, ROMANCE_CONFESSION } from './pools/index.js';
+import { SECRET_COMMS, SECRET_NEARMISS, SECRET_FAN_CLUES, SECRET_COMPANY } from './pools/index.js';
+import { ATMOSPHERE_WEATHER, ATMOSPHERE_MOOD, ATMOSPHERE_HIS_STATE } from './pools/index.js';
+import { MILESTONE_DEBUT, MILESTONE_FIRST_WIN, MILESTONE_AWARDS } from './pools/index.js';
+import { ENCOUNTER_ML, ENCOUNTER_RIVAL, ENCOUNTER_BROTHER, ENCOUNTER_OTHERS } from './pools/index.js';
+import { DRAMA_ALMOST, DRAMA_MISUNDERSTAND, DRAMA_COLDWAR, DRAMA_DATING_RUMOR, DRAMA_DILEMMA } from './pools/index.js';
+import { CALENDAR_EVENTS } from './pools/index.js';
+import { canTrigger } from './pools/_utils.js';
+
+// ── commit-only 去重：已注入过的场景文本不再重复使用 ──
+var _inspUsedTexts = new Set();
+window.__resetInspUsedTexts = function() {
+  _inspUsedTexts = new Set();
+};
 
 export function buildEntSimSystemPrompt(mode) {
   var hp = GS.heroineProfile || {};
@@ -22,7 +39,7 @@ export function buildEntSimSystemPrompt(mode) {
   var isDebut = E.career && E.career.debutDay > 0;
   var chapterIdx = (E.chapter && E.chapter.index) || 1;
   var careerLabel = isDebut ? '女团爱豆' : '练习生';
-  var careerDaily = isDebut ? (E.chapter ? E.chapter.name : '新人期') : '练习生期';
+  var careerDaily = isDebut ? (E.chapter ? E.chapter.name : '') : '练习生';
   var careerDesc = isDebut
     ? '已出道的女团成员（' + careerDaily + '），有固定团名/队友/粉丝基础，日程以打歌/签售/综艺/练习为主，事业压力来自回归成绩/人气/竞争。'
     : '未出道的练习生，没有团名没有粉丝没有舞台，日常全部是训练（声乐课/舞蹈测评/月评/体测/外语课等），事业压力来自月末评价/出道组筛选/淘汰焦虑。';
@@ -93,7 +110,7 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '【吃醋状态·🤔微醋】男主微微吃醋但克制表现：多看了你一眼竞争对手、说话带一点试探。\n';
   }
   sys += '【场景连续性·强制】剧情必须发生在"今日日程"设定的场景内（如主档是「打歌期」，剧情就写在待机室/后台；主档是「合宿」，剧情就在宿舍；主档是「签售会」，就在签售现场）。不要突然跳到无关新地点，场景转换须通过选项或时间推进自然过渡。每次生成都会下发【本场场景·强制锁定】指令，必须严格遵守。\n';
-  sys += '【时段写作指引】上午偏练习/工作、下午偏社交/营业/互动、夜晚偏私密/独处/约会，由当前时段标签决定氛围。\n';
+  sys += '【时段写作指引】上午偏练习/工作、下午偏社交/营业/互动、夜晚偏私密/独处/约会，由当前时段标签决定氛围。深夜约会/独处需女主好感≥40或已进入明确期，低于此门槛时夜间剧情聚焦练习/独处/和队友日常。\n';
   // SEVENTEEN 13 人年龄辈分对照表（birthYear 越小=越年长）
   var yearMap = {};
   for (var mi = 0; mi < MEMBERS.length; mi++) {
@@ -181,12 +198,19 @@ export function buildEntSimUserMessage(type, extra) {
 
   // 【职业阶段上下文】告诉AI当前是什么阶段，应该写什么场景的剧情
   var isDebutUser = E.career && E.career.debutDay > 0;
-  var chapterNameUser = (E.chapter && E.chapter.name) || '新人期';
+  var chapterNameUser = isDebutUser ? ((E.chapter && E.chapter.name) || '') : '';
   if (!isDebutUser) {
     msg += '\n【当前阶段·练习生】女主是未出道的练习生，没有团名/没有粉丝/没有舞台。日常＝训练（声乐课/舞蹈测评/月评/体测/出道组筛选等），地点＝练习室/声乐教室/评价室/公司走廊。请生成练习生视角的剧情，不要出现打歌/回归/签售/粉丝等出道后才有的概念。\n';
+    msg += '【今日日期】' + formatTraineeDate(E.cycle.dayCount || 1) + '，季节：' + gameSeasonOf(E.cycle.dayCount || 1) + '\n';
   } else {
     msg += '\n【当前阶段·' + chapterNameUser + '】女主是已出道的女团成员，有团名/队友/粉丝基础。请生成对应阶段的女团爱豆日常剧情。\n';
+    msg += '【今日日期】' + formatGameDate(E.cycle.dayCount || 1) + '，季节：' + gameSeasonOf(E.cycle.dayCount || 1) + '\n';
   }
+  // 生日/节日提示
+  var bday = birthdayInfo(E.cycle.dayCount || 1, E);
+  if (bday) { msg += '【特别日子】' + bday.label + '！请围绕此事展开剧情，必须写到 ' + bday.name + ' 的生日相关场景。\n'; }
+  var holiday = todayHoliday(E.cycle.dayCount || 1);
+  if (holiday) { msg += '【节日】今天是' + holiday + '。请自然融入节日氛围到剧情中。\n'; }
 
   // 同天上下文：注入最近剧情摘要，限制 1200 字避免 AI 镜像循环
   if (!extra.nextDayOpening && GS._entSimCurrent && GS._entSimCurrent.narrative) {
@@ -273,13 +297,116 @@ export function buildEntSimUserMessage(type, extra) {
   return msg;
 }
 
+// ── 场景灵感注入：从34个池子中按当前状态筛选2-3条最相关的场景素材，
+// 注入到AI的用户消息中作为创作灵感，让AI写剧情时有具体场景可参考。
+function injectPoolInspirations(E) {
+  if (!E) return '';
+  // 收集所有候选池子+权重
+  var candidates = [];
+
+  // ── 恋爱场景池（按好感阶段活跃） ──
+  var aff = E.affection || 0;
+  if (aff >= 20) addPoolCandidates(candidates, ROMANCE_BACKSTAGE, E, 2, '后台相遇');
+  // 深夜场景需好感>=40 或明确期（与原始设计一致：深夜档更高门槛）
+  if (aff >= 40 || (GS.oneHeartRomanceStage || 0) >= 2) addPoolCandidates(candidates, ROMANCE_LATENIGHT, E, 2, '深夜联系');
+  if (aff >= 20) addPoolCandidates(candidates, ROMANCE_PUBLIC, E, 2, '公共克制');
+  if (aff >= 40) addPoolCandidates(candidates, ROMANCE_CRISIS, E, 2, '危机守护');
+  if (aff >= 30) addPoolCandidates(candidates, ROMANCE_JEALOUSY_POOL, E, 1, '吃醋触发');
+  if (aff >= 60) addPoolCandidates(candidates, ROMANCE_CONFESSION, E, 1, '告白节点');
+
+  // ── 地下恋专属池（好感≥30且恋情曝光≥升温(10)后活跃） ──
+  if (aff >= 30 && getScandalHeat() >= 10) {
+    addPoolCandidates(candidates, SECRET_COMMS, E, 1, '秘密通讯');
+    addPoolCandidates(candidates, SECRET_NEARMISS, E, 1, '差点暴露');
+    addPoolCandidates(candidates, SECRET_FAN_CLUES, E, 1, '粉丝线索');
+    addPoolCandidates(candidates, SECRET_COMPANY, E, 1, '公司警告');
+  }
+
+  // ── 氛围池（每天1条） ──
+  addPoolCandidates(candidates, ATMOSPHERE_WEATHER, E, 1, '天气氛围');
+  addPoolCandidates(candidates, ATMOSPHERE_MOOD, E, 1, '心情基调');
+  addPoolCandidates(candidates, ATMOSPHERE_HIS_STATE, E, 1, '男主今日状态');
+
+  // ── 偶遇池（按好感阶段） ──
+  if (aff >= 20) addPoolCandidates(candidates, ENCOUNTER_ML, E, 2, '偶遇男主');
+  if (aff >= 20) addPoolCandidates(candidates, ENCOUNTER_RIVAL, E, 1, '偶遇情敌');
+  if (aff >= 20) addPoolCandidates(candidates, ENCOUNTER_BROTHER, E, 1, '哥哥撞见');
+  if (aff >= 30) addPoolCandidates(candidates, ENCOUNTER_OTHERS, E, 1, '旁人起哄');
+
+  // ── 剧情节奏池（按好感/阶段） ──
+  if (aff >= 50) addPoolCandidates(candidates, DRAMA_ALMOST, E, 1, '差点告白');
+  if (aff >= 30) addPoolCandidates(candidates, DRAMA_MISUNDERSTAND, E, 1, '误会');
+  if (aff >= 40) addPoolCandidates(candidates, DRAMA_COLDWAR, E, 1, '冷战和解');
+  if (aff >= 40) addPoolCandidates(candidates, DRAMA_DATING_RUMOR, E, 1, '绯闻危机');
+  if (aff >= 50) addPoolCandidates(candidates, DRAMA_DILEMMA, E, 1, '二选一困境');
+
+  // ── 里程碑池（按章节/出道状态） ──
+  var isDebut = E.career && E.career.debutDay > 0;
+  if (isDebut) {
+    if (!E.chapter || E.chapter.index <= 1) addPoolCandidates(candidates, MILESTONE_DEBUT, E, 1, '出道日场景');
+    addPoolCandidates(candidates, MILESTONE_AWARDS, E, 1, '颁奖场景');
+    if (E.chapter && E.chapter.index >= 2) addPoolCandidates(candidates, MILESTONE_FIRST_WIN, E, 1, '一位场景');
+  }
+
+  // ── 日历节日池（按今天的日期/生日） ──
+  addPoolCandidates(candidates, CALENDAR_EVENTS, E, 1, '今日节日/生日');
+
+  // 从候选中随机抽取2-4条
+  if (!candidates.length) return '';
+  var picked = [];
+  var tmp = candidates.slice();
+  var max = Math.min(4, tmp.length);
+  for (var i = 0; i < max && tmp.length; i++) {
+    var idx = Math.floor(Math.random() * tmp.length);
+    picked.push(tmp.splice(idx, 1)[0]);
+  }
+
+  if (!picked.length) return '';
+
+  // commit-only：标记已注入，防止跨回合重复使用
+  for (var pi = 0; pi < picked.length; pi++) {
+    _inspUsedTexts.add(picked[pi].text);
+  }
+
+  var out = '\n【场景灵感·素材提示】以下是可以自然融入本回合剧情的场景素材（不要照搬原文，用作灵感和方向指引，自然化用）：\n';
+  for (var pi = 0; pi < picked.length; pi++) {
+    out += '- [' + picked[pi].cat + '] ' + picked[pi].text + '\n';
+  }
+  return out;
+}
+
+// 从池子中筛出满足require条件的条目，跳过已用文本，打上类别标签后加入候选列表
+function addPoolCandidates(arr, pool, E, count, catLabel) {
+  if (!pool || !pool.length) return;
+  // 第一步：require条件过滤
+  var filtered = [];
+  for (var i = 0; i < pool.length; i++) {
+    if (canTrigger(pool[i], E)) filtered.push(pool[i]);
+  }
+  if (!filtered.length) filtered = pool; // canTrigger兜底：全池都可用
+  // 第二步：commit-only去重，跳过已注入过的条目
+  var unused = [];
+  for (var j = 0; j < filtered.length; j++) {
+    if (!_inspUsedTexts.has(filtered[j].text)) unused.push(filtered[j]);
+  }
+  if (!unused.length) return; // 该池全部用完，静默退出
+  // 第三步：随机抽取 count 条
+  var n = Math.min(count, unused.length);
+  var tmp = unused.slice();
+  for (var k = 0; k < n && tmp.length; k++) {
+    var idx = Math.floor(Math.random() * tmp.length);
+    var entry = tmp.splice(idx, 1)[0];
+    arr.push({ cat: catLabel, text: entry.text });
+  }
+}
+
 function buildEntSimContextSnapshot() {
   var E = GS.entSim;
   var s = '';
   s += '当前时段：' + getTimeOfDayLabel() + '（第' + (E.cycle.dayCount || 1) + '天，第' + (E.cycle.roundTotal || 0) + '回合）\n';
   s += '恋爱阶段：' + getRomanceStageIcon() + getRomanceStageLabel() + '（好感度 ' + E.affection + '/100）\n';
   s += '男主情绪：' + E.romance.emotion + '｜已告白：' + (E.romance.confessionDone ? '是(' + E.romance.confessionResult + ')' : '否') + '\n';
-  s += '曝光值：' + (E.misc.exposureAccum || 0) + '（越高越危险）\n';
+  s += '恋情曝光风险：' + getScandalHeat() + '/25+（越高越危险，驱Dispatch/绯闻/塌房）\n';
   var suitorNm = (E.npcNetwork && E.npcNetwork.nodes['npc_suitor']) ? E.npcNetwork.nodes['npc_suitor'].name : '';
   s += '今日日程：主档「' + E.agenda.main + (E.agenda.mainLoc ? '(' + E.agenda.mainLoc + ')' : '') + '」／相关「' + E.agenda.related + '」／' + (suitorNm || '') + '「' + E.agenda.rival + '」' + (E.agenda.brother ? '／哥哥「' + E.agenda.brother + (E.agenda.brotherLoc ? '(' + E.agenda.brotherLoc + ')' : '') + '」' : '') + (E.agenda.maleLead ? '／男主「' + E.agenda.maleLead + (E.agenda.maleLeadLoc ? '(' + E.agenda.maleLeadLoc + ')' : '') + '」' : '') + '\n';
   if (E.brother) s += '哥哥「' + E.brother.name + '」立场：' + E.brother.stance + '｜支持度：' + E.brother.support + '\n';
@@ -298,6 +425,9 @@ function buildEntSimContextSnapshot() {
   // 记忆注入（近 7 天关键词 + 全部关键事件）
   var mem = buildMemorySnapshot();
   if (mem) s += '\n' + mem + '\n';
+  // 场景灵感注入（从34个池子筛选2-4条素材）
+  var insp = injectPoolInspirations(E);
+  if (insp) s += insp;
   return s;
 }
 

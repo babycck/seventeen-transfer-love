@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>娱乐圈模拟器 — UI统一设计预览 v2</title>
+<style>
+/* ===== CSS 变量体系（完全对应 style.css:2278-2291） ===== */
+:root {
+  --es-bg: #1A1626;
+  --es-bg2: #221c33;
+  --es-card: rgba(255,255,255,0.06);
+  --es-card-border: rgba(255,255,255,0.12);
+  --es-primary: #7C6FF0;
+  --es-primary2: #9D8BFF;
+  --es-text: #F2EEFF;
+  --es-text2: rgba(242,238,255,0.75);
+  --es-text-dim: rgba(242,238,255,0.6);
+  --es-green: #5BD6A0;
+  --es-red: #FF8A8A;
+  --es-yellow: #FFD479;
+  --es-soft: rgba(255,255,255,0.05);
+  --es-soft-hover: rgba(124,111,240,0.18);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: radial-gradient(1200px 600px at 20% -10%, #2a2150 0%, var(--es-bg) 55%) fixed;
+  color: var(--es-text);
+  font-family: PingFang-SC, 'Microsoft YaHei', sans-serif;
+  font-size: 12px;
+  min-height: 100vh;
+  padding: 20px;
+}
+/* ===== 布局（完全对应三栏 es-grid） ===== */
+.page { max-width: 1300px; margin: 0 auto; }
+.page h1 { text-align: center; font-size: 20px; margin-bottom: 4px; color: var(--es-text); }
+.page h1 span { font-size: 12px; color: var(--es-text-dim); font-weight: 400; }
+.page > p { text-align: center; color: var(--es-text-dim); margin-bottom: 20px; font-size: 11px; }
+.es-grid {
+  display: grid;
+  grid-template-columns: 270px 1fr 270px;
+  gap: 12px;
+}
+
+/* ===== 面板（对应 .es-panel） ===== */
+.es-panel {
+  background: var(--es-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--es-card-border);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+/* ===== 列标题（对应 .es-col-title） ===== */
+.es-col-title {
+  font-size: 11px;
+  color: var(--es-text-dim);
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* ===== 行（对应 .es-row） ===== */
+.es-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: var(--es-text-dim);
+  font-size: 12px;
+}
+.es-row b { color: var(--es-text); font-size: 13px; }
+
+/* ===== 按钮（对应 .es-btn / .es-rom-btn） ===== */
+.es-btn, .es-rom-btn {
+  display: block; width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--es-card-border);
+  border-radius: 10px;
+  background: var(--es-soft);
+  color: var(--es-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  transition: .15s;
+}
+.es-btn:hover, .es-rom-btn:hover {
+  background: var(--es-soft-hover);
+  border-color: var(--es-primary2);
+}
+
+/* ===== Chip 标签 ===== */
+.es-chip {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--es-card-border);
+  background: var(--es-soft);
+  color: var(--es-text-dim);
+  margin-right: 4px;
+}
+.es-chip.warn { color: var(--es-yellow); border-color: rgba(255,212,121,.3); background: rgba(255,212,121,.1); }
+.es-chip.good { color: var(--es-green); border-color: rgba(91,214,160,.3); background: rgba(91,214,160,.1); }
+.es-chip.danger { color: var(--es-red); border-color: rgba(255,138,138,.3); background: rgba(255,138,138,.1); }
+
+/* ===== 日程项 ===== */
+.es-agenda { font-size: 11px; color: var(--es-text-dim); line-height: 1.7; }
+.es-agenda b { color: var(--es-text); }
+.es-ag-item {
+  display: flex; justify-content: space-between;
+  padding: 4px 0; border-bottom: 1px dashed var(--es-card-border);
+}
+
+/* ===== 曝光条 ===== */
+.es-exp-bar {
+  height: 6px; background: var(--es-soft); border-radius: 999px;
+  overflow: hidden; margin: 4px 0;
+}
+.es-exp-bar span {
+  display: block; height: 100%; border-radius: 999px;
+  transition: width .3s;
+}
+
+/* ===== 队友按钮 ===== */
+.es-sis {
+  display: inline-block; font-size: 11px; padding: 4px 10px;
+  border: 1px solid var(--es-card-border); border-radius: 999px;
+  background: var(--es-soft); color: var(--es-text); cursor: pointer;
+  margin: 2px; font-family: inherit;
+}
+.es-sis:hover { border-color: var(--es-primary2); }
+
+/* ===== 团设卡片 ===== */
+.es-gm-card { padding: 8px; background: rgba(124,111,240,.06); border-radius: 10px; margin-bottom: 8px; }
+.es-gm-name { font-size: 15px; font-weight: 700; color: var(--es-text); margin-bottom: 4px; }
+.es-gm-line { font-size: 11px; color: var(--es-text-dim); padding: 1px 0; }
+.es-gm-songs { font-size: 10px; color: var(--es-primary2); margin-top: 3px; }
+.es-gm-song { display: inline-block; margin-right: 4px; padding: 1px 6px; background: rgba(124,111,240,.1); border-radius: 6px; }
+
+/* ===== 热搜 ===== */
+.es-hot-item {
+  padding: 3px 0; font-size: 11px; color: var(--es-text-dim);
+  border-bottom: 1px dashed var(--es-card-border); display: flex; gap: 6px; align-items: center;
+}
+.es-hot-rank { font-weight: 700; color: var(--es-primary2); font-size: 11px; min-width: 16px; }
+.es-hot-fire { font-size: 10px; }
+
+/* ===== 粉丝讨论气泡 ===== */
+.es-fan-bubble {
+  font-size: 10px; color: var(--es-text-dim); padding: 3px 0;
+  border-bottom: 1px dashed var(--es-card-border);
+}
+.es-fan-bubble b { font-weight: 600; margin-right: 2px; }
+.es-fan-bubble.love b { color: var(--es-red); }
+.es-fan-bubble.support b { color: var(--es-green); }
+
+/* ===== 恋情面板 ===== */
+.es-risk-row {
+  display: flex; justify-content: space-between;
+  padding: 3px 0; font-size: 12px; color: var(--es-text-dim);
+}
+.es-risk-row:nth-child(odd) { background: rgba(255,255,255,.02); }
+
+/* ===== 选项按钮 ===== */
+.es-option {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 14px; margin: 6px 0;
+  border: 1px solid rgba(124,111,240,.25);
+  border-radius: 12px;
+  background: rgba(124,111,240,.08);
+  color: var(--es-text);
+  cursor: pointer;
+  font-family: inherit; font-size: 13px;
+  transition: .15s;
+}
+.es-option:hover {
+  background: rgba(124,111,240,.18);
+  transform: translateY(-1px);
+  border-color: var(--es-primary2);
+}
+
+/* ===== 小标签 ===== */
+.es-tag {
+  display: inline-block; font-size: 10px; padding: 1px 6px;
+  border-radius: 8px; font-weight: 600;
+}
+.es-tag.green { background: rgba(91,214,160,.15); color: var(--es-green); }
+.es-tag.red { background: rgba(255,138,138,.15); color: var(--es-red); }
+.es-tag.yellow { background: rgba(255,212,121,.15); color: var(--es-yellow); }
+
+/* ===== Modal 弹窗系统（完全对应 .es-modal-*） ===== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,8,20,.65);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3000; padding: 20px;
+}
+.modal-overlay.hidden { display: none; }
+.es-modal {
+  background: linear-gradient(160deg, #241d3d, #1a1530);
+  border: 1px solid var(--es-card-border);
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 460px; width: 100%;
+  max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.es-modal-title { font-size: 16px; font-weight: 700; color: var(--es-text); margin-bottom: 12px; }
+.es-modal-body { font-size: 13px; line-height: 1.8; color: var(--es-text); }
+.es-modal-body button, .es-modal-opt {
+  display: block; width: 100%; text-align: left;
+  margin: 6px 0; padding: 10px 12px;
+  border: 1px solid rgba(124,111,240,.3);
+  border-radius: 10px;
+  background: rgba(124,111,240,.1);
+  color: var(--es-text); cursor: pointer;
+  font-family: inherit; font-size: 13px;
+}
+.es-modal-body button:hover, .es-modal-opt:hover {
+  background: rgba(124,111,240,.2);
+}
+.es-modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+.es-modal-btn {
+  flex: 1; padding: 10px;
+  border: 1px solid var(--es-card-border); border-radius: 10px;
+  background: var(--es-soft); color: var(--es-text);
+  cursor: pointer; font-family: inherit; font-size: 13px;
+}
+.es-modal-btn.primary {
+  background: linear-gradient(135deg, var(--es-primary), var(--es-primary2));
+  color: #fff; border: none; font-weight: 600;
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: rgba(30,25,45,.95); border: 1px solid var(--es-card-border);
+  color: var(--es-text); padding: 8px 20px; border-radius: 999px;
+  font-size: 12px; z-index: 5000; animation: toastIn .3s ease;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ===== 底部图例 ===== */
+.legend {
+  margin-top: 30px; padding: 16px;
+  background: rgba(255,255,255,.04); border-radius: 12px;
+  border: 1px solid var(--es-card-border);
+  font-size: 11px; color: var(--es-text-dim); line-height: 1.8;
+  max-width: 900px; margin-left: auto; margin-right: auto;
+}
+.legend b { color: var(--es-primary2); }
+.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+/* ===== 脉冲动画 ===== */
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+.pulse { animation: pulse 1.4s infinite; }
+
+/* 合约行强调 */
+.contract-urgent { animation: pulse 1.4s infinite; color: var(--es-yellow); font-weight: 700; }
+
+/* ===== 快进条 ===== */
+.es-qbar { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+.es-qbtn {
+  font-size: 12px; padding: 6px 12px;
+  border: 1px solid var(--es-card-border);
+  border-radius: 999px;
+  background: var(--es-soft); color: var(--es-text);
+  cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+}
+.es-qbtn:hover { background: var(--es-soft-hover); border-color: var(--es-primary2); }
+
+/* ===== 注释标记 ===== */
+.note-new { font-size: 10px; color: var(--es-green); font-style: italic; }
+.note-fix { font-size: 10px; color: var(--es-yellow); font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <h1>🌌 SEVENTEEN 娱乐圈模拟器 <span>— UI统一设计预览</span></h1>
+  <p>
+    <span class="note-fix">✦ P0修复：硬编码颜色→CSS变量 | 弹窗统一es-modal | 曝光去重只留恋情面板</span>
+    &nbsp;·&nbsp;
+    <span class="note-new">✦ P1-P6：新增元素标注 ✦NEW</span>
+  </p>
+
+  <!-- ===== 三栏布局 ===== -->
+  <div class="es-grid">
+
+    <!-- ========== 左栏 renderLeft ========== -->
+    <div style="position:sticky;top:10px">
+      <div class="es-panel">
+        <!-- 团设卡片 -->
+        <div class="es-gm-card">
+          <div class="es-gm-name">🌙 ECLIPSE</div>
+          <div class="es-gm-line">🏢 PLEDIS Entertainment</div>
+          <div class="es-gm-line">🎵 暗月·双面魅影</div>
+          <div class="es-gm-line">💎 粉丝：MOONLIGHT · 出道 2 年</div>
+          <div class="es-gm-songs">🔥 出圈曲：<span class="es-gm-song">Shadow Dance</span><span class="es-gm-song">Midnight Bloom</span></div>
+          <div class="es-gm-songs" style="margin-top:4px">📋 最近活动：<span style="color:var(--es-text-dim)">K-909回归舞台 · ELLE画报</span></div>
+        </div>
+
+        <!-- 今日日程 -->
+        <div class="es-col-title">🗓️ 今日日程</div>
+        <div style="font-size:11px;color:var(--es-primary2);margin-bottom:4px;">☀️ 上午 10:00</div>
+        <div class="es-agenda">
+          <div class="es-ag-item"><span>🟣 主档</span><b>练习室排练</b></div>
+          <div class="es-ag-item"><span>💙 男主(Hoshi)</span><b>公司 · 编舞</b></div>
+          <div class="es-ag-item"><span>💛 相关</span><b>品牌站台 NARS</b></div>
+          <div class="es-ag-item"><span>🧡 情敌(Woozi)</span><b>工作室 · 作曲</b> <span class="es-chip warn">倾向+2</span></div>
+          <div class="es-ag-item"><span>👤 哥哥</span><b>综艺录制</b></div>
+        </div>
+
+        <!-- P4: 回归周期标签 ✦NEW -->
+        <div style="margin-top:6px;padding:4px 8px;background:rgba(124,111,240,.1);border-radius:6px;font-size:10px;">
+          <span style="color:var(--es-primary2)">🎵 回归第2周 · 音乐银行待机中</span>
+          <span class="es-chip good">P4 NEW</span>
+        </div>
+
+        <!-- 女团队友 ✦P3扩展 -->
+        <div class="es-col-title" style="margin-top:8px">👯 女团队友</div>
+        <div>
+          <button class="es-sis">智恩<span style="font-size:10px;color:var(--es-text-dim)"> 大姐·主唱</span></button>
+          <button class="es-sis">秀雅<span style="font-size:10px;color:var(--es-red)"> ⚠️想退团</span></button>
+          <button class="es-sis">恩瑞<span style="font-size:10px;color:var(--es-green)"> 忙内·助攻</span></button>
+          <span class="es-chip good">P3 NEW</span>
+        </div>
+
+        <!-- P1: 合约系统 ✦NEW -->
+        <div class="es-col-title" style="margin-top:8px">📜 经纪约</div>
+        <div class="es-row">
+          <span>剩余年限</span>
+          <b class="contract-urgent">⚠️ 还剩1年</b>
+          <span class="es-chip danger">P1 NEW</span>
+        </div>
+        <button class="es-rom-btn" style="margin-top:4px">📋 查看合约详情</button>
+      </div>
+    </div>
+
+    <!-- ========== 中栏 renderCenter ========== -->
+    <div>
+      <!-- 日期时段 -->
+      <div style="font-size:13px;color:var(--es-text);margin-bottom:6px;padding:8px 12px;background:var(--es-card);border-radius:10px;border:1px solid var(--es-card-border)">
+        📅 Day 145 · ☀️ 上午 · 第3章「暗涌」
+      </div>
+
+      <!-- 剧情区 -->
+      <div class="es-panel" style="min-height:240px">
+        <div style="color:var(--es-text);line-height:1.9;font-size:13px;margin-bottom:12px">
+          练习室里只有你一个人。镜子里映出汗水浸湿的刘海，音乐还在循环播放。突然，门被推开了——<b>Hoshi</b>站在门口，手里提着两杯冰美式。<br><br>
+          "就知道你在这。"他把其中一杯放在你旁边的地板上，自己靠着镜子坐下。"<b style="color:var(--es-primary2)">编舞老师说你今天状态不太好</b>，偷跑出来了。"
+        </div>
+
+        <!-- P3: 公司事件注入选项 ✦NEW -->
+        <div style="margin-bottom:6px;font-size:11px;color:var(--es-primary2)">📋 经纪人刚刚来电——公司要安排你和同公司前辈做官配CP营业。你的选择？</div>
+        <button class="es-option">A. 接受安排（为了团队曝光，委屈一下）</button>
+        <button class="es-option">B. 委婉拒绝（不想让Hoshi误会） <span class="es-chip">🎯推荐</span></button>
+        <button class="es-option">C. 跟经纪人谈判（要求换成其他宣传方式）</button>
+        <span class="es-chip good">P3 NEW·公司博弈</span>
+      </div>
+
+      <!-- P5: 13人队友偶遇 ✦NEW -->
+      <div class="es-panel" style="font-size:11px;color:var(--es-text-dim)">
+        🌀 路过茶水间时，<b style="color:var(--es-text)">Dino</b>正在练popping，看到你笑着说："姐姐你这个wave不太对应该这样！"然后拉着你练了十分钟。
+        <span class="es-chip good">P5 NEW</span>
+      </div>
+
+      <!-- 快捷指令 -->
+      <div class="es-qbar" style="margin-top:8px;flex-wrap:wrap">
+        <button class="es-qbtn">🎯 选项</button>
+        <button class="es-qbtn">✏️ 自由输入</button>
+        <button class="es-qbtn">⏩ 快速推进</button>
+        <button class="es-qbtn">🔀 随机事件</button>
+        <button class="es-qbtn">📅 发布作品</button>
+        <button class="es-qbtn">🎬 前往大结局</button>
+        <!-- P2: 团活冲突按钮 ✦NEW -->
+        <button class="es-qbtn" style="border-color:var(--es-yellow);color:var(--es-yellow)">⚠️ 团活冲突!</button>
+        <span class="es-chip warn" style="vertical-align:middle">P2 NEW</span>
+      </div>
+    </div>
+
+    <!-- ========== 右栏 renderRight ========== -->
+    <div style="position:sticky;top:10px">
+      <div class="es-panel">
+        <div class="es-col-title">📊 今日圈内</div>
+        <div class="es-hot-item"><span class="es-hot-rank">1</span>#ShiningDiamond_回归<span class="es-hot-fire">🔥🔥🔥</span></div>
+        <div class="es-hot-item"><span class="es-hot-rank">2</span>Hoshi编舞直拍破百万<span class="es-hot-fire">🔥🔥</span></div>
+        <div class="es-hot-item"><span class="es-hot-rank">3</span>Eclipse新曲音源逆行<span class="es-hot-fire">🔥</span></div>
+
+        <div class="es-col-title" style="margin-top:6px">📰 媒体热议</div>
+        <div class="es-hot-item"><span class="es-hot-rank">📰</span>Dispatch：年末颁奖礼新人奖提名公布</div>
+        <div class="es-hot-item"><span class="es-hot-rank">📰</span>Eclipse成员机场时尚引发热议</div>
+
+        <div class="es-col-title" style="margin-top:6px">💬 粉丝讨论</div>
+        <div class="es-fan-bubble support"><b>👍支持</b>｜欧尼ending镜头太绝了！</div>
+        <div class="es-fan-bubble love"><b>🍋偷嗑</b>｜Hoshi看她的眼神…谁懂</div>
+        <div class="es-fan-bubble" style="color:var(--es-yellow)"><b>🤔疑惑</b>｜新同款手表是巧合吗 <span class="es-chip warn">P2 NEW</span></div>
+
+        <!-- ===== 恋情面板（曝光只在此处展示 - P0去重） ===== -->
+        <div class="es-col-title" style="margin-top:8px">💗 恋情面板 <span class="note-fix">(P0: 曝光去重·唯一展示处)</span></div>
+        <div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px">
+          <div class="es-risk-row"><span>阶段</span><span>💚 暧昧期 Stage 2</span></div>
+          <div class="es-risk-row"><span>好感</span><span><b>47</b>/100</span></div>
+          <div class="es-risk-row"><span>亲密</span><span style="font-size:12px">🤝 🤗 🔒 — 🔒 — 🔒 — 🔒 — 🔒 —</span></div>
+          <div class="es-risk-row"><span>⚠️ 曝光</span><span><b style="color:var(--es-yellow)">12</b> · 升温</span></div>
+          <div class="es-risk-row"><span>🛡️ 掩护</span><span>2/5</span></div>
+          <div class="es-risk-row"><span>🍋 吃醋</span><span style="color:var(--es-yellow)">不安 Lv.2</span></div>
+          <div class="es-risk-row"><span>👤 哥哥</span><span>+3 · 参谋</span></div>
+        </div>
+
+        <!-- P1: 纪念日按钮 ✦NEW -->
+        <button class="es-rom-btn" style="margin-top:6px;color:var(--es-yellow)">💫 查看纪念日 · 2个回忆</button>
+        <span class="es-chip warn">P1 NEW</span>
+
+        <!-- P1: 粉丝数 ✦NEW -->
+        <div class="es-row" style="margin-top:8px;padding-top:6px;border-top:1px solid var(--es-card-border)">
+          <span>👥 粉丝数</span>
+          <b>34,280</b> <span style="color:var(--es-green);font-size:10px">+1,200 ↑</span>
+          <span class="es-chip good">P1 NEW</span>
+        </div>
+
+        <!-- 按钮组 -->
+        <button class="es-rom-btn" style="margin-top:8px">📱 手机 · 泡泡3/5</button>
+        <button class="es-rom-btn" style="margin-top:6px">📖 记忆回顾</button>
+        <button class="es-rom-btn" style="margin-top:6px">🎭 剧场</button>
+        <button class="es-rom-btn" style="margin-top:6px">🌟 结局</button>
+
+        <!-- P1: 存档槽按钮 ✦NEW -->
+        <button class="es-rom-btn" style="margin-top:6px;background:rgba(124,111,240,.1);border-color:var(--es-primary2)">
+          💾 存档管理 · 3个槽位
+        </button>
+        <span class="es-chip good">P1 NEW</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 弹窗预览区 ===== -->
+  <div style="max-width:900px;margin:20px auto;padding:16px;background:var(--es-card);border:1px solid var(--es-card-border);border-radius:14px;">
+    <div class="es-col-title" style="font-size:13px;color:var(--es-text);margin-bottom:10px">📦 Modals 预览（点击按钮打开）</div>
+    <div class="es-qbar" style="flex-wrap:wrap">
+      <button class="es-qbtn" onclick="openModal('daily')">📊 每日结算 Modal</button>
+      <button class="es-qbtn" onclick="openModal('award')">🏆 奖项典礼 Modal</button>
+      <button class="es-qbtn" onclick="openModal('contract')">📜 合约续约 Modal</button>
+      <button class="es-qbtn" onclick="openModal('save')">💾 存档槽 Modal</button>
+      <button class="es-qbtn" onclick="openModal('date')">💞 约会地点选择 Modal</button>
+      <button class="es-qbtn" onclick="openModal('conflict')">⚠️ 团活冲突 Modal</button>
+      <button class="es-qbtn" onclick="openModal('milestone')">📅 纪念日时间线 Modal</button>
+      <button class="es-qbtn" onclick="openModal('fanletter')">✉️ 粉丝来信 Modal</button>
+      <button class="es-qbtn" onclick="openModal('ending')">🌟 结局双时间线 Modal</button>
+    </div>
+  </div>
+
+  <!-- ===== 底部图例 ===== -->
+  <div class="legend">
+    <b>🎨 颜色体系（全部使用CSS变量）</b><br>
+    <span class="dot" style="background:var(--es-primary)"></span> 主色 <code>var(--es-primary) #7C6FF0</code> &nbsp;
+    <span class="dot" style="background:var(--es-green)"></span> 绿 <code>var(--es-green) #5BD6A0</code> &nbsp;
+    <span class="dot" style="background:var(--es-red)"></span> 红 <code>var(--es-red) #FF8A8A</code> &nbsp;
+    <span class="dot" style="background:var(--es-yellow)"></span> 黄 <code>var(--es-yellow) #FFD479</code> &nbsp;
+    <span class="dot" style="background:var(--es-text-dim)"></span> 灰 <code>var(--es-text-dim)</code><br><br>
+    <b>📦 统一弹窗体系</b>：所有 Modal 使用 <code>.es-modal-overlay > .es-modal > (.es-modal-title + .es-modal-body + .es-modal-btns)</code> 结构<br>
+    <b>🚫 P0去重</b>：<code>scandalHeat</code> 只出现在恋情面板（右栏），renderLeft 曝光条已删除<br>
+    <b>🚫 硬编码颜色</b>：<code>#666/#ccc/#f0c040/#52c41a/#ff7e7e</code> 全部替换为 <code>var(--es-text-dim)</code>/<code>var(--es-yellow)</code>/<code>var(--es-green)</code>/<code>var(--es-red)</code><br>
+    <b>📊 P1-P6 NEW标签</b>：绿色=P1逻辑UI, 黄色=P2事件/P0修复, 红色=P6人气通货<br>
+    <b>📊 池子边界</b>：comeback=回归叙事, music-show=打歌排名, company=公司管理, dispatch=媒体, sasaeng=私生ANTI — 不重叠
+  </div>
+</div>
+
+<!-- ===== 弹窗层 ===== -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="es-modal" id="modal-content"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(function() { t.style.display = 'none'; }, 2000);
+}
+
+function openModal(type) {
+  var overlay = document.getElementById('modal-overlay');
+  var content = document.getElementById('modal-content');
+  var title = '', body = '', btns = '<button class="es-modal-btn" onclick="closeModal()">关闭</button>';
+
+  if (type === 'daily') {
+    title = '📊 Day 145 结算';
+    body = '<div class="es-risk-row"><span>🌟 人气</span><span><b style="color:var(--es-green)">+5</b> (58→63)</span></div>' +
+           '<div class="es-risk-row"><span>💗 好感</span><span><b style="color:var(--es-green)">+3</b> (44→47)</span></div>' +
+           '<div class="es-risk-row"><span>⚠️ 公关次数</span><span><b>' + (1 + Math.floor(63/30)) + '</b>/5</span></div>' +
+           '<p style="margin-top:8px;color:var(--es-text-dim);font-size:12px">📌 今日热搜：一位粉丝扒出同款手表 #恋爱说 &nbsp; <button class="es-modal-opt" onclick="showToast(\'已花费3人气推正面热搜\')">📢 推正面热搜 (-3人气)</button></p>';
+  } else if (type === 'award') {
+    title = '🏆 MAMA颁奖典礼';
+    body = '<p style="font-size:15px;margin-bottom:8px">🏆 <b style="color:var(--es-yellow)">年度新人奖</b></p>' +
+           '<p style="color:var(--es-text-dim)">人气 63 → 到达门槛 50+，成功提名并获奖！</p>' +
+           '<div class="es-risk-row"><span>人气变化</span><span><b style="color:var(--es-green)">+15</b></span></div>' +
+           '<p style="margin-top:8px;font-size:11px;color:var(--es-text-dim)">安可舞台上的泪水被粉丝拍下，转发破万。</p>';
+  } else if (type === 'contract') {
+    title = '📜 合约续约';
+    body = '<p style="font-size:13px;margin-bottom:8px">合约还剩 <b style="color:var(--es-yellow)">1年</b>，公司递来了续约意向书。</p>' +
+           '<button class="es-modal-opt" onclick="showToast(\'续约7年·人气+3\')">A. 续约 7 年（稳定但依旧是偶像）</button>' +
+           '<button class="es-modal-opt" onclick="showToast(\'合约到期后独立·风险+10\')">B. 不续约 · 考虑成为独立艺人</button>' +
+           '<button class="es-modal-opt" onclick="showToast(\'需要再考虑一下\')">C. 暂不决定</button>';
+  } else if (type === 'save') {
+    title = '💾 存档管理';
+    body = '<div style="display:flex;flex-direction:column;gap:8px">' +
+           '<div style="padding:10px;background:rgba(255,255,255,.04);border-radius:8px;display:flex;justify-content:space-between">' +
+           '<span>📁 槽位1 · Day 145 · Hoshi · ❤️47</span><span style="color:var(--es-text-dim)">刚刚</span></div>' +
+           '<div style="padding:10px;background:rgba(255,255,255,.04);border-radius:8px;display:flex;justify-content:space-between">' +
+           '<span>📁 槽位2 · Day 72 · Hoshi · ❤️28</span><span style="color:var(--es-text-dim)">3天前</span></div>' +
+           '<div style="padding:10px;background:rgba(255,255,255,.04);border-radius:8px;display:flex;justify-content:space-between;color:var(--es-text-dim)">' +
+           '<span>📁 槽位3 · 空</span><span style="color:var(--es-primary2)">+ 点击存档</span></div></div>';
+    btns = '<button class="es-modal-btn" onclick="closeModal()">关闭</button>';
+  } else if (type === 'date') {
+    title = '💞 选择约会地点';
+    body = '<p style="color:var(--es-text-dim);margin-bottom:8px">Hoshi 约你今晚见面。去哪里？</p>' +
+           '<button class="es-modal-opt" onclick="showToast(\'汉江公园·风险1·好感+2\')">🌉 汉江公园 · 低风险日常 <span class="es-tag green">风险1</span></button>' +
+           '<button class="es-modal-opt" onclick="showToast(\'南山塔·风险3·好感+3\')">🗼 南山塔 · 经典挂锁 <span class="es-tag yellow">风险3</span></button>' +
+           '<button class="es-modal-opt" onclick="showToast(\'深夜布帐马车·风险4·好感+3\')">🍶 布帐马车 · 深夜食堂 <span class="es-tag yellow">风险4</span></button>' +
+           '<button class="es-modal-opt" style="opacity:0.5" onclick="showToast(\'🔒需要Stage3\')">🏠 他的宿舍 · 高风险 🔒 <span class="es-tag red">需Stage3</span></button>' +
+           '<button class="es-modal-opt" onclick="showToast(\'公司天台·风险2·好感+2\')">🏢 公司天台 · 低调见面 <span class="es-tag green">风险2</span></button>';
+  } else if (type === 'conflict') {
+    title = '⚠️ 日程冲突';
+    body = '<p style="color:var(--es-red);margin-bottom:8px;font-size:13px">明天下午有 <b>音乐银行打歌</b>，但你答应了 Hoshi 去汉江公园。</p>' +
+           '<button class="es-modal-opt" onclick="showToast(\"团活优先·好感-1·团魂+2\")">A. 去团活（职业优先）</button>' +
+           '<button class="es-modal-opt" style="border-color:rgba(255,138,138,.4)" onclick="showToast(\"溜去约会·好感+3·曝光+5\")">B. 偷偷溜去见他（恋爱优先）<span class=\"es-tag red\">风险5</span></button>';
+  } else if (type === 'milestone') {
+    title = '📅 我们的回忆';
+    body = '<div style="display:flex;flex-direction:column;gap:8px">' +
+           '<div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px;border-left:3px solid var(--es-primary2)">' +
+           '<span style="color:var(--es-text-dim);font-size:10px">Day 32</span><br><b>💚 第一次心动</b><br><span style="color:var(--es-text-dim);font-size:11px">练习室里他帮你纠正舞步，手搭在你肩上时心跳漏了一拍</span></div>' +
+           '<div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px;border-left:3px solid var(--es-red)">' +
+           '<span style="color:var(--es-text-dim);font-size:10px">Day 78</span><br><b>🤝 第一次牵手</b><br><span style="color:var(--es-text-dim);font-size:11px">汉江公园散步时他自然地牵起你的手</span></div></div>';
+  } else if (type === 'fanletter') {
+    title = '✉️ 今日粉丝来信';
+    body = '<div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px;margin-bottom:6px">' +
+           '<span style="color:var(--es-green)">👍 支持</span><br>欧尼的新歌我听了100遍！音源女王！</div>' +
+           '<div style="padding:8px;background:rgba(255,138,138,.06);border-radius:8px;margin-bottom:6px">' +
+           '<span style="color:var(--es-yellow)">🤔 关心</span><br>欧尼…网上说的那些是真的吗？我会一直支持你的。</div>' +
+           '<div style="padding:8px;background:rgba(255,255,255,.04);border-radius:8px">' +
+           '<span style="color:var(--es-text-dim)">💌 日常</span><br>每天看欧尼直拍续命！fighting~</div>';
+  } else if (type === 'ending') {
+    title = '🌟 结局 · 我们的故事';
+    body = '<div style="display:flex;gap:12px"><div style="flex:1;padding:10px;background:rgba(124,111,240,.06);border-radius:8px">' +
+           '<b>💗 感情线</b><br><span style="color:var(--es-green);font-size:14px">永远的我们</span><br><span style="color:var(--es-text-dim)">秘密恋爱多年，守护着只属于彼此的温度</span></div>' +
+           '<div style="flex:1;padding:10px;background:rgba(255,212,121,.06);border-radius:8px">' +
+           '<b>🌟 事业线</b><br><span style="color:var(--es-yellow);font-size:14px">稳步上升</span><br><span style="color:var(--es-text-dim)">人气63·新人奖获得者</span></div></div>';
+  }
+
+  content.innerHTML = '<div class="es-modal-title">' + title + '</div><div class="es-modal-body">' + body + '</div><div class="es-modal-btns">' + btns + '</div>';
+  overlay.classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+
+</body>
+</html>

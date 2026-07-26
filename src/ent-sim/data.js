@@ -89,10 +89,12 @@ export var ENT_SIM_RIVAL_ACTIONS = {
 
 // ---------- 系统7 章节 ----------
 export var CHAPTERS = [
-  { index: 1, name: '新人期', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足，恋爱是奢侈品' },
-  { index: 2, name: '上升期', icon: '🚀', desc: '逐渐有了姓名，聚光灯与狗仔同时盯上你' },
-  { index: 3, name: '巅峰期', icon: '👑', desc: '顶流焦点，恋爱即成头条，每一步都踩在刀尖' },
-  { index: 4, name: '传奇期', icon: '🏆', desc: '封神之后，连恋情都成了大众祝福的童话' }
+  { index: 1, name: '新人出道', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足，恋爱是奢侈品' },
+  { index: 2, name: '崭露头角', icon: '🌿', desc: '开始有小型粉丝群，被圈内注意到，打歌能进候补' },
+  { index: 3, name: '稳步上升', icon: '🌸', desc: '粉丝稳定增长，综艺商演邀约不断，品牌开始关注' },
+  { index: 4, name: '人气偶像', icon: '🔥', desc: '国民级热度，代言接到手软，回归必拿一位' },
+  { index: 5, name: '顶流巨星', icon: '👑', desc: '每一步都是头条，恋爱即成核弹，巡演场场秒空' },
+  { index: 6, name: '传奇殿堂', icon: '🏆', desc: '封神之后，连恋情都成了大众祝福的童话' }
 ];
 
 // ── 以下池子已迁移至 pools/ 目录 ──

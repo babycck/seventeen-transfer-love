@@ -4,13 +4,14 @@
 // 换天由玩家点「进入下一天」(goEntSimNextDay) 显式触发。
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity } from './state.js';
+import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday } from './state.js';
+import { ENT_SIM_CAREERS } from './data.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { showToast, randInt } from '../utils.js';
 import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
 import { buildEntSimSystemPrompt, buildEntSimUserMessage } from './prompts.js';
 import { rollDailyAgenda, getTimeOfDayLabel } from './cycle.js';
-import { applyDiscoveryBlowback, addExposure } from './public-opinion.js';
+import { applyDiscoveryBlowback, addExposure, addCareerPublicity, getScandalHeat } from './public-opinion.js';
 import { recordRomanceBeat, applyEntSimAffection, tickRomanceTimers, tickJealousy, checkAnniversaries, recordMilestone } from './romance.js';
 import { generateDailyBuzz } from './immersion.js';
 import { evaluateEnding } from './endings.js';
@@ -18,10 +19,38 @@ import { compressEntSimMemory, buildMemorySnapshot } from './memory.js';
 import { maybeBrotherEvent, maybeMaleLeadInitiative, checkOneHeartEvents } from './brother.js';
 // npc-network 已移除，情敌名改用 rival 字段
 import { ENDING_TONE } from './data.js';
-import { pickFromPool, SVT_TEAMMATE_EVENT_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, RELEASE_POOL, CONTACT_TYPE_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, MUSIC_SHOW_POOL, FANSIGN_POOL, CAREER_SETBACKS, CONTACT_PROGRESSION, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, DAILY_ENGAGEMENT_POOL, TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './pools/index.js';
+import { pickFromPool, SVT_TEAMMATE_EVENT_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, RELEASE_POOL, CONTACT_TYPE_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, MUSIC_SHOW_POOL, FANSIGN_POOL, CAREER_SETBACKS, CONTACT_PROGRESSION, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, DAILY_ENGAGEMENT_POOL, TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES, MILESTONE_DEBUT, JOB_OFFER_POOL } from './pools/index.js';
+import { checkAwardCeremony } from './pools/awards.js';
+import { getFanLetter } from './pools/fan-letters.js';
+import { COMPANY_EVENT_POOL } from './pools/company-events.js';
+import { getRandomTeammate, getTeammateDesc, TEAMMATE_FLAVOR as _TMFLAVOR } from './pools/teammate-flavor.js';
+import { tickComebackCycle } from './pools/comeback-cycle.js';
+import { calculateMusicShowRank } from './pools/music-show-pool.js';
+import { buildTestNarrative, buildTestOptions } from './test-mode.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
+
+// 双系统状态同步：entSim → 1v1 GS 字段（确保曝光/掩护/告白/公关等状态一致）
+function syncOneHeartState() {
+  var E = GS.entSim;
+  if (!E || !E.misc || !E.romance) return;
+  // 恋情曝光风险同步：scandalHeat → exposureRisk（映射 0-25+ → 0-100）
+  var heat = (typeof E.misc.scandalHeat === 'number') ? E.misc.scandalHeat : (E.misc.exposureAccum || 0);
+  GS.exposureRisk = Math.min(100, Math.round(heat * 4));
+  // 掩护计数同步
+  GS.oneHeartCoverUsed = E.romance.coverUsed || 0;
+  // 告白状态同步
+  GS.oneHeartConfessionDone = E.romance.confessionDone || false;
+  // 公关次数同步
+  GS.oneHeartPrRemaining = E.misc.prRemaining || 0;
+  // 公开线同步
+  GS.oneHeartPublicLine = E.romance.publicLine || false;
+  // 哥哥支持度同步
+  if (E.brother) {
+    GS.oneHeartBrotherAff = E.brother.support || 0;
+  }
+}
 
 // 主生成循环
 export function generateEntSimRound(type, extra) {
@@ -30,6 +59,31 @@ export function generateEntSimRound(type, extra) {
   }
   GS._entSimGenerating = true;
   extra = extra || {};
+
+  // ═══ 测试模式：绕过AI生成，使用池子文本 ═══
+  if (window.__ENT_SIM_TEST) {
+    return Promise.resolve().then(function() {
+      var E = GS.entSim;
+      if (!E.agenda || !E.agenda.main) rollDailyAgenda();
+      maybeCompress();
+      return ensureSeedEvent();
+    }).then(function() {
+      var narrative = buildTestNarrative(type, extra);
+      var options = buildTestOptions();
+      var current = { narrative: narrative, options: options, extras: {}, type: type };
+
+      GS._entSimCurrent = current;
+      GS.entSim.started = true;
+      GS._entSimAutoTries = 0;
+      if (!extra.noSideEffects) {
+        GS._entSimNarrativeBuffer = (GS._entSimNarrativeBuffer || '') + '\n' + narrative;
+      }
+      saveGame();
+      GS._entSimGenerating = false;
+      _entSimInflight = null;
+      return current;
+    });
+  }
 
   var E0 = GS.entSim;
   if (!E0.agenda || !E0.agenda.main) rollDailyAgenda();
@@ -221,14 +275,24 @@ function applyBrotherEffect(b) {
   if (b.note) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'brother', text: b.note });
 }
 
+function secretFingerprint(text) {
+  var core = ['EXO','金珉锡','签售','同人文','直拍','周边','小卡','应援','photo card','专辑','海报','粉丝'];
+  var found = [];
+  for (var i = 0; i < core.length; i++) {
+    if (text.indexOf(core[i]) >= 0) found.push(core[i]);
+  }
+  return found.sort().join('|');
+}
 function applySecretEffect(s) {
   var E = GS.entSim;
   if (s.item) {
     var dup = false;
     var key = (s.item.match(/[\u4e00-\u9fa5]{2,}/g) || []).slice(0, 4).join('');
+    var fp = secretFingerprint(s.item);
     for (var i = 0; i < E.secret.items.length; i++) {
       var existKey = ((E.secret.items[i] || '').match(/[\u4e00-\u9fa5]{2,}/g) || []).slice(0, 4).join('');
-      if (key && existKey && key === existKey) { dup = true; break; }
+      var existFp = secretFingerprint(E.secret.items[i]);
+      if ((key && existKey && key === existKey) || (fp && existFp && fp === existFp)) { dup = true; break; }
     }
     if (!dup) E.secret.items.push(s.item);
   }
@@ -247,8 +311,11 @@ export function goEntSimNextDay() {
   var E = GS.entSim;
   // 每日结算用：保存昨天末的快照
   var lastPop = (E.career && typeof E.career.popularity === 'number') ? E.career.popularity : 0;
-  var lastExp = E.misc.exposureAccum || 0;
+  E._lastPopSnapshot = lastPop; // P1 #3: 粉丝数涨跌方向
+  var lastExp = getScandalHeat();
   var lastAff = E.affection || 0;
+  // 独立游戏天数+1（不受章节跳跃影响，用于冷却/阶段推进）
+  E.cycle._gameDayCount = (E.cycle._gameDayCount || 1) + 1;
   // 换天过渡：淡出 →「新的一天 DayX」→淡入
   showDayTransition(E.cycle.dayCount + 1);
   E.cycle.dayCount++;
@@ -258,11 +325,14 @@ export function goEntSimNextDay() {
     generateEntSimLetter(); // 异步，不阻塞
   }
   // 朋友圈自动生成：每 3-5 回合自动一条（对齐 1v1 规则）
-  E._momentCounter = (E._momentCounter || 0) + 1;
-  var momentThresh = 3 + Math.floor(Math.random() * 3); // 3~5
-  if (E._momentCounter >= momentThresh) {
-    E._momentCounter = 0;
-    generateEntSimMoment(); // 异步，不阻塞换天流程
+  // 朋友圈：出道后每3-5天一次
+  if (E.career.debutDay > 0) {
+    E._momentCounter = (E._momentCounter || 0) + 1;
+    var momentThresh = 3 + Math.floor(Math.random() * 3); // 3~5
+    if (E._momentCounter >= momentThresh) {
+      E._momentCounter = 0;
+      generateEntSimMoment(); // 异步，不阻塞换天流程
+    }
   }
   E.cycle.timeOfDay = 0; // 换天重置为上午（时段由「下一个行程」逐档推进）
   E._svtTodaySeen = []; // 每天清空 SVT 队友出场记录
@@ -291,21 +361,72 @@ export function goEntSimNextDay() {
     E.bubble.todayCount = 0;
     E.bubble.lastSentDay = E.cycle.dayCount;
   }
-  // 曝光累计衰减 30%
-  E.misc.exposureAccum = Math.floor((E.misc.exposureAccum || 0) * 0.7);
-  // 公司惩罚：曝光≥80 经纪人警告扣人气
-  if ((E.misc.exposureAccum || 0) >= 80) {
+  // 恋情曝光累计衰减 30%（仅出道后）
+  var isD = E.career.debutDay > 0;
+  if (isD) E.misc.scandalHeat = Math.floor(getScandalHeat() * 0.7);
+  // 公司惩罚：恋情曝光风险过高经纪人警告扣人气
+  if (isD && getScandalHeat() >= 25) {
     showToast('⚠️ 经纪人警告：公司注意到你的私生活影响了工作，人气下降');
     addPopularity(-5, '公司惩罚·曝光过高经纪警告');
   }
+  // P1 #9: 合约递减（每30天算1年）
+  if (isD && E.cycle._gameDayCount % 30 === 0 && E.career.contractRemaining > 0) {
+    E.career.contractRemaining--;
+    if (E.career.contractRemaining === 1) {
+      showToast('⏳ 合约还有1年到期，公司开始试探续约意向…');
+    } else if (E.career.contractRemaining <= 0) {
+      showToast('📜 合约已到期！需要决定续约还是独立发展');
+    }
+  }
   // 重置每日 NPC 互动次数
   E.misc.npcInteractionUsed = 0;
+  // ===== 练习生阶段更新 + 出道触发（独立练习天数驱动，不受日历dayCount影响） =====
+  if (E.career.debutDay === 0) {
+    E.career._traineeDayCount = (E.career._traineeDayCount || 0) + 1;
+    var newPhase = traineePhaseOf(E.career._traineeDayCount);
+    if (newPhase !== E.career._lastTraineePhase) {
+      E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'phase', text: '进入练习生' + (newPhase === 1 ? '前期' : newPhase === 2 ? '中期' : '后期') });
+      E.career._lastTraineePhase = newPhase;
+      showToast('🌱 进入练习生' + (newPhase === 1 ? '前期' : newPhase === 2 ? '中期' : '后期'));
+    }
+    E.career.traineePhase = newPhase;
+    // P3 #15: 练习生期每日训练选项注入
+    if (Math.random() < 0.4) {
+      var traineeOpts = generateTraineeOptions(E);
+      if (traineeOpts) {
+        GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【训练选择】' + traineeOpts;
+      }
+    }
+    // 出道触发：后期累计2-4天
+    if (E.career.traineePhase === 3) {
+      E.career._debutTriggerDay = (E.career._debutTriggerDay || 0) + 1;
+      if (E.career._debutTriggerDay >= 2 + randInt(0, 2)) {
+        // 触发"出道最终评价"事件 → 正式出道
+        var debutBaseText = '今天是出道最终评价的日子。你站在评价室门口深吸一口气——这一关过后，要么出道，要么离开。';
+        // 从里程碑池中随机选一条出道场景融入
+        if (MILESTONE_DEBUT && MILESTONE_DEBUT.length) {
+          var debutScene = MILESTONE_DEBUT[Math.floor(Math.random() * MILESTONE_DEBUT.length)];
+          if (debutScene && debutScene.text) {
+            debutBaseText += '（本日后续高光场景参考：' + debutScene.text + '）';
+          }
+        }
+        GS._entSimPendingEvent = debutBaseText;
+        E.career.debutDay = E.cycle.dayCount || 1;
+        E.career.popularity = 0; // 出道当天人气=0，从零开始积累
+        E.career.yearsActive = 0;
+        E.chapter = { index: 1, name: '新人出道', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足', roundInChapter: 0, entered: true };
+        showToast('🎀 恭喜出道！你正式成为了' + (E.groupMeta ? E.groupMeta.groupName || '新人女团' : '新人女团') + '的一员！');
+      }
+    }
+  }
   // 章节跨越检查（人气推进，只进不退）
   var chapterCrossed = checkChapterAdvance();
   // v2：吃醋值每日衰减
   tickJealousy(0);
-  // v2：男主主动联络倒计时（缩短至2天级）
+  // v2：出道标记（提前声明，供后续所有 v5 弹窗共用）
+  var isDebutPopup = (E.career && E.career.debutDay > 0);
   var contactTriggered = false;
+  if (isDebutPopup) {
   if (E._maleContactTimer >= 0) E._maleContactTimer--;
   if (E._maleContactTimer <= 0 && Math.random() < (E.affection >= 60 ? 0.5 : 0.25)) {
     contactTriggered = true;
@@ -321,9 +442,75 @@ export function goEntSimNextDay() {
     }
     E._maleContactTimer = (E.affection >= 60) ? (1 + randInt(0, 2)) : (2 + randInt(0, 2));
   }
-  // v5：粉丝来信（每天1封）
-  if (E.cycle.dayCount - (E._lastFanLetterDay || 0) >= 1 && FAN_LETTER_POOL && FAN_LETTER_POOL.length) {
-    E._lastFanLetterDay = E.cycle.dayCount;
+  // P2 #1: 奖项典礼检测
+  var ceremonyResult = checkAwardCeremony(E);
+  if (ceremonyResult) {
+    var cerText = '【' + ceremonyResult.ceremony.name + '】' + ceremonyResult.category + (ceremonyResult.win ? '' : '（提名出席）');
+    GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + cerText;
+    addPopularity(ceremonyResult.popDelta, '颁奖典礼·' + ceremonyResult.ceremony.name);
+    if (ceremonyResult.win) showToast('🏆 ' + ceremonyResult.ceremony.name + '获奖！人气+' + ceremonyResult.popDelta);
+  }
+  // P2 #7: 连续同地约会→狗仔跟拍风险
+  if (E._lastDateDay && E._lastDateDay >= E.cycle.dayCount - 3) {
+    addExposure(2, '狗仔跟拍·最近约会被盯上');
+  }
+  // P3 #6: 公司事件检测（每10天概率触发）
+  if (isDebutPopup && E.cycle._gameDayCount % 10 === 0 && Math.random() < 0.3) {
+    try { var compPool = COMPANY_EVENT_POOL; } catch(e) { compPool = null; }
+    if (compPool && compPool.length) {
+      var available = compPool.filter(function(ev) {
+        if (ev.require) {
+          if (ev.require.indexOf('scandalHeat>=') === 0) return getScandalHeat() >= parseInt(ev.require.split('>=')[1], 10);
+          if (ev.require.indexOf('popularity>=') === 0) return (E.career.popularity||0) >= parseInt(ev.require.split('>=')[1], 10);
+          if (ev.require.indexOf('contractRemaining<=') === 0) return (E.career.contractRemaining||7) <= parseInt(ev.require.split('<=')[1], 10);
+          if (ev.require === 'debutDay=0') return false;
+        }
+        return true;
+      });
+      if (available.length > 0) {
+        var ev = available[Math.floor(Math.random() * available.length)];
+        GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【公司事件】' + ev.text;
+      }
+    }
+  }
+  }
+  // P5 #20: SEVENTEEN 13人轮换每日自动出场（每2~3天1人，队内均匀轮换 + SVT_TEAMMATE_EVENT_POOL通用池模板注入prompt）
+  if (E.cycle._gameDayCount - (E._svtRotationLastDay || 0) >= (2 + randInt(0, 1))) {
+    E._svtRotationLastDay = E.cycle._gameDayCount;
+    var tm = getRandomTeammate(E);
+    if (tm) {
+      var tmDesc = getTeammateDesc(tm.id);
+      var tmEvent = SVT_TEAMMATE_EVENT_POOL && SVT_TEAMMATE_EVENT_POOL.length ? SVT_TEAMMATE_EVENT_POOL[randInt(0, SVT_TEAMMATE_EVENT_POOL.length - 1)] : null;
+      var tmSceneHint = tmEvent ? tmEvent.text.replace(/\{name\}/g, tmDesc.split('·')[0] || '队友').replace(/\{brother\}/g, (E.brother && E.brother.name) || '哥哥') : '';
+      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【SVT队友出场】' + tmDesc + ' · ' + tmSceneHint.substring(0, 120);
+    }
+  }
+  // P4 #5: 回归周期每日推进（出道后自动触发，50-80天一轮，teaser→release→打歌3周→末放）
+  if (isD) {
+    var cbTick = tickComebackCycle(E);
+    if (cbTick) {
+      showToast(cbTick.label);
+      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【回归周期】' + cbTick.phase + ' · ' + cbTick.label;
+      // P4 #19: 打歌周每日排名结算
+      if (cbTick.phase && cbTick.phase.indexOf('musicShow') === 0) {
+        var rank = calculateMusicShowRank(E.career.popularity || 30);
+        var rankText = rank.isWinner ? '🏆 1位！' + rank.total + '分' : rank.rank + '位 · ' + rank.total + '分';
+        showToast('🎵 打歌排名：' + rankText);
+        if (rank.isWinner) addPopularity(5, '打歌一位·' + cbTick.label);
+        GS._entSimPendingEvent = GS._entSimPendingEvent + '\n【打歌排名】' + cbTick.label + ' → ' + rankText;
+      }
+    }
+  }
+  // P2 #10: 每日热搜/热点互动（出道后25%概率触发，含推热搜选项）
+  if (isD) {
+    var buzz = generateInteractiveBuzz(E);
+    if (buzz) {
+      GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【今日圈内热点】' + buzz.text + ' · 可' + buzz.cost;
+    }
+  }
+  // v5：粉丝来信（每天1封，仅出道后）
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastFanLetterDay || 0) >= 1 && FAN_LETTER_POOL && FAN_LETTER_POOL.length) {
+    E._lastFanLetterDay = E.cycle._gameDayCount;
     var letter = FAN_LETTER_POOL[Math.floor(Math.random() * FAN_LETTER_POOL.length)];
     if (letter && letter.length) {
       var pickedLetter = letter[Math.floor(Math.random() * letter.length)];
@@ -331,20 +518,37 @@ export function goEntSimNextDay() {
     }
   }
   // v5：品牌代言（每2天概率触发，仅出道后）
-  var isDebutPopup = (E.career && E.career.debutDay > 0);
-  if (isDebutPopup && (E.career.popularity || 0) >= 20 && E.cycle.dayCount - (E._lastBrandOfferDay || 0) >= 2 && Math.random() < 0.5) {
-    E._lastBrandOfferDay = E.cycle.dayCount;
+  if (isDebutPopup && (E.career.popularity || 0) >= 20 && E.cycle._gameDayCount - (E._lastBrandOfferDay || 0) >= 2 && Math.random() < 0.5) {
+    E._lastBrandOfferDay = E.cycle._gameDayCount;
     var brCat = BRAND_OFFER_POOL ? BRAND_OFFER_POOL[Math.floor(Math.random() * BRAND_OFFER_POOL.length)] : null;
     if (brCat && brCat.length) {
       var brItem = brCat[Math.floor(Math.random() * brCat.length)];
       if (brItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'brandOffer', data: brItem }); }
     }
   }
-  // v5：发布作品CD倒计时（缩短至2-3天）
+  // v7：通告邀约弹窗（每3天触发1次，出道后人气>=15即可，30%概率）
+  if (isDebutPopup && (E.career.popularity || 0) >= 15 && E.cycle._gameDayCount - (E._lastJobOfferDay || 0) >= 3 && Math.random() < 0.3) {
+    E._lastJobOfferDay = E.cycle._gameDayCount;
+    var offerItem = JOB_OFFER_POOL ? JOB_OFFER_POOL[Math.floor(Math.random() * JOB_OFFER_POOL.length)] : null;
+    if (offerItem && offerItem.text) {
+      if (!GS._entSimPopupQueue) GS._entSimPopupQueue = [];
+      GS._entSimPopupQueue.push({ type:'jobOffer', data: offerItem });
+    }
+  }
+  // v5：发布作品CD倒计时（上限3天）
+  if (E._releaseCD > 3) E._releaseCD = 3;
   if (E._releaseCD > 0) E._releaseCD--;
+  // 清空隔日未处理的邀约
+  if (GS._entSimPendingOffers) {
+    var nowDay = E.cycle._gameDayCount || 1;
+    var keys = Object.keys(GS._entSimPendingOffers);
+    for (var ki = 0; ki < keys.length; ki++) {
+      if (GS._entSimPendingOffers[keys[ki]] && GS._entSimPendingOffers[keys[ki]].day !== nowDay) delete GS._entSimPendingOffers[keys[ki]];
+    }
+  }
   // v5：季度颁奖（每4天触发1次，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastAwardDay || 0) >= 4 && E.cycle.dayCount >= 8 && Math.random() < 0.5) {
-    E._lastAwardDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastAwardDay || 0) >= 4 && E.cycle._gameDayCount >= 8 && Math.random() < 0.5) {
+    E._lastAwardDay = E.cycle._gameDayCount;
     var awardTypes = ['newcomer', 'popularity', 'stage'];
     var at = E.cycle.dayCount <= 20 ? 'newcomer' : awardTypes[Math.floor(Math.random() * 3)];
     var awardPool = AWARD_POOL ? AWARD_POOL.filter(function(a) { return a.type === at; }) : [];
@@ -354,67 +558,67 @@ export function goEntSimNextDay() {
     }
   }
   // v5：综艺通告（每2天，人气≥25，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastVarietyDay || 0) >= 2 && (E.career.popularity || 0) >= 25 && Math.random() < 0.5 && VARIETY_SHOW_POOL && VARIETY_SHOW_POOL.length) {
-    E._lastVarietyDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastVarietyDay || 0) >= 2 && (E.career.popularity || 0) >= 25 && Math.random() < 0.5 && VARIETY_SHOW_POOL && VARIETY_SHOW_POOL.length) {
+    E._lastVarietyDay = E.cycle._gameDayCount;
     var vItem = VARIETY_SHOW_POOL[Math.floor(Math.random() * VARIETY_SHOW_POOL.length)];
     if (vItem && vItem.length) vItem = vItem[Math.floor(Math.random() * vItem.length)];
     if (vItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'variety', data: vItem }); }
   }
-  // v5：Dispatch爆料（每3天，曝光≥30，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastDispatchDay || 0) >= 3 && (E.misc.exposureAccum || 0) >= 30 && Math.random() < 0.4 && DISPATCH_POOL && DISPATCH_POOL.length) {
-    E._lastDispatchDay = E.cycle.dayCount;
+  // v5：Dispatch爆料（每3天，恋情曝光风险≥5即暗涌，仅出道后）
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastDispatchDay || 0) >= 3 && getScandalHeat() >= 5 && Math.random() < 0.4 && DISPATCH_POOL && DISPATCH_POOL.length) {
+    E._lastDispatchDay = E.cycle._gameDayCount;
     var dItem = DISPATCH_POOL[Math.floor(Math.random() * DISPATCH_POOL.length)];
     if (dItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'dispatch', data: dItem }); }
   }
   // v5：杂志画报（每3天，人气≥40，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastMagazineDay || 0) >= 3 && (E.career.popularity || 0) >= 40 && Math.random() < 0.4 && MAGAZINE_POOL && MAGAZINE_POOL.length) {
-    E._lastMagazineDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastMagazineDay || 0) >= 3 && (E.career.popularity || 0) >= 40 && Math.random() < 0.4 && MAGAZINE_POOL && MAGAZINE_POOL.length) {
+    E._lastMagazineDay = E.cycle._gameDayCount;
     var mItem = MAGAZINE_POOL[Math.floor(Math.random() * MAGAZINE_POOL.length)];
     if (mItem && mItem.length) mItem = mItem[Math.floor(Math.random() * mItem.length)];
     if (mItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'magazine', data: mItem }); }
   }
-  // v5：绯闻/恋爱说（每3天，好感≥50+曝光≥40，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastRumorDay || 0) >= 3 && (E.affection || 0) >= 50 && (E.misc.exposureAccum || 0) >= 40 && Math.random() < 0.4 && RUMOR_POOL && RUMOR_POOL.length) {
-    E._lastRumorDay = E.cycle.dayCount;
+  // v5：绯闻/恋爱说（每3天，好感≥50+恋情曝光风险≥10即升温，仅出道后）
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastRumorDay || 0) >= 3 && (E.affection || 0) >= 50 && getScandalHeat() >= 10 && Math.random() < 0.4 && RUMOR_POOL && RUMOR_POOL.length) {
+    E._lastRumorDay = E.cycle._gameDayCount;
     var rItem = RUMOR_POOL[Math.floor(Math.random() * RUMOR_POOL.length)];
     if (rItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'rumor', data: rItem }); }
   }
   // v5：私生骚扰检测（人气≥25后每天8%概率，5天冷却，仅出道后）
-  if (isDebutPopup && (E.career.popularity || 0) >= 25 && E.cycle.dayCount - (E._lastSasaengDay || 0) >= 5 && Math.random() < 0.08 && CHAT_SASAENG && CHAT_SASAENG.length) {
-    E._lastSasaengDay = E.cycle.dayCount;
+  if (isDebutPopup && (E.career.popularity || 0) >= 25 && E.cycle._gameDayCount - (E._lastSasaengDay || 0) >= 5 && Math.random() < 0.08 && CHAT_SASAENG && CHAT_SASAENG.length) {
+    E._lastSasaengDay = E.cycle._gameDayCount;
     var sItem = CHAT_SASAENG[Math.floor(Math.random() * CHAT_SASAENG.length)];
     if (sItem) GS._entSimSasaengMsg = sItem;
   }
   // v5：签售会（每4天，人气≥15，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastFansignDay || 0) >= 4 && (E.career.popularity || 0) >= 15 && Math.random() < 0.45 && FANSIGN_POOL && FANSIGN_POOL.length) {
-    E._lastFansignDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastFansignDay || 0) >= 4 && (E.career.popularity || 0) >= 15 && Math.random() < 0.45 && FANSIGN_POOL && FANSIGN_POOL.length) {
+    E._lastFansignDay = E.cycle._gameDayCount;
     var fItem = FANSIGN_POOL[Math.floor(Math.random() * FANSIGN_POOL.length)];
     if (fItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'fansign', data: fItem }); }
   }
   // v5：演唱会/大型演出（每6天，人气≥50，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastConcertDay || 0) >= 6 && (E.career.popularity || 0) >= 50 && Math.random() < 0.35 && CONCERT_POOL && CONCERT_POOL.length) {
-    E._lastConcertDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastConcertDay || 0) >= 6 && (E.career.popularity || 0) >= 50 && Math.random() < 0.35 && CONCERT_POOL && CONCERT_POOL.length) {
+    E._lastConcertDay = E.cycle._gameDayCount;
     var cItem = CONCERT_POOL[Math.floor(Math.random() * CONCERT_POOL.length)];
     if (cItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'concert', data: cItem }); }
   }
   // v5：回归周期（每5天，人气≥35，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastComebackDay || 0) >= 5 && (E.career.popularity || 0) >= 35 && Math.random() < 0.35 && COMEBACK_CYCLE_POOL && COMEBACK_CYCLE_POOL.length) {
-    E._lastComebackDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastComebackDay || 0) >= 5 && (E.career.popularity || 0) >= 35 && Math.random() < 0.35 && COMEBACK_CYCLE_POOL && COMEBACK_CYCLE_POOL.length) {
+    E._lastComebackDay = E.cycle._gameDayCount;
     var cbItem = COMEBACK_CYCLE_POOL[Math.floor(Math.random() * COMEBACK_CYCLE_POOL.length)];
     if (cbItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'comeback', data: cbItem }); }
   }
   // v5：打歌节目（每3天，人气≥20，仅出道后）
-  if (isDebutPopup && E.cycle.dayCount - (E._lastMusicShowDay || 0) >= 3 && (E.career.popularity || 0) >= 20 && Math.random() < 0.4 && MUSIC_SHOW_POOL && MUSIC_SHOW_POOL.length) {
-    E._lastMusicShowDay = E.cycle.dayCount;
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastMusicShowDay || 0) >= 3 && (E.career.popularity || 0) >= 20 && Math.random() < 0.4 && MUSIC_SHOW_POOL && MUSIC_SHOW_POOL.length) {
+    E._lastMusicShowDay = E.cycle._gameDayCount;
     var msItem = MUSIC_SHOW_POOL[Math.floor(Math.random() * MUSIC_SHOW_POOL.length)];
     if (msItem) { if (!GS._entSimPopupQueue) GS._entSimPopupQueue = []; GS._entSimPopupQueue.push({ type:'musicShow', data: msItem }); }
   }
-  // v5：事业挫折（每5天，人气＜40或压力高时触发）
-  if (E.cycle.dayCount - (E._lastSetbackDay || 0) >= 5 && E.cycle.dayCount >= 10 && Math.random() < 0.3 && CAREER_SETBACKS && CAREER_SETBACKS.length) {
+  // v5：事业挫折（每5天，仅出道后）
+  if (isDebutPopup && E.cycle._gameDayCount - (E._lastSetbackDay || 0) >= 5 && Math.random() < 0.3 && CAREER_SETBACKS && CAREER_SETBACKS.length) {
     var phase = E.chapter.roundInChapter < 10 ? 0 : E.chapter.roundInChapter < 20 ? 1 : E.chapter.roundInChapter < 30 ? 2 : 3;
     var sbPool = CAREER_SETBACKS.filter(function(s) { return (!s.phase || s.phase === phase); });
     if (sbPool.length) {
-      E._lastSetbackDay = E.cycle.dayCount;
+      E._lastSetbackDay = E.cycle._gameDayCount;
       var sbItem = sbPool[Math.floor(Math.random() * sbPool.length)];
       if (sbItem && sbItem.text) {
         if (!GS._entSimPopupQueue) GS._entSimPopupQueue = [];
@@ -422,8 +626,8 @@ export function goEntSimNextDay() {
       }
     }
   }
-  // v5：每日营业事件（DAILY_ENGAGEMENT_POOL，每天40%概率）
-  if (Math.random() < 0.4 && DAILY_ENGAGEMENT_POOL && DAILY_ENGAGEMENT_POOL.length) {
+  // v5：每日营业事件（DAILY_ENGAGEMENT_POOL，每天40%概率，仅出道后）
+  if (isDebutPopup && Math.random() < 0.4 && DAILY_ENGAGEMENT_POOL && DAILY_ENGAGEMENT_POOL.length) {
     var deItem = DAILY_ENGAGEMENT_POOL[Math.floor(Math.random() * DAILY_ENGAGEMENT_POOL.length)];
     if (deItem) {
       if (!GS._entSimPopupQueue) GS._entSimPopupQueue = [];
@@ -431,8 +635,8 @@ export function goEntSimNextDay() {
     }
   }
   // v5：日记条目（每3天自动生成一条日记）
-  if (E.cycle.dayCount - (E._lastDiaryDay || 0) >= 3 && Math.random() < 0.6) {
-    E._lastDiaryDay = E.cycle.dayCount;
+  if (E.cycle._gameDayCount - (E._lastDiaryDay || 0) >= 3 && Math.random() < 0.6) {
+    E._lastDiaryDay = E.cycle._gameDayCount;
     if (!E._diaryEntries) E._diaryEntries = [];
     E._diaryEntries.push({ day: E.cycle.dayCount, timestamp: Date.now() });
   }
@@ -449,8 +653,8 @@ export function goEntSimNextDay() {
       var d = se.data;
       GS._entSimPendingEvent = '【今日工作】' + typeLabel + '：' + (se.text || '') + '。请在本日剧情中生成女主角参与此工作的完整场景（约200-300字），包含工作细节与可能的情感交织。完成后自动结算人气+' + (d.pop || 2) + (d.exp ? '、曝光+' + d.exp : '') + '。';
       se.done = true;
-      GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + (d.pop || 0);
-      if (d.exp) GS.entSim.misc.exposureAccum = (GS.entSim.misc.exposureAccum || 0) + (d.exp || 0);
+      GS.entSim.career.popularity = Math.max(0, Math.min(100, (GS.entSim.career.popularity || 0) + (d.pop || 0)));
+      if (d.exp) addCareerPublicity(d.exp, typeLabel + '·' + (d.show || d.brand || d.mag || d.t));
       E.careerHistory.push({ round: E.cycle.roundTotal, day: today, type: se.type + '_done', text: typeLabel + '完成：' + (d.show || d.brand || d.mag || d.t) + '，人气+' + (d.pop || 0) });
       showToast(typeLabel + '完成！人气+' + (d.pop || 0));
     }
@@ -488,6 +692,8 @@ export function goEntSimNextDay() {
     E.chapter.entered = false;
   }
   saveGame();
+  // 双系统状态同步：将 entSim 状态同步到 1v1 GS 字段（确保两套系统一致）
+  syncOneHeartState();
   // 每日结算弹窗：显示今日变化（非第一天的第一个回合）
   if (E.cycle.dayCount > 1) {
     showDailySettlement(E, lastPop, lastExp, lastAff);
@@ -682,6 +888,33 @@ export function restartEntSim() {
 
 // 通用类型生成（聊天/朋友圈/剧场/约会/告白）：不推进时段、不写主剧情缓冲
 function runEntSimType(type, extra, storeResult) {
+  // ═══ 测试模式：绕过AI，返回轻量内容 ═══
+  if (window.__ENT_SIM_TEST) {
+    var mock = '';
+    if (type === 'chat') {
+      var chatReplies = [
+        '嗯，刚结束训练。你呢？', '今天练习很累，但想到明天的新编舞又有点兴奋。',
+        '刚才经纪人说下周可能有新行程，但还没定。', '我在吃拉面——你要不要也来一包？',
+        '刚才看到你发的动态了，拍得不错嘛。', '别太累着自己，记得休息。',
+        '你上次说的那个录音棚——我帮你去问了，下周有空档。',
+        '哥哥今天又唠叨我了，说让你管着我点——你站在谁那边？',
+        '刚听到一首歌，副歌部分让我想起你了。', '明天见个面？我有东西想给你。'
+      ];
+      mock = chatReplies[Math.floor(Math.random() * chatReplies.length)];
+      if (extra && extra.msg) {
+        var userMsg = extra.msg.substring(0, 20);
+        mock = '(回复"' + (userMsg.length > 15 ? userMsg.substring(0,15)+'...' : userMsg) + '") ' + mock;
+      }
+    } else if (type === 'dating') {
+      mock = '你们在便利店坐了一会儿。他买了你最喜欢的饮料——没有问你要什么，但他记得。外面下雨了，你们都没带伞——于是又多待了十五分钟。';
+    } else if (type === 'theater' || type === 'diary' || type === 'diaryHis') {
+      mock = '(测试模式·文本占位)';
+    } else {
+      mock = '(测试模式: ' + type + ')';
+    }
+    if (storeResult) storeResult(mock, { narrative: mock, options: [] });
+    return Promise.resolve(mock);
+  }
   var sys = buildEntSimSystemPrompt();
   var user = buildEntSimUserMessage(type, extra);
   var maxT = (type === 'theater') ? 1200 : 700;
@@ -700,6 +933,34 @@ function runEntSimType(type, extra, storeResult) {
 
 // 聊天：男主按人设回复，不推进时段
 export function generateEntSimChat(msg) {
+  // ═══ 测试模式：用池子预设对话 ═══
+  if (window.__ENT_SIM_TEST) {
+    var E = GS.entSim;
+    var aff = E.affection || 0;
+    // 从 CHAT_MALE_LEAD 池子筛选符合好感条件的对话条目
+    var chatPool = (typeof window.__getChatPool === 'function') ? window.__getChatPool() : [];
+    if (!chatPool.length) {
+      // 简易兜底：取 CHAT_MALE_LEAD 的子池
+      try {
+        var allChats = [];
+        var chatKeys = ['greet','flirt','jealous','worry','night','secret'];
+        for (var ki=0;ki<chatKeys.length;ki++) {
+          var p = CHAT_MALE_LEAD && CHAT_MALE_LEAD[chatKeys[ki]];
+          if (p) allChats = allChats.concat(p);
+        }
+        chatPool = allChats.filter(function(c) { return c && (!c.minAff || aff >= c.minAff); });
+      } catch(e) { chatPool = []; }
+    }
+    if (chatPool.length) {
+      var entry = chatPool[Math.floor(Math.random() * chatPool.length)];
+      if (entry && entry.t && entry.options && entry.options.length) {
+        // 把 options 存起来，供 UI 渲染预设回复按钮
+        GS._entSimChatOptions = entry.options.map(function(o) { return o.t; });
+        return Promise.resolve(entry.t);
+      }
+    }
+    return Promise.resolve('最近过得怎么样？练习还好吗？');
+  }
   var E = GS.entSim;
   // 每日限制：20条
   var today = E.cycle.dayCount || 1;
@@ -730,7 +991,7 @@ export function generateEntSimChat(msg) {
       var affGained = Math.min(Math.floor(E._chatAffCount / 5), 3) - (E._chatAffGained || 0);
       if (affGained > 0) {
         E._chatAffGained = (E._chatAffGained || 0) + affGained;
-        E.affection = (E.affection || 0) + affGained;
+        E.affection = Math.max(0, Math.min(100, (E.affection || 0) + affGained));
       }
     }
     saveGame();
@@ -845,14 +1106,38 @@ export function generateEntSimTheater(themePrompt) {
 // 约会：好感度 >= 30 可约，地点不同曝光风险不同（他家+3 / 车里0等）
 export function initiateEntSimDate(venue) {
   var E = GS.entSim;
+  // P2 #17: 团活冲突检测
+  var conflict = checkScheduleConflict(E);
+  if (conflict) {
+    showScheduleConflictModal(conflict, venue);
+    return;
+  }
+  // 约会冷却检查：连约2次强制冷却3天
+  var today = E.cycle._gameDayCount;
+  if (E.romance._lastDateDay && today - E.romance._lastDateDay <= 0) return Promise.reject(new Error('今天已经约过啦'));
+  if (E.romance._dateConsecutive >= 2) {
+    var cooldownRemain = 3 - (today - (E.romance._lastDateDay || 0));
+    if (cooldownRemain > 0) return Promise.reject(new Error('约会冷却中，还需 ' + cooldownRemain + ' 天'));
+    E.romance._dateConsecutive = 0;
+  }
   if (E.affection < 30) return Promise.reject(new Error('好感度不足 30，暂时约不到他～'));
+  // 更新冷却状态
+  if (E.romance._lastDateDay && today - E.romance._lastDateDay === 1) {
+    E.romance._dateConsecutive = (E.romance._dateConsecutive || 0) + 1;
+  } else if (today - (E.romance._lastDateDay || 0) > 1) {
+    E.romance._dateConsecutive = 1;
+  }
+  E.romance._lastDateDay = today;
   var venueName = typeof venue === 'object' ? venue.name : venue;
   var venueExp = (typeof venue === 'object' && typeof venue.exposure === 'number') ? venue.exposure : 1;
   var venueDesc = (typeof venue === 'object' && venue.desc) ? venue.desc : '';
   return runEntSimType('date', { dateVenue: venueName }, function(narrative, parsed) {
     applyEntSimAffection(3);
-    E.misc.exposureAccum = (E.misc.exposureAccum || 0) + venueExp;
+    addExposure(venueExp, '约会·' + (venueName || ''));
     E.romance.dateCount++;
+    // P2 #7: 记录约会地点供狗仔追踪
+    E._lastDateDay = E.cycle.dayCount;
+    E._lastDateVenue = venueName;
     GS._entSimCurrent = { narrative: narrative, options: parsed.options || [], extras: { dateVenue: venueName }, type: 'date' };
     saveGame();
   });
@@ -904,36 +1189,104 @@ function showChapterTransition(icon, name, desc) {
   } catch(e) {}
 }
 
-// ── 每日结算弹窗 ──
+// P2 #17: 团活冲突检测
+function checkScheduleConflict(E) {
+  if (!E || !E.agenda) return null;
+  var main = E.agenda.main || '';
+  if (main.indexOf('打歌') >= 0 || main.indexOf('音乐') >= 0 || main.indexOf('回归') >= 0 || main.indexOf('综艺') >= 0 || main.indexOf('录制') >= 0) {
+    return { groupActivity: main, desc: '今天有团活「' + main + '」，确定要翘掉去约会吗？' };
+  }
+  return null;
+}
+function showScheduleConflictModal(conflict, venue) {
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  var venueName = (typeof venue === 'object' && venue.name) ? venue.name : (venue || '');
+  overlay.innerHTML = '<div class="es-stageup-card">' +
+    '<div class="es-stageup-icon">⚠️</div>' +
+    '<div class="es-stageup-label">日程冲突</div>' +
+    '<div class="es-stageup-desc">' + (conflict.desc || '') + '</div>' +
+    '<button class="primary" id="es-conflict-keep" style="margin:4px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:var(--es-text)">A. 去团活（职业优先）</button>' +
+    '<button class="primary" id="es-conflict-date" style="margin:4px;background:rgba(255,100,100,.2);border:1px solid rgba(255,100,100,.3);color:var(--es-red)">B. 悄悄溜去约会</button>' +
+    '</div>';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+  document.body.appendChild(overlay);
+  document.getElementById('es-conflict-keep').addEventListener('click', function() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    showToast('✅ 团活优先');
+  });
+  document.getElementById('es-conflict-date').addEventListener('click', function() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    doEntSimDateAfterConflict(venue);
+  });
+}
+function doEntSimDateAfterConflict(venue) {
+  var E = GS.entSim;
+  var venueName = (typeof venue === 'object' && venue.name) ? venue.name : (venue || '');
+  var venueExp = (typeof venue === 'object' && typeof venue.exposure === 'number') ? venue.exposure : 1;
+  runEntSimType('date', { dateVenue: venueName }, function(narrative, parsed) {
+    applyEntSimAffection(3);
+    addExposure(venueExp + 2, '翘团活约会·' + venueName);
+    E.romance.dateCount++;
+    E._lastDateDay = E.cycle.dayCount;
+    E._lastDateVenue = venueName;
+    GS._entSimCurrent = { narrative: narrative, options: parsed.options || [], extras: { dateVenue: venueName }, type: 'date' };
+    saveGame();
+  });
+}
+
+// P2 #10: 每日热点互动
+function generateInteractiveBuzz(E) {
+  if (typeof E._buzzInteractCD !== 'number') E._buzzInteractCD = 0;
+  if (E._buzzInteractCD > 0) { E._buzzInteractCD--; return null; }
+  if (Math.random() > 0.25) return null;
+  var pop = E.career.popularity || 0;
+  var buzzes = [
+    { text: '你的打歌直拍突然火了，热搜#绝美ending镜头#', cost: '推正面热搜(-3人气)', pop: +3, type: 'good' },
+    { text: '有人扒出你练习生旧照，配文#颜值进化论#转发破万', cost: '不回应(冷处理)', pop: 0, type: 'neutral' }
+  ];
+  if (pop >= 40) buzzes.push({ text: '匿名论坛出现编造聊天记录，指控你多个暧昧对象', cost: '发律师函(-5人气)', pop: +1, type: 'bad' });
+  var b = buzzes[Math.floor(Math.random() * buzzes.length)];
+  E._buzzInteractCD = 4;
+  return b;
+}
+
+// P3 #15: 练习生期每日训练选项
+function generateTraineeOptions(E) {
+  if (!E || E.career.debutDay > 0) return null;
+  var opts = [
+    { id:'vocal', label:'🎤 声乐训练', effect:'在练习室里练了一下午高音，嗓子哑了但进步明显' },
+    { id:'dance', label:'💃 舞蹈训练', effect:'跟编舞老师扣了四个小时动作，镜子里的自己越来越同步' },
+    { id:'self', label:'📝 自修创作', effect:'在工作室写歌词，写了三首demo，有一首旋律还不错' },
+    { id:'rest', label:'😴 偷懒休息', effect:'悄悄溜去便利店吃冰淇淋，碰到了公司前辈给了一句忠告' }
+  ];
+  var o = opts[Math.floor(Math.random() * opts.length)];
+  return '今天训练选择：' + o.label + ' — ' + o.effect;
+}
+
+// ── 每日结算弹窗（P0: 统一 es-stageup-card 标准样式，去重 lastEvent，硬编码颜色→CSS变量）──
 function showDailySettlement(E, lastPop, lastExp, lastAff) {
   try {
     if (typeof document === 'undefined') return;
     var popDelta = ((E.career && E.career.popularity) || 0) - lastPop;
-    var expDelta = (E.misc.exposureAccum || 0) - lastExp;
+    var expDelta = getScandalHeat() - lastExp;
     var affDelta = (E.affection || 0) - lastAff;
-    var deltaText = '';
-    if (popDelta !== 0) deltaText += '人气 ' + (popDelta >= 0 ? '+' : '') + popDelta + '  ';
-    if (expDelta !== 0) deltaText += '曝光 ' + (expDelta >= 0 ? '+' : '') + expDelta + '  ';
-    if (affDelta !== 0) deltaText += '好感 ' + (affDelta >= 0 ? '+' : '') + affDelta;
-    if (!deltaText) deltaText = '数值无变化';
-    // 最近一条关键事件
-    var lastEvent = '';
-    if (E.careerHistory && E.careerHistory.length) {
-      var lastH = E.careerHistory[E.careerHistory.length - 1];
-      if (lastH && lastH.day === E.cycle.dayCount - 1) lastEvent = lastH.text || '';
-    }
+    var popStr = popDelta !== 0 ? ('人气 <b style="color:' + (popDelta >= 0 ? 'var(--es-green)' : 'var(--es-red)') + '">' + (popDelta >= 0 ? '+' : '') + popDelta + '</b> (→' + (E.career.popularity || 0) + ')') : '人气 不变';
+    var expStr = expDelta !== 0 ? ('曝光 <b style="color:' + (expDelta >= 0 ? 'var(--es-red)' : 'var(--es-green)') + '">' + (expDelta >= 0 ? '+' : '') + expDelta + '</b>') : '曝光 不变';
+    var affStr = affDelta !== 0 ? ('好感 <b style="color:' + (affDelta >= 0 ? 'var(--es-green)' : 'var(--es-red)') + '">' + (affDelta >= 0 ? '+' : '') + affDelta + '</b> (→' + (E.affection || 0) + ')') : '好感 不变';
+    var pop = E.career.popularity || 0;
+    var pr = Math.min(5, 1 + Math.floor(pop / 30));
     var overlay = document.createElement('div');
     overlay.className = 'es-stageup-overlay';
-    overlay.innerHTML = '<div class="es-stageup-card" style="border-color:rgba(160,140,220,.35);background:linear-gradient(160deg,#1f1a35,#151020)">' +
-      '<div style="font-size:36px;margin-bottom:4px">📋</div>' +
-      '<div style="font-size:18px;font-weight:700;color:#c8b8f0;margin-bottom:8px">Day ' + (E.cycle.dayCount - 1) + ' 结算</div>' +
-      '<div style="font-size:14px;color:rgba(220,210,255,.8);line-height:1.8;margin-bottom:10px">' + deltaText + '</div>' +
-      (lastEvent ? '<div style="font-size:12px;color:var(--es-text-dim);border-top:1px solid rgba(255,255,255,.08);padding-top:8px;max-width:300px;margin:0 auto;text-align:left">📌 ' + lastEvent + '</div>' : '') +
-      '<button id="es-settle-ok" class="primary" style="margin-top:10px;background:rgba(124,111,240,.25)">继续</button>' +
+    overlay.innerHTML = '<div class="es-stageup-card">' +
+      '<div class="es-stageup-icon">📋</div>' +
+      '<div class="es-stageup-label">Day ' + (E.cycle.dayCount - 1) + ' 结算</div>' +
+      '<div class="es-stageup-desc">' + popStr + '<br>' + expStr + '<br>' + affStr + '<br><span style="font-size:12px;color:rgba(255,255,255,.5)">🛡 公关次数 <b style="color:var(--es-yellow)">' + pr + '</b>/5</span></div>' +
+      '<button class="primary">继续</button>' +
       '</div>';
     document.body.appendChild(overlay);
-    var btn = document.getElementById('es-settle-ok');
-    if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+    overlay.querySelector('.primary').addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); });
   } catch(e) {}
 }
 

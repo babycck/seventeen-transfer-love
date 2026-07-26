@@ -1136,7 +1136,7 @@ export function buildOneHeartSystemPrompt() {
             }
             // [secret] 女主秘密（反差萌，供发现/调侃/撞破三路径呼应）
             if (GS.heroineSecrets && GS.heroineSecrets.length) {
-              parts += '\n[女主秘密·反差萌] 女主私下藏着这些不让哥哥知道的事（都是EXO追星向的小秘密，纯属可爱反差，不是黑料）：\n- ' + GS.heroineSecrets.join('\n- ') + '\n';
+              parts += '\n[女主秘密·反差萌] 女主私下藏着这些不让哥哥知道的事（所有秘密必须严格限定EXO：金珉锡/签售/周边/直拍/同人文/专辑/小卡/应援，绝不涉及SEVENTEEN成员或任何男团直播间刷礼物行为，纯属可爱反差，不是黑料）：\n- ' + GS.heroineSecrets.join('\n- ') + '\n';
               parts += '这些秘密可在剧情中自然被男主意外发现（成为两人小默契）、被哥哥调侃拿捏、或被情敌/队友撞破变成把柄。但初次见面时女主绝不会主动提起，需由事件触发。\n';
             }
           } else {

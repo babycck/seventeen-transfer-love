@@ -6,8 +6,10 @@ import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
 import {
   COMMON_POOL, RELATED_POOL, TRAINEE_POOL,
-  CHAPTER1_NOVICE, CHAPTER2_RISING, CHAPTER3_PEAK, CHAPTER4_LEGEND, BOYGROUP_POOL
+  CHAPTER1_NOVICE, CHAPTER2_SPROUTING, CHAPTER2_RISING, CHAPTER3_PEAK, CHAPTER5_TOPSTAR, CHAPTER4_LEGEND, BOYGROUP_POOL,
+  TRAINEE_EARLY_POOL, TRAINEE_MID_POOL, TRAINEE_LATE_POOL
 } from './pools/index.js';
+import { filterByRequire } from './pools/_utils.js';
 
 var TIME_SLOTS = ['上午', '下午', '夜晚'];
 var SLOTS_PER_DAY = 3;
@@ -36,10 +38,12 @@ function mainPoolByCareer(careerKey) {
 }
 
 function chapterPoolByIndex(idx) {
-  if (idx >= 4) return CHAPTER4_LEGEND;
-  if (idx >= 3) return CHAPTER3_PEAK;
-  if (idx >= 2) return CHAPTER2_RISING;
-  return CHAPTER1_NOVICE;
+  if (idx >= 6) return CHAPTER4_LEGEND;    // 传奇殿堂
+  if (idx >= 5) return CHAPTER5_TOPSTAR;    // 顶流巨星
+  if (idx >= 4) return CHAPTER3_PEAK;       // 人气偶像
+  if (idx >= 3) return CHAPTER2_RISING;     // 稳步上升
+  if (idx >= 2) return CHAPTER2_SPROUTING;  // 崭露头角
+  return CHAPTER1_NOVICE;                   // 新人出道
 }
 
 export function rollDailyAgenda() {
@@ -64,18 +68,28 @@ export function rollDailyAgenda() {
   if (scheduledMain) {
     main = { key: scheduledMain, loc: scheduledLoc };
   } else if (!isDebut) {
-    main = pick(pool);
+    // 练习生三分阶段：按traineePhase用filterByRequire分池抽取
+    var tp = E.career.traineePhase || 1;
+    var phasePool = tp === 1 ? TRAINEE_EARLY_POOL : tp === 2 ? TRAINEE_MID_POOL : TRAINEE_LATE_POOL;
+    var validPool = filterByRequire(phasePool, E);
+    main = pick(validPool.length ? validPool : TRAINEE_POOL);
   } else {
     var r = randInt(1, 100);
     if (r <= 70) main = pick(chapterPoolByIndex(chapterIdx)); // 70% 阶段专属 ← 主力
     else main = pick(COMMON_POOL);          // 30% 跨阶段通用
   }
-  var related = RELATED_POOL[randInt(0, RELATED_POOL.length - 1)];
-  var rivalItem = RIVAL_POOL[randInt(0, RIVAL_POOL.length - 1)];
-  var rival = rivalItem.key; var rivalLoc = rivalItem.loc || '';
-  var maleItem = MALE_LEAD_POOL[randInt(0, MALE_LEAD_POOL.length - 1)];
-  var maleLead = maleItem.key; var maleLeadLoc = maleItem.loc || '';
-  var brother = (E.brother && E.brother.name) ? pick(BROTHER_POOL) : null;
+  if (isDebut) {
+    var related = RELATED_POOL[randInt(0, RELATED_POOL.length - 1)];
+    var rivalItem = RIVAL_POOL[randInt(0, RIVAL_POOL.length - 1)];
+    var rival = rivalItem.key; var rivalLoc = rivalItem.loc || '';
+    var maleItem = MALE_LEAD_POOL[randInt(0, MALE_LEAD_POOL.length - 1)];
+    var maleLead = maleItem.key; var maleLeadLoc = maleItem.loc || '';
+    var brother = (E.brother && E.brother.name) ? pick(BROTHER_POOL) : null;
+  } else {
+    // 练习生阶段：仅保留基础训练提示
+    var related = '基础训练';
+    var rival = ''; var rivalLoc = ''; var maleLead = ''; var maleLeadLoc = ''; var brother = null;
+  }
   E.agenda = {
     main: main.key, mainLoc: main.loc,
     related: related, relatedLoc: '',
