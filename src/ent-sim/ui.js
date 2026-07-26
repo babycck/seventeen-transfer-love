@@ -417,6 +417,7 @@ function renderQuickActions() {
   ].map(function(b) {
     return '<button class="es-quick-btn' + (b.disabled ? ' es-quick-disabled' : '') + '" data-q="' + b.q + '"' + b.disabled + '>' + b.label + '</button>';
   }).join('');
+  var isTrainee = !isDebut;
   var row2 = [
     { q: 'regenerate', label: '重新生成' },
     { q: 'nextagenda', label: '下一个行程' + (GS.entSim.cycle.timeOfDay >= 2 ? ' → 换天' : '') },
@@ -424,10 +425,12 @@ function renderQuickActions() {
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
     { q: 'nextday', label: '下一天' }
-  ].map(function(b) {
+  ];
+  if (isTrainee) row2.push({ q: 'fastforward', label: '⚡快进5天' });
+  var row2Html = row2.map(function(b) {
     return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>';
   }).join('');
-  return '<div class="es-quick es-quick-center"><div>' + row1 + '</div><div style="margin-top:6px">' + row2 + '</div></div>';
+  return '<div class="es-quick es-quick-center"><div>' + row1 + '</div><div style="margin-top:6px">' + row2Html + '</div></div>';
 }
 function renderRomanceButtons() {
   var E = GS.entSim;
@@ -922,6 +925,30 @@ function checkWorkCooldown(type) {
   return false;
 }
 
+// 快进练习生期（测试用）
+function fastForwardTrainee() {
+  var E = GS.entSim;
+  var oldDay = E.cycle.dayCount || 1;
+  var advanceDays = 5;
+  E.cycle.dayCount = oldDay + advanceDays;
+  E.cycle.practiceDayCount = (E.cycle.practiceDayCount || 1) + advanceDays;
+  E.cycle._gameDayCount = (E.cycle._gameDayCount || 1) + advanceDays;
+  // 推进练习生阶段
+  if (E.career && E.career.traineePhase && E.career.traineePhase < 2 && E.cycle.practiceDayCount >= 5) {
+    E.career.traineePhase = 2;
+  }
+  // 检查是否到达可以出道的节点
+  if (E.career && !E.career.debutDay && E.cycle.practiceDayCount >= 10) {
+    E.career.debutDay = E.cycle.dayCount;
+    E.career.traineePhase = 3;
+  }
+  E.cycle.timeOfDay = 0;
+  saveGame();
+  return goEntSimNextDay().then(function() {
+    showToast('⚡ 快进 ' + advanceDays + ' 天完成（Day ' + E.cycle.dayCount + '）');
+  });
+}
+
 // 快捷指令
 function onQuick(q) {
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
@@ -959,6 +986,12 @@ function onQuick(q) {
   }
 
   if (q === 'cover') { showCoverPanel(); return; }
+
+  if (q === 'fastforward') {
+    showNarrativeLoading();
+    fastForwardTrainee().then(rerender);
+    return;
+  }
 
   showNarrativeLoading();
   if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
