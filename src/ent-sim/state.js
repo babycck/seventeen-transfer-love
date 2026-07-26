@@ -5,14 +5,17 @@
 import { GS, setGS, saveGame } from '../state.js';
 import { MEMBERS, buildEntSimHeroineGroup, buildEntSimGroupMeta } from '../data.js';
 import { randInt } from '../utils.js';
-import { ENT_SIM_CAREERS, CHAPTERS, NPC_TYPES, RIVAL_NAMES, CYCLE_STAGE_META, ROMANCE_DEPTH_LABELS } from './data.js';
+import { ENT_SIM_CAREERS, CHAPTERS, RIVAL_NAMES, CYCLE_STAGE_META, ROMANCE_DEPTH_LABELS } from './data.js';
 
 // 初始化 entSim 全部运行时状态（setup 完成后调用一次）
 export function initEntSimState() {
   if (!GS.entSim) GS.entSim = {};
+  // 清空聊天历史（避免新游戏复用旧档）
+  GS._entSimChatHistory = {};
+  GS._entSimChatSentIdx = {};
   var E = GS.entSim;
   // 手册规定：队友妹妹世界观下职业固定为「女团爱豆」
-  var careerKey = '女团爱豆';
+  var careerKey = '练习生';
   var career = ENT_SIM_CAREERS[careerKey] || ENT_SIM_CAREERS['练习生'];
 
   // 男主：优先使用 setup 选中的成员（R1 独立 NPC），否则随机
@@ -34,10 +37,15 @@ export function initEntSimState() {
   E.career = {
     profession: careerKey,
     careerKey: careerKey,
-    popularity: career.startPopularity,
-    careerLevel: careerLevelOf(career.startPopularity),
-    resourcesLevel: '新人'
+    popularity: 3,
+    careerLevel: '新人',
+    resourcesLevel: '新人',
+    debutDay: 0,
+    yearsActive: 0,
+    contractYears: 7,
+    contractRemaining: 7
   };
+  E.skills = { vocal: 60, dance: 45, variety: 30, visual: 80 };
   E.works = { slots: {} }; // 在播作品槽位（onAirWorkCount 读取，防止 .slots 未初始化抛 TypeError）
   E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: 1 };
   // 好感度（0-100）：恋爱主线核心驱动，AI 每回合返回 affectionDelta 推进
@@ -87,7 +95,7 @@ export function initEntSimState() {
   // 女团队友（5 位姐姐）：setup 时具象化，供 AI 客串
   E.heroineGroup = buildEntSimHeroineGroup();
   E.groupMeta = buildEntSimGroupMeta();
-  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, cpRealProgress: 0, cpRealTriggered: false, npcInteractionUsed: 0 }; // npcInteractionUsed 每日1次限制
+  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, cpRealProgress: 0, cpRealTriggered: false };
   // v2 新增：吃醋值系统
   E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
   E._jealousLastUpdateDay = 0;
@@ -102,6 +110,10 @@ export function initEntSimState() {
   E._lastBrandOfferDay = 0;
   E._releaseCD = 0; // 0=可用 >0=冷却剩余天数
   E._lastAwardDay = 0;
+  E._lastVarietyDay = 0; // 综艺冷却（5天）
+  E._lastMagazineDay = 0; // 画报冷却（3天）
+  E.brother.supportLog = E.brother.supportLog || []; // 哥哥支持度变动日志
+  E._scheduledEvents = []; // 日程事件队列 [{id,type:variety|brand|magazine|release,data:poolItem,targetDay,text,loc,done}]
   E.flags = {};
   E.endings = { hint: '', locked: false, type: '', eligible: false, text: '' }; // 系统10 结局
   E.started = false; // 首轮剧情是否已成功生成（renderHtml 据此避免重复触发生成）
@@ -111,9 +123,6 @@ export function initEntSimState() {
   E.moments = E.moments || [];
   E.theaterHistory = E.theaterHistory || [];
   E.fanReactions = E.fanReactions || []; // 营业/曝光后的粉丝圈反应
-
-  // 关系网 NPC 初始节点（精简 4 类）
-  initNpcNodes();
 
   // 重置生成中/自动重试/待触发事件等瞬态标志，避免上一局崩溃残留导致卡死
   GS._entSimGenerating = false;
@@ -172,34 +181,6 @@ function defaultSecrets() {
     out.push(copy.splice(idx, 1)[0]);
   }
   return out;
-}
-
-function initNpcNodes() {
-  var E = GS.entSim;
-  var ml = E.romance.maleLead || {};
-  var mlId = ml.memberId || ml.id || '';
-  var broId = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
-  for (var type in NPC_TYPES) {
-    if (!Object.prototype.hasOwnProperty.call(NPC_TYPES, type)) continue;
-    // 不再创建女性情敌节点，团内竞争者由 suitor 承载
-    if (type === 'rival') continue;
-    var nid = 'npc_' + type;
-    if (!E.npcNetwork.nodes[nid]) {
-      var nm;
-      if (type === 'suitor') {
-        // 男主的情敌 = 团内（SEVENTEEN）另一位男成员，排除男主与哥哥
-        var sp = MEMBERS.filter(function (m) { return m.id !== mlId && m.id !== broId; });
-        if (sp.length === 0) sp = MEMBERS.slice();
-        nm = sp[randInt(0, sp.length - 1)].name;
-      } else {
-        nm = NPC_TYPES[type].label;
-      }
-      E.npcNetwork.nodes[nid] = {
-        id: nid, type: type, name: nm,
-        intimacy: 0, stance: NPC_TYPES[type].stanceOptions[0], lastEventRound: -1
-      };
-    }
-  }
 }
 
 export function rivalNode() {
@@ -277,6 +258,11 @@ export function checkChapterAdvance() {
     E.chapter.icon = chapterIconOf(target);
     E.chapter.roundInChapter = 0;
     E.chapter.entered = true;
+    // 首次跨越：练习生 → 出道（debutDay 从0变为当天）
+    if (E.career.debutDay === 0 && target >= 2) {
+      E.career.debutDay = E.cycle.dayCount || 1;
+      E.career.yearsActive = 0;
+    }
     // 章节奖励：+1 掩护次数上限（最多7次）
     if (E.romance && typeof E.romance.coverUsed === 'number') {
       var newMax = Math.min(7, 5 + (target - old));

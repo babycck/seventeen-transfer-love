@@ -401,32 +401,80 @@ body {
 .options-area { margin-top: 8px; }
 
 .option-btn {
-  display: block;
+  display: flex;
   width: 100%;
+  max-width: 520px;
   text-align: left;
-  padding: 11px 14px;
-  margin: 5px 0;
+  margin: 8px 0;
   background: linear-gradient(135deg, var(--bg-soft), var(--bg-soft-hover));
   border: 1.5px solid var(--border-primary);
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text-secondary);
   transition: all .2s;
   font-weight: 500;
   -webkit-appearance: none;
+  padding: 0;
+  overflow: hidden;
 }
 
 .option-btn:hover {
   background: linear-gradient(135deg, var(--bg-soft-hover), #f8d0d8);
   border-color: var(--accent-primary);
-  transform: translateX(2px);
-  box-shadow: 0 2px 6px rgba(233, 30, 99, 0.10);
+  transform: translateX(3px);
+  box-shadow: 0 3px 10px rgba(233, 30, 99, 0.12);
 }
 
-.option-btn:active { transform: scale(0.98); }
+.option-btn:active { transform: scale(0.985); }
 .option-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
+/* 左边彩色条 */
+.opt-bar {
+  flex-shrink: 0;
+  width: 5px;
+  min-height: 100%;
+  border-radius: 0;
+  transition: width .2s;
+}
+.opt-bar.c1 { background: linear-gradient(180deg, #ff6b9d, #ff4081); }
+.opt-bar.c2 { background: linear-gradient(180deg, #ab47bc, #7b1fa2); }
+.opt-bar.c3 { background: linear-gradient(180deg, #42a5f5, #1565c0); }
+.option-btn:hover .opt-bar { width: 7px; }
+
+/* 右边内容区 */
+.opt-body {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+/* 新 A/B/C 圆形标签 */
+.opt-label-b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-right: 8px;
+  color: #fff;
+}
+.opt-label-b.la { background: linear-gradient(135deg, #ff6b9d, #ff4081); box-shadow: 0 2px 6px rgba(255,64,129,.3); }
+.opt-label-b.lb { background: linear-gradient(135deg, #ab47bc, #7b1fa2); box-shadow: 0 2px 6px rgba(171,71,188,.3); }
+.opt-label-b.lc { background: linear-gradient(135deg, #42a5f5, #1565c0); box-shadow: 0 2px 6px rgba(66,165,245,.3); }
+
+.opt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 旧版 opt-label（真心话/提问箱兼容） */
 .option-btn .opt-label {
   display: inline-block;
   background: var(--accent-primary);
@@ -1134,7 +1182,8 @@ body {
   .setup-step .member-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
   .setup-step .member-chip { font-size: 10px; padding: 6px 2px; }
   .action-bar button { font-size: 10px; padding: 7px 10px; }
-  .option-btn { font-size: 12px; padding: 10px 12px; }
+  .option-btn { font-size: 12px; }
+  .option-btn .opt-body { padding: 10px 12px; }
   .modal-content { padding: 16px; max-width: 98vw; }
 }
 
@@ -2083,9 +2132,11 @@ body {
   margin-bottom: 0;
 }
 .interact-body .option-btn {
-  padding: 14px 14px;
   font-size: 14px;
   border-radius: 12px;
+}
+.interact-body .option-btn .opt-body {
+  padding: 14px 16px;
 }
 .interact-body .opt-label {
   width: 24px;
@@ -2315,14 +2366,36 @@ body {
 @keyframes es-pulse { 0%, 100% { opacity: .4; } 50% { opacity: .85; } }
 .es-options { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .es-option {
-  text-align: left; padding: 8px 12px; border: 1px solid rgba(124,111,240,.3);
-  border-radius: 12px; background: rgba(124,111,240,.1); color: var(--es-text);
-  cursor: pointer; font-family: inherit; font-size: 13px; line-height: 1.4; transition: .15s;
-  /* 最多 2 行，超长截断 */
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  display: flex;
+  text-align: left;
+  max-width: 520px;
+  border: 1px solid rgba(124,111,240,.3);
+  border-radius: 12px; background: rgba(124,111,240,.08); color: var(--es-text);
+  cursor: pointer; font-family: inherit; font-size: 13px; line-height: 1.45; transition: .15s;
+  padding: 0;
   overflow: hidden;
 }
-.es-option:hover { background: rgba(124,111,240,.2); transform: translateY(-1px); border-color: var(--es-primary2); }
+/* 左边彩色条 */
+.es-opt-bar {
+  flex-shrink: 0;
+  width: 5px;
+  min-height: 100%;
+  transition: width .15s;
+}
+.es-opt-bar.c1 { background: linear-gradient(180deg, #ff6b9d, #ff4081); }
+.es-opt-bar.c2 { background: linear-gradient(180deg, #ab47bc, #7b1fa2); }
+.es-opt-bar.c3 { background: linear-gradient(180deg, #42a5f5, #1565c0); }
+.es-option:hover .es-opt-bar { width: 7px; }
+/* 内容区 */
+.es-opt-body {
+  flex: 1;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.es-option:hover { background: rgba(124,111,240,.18); transform: translateY(-1px); border-color: var(--es-primary2); box-shadow: 0 4px 14px rgba(124,111,240,.15); }
 .es-option:disabled { opacity: .5; cursor: default; transform: none; }
 .es-inputbar { display: flex; gap: 8px; margin-top: 10px; }
 .es-inputbar input {
@@ -2690,6 +2763,8 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-aff-clickable { cursor: pointer; border-bottom: 1px dashed rgba(216,122,184,.2); border-radius: 4px; }
 .es-aff-clickable:hover { background: rgba(216,122,184,.06); }
 .es-aff-clickable b { color: #ffb8d4; }
+.es-brother-clickable { cursor: pointer; border-bottom: 1px dashed rgba(99,184,100,.2); border-radius: 4px; }
+.es-brother-clickable:hover { background: rgba(99,184,100,.06); }
 .es-cover-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 8px; }
 .es-cover-item { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; transition: .15s; }
 .es-cover-item:hover { background: rgba(255,255,255,.1); border-color: var(--es-accent); }
@@ -2721,6 +2796,8 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
   background: var(--es-soft); border: 1px solid var(--es-card-border); transition: .15s;
 }
 .es-quick-btn:hover { background: var(--es-soft-hover); border-color: var(--es-primary2); transform: translateY(-1px); }
+.es-quick-btn.es-quick-disabled, .es-quick-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; color: rgba(255,255,255,.35); }
+.es-quick-btn.es-quick-disabled:hover, .es-quick-btn:disabled:hover { background: var(--es-soft); border-color: var(--es-card-border); transform: none; }
 /* 缩小版快捷按钮（风险预估/掩护用） */
 .es-rom-sm { display: inline-flex; gap: 6px; align-items: center; }
 .es-quick-sm { font-size: 11px; padding: 5px 10px; }
@@ -2767,6 +2844,93 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
   padding: 10px 18px; border: none; border-radius: 12px; cursor: pointer; font-family: inherit;
   font-size: 13px; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--es-primary), var(--es-primary2));
 }
+
+/* KakaoTalk 风格聊天 */
+.es-kkt-phone {
+  max-width: 400px; margin: 0 auto; background: #9bbdd4; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0,0,0,.3);
+}
+.es-kkt-topbar {
+  padding: 10px 14px; background: #9bbdd4; color: #222; font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+.es-kkt-back { cursor: pointer; font-size: 16px; }
+.es-chat-channels {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; background: rgba(255,255,255,.3);
+}
+.es-chat-chan {
+  padding: 4px 10px; border-radius: 14px; border: none; cursor: pointer; font-size: 11px;
+  background: rgba(255,255,255,.4); color: #333; transition: background .2s;
+}
+.es-chat-chan.sel { background: #f8e45c; color: #222; font-weight: 600; }
+.es-kkt-msg { display: flex; flex-direction: column; padding: 2px 12px; }
+.es-kkt-msg.you { align-items: flex-end; }
+.es-kkt-msg.me { align-items: flex-start; }
+.es-kkt-bubble {
+  max-width: 75%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5;
+  word-break: break-word; margin-bottom: 2px;
+}
+.es-kkt-bubble.you { background: #f8e45c; color: #222; }
+.es-kkt-bubble.me { background: #fff; color: #222; }
+.es-kkt-quick {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px; margin-top: 4px;
+}
+.es-kkt-qbtn {
+  padding: 5px 12px; border-radius: 14px; border: 1px solid rgba(0,0,0,.1);
+  background: rgba(255,255,255,.7); font-size: 12px; cursor: pointer; color: #444;
+}
+.es-kkt-qbtn:hover { background: #f8e45c; }
+
+/* ── 手机模拟器 ── */
+.es-phone-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.es-phone-frame { width: 375px; height: 720px; max-height: 92vh; background: #0d0d0f; border-radius: 44px; border: 2.5px solid #4a4a4e; box-shadow: 0 0 0 1px #1a1a1c, 0 30px 80px rgba(0,0,0,.6); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+/* 灵动岛 notch */
+.es-phone-notch { height: 54px; background: #0d0d0f; position: relative; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 28px 8px; color: #f0f0f0; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+.es-phone-notch::after { content: ''; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 120px; height: 28px; background: #000; border-radius: 20px; }
+.es-phone-time { font-weight: 600; letter-spacing: .3px; }
+.es-phone-icons { display: flex; gap: 5px; font-size: 10px; }
+.es-phone-screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0; background: #0d0d0f; }
+.es-phone-home { padding-bottom: 70px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%); }
+/* App 图标网格 */
+.es-apps-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px 4px; padding: 30px 30px 20px; }
+.es-app-icon { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform .15s; }
+.es-app-icon:active { transform: scale(.92); }
+.es-app-icon .icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 12px rgba(0,0,0,.3); position: relative; }
+.es-app-icon .label { font-size: 10.5px; color: rgba(255,255,255,.85); margin-top: 7px; text-align: center; white-space: nowrap; letter-spacing: .2px; }
+.es-app-icon .badge { position: absolute; top: -4px; right: -4px; font-size: 10px; background: #FF3B30; color: #fff; border-radius: 10px; padding: 2px 7px; font-weight: 600; }
+.es-phone-back { padding: 8px 16px 0; display: flex; align-items: center; gap: 6px; color: #0A84FF; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+.es-phone-back:hover { opacity: .7; }
+/* 联系人列表 */
+.es-phone-contacts { padding: 4px 0; }
+.es-phone-contact { display: flex; align-items: center; padding: 13px 18px; cursor: pointer; margin: 1px 0; }
+.es-phone-contact:active { background: rgba(255,255,255,.06); }
+.es-phone-contact .avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; margin-right: 14px; }
+.es-phone-contact .info { flex: 1; min-width: 0; border-bottom: 1px solid rgba(255,255,255,.04); padding-bottom: 12px; }
+.es-phone-contact .name { font-size: 15px; color: #fff; font-weight: 500; }
+.es-phone-contact .preview { font-size: 12px; color: #777; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 聊天界面 */
+.es-phone-chat-header { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.06); display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: rgba(255,255,255,.02); }
+.es-phone-chat-header .name { font-size: 15px; color: #fff; font-weight: 600; }
+.es-phone-chat-msgs { flex: 1; overflow-y: auto; padding: 14px 14px; display: flex; flex-direction: column; gap: 6px; background: #0d0d0f; }
+.es-phone-msg { max-width: 78%; padding: 9px 13px; border-radius: 18px; font-size: 13px; line-height: 1.5; word-break: break-word; animation: msgIn .2s ease; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.es-phone-msg.me { align-self: flex-end; background: #007AFF; color: #fff; border-bottom-right-radius: 6px; }
+.es-phone-msg.you { align-self: flex-start; background: #262628; color: #e5e5e5; border-bottom-left-radius: 6px; }
+.es-phone-input-row { display: flex; padding: 8px 10px; gap: 8px; flex-shrink: 0; background: rgba(255,255,255,.02); }
+.es-phone-input { flex: 1; background: #262628; border: 1px solid rgba(255,255,255,.06); border-radius: 20px; padding: 10px 16px; color: #fff; font-size: 13px; outline: none; }
+.es-phone-input::placeholder { color: #666; }
+.es-phone-send { background: #007AFF; border: none; border-radius: 50%; width: 38px; height: 38px; color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,122,255,.3); }
+.es-phone-send:active { transform: scale(.94); }
+.es-phone-homebar { height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.es-phone-homebar div { width: 134px; height: 4.5px; border-radius: 3px; background: rgba(255,255,255,.25); }
+.es-phone-page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.es-phone-page.active { display: flex; }
+/* 页面标题 */
+.es-phone-title { padding: 12px 16px 8px; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
+/* 通用内容卡 */
+.es-phone-card { margin: 6px 14px; padding: 12px 14px; background: rgba(255,255,255,.04); border-radius: 12px; }
+.es-phone-card-head { font-size: 11px; color: #666; margin-bottom: 6px; }
+.es-phone-card-body { font-size: 12px; color: #ccc; line-height: 1.6; }
 
 /* 剧情区自由输入框（对齐聊天输入框） */
 .es-free-area { display: flex; gap: 8px; margin-top: 10px; }
@@ -2975,6 +3139,9 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .bubble-h-right { color: rgba(255,200,220,.5); font-size: 11px; }
 .bubble-h-right b { color: #ffb8d4; }
 .bubble-chat { max-height: 42vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.es-phone-screen .bubble-chat { flex: 1; max-height: none; }
+.bubble-send-bar { flex-shrink: 0; padding: 8px 12px; }
+.es-phone-screen .bubble-send-bar { padding-bottom: 20px; }
 .bubble-chat::-webkit-scrollbar { width: 4px; }
 .bubble-chat::-webkit-scrollbar-thumb { background: rgba(124,111,240,.2); border-radius: 4px; }
 .bubble-empty { color: rgba(255,255,255,.3); text-align: center; padding: 30px 0; font-size: 13px; }

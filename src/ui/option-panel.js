@@ -28,9 +28,14 @@ export function renderOptionPanel(phaseChoicesExhausted, isTruthRoundActive) {
         optAffHtml += '<span style="display:block;font-size:10px;color:' + rColor + ';margin-top:2px">风险：' +
           escHtml(opts[j].riskMember) + ' ' + rSign + opts[j].riskDelta + '</span>';
       }
+      var barCls = 'c' + (j + 1);
+      var labelCls = ['la', 'lb', 'lc'][j] || '';
       html += '<button class="option-btn' + (isSpecial ? ' btn-special' : '') + '" data-idx="' + j + '">' +
-        '<span class="opt-label">' + (labels[j] || (j + 1)) + '</span>' +
-        escHtml(optText) + optAffHtml + '</button>';
+        '<span class="opt-bar ' + barCls + '"></span>' +
+        '<span class="opt-body">' +
+        '<span class="opt-label-b ' + labelCls + '">' + (labels[j] || (j + 1)) + '</span>' +
+        '<span class="opt-text">' + escHtml(optText) + '</span>' +
+        optAffHtml + '</span></button>';
     }
     if (!isTruthRoundActive) {
       html += '<p style="font-size:10px;color:#8b6b6b;text-align:right;margin-top:4px">本时段行动次数：' +

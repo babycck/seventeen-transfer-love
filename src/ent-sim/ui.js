@@ -10,10 +10,9 @@ import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL } from './pools-v2.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
-import { getNpcNodes, interactNpc, getNpcInteractions } from './npc-network.js';
 import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
   tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining, getJealousLabel
@@ -25,9 +24,8 @@ import {
   generateEntSimChat, generateEntSimMoment, generateEntSimTheater, handleEntSimRegenerate,
   generateEntSimRound, runEntSimEnding, triggerTeammateEvent, triggerSVTTeammateEvent, restartEntSim, sendBubbleMessage
 } from './engine.js';
-import { STAGE_CEREMONY, TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './data.js';
-
-var SHOW_NPC = ['broker', 'fanleader', 'suitor'];
+import { STAGE_CEREMONY } from './data.js';
+import { TEAMMATE_FLAVOR, SVT_TEAMMATE_PROFILES } from './pools/index.js';
 
 // 通用评论池：展开讨论串时随机抽 2 条（无需 AI，省额度）
 var BUZZ_COMMENT_POOL = [
@@ -124,7 +122,6 @@ export function renderEntSimGameScreen() {
     if (!app) return;
     app.innerHTML = renderHtml();
     bindEntSimEvents();
-    // 剧情生成后自动跳到最新内容
     setTimeout(function() {
       var endEl = document.getElementById('es-narrative-end');
       if (endEl) endEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -133,7 +130,8 @@ export function renderEntSimGameScreen() {
     if (GS._entSimMilestonePending) showMilestoneCard();
     checkAndShowPendingPopups();
   };
-  return renderHtml();
+  var html = renderHtml();
+  return html;
 }
 
 function renderHtml() {
@@ -160,7 +158,6 @@ function renderHtml() {
   var html = '' +
     '<div id="entsim-root" class="entsim-mode">' +
       renderHeader() +
-      renderDepthTop() +
       '<div class="es-grid">' +
         '<div class="es-col es-left">' + renderLeft() + '</div>' +
         '<div class="es-col es-center">' + renderCenter(cur, heartPending) + '</div>' +
@@ -195,35 +192,69 @@ function renderHeader() {
 function renderLeft() {
   var E = GS.entSim;
   var gm = E.groupMeta || {};
+  var isDebut = (E.career && E.career.debutDay > 0) || (gm.debutYears > 0);
   var sisters = (E.heroineGroup || []).map(function(s, i) {
     return '<button class="es-sis" data-sis="' + i + '"><span class="es-sis-name">' + escHtml(s.name) + '</span><small>' + escHtml(s.roleTag) + '</small></button>';
   }).join('');
   var exp = Math.min(100, (E.misc.exposureAccum || 0) * 4);
   var tier = getExposureTierLabel(E.misc.exposureAccum || 0);
   var expBarColor = exp >= 80 ? 'var(--es-danger)' : exp >= 60 ? '#ff7e7e' : exp >= 40 ? '#ffd166' : exp >= 20 ? '#ffee88' : '#7ee787';
-  // 团设卡片
+  // 团设卡片：仅出道后展示
   var groupCard = '';
-  if (gm.groupName) {
-    var songsHtml = (gm.songs || []).map(function(s) { return '<span class="es-gm-song">' + escHtml(s) + '</span>'; }).join('');
+  if (gm.groupName && isDebut) {
+    var songsArr = Array.isArray(gm.songs) ? gm.songs : [];
+    var songsHtml = songsArr.map(function(s) { return '<span class="es-gm-song">' + escHtml(s) + '</span>'; }).join('');
+    // 最近活动：从careerHistory筛近30天记录，按类型各取1条
+    var recentHtml = buildRecentActivities(E);
     groupCard = '<div class="es-gm-card">' +
       '<div class="es-gm-name">' + escHtml(gm.groupName) + '</div>' +
-      '<div class="es-gm-line">🏢 ' + escHtml(gm.company || '') + '  ·  🎵 ' + escHtml(gm.concept || '') + '</div>' +
+      '<div class="es-gm-line">🏢 ' + escHtml(gm.company || '') + '</div>' +
+      '<div class="es-gm-line">🎵 ' + escHtml(gm.concept || '') + '</div>' +
       '<div class="es-gm-line">💎 粉丝：' + escHtml(gm.fandom || '') + '  ·  ' + (gm.debutYears ? '出道 ' + gm.debutYears + ' 年' : '刚出道新人团') + '</div>' +
       (songsHtml ? '<div class="es-gm-songs">🔥 出圈曲：' + songsHtml + '</div>' : '') +
+      (recentHtml ? '<div class="es-gm-songs" style="margin-top:4px">📋 最近活动：' + recentHtml + '</div>' : '') +
     '</div>';
   }
+  var sisHtml = isDebut ? ('<div class="es-col-title" style="margin-top:6px">👯 女团队友</div><div class="es-sis-list">' + (sisters || '<div class="es-empty">—</div>') + '</div>') : '';
   return '' +
     '<div class="es-panel">' +
       groupCard +
       '<div class="es-col-title">🗓️ 今日日程</div>' +
       renderAgenda() +
-      '<div class="es-col-title" style="margin-top:6px">👯 女团队友</div>' +
-      '<div class="es-sis-list">' + (sisters || '<div class="es-empty">—</div>') + '</div>' +
+      sisHtml +
       '<div class="es-col-title" style="margin-top:6px">🔍 曝光 ' + tier.label + '</div>' +
       '<div class="es-exp-bar' + (exp >= 50 ? ' es-exp-danger' : '') + '"><span style="width:' + exp + '%;background:' + expBarColor + '"></span></div>' +
       '<small style="color:var(--text-dim)">曝光值 ' + (E.misc.exposureAccum || 0) + ' · ' + tier.desc + '</small>' +
     '</div>';
 }
+// 从 careerHistory 构建最近活动（近30天，按类型各取一条）
+function buildRecentActivities(E) {
+  var today = E.cycle.dayCount || 1;
+  var hist = E.careerHistory || [];
+  var recent = { release: null, variety: null, award: null, magazine: null, brand: null };
+  for (var i = hist.length - 1; i >= 0; i--) {
+    var h = hist[i];
+    if (!h.day || today - h.day > 30) continue;
+    var t = h.type || '';
+    if ((t === 'release' || t === 'release_done') && !recent.release) recent.release = cleanActivityText(h.text || '');
+    if ((t === 'variety' || t === 'variety_done') && !recent.variety) recent.variety = cleanActivityText(h.text || '');
+    if ((t === 'award' || t === 'award_done') && !recent.award) recent.award = cleanActivityText(h.text || '');
+    if ((t === 'magazine' || t === 'magazine_done') && !recent.magazine) recent.magazine = cleanActivityText(h.text || '');
+    if ((t === 'brand' || t === 'brand_done') && !recent.brand) recent.brand = cleanActivityText(h.text || '');
+  }
+  var tags = [];
+  if (recent.release) tags.push('<span class="es-gm-song">📀 ' + escHtml(recent.release) + '</span>');
+  if (recent.variety) tags.push('<span class="es-gm-song">🎬 ' + escHtml(recent.variety) + '</span>');
+  if (recent.award) tags.push('<span class="es-gm-song">🏆 ' + escHtml(recent.award) + '</span>');
+  if (recent.magazine) tags.push('<span class="es-gm-song">📸 ' + escHtml(recent.magazine) + '</span>');
+  if (recent.brand) tags.push('<span class="es-gm-song">💼 ' + escHtml(recent.brand) + '</span>');
+  return tags.join('');
+}
+// 去掉"接受xxx："前缀，精简显示
+function cleanActivityText(t) {
+  return t.replace(/^(接受|综艺录制完成：|画报拍摄完成：|代言拍摄完成：|作品发布完成：|综艺|画报|代言|发布)\s*/g, '').slice(0, 22);
+}
+
 // 曝光档位标签：🟢安全 / 🟡暗涌 / 🟠升温 / 🔴哗然 / ⛈️引爆（阈值与 public-opinion.js 对齐）
 function getExposureTierLabel(accum) {
   if (accum >= 25) return { label: '⛈️ 引爆', desc: '恋情彻底曝光，事业与粉丝面临双重崩塌' };
@@ -273,14 +304,26 @@ function renderAgenda() {
 // ---------- Center · 剧情 ----------
 function renderCenter(cur, heartPending) {
   var E = GS.entSim;
+  // 进行中的日程活动
+  var ongoingHtml = '';
+  if (E._ongoingVariety) {
+    ongoingHtml += '<div style="background:linear-gradient(135deg,rgba(255,107,157,.1),rgba(99,102,241,.08));border:1px solid rgba(255,107,157,.15);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.7)">🎬 <b>综艺录制中</b> · ' + escHtml(E._ongoingVariety.show) + ' · <span style="color:#52c41a">剩余' + E._ongoingVariety.daysLeft + '天</span></div>';
+  }
+  if (E._ongoingMagazine) {
+    ongoingHtml += '<div style="background:linear-gradient(135deg,rgba(255,167,38,.1),rgba(99,102,241,.08));border:1px solid rgba(255,167,38,.15);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.7)">📸 <b>画报拍摄中</b> · ' + escHtml(E._ongoingMagazine.mag) + ' · <span style="color:#52c41a">剩余' + E._ongoingMagazine.daysLeft + '天</span></div>';
+  }
   if (!cur) {
-    return '<div class="es-narrative">⏳ 剧情加载中…</div>' + renderFreeInput() + renderQuickActions();
+    return ongoingHtml + '<div class="es-narrative">⏳ 剧情加载中…</div>' + renderFreeInput() + renderQuickActions();
   }
   var nCls = heartPending ? 'es-narrative es-heartbeat' : 'es-narrative';
   var optionsHtml = (cur.options && cur.options.length) ?
     cur.options.map(function(o, i) {
       var rb = optionRiskBadge(o);
-      return '<button class="es-option' + (rb ? ' es-opt-risk' : '') + '" data-idx="' + i + '"' + (rb ? ' data-risk="1"' : '') + '>' + escHtml(o) + (rb ? ' <span class="es-risk">' + rb + '</span>' : '') + '</button>';
+      var barCls = 'c' + (i + 1);
+      return '<button class="es-option' + (rb ? ' es-opt-risk' : '') + '" data-idx="' + i + '"' + (rb ? ' data-risk="1"' : '') + '>' +
+        '<span class="es-opt-bar ' + barCls + '"></span>' +
+        '<span class="es-opt-body">' + escHtml(o) + (rb ? ' <span class="es-risk">' + rb + '</span>' : '') + '</span>' +
+        '</button>';
     }).join('') : '<div class="es-empty">（等待剧情推进…）</div>';
   var romanceBtns = renderRomanceButtons();
   var heartTitle = heartPending ? '<div class="es-heartbeat-title">💗 心动时刻</div>' : '';
@@ -289,14 +332,14 @@ function renderCenter(cur, heartPending) {
   return '' +
     '<div class="es-panel es-center-panel">' +
       '<div class="es-col-title">📖 剧情 · Day ' + (E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</div>' +
+      ongoingHtml +
       heartTitle +
       '<div class="' + nCls + '" id="es-narrative">' + nHtml + '<div id="es-narrative-end"></div></div>' +
       '<div class="es-opts" id="es-options">' + optionsHtml + '</div>' +
       renderFreeInput() +
       romanceBtns +
       renderQuickActions() +
-    '</div>' +
-    renderTabBar();
+    '</div>'; // 关 es-center-panel
 }
 // 自由输入框（圆角软底 + 发送按钮，与聊天输入框一致）
 function renderFreeInput() {
@@ -309,24 +352,35 @@ function renderFreeInput() {
 // 快捷指令（移到剧情框下方，靠近剧情内容）
 function renderQuickActions() {
   var E = GS.entSim;
-  var quick = [
+  var today = E.cycle.dayCount || 1;
+  // 冷却计算：代言3天/综艺5天/画报3天/CD7天
+  var brandCD = (E._lastBrandOfferDay && today - E._lastBrandOfferDay < 3) ? (3 - (today - E._lastBrandOfferDay)) : 0;
+  var varietyCD = (E._lastVarietyDay && today - E._lastVarietyDay < 5) ? (5 - (today - E._lastVarietyDay)) : 0;
+  var magazineCD = (E._lastMagazineDay && today - E._lastMagazineDay < 3) ? (3 - (today - E._lastMagazineDay)) : 0;
+  var releaseCD = E._releaseCD || 0;
+  function cdLabel(base, cd) { return cd > 0 ? base + ' (冷却' + cd + '天)' : base; }
+  function cdDisabled(cd) { return cd > 0 ? ' disabled' : ''; }
+  var row1 = [
+    { q: 'letters', label: '📬信箱' + (GS._entSimPopupQueue && GS._entSimPopupQueue.some(function(p){return p.type==='fanLetter'}) ? ' 🆕' : ''), disabled: '' },
+    { q: 'awards', label: '🏆奖项', disabled: '' },
+    { q: 'brands', label: cdLabel('💼代言', brandCD), disabled: cdDisabled(brandCD) },
+    { q: 'variety', label: cdLabel('🎬综艺', varietyCD), disabled: cdDisabled(varietyCD) },
+    { q: 'magazine', label: cdLabel('📸画报', magazineCD), disabled: cdDisabled(magazineCD) },
+    { q: 'release', label: cdLabel('📀发布', releaseCD), disabled: cdDisabled(releaseCD) }
+  ].map(function(b) {
+    return '<button class="es-quick-btn' + (b.disabled ? ' es-quick-disabled' : '') + '" data-q="' + b.q + '"' + b.disabled + '>' + b.label + '</button>';
+  }).join('');
+  var row2 = [
     { q: 'regenerate', label: '重新生成' },
     { q: 'nextagenda', label: '下一个行程' + (GS.entSim.cycle.timeOfDay >= 2 ? ' → 换天' : '') },
-    { q: 'cover', label: '🛡️ 掩护(' + (getCoverRemaining()) + '/' + (5 + (E.romance._coverMaxBonus || 0)) + ')', act: 'cover' },
+    { q: 'cover', label: '🛡️掩护(' + (getCoverRemaining()) + ')' },
     { q: 'event', label: '随机事件' },
     { q: 'visit', label: '探班' },
-    { q: 'svtvisit', label: 'SEVENTEEN队友' },
-    { q: 'release', label: '📀发布作品' + (E._releaseCD > 0 ? ' (CD' + E._releaseCD + ')' : '') },
-    { q: 'ending', label: '走向结局' },
-    { q: 'nextday', label: '进入下一天' }
+    { q: 'nextday', label: '下一天' }
   ].map(function(b) {
-    var hasQ = !b.act;
-    return '<button class="es-quick-btn' + (b.act ? ' es-quick-sm' : '') + '"' +
-      (hasQ ? ' data-q="' + b.q + '"' : '') +
-      (b.act ? ' data-act="' + b.act + '"' : '') +
-      '>' + b.label + '</button>';
+    return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>';
   }).join('');
-  return '<div class="es-quick es-quick-center">' + quick + '</div>';
+  return '<div class="es-quick es-quick-center"><div>' + row1 + '</div><div style="margin-top:6px">' + row2 + '</div></div>';
 }
 function renderRomanceButtons() {
   var E = GS.entSim;
@@ -367,7 +421,6 @@ function renderRight() {
     var cat = classifyFan(ft);
     return '<div class="es-fan-bubble es-buzz-click ' + cat + '" data-buzz="fan" data-idx="' + i + '"><b>' + fanLabel(cat) + '</b>｜' + escHtml(ft) + '</div>';
   }).join('');
-  var npcs = renderNpcList();
   var media = (buzz.mediaTitle || []).map(function(h, i) {
     var mt = buzzTitle(h);
     return '<div class="es-hot-item es-buzz-click" data-buzz="media" data-idx="' + i + '"><span class="es-hot-rank">📰</span>' + escHtml(mt) + '</div>';
@@ -382,20 +435,30 @@ function renderRight() {
       '<div class="es-col-title" style="margin-top:4px">💬 粉丝讨论</div>' +
       '<div class="es-fan">' + (fan || '<div class="es-empty">暂无讨论</div>') + '</div>' +
       lovePanel +
-      '<div class="es-col-title" style="margin-top:4px">🕸️ 关系网 <small>剩' + (1 - (E.misc.npcInteractionUsed || 0)) + '/1</small></div>' +
-      '<div class="es-npc-grid">' + npcs + '</div>' +
-      '<button class="es-rom-btn es-business-btn" id="es-business-btn" style="margin-top:8px;width:100%">📱 营业' + (E.bubble && E.bubble.todayCount > 0 ? ' · 泡泡' + E.bubble.todayCount + '/5' : '') + '</button>' +
+      '<button class="es-rom-btn es-business-btn" id="es-business-btn" style="margin-top:8px;width:100%">📱 手机' + (E.bubble && E.bubble.todayCount > 0 ? ' · 泡泡' + E.bubble.todayCount + '/5' : '') + '</button>' +
       '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
+      '<button class="es-rom-btn" id="es-theater-rom-btn" style="margin-top:6px;width:100%">🎭 剧场</button>' +
+      '<button class="es-rom-btn" id="es-ending-btn" style="margin-top:6px;width:100%">🌟 结局</button>' +
     '</div>';
 }
-// 亲密图标行
+// 亲密图标行（7阶段）
 function intimacyIcons() {
   var E = GS.entSim;
-  var un = E._intimacyUnlocked || { hand: false, hug: false, kiss: false };
-  var h = un.hand ? '🤝 ✓' : '🤝 —';
-  var u = un.hug ? '🤗 ✓' : '🤗 —';
-  var k = un.kiss ? '💋 ✓' : '💋 🔒';
-  return '<span style="font-size:12px;opacity:0.7">' + h + '</span> <span style="font-size:12px;opacity:' + (un.hug ? '0.9' : '0.4') + '">' + u + '</span> <span style="font-size:12px;opacity:' + (un.kiss ? '0.9' : '0.3') + '">' + k + '</span>';
+  var un = E._intimacyUnlocked || { hand: false, hug: false, kiss: false, bed: false, live: false, public: false, marry: false };
+  var h = un.hand ? '🤝' : '🤝 —';
+  var u = un.hug ? '🤗' : '🤗 —';
+  var k = un.kiss ? '💋' : '💋 —';
+  var b = un.bed ? '🛏️' : '🛏️ 🔒';
+  var l = un.live ? '🏠' : '🏠 🔒';
+  var p = un.public ? '📣' : '📣 🔒';
+  var m = un.marry ? '💍' : '💍 🔒';
+  return '<span style="font-size:12px;opacity:' + (un.hand ? '0.9' : '0.4') + '">' + h + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.hug ? '0.9' : '0.4') + '">' + u + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.kiss ? '0.9' : '0.3') + '">' + k + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.bed ? '0.9' : '0.3') + '">' + b + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.live ? '0.9' : '0.3') + '">' + l + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.public ? '0.9' : '0.3') + '">' + p + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.marry ? '0.9' : '0.3') + '">' + m + '</span>';
 }
 // 右栏恋情面板：阶段 / 好感 / 曝光 / 已用掩护 / 哥哥支持度
 function renderLovePanel() {
@@ -418,7 +481,7 @@ function renderLovePanel() {
     html += '<div class="es-risk-row" style="margin-top:4px;border-top:1px solid rgba(255,255,255,.06);padding-top:4px"><span>🍋吃醋</span><span>' + jLabel.label + '</span></div>';
   }
   if (E.brother && E.brother.name) {
-    html += '<div class="es-risk-row"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
+    html += '<div class="es-risk-row es-brother-clickable"><span>哥哥支持度</span><span>' + (E.brother.support || 0) + ' · ' + escHtml(E.brother.stance || '参谋') + '</span></div>';
   }
   html += '</div>';
   return html;
@@ -449,17 +512,31 @@ function showAffectionLogModal() {
   showEntSimModal('💗 好感度来源', html, [{ id: 'close', label: '关闭' }]);
 }
 
-function renderNpcList() {
-  return getNpcNodes().filter(function(n) { return SHOW_NPC.indexOf(n.type) >= 0; }).map(function(n) {
-    var warn = (stanceClass(n.stance) === 'bad') ? ' warn' : '';
-    var sub = n.type === 'rival' || n.type === 'suitor' ? '亲密度' + (n.intimacy || 0) : n.stance;
-    return '<div class="es-npc-node es-npc-click' + warn + '" data-npc="' + n.type + '" title="点击互动（剩' + (1 - (GS.entSim.misc.npcInteractionUsed || 0)) + '/1次）">' +
-      '<div class="es-npc-avatar">' + (n.icon || '👤') + '</div>' +
-      '<div class="es-npc-name">' + escHtml(n.name) + '</div>' +
-      '<small style="font-size:9px;color:var(--text-dim)">' + escHtml(sub) + '</small>' +
+// 点击哥哥支持度 → 弹出支持度变动日志
+function showBrotherSupportModal() {
+  var E = GS.entSim;
+  var log = (E.brother && E.brother.supportLog) || [];
+  if (!log.length) { showToast('还没有哥哥支持度变动记录～'); return; }
+  var listHtml = '';
+  var allLogs = log.slice().reverse();
+  for (var i = 0; i < allLogs.length; i++) {
+    var l = allLogs[i];
+    var dSign = l.delta > 0 ? '+' : '';
+    var dColor = l.delta > 0 ? '#9ad0a0' : '#f88a8a';
+    listHtml += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px">' +
+      '<span style="min-width:32px;font-weight:700;color:' + dColor + '">' + dSign + l.delta + '</span>' +
+      '<span style="flex:1;color:rgba(255,255,255,.7)">' + escHtml(l.reason || '未知原因') + '</span>' +
+      '<span style="color:rgba(255,255,255,.3);font-size:11px">→ ' + l.total + '</span>' +
+      '<span style="color:rgba(255,255,255,.2);font-size:10px">第' + (l.day || '?') + '天</span>' +
       '</div>';
-  }).join('');
+  }
+  var html = '<div style="max-height:55vh;overflow-y:auto">' +
+    '<div style="font-size:12px;color:rgba(255,200,220,.5);margin-bottom:8px">👨 哥哥当前态度：' + escHtml(E.brother.stance || '参谋') + ' · 支持度 ' + (E.brother.support || 0) + '</div>' +
+    listHtml +
+    '</div>';
+  showEntSimModal('👨 哥哥支持度日志', html, [{ id: 'close', label: '关闭' }]);
 }
+
 function classifyFan(text) {
   if (/绝|美|神颜|圈粉|独美|封神|绝了|心动|配得上|嗑/.test(text)) return 'topfan';
   if (/翻车|无语|黑|崩|买热搜|糊|假|油腻|脱粉/.test(text)) return 'hater';
@@ -472,113 +549,113 @@ function stanceClass(s) {
   return 'mid';
 }
 
-// ---------- 顶部全宽好感度进度条 + 剧情框下方 Tab 条 ----------
-function renderDepthTop() {
-  var aff = GS.entSim.affection;
-  var idx = affectionStageIndex(aff);
-  var cells = '';
-  for (var i = 0; i < 8; i++) cells += '<span class="es-depth-cell' + (i <= idx ? ' on' : '') + '"></span>';
-  return '' +
-    '<div class="es-depth-top">' +
-      '<span class="es-depth-ic">' + getRomanceStageIcon() + '</span>' +
-      '<div class="es-depth-bar">' + cells + '</div>' +
-      '<span class="es-depth-label">' + getRomanceStageLabel() + ' · 好感 ' + aff + '/100</span>' +
-    '</div>';
-}
-// 剧情框下方的 Tab 切换条（剧情/聊天/朋友圈/剧场/日记/信箱）—— 装进圆角框
-function renderTabBar() {
-  var labels = { story: '剧情', chat: '聊天', moments: '朋友圈', theater: '剧场', diary: '日记', letters: '信箱' };
-  var tabs = ['story', 'chat', 'moments', 'theater', 'diary', 'letters'].map(function(t) {
-    return '<span class="es-tab' + (currentTab() === t ? ' on' : '') + '" data-tab="' + t + '">' + labels[t] + '</span>';
-  }).join('');
-  return '<div class="es-panel es-tab-panel"><div class="es-tabbar">' + tabs + '</div></div>';
-}
-
-// ---------- Tab 渲染 ----------
-// ---------- Tab 内容（剧情框下方内联，单页滚动）----------
-function renderTabContent(tab) {
-  if (tab === 'chat') return renderChatInner();
-  if (tab === 'moments') return renderMomentsInner();
-  if (tab === 'theater') return renderTheaterInner();
-  return '';
-}
-function renderChatInner() {
-  var history = (GS.entSim.chatHistory || []);
-  var msgs = history.map(function(c) {
-    if (c.role === 'user') return '<div class="es-chat-msg user">' + escHtml(c.content) + '</div>';
-    return '<div class="es-chat-msg ai">' + escHtml(c.content) + '</div>';
-  }).join('');
-  return '<div class="es-chat-panel es-tab-inner">' +
-    '<div class="es-chat-header">💬 与男主聊天</div>' +
-    '<div class="es-chat-messages" id="es-chat-msgs">' + (msgs || '<div class="es-empty">开始和 ' + escHtml(GS.entSim.romance.maleLead.name) + ' 聊天吧 💬</div>') + '</div>' +
-    '<div class="es-chat-input-area">' +
-      '<input class="es-chat-input" id="es-chat-input" placeholder="输入消息…">' +
-      '<button class="es-chat-send" id="es-chat-send">发送</button>' +
-    '</div>' +
-  '</div>';
-}
-function renderMomentsInner() {
-  var moments = (GS.entSim.moments || []);
-  var html = moments.map(function(m) {
-    return '<div class="es-moment-item"><div class="es-moment-post">' + escHtml(m.post || '') + '</div>' +
-      (m.reply ? '<div class="es-moment-reply">💬 ' + escHtml(GS.entSim.romance.maleLead.name) + '：' + escHtml(m.reply) + '</div>' : '') + '</div>';
-  }).join('');
-  return '<div class="es-moments-panel es-tab-inner">' +
-    '<div class="es-chat-header">📸 朋友圈</div>' +
-    '<div class="es-moments-list">' + (html || '<div class="es-empty">暂无动态</div>') + '</div>' +
-    '<button class="es-btn es-wide" id="es-gen-moment" style="margin-top:8px">生成新动态</button>' +
-  '</div>';
-}
-function renderTheaterInner() {
-  var aff = GS.entSim.affection;
-  var html = THEATER_TYPES.map(function(t) {
-    var locked = aff < t.minAff;
-    return '<button class="es-modal-btn es-theater-type' + (locked ? ' locked' : '') + '" data-theater="' + t.type + '" data-label="' + t.label + '"' + (locked ? ' disabled' : '') + '>' +
-      (locked ? '🔒 ' : '🎬 ') + t.label + (locked ? '（需好感≥' + t.minAff + '）' : '') + '</button>';
-  }).join('');
-  return '<div class="es-theater-panel es-tab-inner">' +
-    '<div class="es-chat-header">🎬 剧场番外</div>' +
-    '<div class="es-theater-list">' + html + '</div>' +
-    '<div id="es-theater-content" style="margin-top:12px"></div>' +
-  '</div>';
-}
-
-// ---------- 事件绑定 ----------
-export function bindEntSimEvents() {
-  // 惰性初始化
-  if (!GS.entSim || !GS.entSim.romance || !GS.entSim.romance.maleLead || !GS.entSim.romance.maleLead.memberId) {
-    return;
+// ---------- 日记 / 信箱 渲染（供手机模拟器调用）----------
+function renderDiaryInner() {
+  var E = GS.entSim;
+  var entries = E._diaryEntries || [];
+  if (!entries.length && DIARY_TEMPLATES && DIARY_TEMPLATES.length) {
+    // 首次打开日记：从模板池生成一条初始日记
+    var tpl = DIARY_TEMPLATES[Math.floor(Math.random() * DIARY_TEMPLATES.length)];
+    E._diaryEntries = [{
+      day: E.cycle && E.cycle.dayCount || 1,
+      text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。',
+      timestamp: Date.now()
+    }];
+    entries = E._diaryEntries;
   }
-  // 通用绑定：底部 Tab 切换 + 「‹ 返回」（所有 Tab 页均需可切换/返回，修复进聊天页卡死）
-  bindCommonNav();
-  // 主剧情自动生成已统一由 renderHtml() 管控，此处不再重复触发。
-  // bindEntSimEvents 仅负责事件绑定，不负责内容生成。
-  // 同页内联：所有区块事件统一绑定（不再按 Tab 提前 return）
-  bindStoryEvents();
-  bindChatEvents();
-  bindMomentsEvents();
-  bindTheaterEvents();
-  bindBuzzClicks();
-  // 好感度行点击 → 弹出来源日志
-  var affRow = document.querySelector('.es-aff-clickable');
-  if (affRow) {
-    affRow.addEventListener('click', function() { showAffectionLogModal(); });
+  if (!entries.length) return '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#555">📔 日记为空</div>';
+  var html = '<div style="padding:8px">';
+  for (var i = entries.length - 1; i >= 0; i--) {
+    var e = entries[i];
+    html += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px">' +
+      '<div style="font-size:11px;color:#666;margin-bottom:4px">📅 第' + e.day + '天</div>' +
+      '<div style="font-size:13px;color:#ccc;line-height:1.6">' + escHtml(e.text || '') + '</div></div>';
   }
+  html += '</div>';
+  return html;
+}
+function renderLettersInner() {
+  return '<div class="es-panel es-extra-panel"><div class="es-h3">📬 信箱</div><p class="es-dim">信箱功能开发中</p></div>';
+}
+// 手机版渲染函数
+function renderLettersInnerFS() {
+  var E2 = GS.entSim;
+  var letters = E2.fanLetters || [];
+  if (!letters.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📬 信箱为空<br><small style="color:#555">粉丝的来信会出现在这里</small></div>';
+  var h = '';
+  for (var l = letters.length - 1; l >= 0; l--) {
+    var item = letters[l];
+    h += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">✉️ 来自粉丝</div><div style="font-size:12px;color:#ccc;line-height:1.5">' + escHtml(item.text || item.content || '') + '</div></div>';
+  }
+  return h;
 }
 
-// 底部 Tab 切换：story 切到剧情视图，其余弹出手机框蒙层
-function bindCommonNav() {
-  document.querySelectorAll('.es-tab[data-tab]').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var tab = el.dataset.tab;
-      if (tab === 'story') { switchEntSimTab('story'); }
-      else if (tab === 'chat') { showEntSimChatModal(); }
-      else if (tab === 'moments') { showEntSimMomentsModal(); }
-      else if (tab === 'theater') { showEntSimTheaterModal(); }
-      else if (tab === 'diary') { showEntSimDiaryModal(); }
-      else if (tab === 'letters') { showEntSimLetterModal(); }
-    });
+function fillDiaryBlanks(framework) {
+  var E = GS.entSim;
+  var fillWords = ["练习室","舞台上","录音室","待机室","公司","宿舍"];
+  if (E && E.dailyBuzz && E.dailyBuzz.hotSearch && E.dailyBuzz.hotSearch.length) {
+    var t = E.dailyBuzz.hotSearch[0].t || "";
+    fillWords = fillWords.concat([t,"今天","她","我们","粉丝"]);
+  }
+  var idx = 0;
+  return (framework || "").replace(/__/g, function() {
+    return fillWords[(idx++) % fillWords.length];
   });
+}
+function renderDiaryInnerFS() {
+  var E2 = GS.entSim;
+  var entries = E2._diaryEntries || [];
+  if (!entries.length && DIARY_TEMPLATES && DIARY_TEMPLATES.length) {
+    var tpl = DIARY_TEMPLATES[Math.floor(Math.random() * DIARY_TEMPLATES.length)];
+    E2._diaryEntries = [{ day: E2.cycle ? E2.cycle.dayCount : 1, text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。', timestamp: Date.now() }];
+    entries = E2._diaryEntries;
+  }
+  if (!entries.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📔 日记为空<br><small style="color:#555">每日事件会自动生成日记</small></div>';
+  var h = '';
+  for (var i = entries.length - 1; i >= 0; i--) {
+    var e = entries[i];
+    h += '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">📅 第' + e.day + '天</div><div style="font-size:13px;color:#ccc;line-height:1.6">' + escHtml(e.text || '') + '</div></div>';
+  }
+  return h;
+}
+function renderMomentsInnerFS() {
+  var E2 = GS.entSim;
+  var moments = E2.moments || [];
+  if (!moments.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📱 还没有朋友圈<br><small style="color:#555">精彩瞬间会出现在这里</small></div>';
+  var h = '';
+  for (var i = moments.length - 1; i >= 0; i--) {
+    var m = moments[i];
+    h += '<div style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px"><div style="font-size:11px;color:#666;margin-bottom:4px">📅 第' + (m.day || '?') + '天</div><div style="font-size:12px;color:#ccc;line-height:1.5">' + escHtml(m.text || m.content || '') + '</div></div>';
+  }
+  return h;
+}
+export function bindEntSimEvents() {
+  bindCommonNav();
+  bindStoryEvents();
+  bindRomanceBtns();
+  bindBuzzClicks();
+}
+
+function bindTheaterBtn() {
+  var tb = document.getElementById('es-theater-rom-btn');
+  if (tb) tb.addEventListener('click', function() { showEntSimTheaterModal(); });
+}
+function bindRomanceBtns() {
+  bindTheaterBtn();
+  // 结局按钮（移到剧场下方）
+  var eb = document.getElementById('es-ending-btn');
+  if (eb) eb.addEventListener('click', function() { onEnding(); });
+  // 好感度行点击
+  document.querySelectorAll('.es-aff-clickable').forEach(function(el) {
+    el.addEventListener('click', function() { showAffectionLogModal(); });
+  });
+  // 哥哥支持度行点击
+  document.querySelectorAll('.es-brother-clickable').forEach(function(el) {
+    el.addEventListener('click', function() { showBrotherSupportModal(); });
+  });
+}
+
+function bindCommonNav() {
   document.querySelectorAll('[data-back="1"]').forEach(function(el) {
     el.addEventListener('click', function() { switchEntSimTab('story'); });
   });
@@ -611,12 +688,9 @@ function bindStoryEvents() {
     b.addEventListener('click', function() { onAppointmentClick(parseInt(b.dataset.apt, 10)); });
   });
   document.querySelectorAll('.es-sis[data-sis]').forEach(function(b) {
-    b.addEventListener('click', function() { showNarrativeLoading(); triggerTeammateEvent(GS.entSim.heroineGroup[parseInt(b.dataset.sis, 10)]); });
+    b.addEventListener('click', function() { confirmTeammateInteract(parseInt(b.dataset.sis, 10)); });
   });
   bindId('es-business-btn', showBusinessPanel);
-  document.querySelectorAll('.es-npc-node[data-npc]').forEach(function(el) {
-    el.addEventListener('click', function() { onNpcInteract(el.dataset.npc); });
-  });
   document.querySelectorAll('.es-rom-btn[data-act]').forEach(function(b) {
     b.addEventListener('click', function() { onRomanceAct(b.dataset.act); });
   });
@@ -719,38 +793,27 @@ function onAppointmentClick(idx) {
     extraNote: '你按照约定来到了「' + apt.place + '」。请生成约300字的赴约剧情，描写你和男主在这里的相处。要贴合' + (apt.timeHint || '') + '的氛围，注重两人独处时的小细节与情感流动。在选项中要保留"这个约定让你心动"的意味。'
   }).then(rerender);
 }
-function onNpcInteract(type) {
+// 工作冷却检查（代言3天/综艺5天/画报3天，CD已在showReleasePanel内检查）
+function checkWorkCooldown(type) {
   var E = GS.entSim;
-  if ((E.misc.npcInteractionUsed || 0) >= 1) { showToast('今日互动次数已用完，明天再来'); return; }
-  var acts = getNpcInteractions(type);
-  var node = getNpcNodes().filter(function(n) { return n.type === type; })[0];
-  var label = node ? node.name : 'NPC';
-  var html = '<p>主动互动 · <b>' + escHtml(label) + '</b></p>' + acts.map(function(a) {
-    var tags = [];
-    if (a.pop) tags.push('<span class="es-ni-tag es-ni-pop">人气' + (a.pop > 0 ? '+' : '') + a.pop + '</span>');
-    if (a.exposure) tags.push('<span class="es-ni-tag es-ni-exp">曝光' + (a.exposure > 0 ? '+' : '') + a.exposure + '</span>');
-    return '<button class="es-modal-btn" data-ni="' + a.key + '">' + a.icon + ' ' + a.label + ' ' + tags.join('') + '<span class="es-modal-sub">' + a.note + '</span></button>';
-  }).join('');
-  showEntSimModal('🕸️ 互动 · ' + label, html, []);
-  document.querySelectorAll('[data-ni]').forEach(function(b) {
-    b.addEventListener('click', function() {
-      var r = interactNpc(type, b.dataset.ni);
-      closeEntSimModal();
-      if (r.success) {
-        // 在剧情区插入互动结果卡片
-        var nEl = document.getElementById('es-narrative');
-        if (nEl) {
-          nEl.insertAdjacentHTML('beforeend',
-            '<div class="es-npc-interact-result">' +
-              '<span class="es-npc-interact-icon">' + (node.icon || '👤') + '</span>' +
-              '<span class="es-npc-interact-text">' + escHtml(r.note) + '</span>' +
-            '</div>');
-          nEl.scrollTop = nEl.scrollHeight;
-        }
-      }
-      rerender();
-    });
-  });
+  var today = E.cycle.dayCount || 1;
+  if (type === 'brands') {
+    if (E._lastBrandOfferDay && today - E._lastBrandOfferDay < 3) {
+      showToast('💼 代言冷却中（还需 ' + (3 - (today - E._lastBrandOfferDay)) + ' 天）'); return true;
+    }
+    E._lastBrandOfferDay = today; saveGame();
+  } else if (type === 'variety') {
+    if (E._lastVarietyDay && today - E._lastVarietyDay < 5) {
+      showToast('🎬 综艺冷却中（还需 ' + (5 - (today - E._lastVarietyDay)) + ' 天）'); return true;
+    }
+    E._lastVarietyDay = today; saveGame();
+  } else if (type === 'magazine') {
+    if (E._lastMagazineDay && today - E._lastMagazineDay < 3) {
+      showToast('📸 画报冷却中（还需 ' + (3 - (today - E._lastMagazineDay)) + ' 天）'); return true;
+    }
+    E._lastMagazineDay = today; saveGame();
+  }
+  return false;
 }
 
 // 快捷指令
@@ -759,10 +822,14 @@ function onQuick(q) {
 
   // visit 先弹选择框不立即生成，ending/nextday 有自己的 loading 入口
   if (q === 'visit') { showEntSimVisitChoice(); return; }
-  if (q === 'svtvisit') { showSVTVisitPanel(); return; }
+
   if (q === 'bubble') { showBusinessPanel(); return; }
   if (q === 'release') { showReleasePanel(); return; }
-  if (q === 'ending') { onEnding(); return; }
+  if (q === 'letters') { showLetterHistory(); return; }
+  if (q === 'brands') { if (checkWorkCooldown('brands')) return; showBrandHistory(); return; }
+  if (q === 'awards') { showAwardHistory(); return; }
+  if (q === 'variety') { if (checkWorkCooldown('variety')) return; showVarietyPopup(); return; }
+  if (q === 'magazine') { if (checkWorkCooldown('magazine')) return; showMagazinePopup(); return; }
   if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
 
   // 重新生成/下一个行程 加确认防误触
@@ -822,45 +889,6 @@ function showEntSimVisitChoice() {
       }
     );
   });
-}
-
-// SEVENTEEN 队友探班面板：12 人选单（排除男主/哥哥/情敌）
-function showSVTVisitPanel() {
-  var E = GS.entSim;
-  var mlId = (E.romance && E.romance.maleLead) ? E.romance.maleLead.id : (GS.oneHeartMember || '');
-  var broId = (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
-  var suitorId = '';
-  if (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']) {
-    suitorId = E.npcNetwork.nodes['npc_suitor'].id || '';
-  }
-  var excluded = [mlId, broId, suitorId];
-  var available = SVT_TEAMMATE_PROFILES.filter(function(p) { return excluded.indexOf(p.id) < 0; });
-  if (!available.length) { showToast('没有其他 SEVENTEEN 成员可互动'); return; }
-  var html = '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0">';
-  for (var i = 0; i < available.length; i++) {
-    var p = available[i];
-    html += '<button class="es-svt-btn" data-svtid="' + p.id + '" style="padding:10px 14px;border:1px solid var(--es-card-border);border-radius:10px;background:rgba(185,174,224,.08);cursor:pointer;text-align:center;min-width:90px">' +
-      '<div style="font-size:24px">' + p.emoji + '</div>' +
-      '<div style="font-size:13px;font-weight:600;color:var(--es-text)">' + escHtml(p.name) + '</div>' +
-      '<div style="font-size:11px;color:var(--es-muted)">' + escHtml(p.desc) + '</div>' +
-      '</button>';
-  }
-  html += '</div>';
-  showEntSimModal('SEVENTEEN 队友', html, [
-    { id: 'cancel', label: '取消' }
-  ]);
-  // 绑定点击事件
-  setTimeout(function() {
-    document.querySelectorAll('.es-svt-btn[data-svtid]').forEach(function(b) {
-      b.addEventListener('click', function() {
-        var sid = b.getAttribute('data-svtid');
-        closeEntSimModal();
-        showNarrativeLoading();
-        triggerSVTTeammateEvent(sid);
-        setTimeout(rerender, 500);
-      });
-    });
-  }, 50);
 }
 
 // 恋爱动作
@@ -1201,181 +1229,6 @@ function drawPopChart(E) {
 }
 
 // ---------- 📱 手机框弹窗：聊天 ----------
-function showEntSimChatModal() {
-  var E = GS.entSim;
-  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
-  var memberName = ml.name;
-  var memberEmoji = '💜';
-
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
-
-  var msgsHtml = '';
-  var history = E.chatHistory || [];
-  for (var i = 0; i < history.length; i++) {
-    var c = history[i];
-    var cContent = typeof c.content === 'string' ? c.content : (c.content && c.content.text ? c.content.text : String(c.content || ''));
-    msgsHtml += c.role === 'user'
-      ? '<div class="oneheart-chat-msg user">' + escHtml(cContent) + '</div>'
-      : '<div class="oneheart-chat-msg ai">' + escHtml(cContent) + '</div>';
-  }
-  if (!msgsHtml) msgsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">开始和 ' + escHtml(memberName) + ' 聊天吧 💬</div>';
-
-  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
-    '<button class="modal-close-x" id="esChatClose">✕</button>' +
-    '<div class="oneheart-chat-modal">' +
-    '<div class="oneheart-chat-header"><span class="oneheart-chat-avatar">' + memberEmoji + '</span><span class="oneheart-chat-name">' + escHtml(memberName) + '</span></div>' +
-    '<div class="oneheart-chat-messages" id="esChatMsgs">' + msgsHtml + '</div>' +
-    '<div class="oneheart-chat-input-area">' +
-    '<input class="oneheart-chat-input" id="esChatInput" placeholder="输入消息...">' +
-    '<button class="oneheart-chat-send" id="esChatSend">发送</button>' +
-    '</div></div></div>';
-
-  document.body.appendChild(overlay);
-
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
-  document.getElementById('esChatClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
-
-  var chatMsgs = document.getElementById('esChatMsgs');
-  function scrollMsgs() { if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight; }
-  setTimeout(scrollMsgs, 50);
-
-  function doSend() {
-    var input = document.getElementById('esChatInput');
-    var text = (input.value || '').trim();
-    if (!text) return;
-    input.value = ''; input.disabled = true;
-    document.getElementById('esChatSend').disabled = true;
-
-    var userDiv = document.createElement('div');
-    userDiv.className = 'oneheart-chat-msg user'; userDiv.textContent = text;
-    chatMsgs.appendChild(userDiv);
-    var typingDiv = document.createElement('div');
-    typingDiv.className = 'oneheart-chat-typing'; typingDiv.textContent = memberName + ' 正在输入...';
-    chatMsgs.appendChild(typingDiv);
-    scrollMsgs();
-
-    // 好感度影响"正在输入"时长
-    var aff = E.affection || 0;
-    var wait = aff >= 60 ? (500 + Math.random() * 500) : (aff >= 20 ? (1500 + Math.random() * 1500) : (3000 + Math.random() * 2000));
-    setTimeout(function() {
-      generateEntSimChat(text).then(function(reply) {
-        chatMsgs.removeChild(typingDiv);
-        if (reply) {
-          var aiDiv = document.createElement('div');
-          aiDiv.className = 'oneheart-chat-msg ai'; aiDiv.textContent = reply;
-          chatMsgs.appendChild(aiDiv);
-        }
-        input.disabled = false;
-        document.getElementById('esChatSend').disabled = false;
-        input.focus();
-        scrollMsgs();
-      }).catch(function() {
-        chatMsgs.removeChild(typingDiv);
-        input.disabled = false;
-        document.getElementById('esChatSend').disabled = false;
-      });
-    }, wait);
-  }
-
-  document.getElementById('esChatSend').addEventListener('click', doSend);
-  document.getElementById('esChatInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
-  });
-}
-
-// ---------- 📱 手机框弹窗：朋友圈 ----------
-function showEntSimMomentsModal() {
-  var E = GS.entSim;
-  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
-  var hpName = (GS.heroineProfile && GS.heroineProfile.name) || '我';
-  var moments = E.moments || [];
-
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
-
-  var itemsHtml = '';
-  if (moments.length === 0) {
-    itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有朋友圈动态 📸</div>';
-  } else {
-    for (var i = moments.length - 1; i >= 0; i--) {
-      var m = moments[i];
-      var ts = m.ts ? new Date(m.ts) : new Date();
-      var timeStr = (ts.getMonth() + 1) + '月' + ts.getDate() + '日 ' + ts.getHours() + ':' + String(ts.getMinutes()).padStart(2, '0');
-      var posterName = m.name || (m.isHeroine ? hpName : ml.name);
-      var isHer = m.isHeroine;
-      itemsHtml += '<div class="oneheart-moment-card">' +
-        '<div class="oneheart-moment-time">' + (isHer ? '📸 ' : '💜 ') + escHtml(timeStr) + ' · ' + escHtml(m.type || '日常') + '</div>' +
-        (m.photo ? '<div class="oneheart-moment-photo">📷 ' + escHtml(m.photo) + '</div>' : '') +
-        '<div class="oneheart-moment-content"><strong>' + escHtml(posterName) + '</strong> ' + escHtml(m.post || '') + '</div>' +
-        (m.reply ? '<div class="oneheart-moment-reply">└ <strong>' + escHtml(m.isHeroine ? (ml.name || '他') : hpName) + '</strong> ' + escHtml(m.reply) + '</div>' : '') +
-        (m.replyBack ? '<div class="oneheart-moment-reply">　 <strong>' + escHtml(posterName) + '</strong> ' + escHtml(m.replyBack) + '</div>' : '') +
-        (m.rivalComment ? '<div class="oneheart-moment-rival">⚡ ' + escHtml(m.rivalComment) + '</div>' : '') +
-        '<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">❤️ ' + (m.liked ? '已赞' : '点赞') + '</div>' +
-      '</div>';
-    }
-  }
-
-  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px">' +
-    '<button class="modal-close-x" id="esMomentsClose">✕</button>' +
-    '<div class="oneheart-chat-modal">' +
-    '<div class="oneheart-chat-header"><span>📸</span><span class="oneheart-chat-name">朋友圈</span></div>' +
-    '<div class="oneheart-chat-messages" style="padding:12px">' + itemsHtml + '</div>' +
-    '<div style="padding:10px"><button class="es-btn primary es-wide" id="esGenMoment">生成新动态</button></div>' +
-    '</div></div>';
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
-  document.getElementById('esMomentsClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
-  var genBtn = document.getElementById('esGenMoment');
-  if (genBtn) {
-    genBtn.addEventListener('click', function() {
-      genBtn.disabled = true; genBtn.textContent = '生成中…';
-      generateEntSimMoment().then(function() {
-        overlay.remove();
-        showEntSimMomentsModal();
-      }).catch(function() { overlay.remove(); });
-    });
-  }
-}
-
-// ---------- 📱 手机框弹窗：秘密信箱 ----------
-function showEntSimLetterModal() {
-  var E = GS.entSim;
-  var ml = (E.romance && E.romance.maleLead) || { name: '他' };
-  var letters = E.letters || [];
-
-  var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
-
-  var itemsHtml = '';
-  for (var i = letters.length - 1; i >= 0; i--) {
-    var l = letters[i];
-    var ts = l.ts ? new Date(l.ts) : new Date();
-    var dateStr = (ts.getMonth() + 1) + '月' + ts.getDate() + '日';
-    itemsHtml += '<div class="es-letter-card">' +
-      '<div class="es-letter-date">💌 ' + escHtml(ml.name) + ' · ' + escHtml(dateStr) + '</div>' +
-      '<div class="es-letter-body">' + escHtml(l.content || '') + '</div>' +
-    '</div>';
-  }
-  if (!itemsHtml) itemsHtml = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:13px">还没有收到信件 💌<br>每 7-10 轮自动生成一封</div>';
-
-  overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column;height:75vh">' +
-    '<button class="modal-close-x" id="esLetterClose">✕</button>' +
-    '<div class="oneheart-chat-modal">' +
-    '<div class="oneheart-chat-header"><span>💌</span><span class="oneheart-chat-name">秘密信箱</span></div>' +
-    '<div style="flex:1;overflow-y:auto;padding:12px">' + itemsHtml + '</div>' +
-    '</div></div>';
-
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
-  document.getElementById('esLetterClose').addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); overlay.remove(); });
-}
-
-// ---------- 📱 手机框弹窗：剧场 ----------
 function showEntSimTheaterModal() {
   var E = GS.entSim;
   var aff = E.affection || 0;
@@ -1436,7 +1289,7 @@ function showTheaterResultModal(title, content) {
   overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
   overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:20px;border-radius:16px;max-height:80vh;overflow-y:auto">' +
     '<button class="modal-close-x" id="esTheaterResClose">✕</button>' +
-    '<h3 style="text-align:center;margin-bottom:12px">🎬 ' + escHtml(title) + '</h3>' +
+    '<h3 style="text-align:center;margin-bottom:12px">🎬 ' + escHtml(title) + '</div>' +
     '<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">' + escHtml(content || '(暂无内容)') + '</div>' +
     (GS.entSim.affection >= 70 && !title.match(/回忆录/) ? '<div style="margin-top:12px;text-align:center"><button class="es-btn es-wide" id="esTheaterBack" style="font-size:12px">← 返回剧场</button></div>' : '') +
     '</div>';
@@ -1490,7 +1343,7 @@ function showEntSimDiaryModal() {
 
   overlay.innerHTML = '<div class="modal-content es-phone-shell" style="width:92%;max-width:420px;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column;height:80vh">' +
     '<button class="modal-close-x" id="esDiaryClose">✕</button>' +
-    '<h3 style="text-align:center;margin:12px 0 8px">📝 日记 & 碎片</h3>' +
+    '<h3 style="text-align:center;margin:12px 0 8px">📝 日记 & 碎片</div>' +
     '<div style="display:flex;gap:4px;margin:0 12px 8px;border-bottom:1.5px solid var(--border-primary,#333)">' +
     '<button class="es-diary-tab active" id="esDiaryMine" style="flex:1;padding:8px;border:none;background:rgba(124,111,240,.15);border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--accent-primary,#7c6ff0);font-weight:600">📖 日记</button>' +
     '<button class="es-diary-tab" id="esDiaryHis" style="flex:1;padding:8px;border:none;background:transparent;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;color:var(--text-muted,#8b6b6b)">💌 记忆碎片</button>' +
@@ -1538,110 +1391,398 @@ export function showEntSimModal(title, bodyHtml, buttons) {
 function closeEntSimModal() { if (_modalEl && _modalEl.parentNode) { _modalEl.parentNode.removeChild(_modalEl); _modalEl = null; }
 }
 
-// ---------- 营业面板（泡泡 + 反馈 Tab） ----------
+// ===================== 手机模拟器（📱营业） =====================
 function showBusinessPanel() {
+  // 移除旧的手机浮层（如果存在）
+  var old = document.getElementById('es-phone-overlay');
+  if (old) { old.remove(); return; }
+
   var E = GS.entSim;
   var bubble = E.bubble || {};
-  var todayCount = bubble.todayCount || 0;
-  var maxDaily = 5;
-  var streak = bubble.streak || 0;
-  var sub = bubble.subscribers || 0;
-  var messages = bubble.messages || [];
-  var canSend = todayCount < maxDaily;
 
-  // ── Tab 1: 泡泡内容（聊天室布局） ──
-  var chatHtml = renderBubbleChat(messages, sub, streak, todayCount, maxDaily, canSend);
-  var bubbleContent = chatHtml;
-
-  // ── Tab 2: 反馈内容（全部历史） ──
-  var list = E.fanReactions || [];
-  var feedbackContent = '';
-  if (!list.length) {
-    feedbackContent = '<div style="color:var(--es-text-dim);text-align:center;padding:30px">还没有粉丝圈反馈<br><small>发生曝光/营业事件后会出现粉丝圈反应</small></div>';
-  } else {
-    for (var j = list.length - 1; j >= 0; j--) {
-      var item = list[j];
-      var parts = { fan: '', passer: '', hater: '' };
-      var raw = item.text || '';
-      var m1 = raw.match(/·大粉[：:]([\s\S]*?)(?=·路人[：:]|·黑粉[：:]|$)/);
-      var m2 = raw.match(/·路人[：:]([\s\S]*?)(?=·黑粉[：:]|$)/);
-      var m3 = raw.match(/·黑粉[：:]([\s\S]*?)$/);
-      if (m1) parts.fan = m1[1].trim();
-      if (m2) parts.passer = m2[1].trim();
-      if (m3) parts.hater = m3[1].trim();
-      var cards = '';
-      if (parts.fan) cards += '<div class="es-fan-card es-fan-pink"><div class="es-fan-card-icon">💗 大粉</div><div class="es-fan-card-body">' + escHtml(parts.fan) + '</div></div>';
-      if (parts.passer) cards += '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-icon">😐 路人</div><div class="es-fan-card-body">' + escHtml(parts.passer) + '</div></div>';
-      if (parts.hater) cards += '<div class="es-fan-card es-fan-dark"><div class="es-fan-card-icon">⚡ 黑粉</div><div class="es-fan-card-body">' + escHtml(parts.hater) + '</div></div>';
-      if (!cards) cards = '<div class="es-fan-card es-fan-blue"><div class="es-fan-card-body">' + escHtml(raw) + '</div></div>';
-
-      var eventBlock = '';
-      if (item.event) {
-        eventBlock = '<div class="es-fan-event"><div class="es-fan-event-label">📌 触发事件</div><div class="es-fan-event-body">' + escHtml(item.event) + '</div></div>';
-      }
-      feedbackContent += '<div class="es-fanreact" style="margin-bottom:12px">' +
-        '<div class="es-fanreact-head">📝 第 ' + item.round + ' 回合' +
-        (item.reason ? '<span class="es-fan-badge" style="margin-left:6px">' + escHtml(item.reason) + '</span>' : '') +
+  var overlay = document.createElement('div');
+  overlay.id = 'es-phone-overlay';
+  overlay.className = 'es-phone-overlay';
+  var phoneHTML =
+    '<div class="es-phone-frame">' +
+      '<div class="es-phone-notch"><span class="es-phone-time">9:41</span><span class="es-phone-icons">📶 🔋</span></div>' +
+      // 主屏
+      '<div class="es-phone-page active" id="es-phone-page-home">' +
+        '<div class="es-phone-screen es-phone-home">' +
+          '<div style="padding:100px 20px 0;text-align:center">' +
+            '<div style="font-size:13px;color:rgba(255,255,255,.4);letter-spacing:1px">' + new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'short'}).replace(/星期/,'周') + '</div>' +
+            '<div style="font-size:62px;font-weight:200;color:rgba(255,255,255,.8);margin:2px 0 16px;letter-spacing:-2px">9:41</div>' +
+            '<div style="width:200px;margin:0 auto 30px;background:rgba(255,255,255,.08);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:18px;color:rgba(255,255,255,.3)">🔍</span>' +
+              '<span style="font-size:14px;color:rgba(255,255,255,.25)">搜索</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="es-apps-grid" style="grid-template-columns:repeat(3,1fr)">' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'kakao\')"><div class="icon" style="background:linear-gradient(135deg,#FEE500,#F9C800)">💬</div><div class="label">KakaoTalk</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'bubble\')"><div class="icon" style="background:linear-gradient(135deg,#FF6B9D,#C44569)">💜</div><div class="label">泡泡</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'feedback\')"><div class="icon" style="background:linear-gradient(135deg,#6C5CE7,#4834D4)">🌐</div><div class="label">星圈</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'moments\')"><div class="icon" style="background:linear-gradient(135deg,#2ECC71,#27AE60)">📱</div><div class="label">朋友圈</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'diary\')"><div class="icon" style="background:linear-gradient(135deg,#E67E22,#D35400)">📔</div><div class="label">日记</div></div>' +
+            '<div class="es-app-icon" onclick="window.__phoneOpenApp(\'letters\')"><div class="icon" style="background:linear-gradient(135deg,#3498DB,#2980B9)">📬</div><div class="label">信箱</div></div>' +
+          '</div>' +
         '</div>' +
-        eventBlock +
-        '<div class="es-fan-cards">' + cards + '</div>' +
-        '</div>';
+        '<div class="es-phone-homebar"><div></div></div>' +
+      '</div>' +
+      // Kakao 联系人页
+      '<div class="es-phone-page" id="es-phone-page-kakao">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">💬 KakaoTalk</div>' +
+        '<div style="padding:0 16px 8px"><input style="width:100%;background:rgba(255,255,255,.06);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;outline:none" placeholder="🔍 搜索联系人"></div>' +
+        '<div class="es-phone-screen es-phone-contacts" id="es-phone-kakao-list"></div>' +
+      '</div>' +
+      // 聊天页
+      '<div class="es-phone-page" id="es-phone-page-chat">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()" style="padding-bottom:6px">← 联系人</div>' +
+        '<div class="es-phone-chat-header" id="es-phone-chat-header"></div>' +
+        '<div class="es-phone-chat-msgs" id="es-phone-chat-msgs"></div>' +
+        '<div class="es-phone-input-row"><input class="es-phone-input" id="es-phone-chat-input" placeholder="发送消息..."><button class="es-phone-send" onclick="window.__phoneSend()">↑</button></div>' +
+      '</div>' +
+      // 泡泡页
+      '<div class="es-phone-page" id="es-phone-page-bubble">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">💜 泡泡</div>' +
+        '<div class="es-phone-screen" style="padding:0;flex:1;display:flex;flex-direction:column" id="es-phone-bubble-content"></div>' +
+      '</div>' +
+      // 星圈页
+      '<div class="es-phone-page" id="es-phone-page-feedback">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">🌐 星圈</div>' +
+        '<div class="es-phone-screen" style="padding:12px 16px" id="es-phone-feedback-content"></div>' +
+        '<div class="es-phone-homebar"><div></div></div>' +
+      '</div>' +
+      // 朋友圈页
+      '<div class="es-phone-page" id="es-phone-page-moments">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">📱 朋友圈</div>' +
+        '<div class="es-phone-screen" style="padding:12px 16px" id="es-phone-moments-content"></div>' +
+      '</div>' +
+      // 日记页
+      '<div class="es-phone-page" id="es-phone-page-diary">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">📔 日记</div>' +
+        '<div class="es-phone-screen" style="padding:8px 16px" id="es-phone-diary-content"></div>' +
+      '</div>' +
+      // 信箱页
+      '<div class="es-phone-page" id="es-phone-page-letters">' +
+        '<div class="es-phone-back" onclick="window.__phoneBack()">← 返回</div>' +
+        '<div class="es-phone-title">📬 信箱</div>' +
+        '<div class="es-phone-screen" style="padding:12px 16px" id="es-phone-letters-content"></div>' +
+      '</div>' +
+    '</div>';
+  overlay.innerHTML = phoneHTML;
+  document.body.appendChild(overlay);
+
+  // 联系人列表
+  var contacts = [
+    { id:'maleLead', name: (E.maleLead && E.maleLead.name) || '男主', avatar: '💙', bg: '#3b82f6' },
+    { id:'brother', name: (E.brother && E.brother.name) || '哥哥', avatar: '👨', bg: '#22c55e' },
+    { id:'rival', name: (E.rival && E.rival.name) || '情敌', avatar: '⚠️', bg: '#f59e0b' },
+    { id:'manager', name: '经纪人', avatar: '📋', bg: '#8b5cf6' },
+    { id:'group', name: '团群', avatar: '👥', bg: '#ec4899' }
+  ];
+  // 成员池查找：联系人与真实 SEVENTEEN 成员匹配时注入特质
+  var memberPools = {
+    'S.Coups': MEMBER_SCOUPS, 'Jeonghan': MEMBER_JEONGHAN, 'Joshua': MEMBER_JOSHUA, 'Jun': MEMBER_JUN,
+    'Hoshi': MEMBER_HOSHI, 'Wonwoo': MEMBER_WONWOO, 'Woozi': MEMBER_WOOZI, 'DK': MEMBER_DK,
+    'Mingyu': MEMBER_MINGYU, 'The8': MEMBER_THE8, 'Seungkwan': MEMBER_SEUNGKWAN, 'Vernon': MEMBER_VERNON, 'Dino': MEMBER_DINO
+  };
+  function findMemberPool(name) {
+    if (!name) return null;
+    for (var key in memberPools) { if (name.indexOf(key) >= 0) return memberPools[key]; }
+    return null;
+  }
+  var listHtml = '';
+  contacts.forEach(function(c) {
+    var preview = '';
+    var time = '';
+    var hist = (GS._entSimChatHistory || {})[c.id] || [];
+    if (hist.length) {
+      var last = hist[hist.length - 1];
+      preview = (last.content || last.msg || '').slice(0, 25);
+      time = '刚刚';
+    }
+    listHtml += '<div class="es-phone-contact" data-chat-id="' + escHtml(c.id) + '" data-chat-name="' + escHtml(c.name) + '" data-chat-avatar="' + escHtml(c.avatar) + '" data-chat-bg="' + escHtml(c.bg) + '">' +
+      '<div class="avatar" style="background:linear-gradient(135deg,' + c.bg + ',' + c.bg.replace(')','') + 'dd)">' + c.avatar + '</div>' +
+      '<div class="info"><div class="name">' + escHtml(c.name) + '</div>' +
+      (preview ? '<div class="preview">' + escHtml(preview) + '</div>' : '<div class="preview" style="color:#555">点击开始聊天</div>') +
+      '</div>' +
+      (time ? '<div style="font-size:10px;color:#555;flex-shrink:0;align-self:flex-start;margin-top:3px">' + time + '</div>' : '') +
+      '</div>';
+  });
+  document.getElementById('es-phone-kakao-list').innerHTML = listHtml;
+  // Kakao 联系人点击（data-* 属性 + 事件委托，避免 inline onclick 引号冲突）
+  document.querySelectorAll('.es-phone-contact').forEach(function(el) {
+    el.addEventListener('click', function() {
+      window.__phoneOpenChat(el.dataset.chatId, el.dataset.chatName, el.dataset.chatAvatar, el.dataset.chatBg);
+    });
+  });
+
+  // 泡泡内容
+  document.getElementById('es-phone-bubble-content').innerHTML = renderBubbleChat(
+    bubble.messages || [], bubble.subscribers || 0, bubble.streak || 0,
+    bubble.todayCount || 0, 5, (bubble.todayCount || 0) < 5
+  );
+  // 反馈内容
+  document.getElementById('es-phone-feedback-content').innerHTML = renderFeedbackContent(E);
+
+  // 全局导航函数
+  window.__phoneCurChannel = 'maleLead';
+  window.__phoneOpenApp = function(app) {
+    document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
+    var targetPage = document.getElementById('es-phone-page-' + app);
+    if (targetPage) {
+      targetPage.classList.add('active');
+      if (app === 'kakao' && !GS._entSimChatInited) {
+        ['maleLead','brother','rival','manager','group','sasaeng'].forEach(function(ch) {
+          if (window.initChatChannel) window.initChatChannel(ch);
+        });
+        GS._entSimChatInited = true;
+      }
+      if (app === 'moments') document.getElementById('es-phone-moments-content').innerHTML = renderMomentsInnerFS();
+      if (app === 'diary') document.getElementById('es-phone-diary-content').innerHTML = renderDiaryInnerFS();
+      if (app === 'letters') document.getElementById('es-phone-letters-content').innerHTML = renderLettersInnerFS();
+    }
+  };
+  window.__phoneBack = function() {
+    // 如果在聊天页，返回 Kakao 联系人列表而非桌面
+    var chatPage = document.getElementById('es-phone-page-chat');
+    if (chatPage && chatPage.classList.contains('active')) {
+      document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
+      var kakaoPage = document.getElementById('es-phone-page-kakao');
+      if (kakaoPage) { kakaoPage.classList.add('active'); return; }
+    }
+    document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById('es-phone-page-home').classList.add('active');
+  };
+  window.__phoneOpenChat = function(ch, name, avatar, bg) {
+    document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById('es-phone-page-chat').classList.add('active');
+    document.getElementById('es-phone-chat-header').innerHTML =
+      '<div style="width:34px;height:34px;border-radius:17px;background:linear-gradient(135deg,' + bg + ',' + bg.replace(')','') + 'cc);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:10px">' + avatar + '</div>' +
+      '<div style="flex:1"><div class="name">' + escHtml(name) + '</div><div style="font-size:10px;color:#666;margin-top:1px">在线</div></div>' +
+      '<div style="font-size:20px;color:#555">⋯</div>';
+    window.__phoneCurChannel = ch;
+    renderPhoneChatMsgs(ch);
+  };
+  window.__phoneSend = function() {
+    var input = document.getElementById('es-phone-chat-input');
+    var ch = window.__phoneCurChannel;
+    if (!input || !input.value.trim() || !ch) return;
+    var msg = input.value.trim();
+    input.value = '';
+    if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+    if (!GS._entSimChatHistory[ch]) GS._entSimChatHistory[ch] = [];
+    GS._entSimChatHistory[ch].push({ role: 'user', content: msg });
+    renderPhoneChatMsgs(ch);
+    // 池子匹配回复
+    setTimeout(function() {
+      var reply = null;
+      if (ch === 'maleLead') reply = findChatPoolReply(msg);
+      else {
+        var poolMap = { brother: CHAT_BROTHER, rival: CHAT_RIVAL, manager: CHAT_MANAGER, group: GROUP_CHAT, sasaeng: CHAT_SASAENG };
+        var pool = poolMap[ch];
+        if (pool && pool.length) reply = pool[Math.floor(Math.random() * pool.length)];
+      }
+      if (reply) {
+        var replyContent = reply.r && reply.r.length ? reply.r[Math.floor(Math.random() * reply.r.length)] : (reply.t || reply.text || '...');
+        GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(replyContent) });
+        renderPhoneChatMsgs(ch);
+      }
+    }, 500 + Math.random() * 800);
+  };
+  window.__phoneBubbleSend = function() {
+    var input = document.getElementById('es-phone-bubble-input');
+    if (!input || !input.value.trim()) return;
+    input.value = '';
+    sendBubbleMessage().then(function() {
+      var E2 = GS.entSim;
+      var b2 = E2.bubble || {};
+      document.getElementById('es-phone-bubble-content').innerHTML = renderBubbleChat(
+        b2.messages || [], b2.subscribers || 0, b2.streak || 0,
+        b2.todayCount || 0, 5, (b2.todayCount || 0) < 5
+      );
+    });
+  };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
+
+function renderPhoneChatMsgs(ch) {
+  var msgs = document.getElementById('es-phone-chat-msgs');
+  if (!msgs) return;
+  var hist = (GS._entSimChatHistory || {})[ch] || [];
+  if (!hist.length) {
+    msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>开始聊天吧</div></div>';
+    return;
+  }
+  var html = '';
+  var lastRole = '';
+  hist.forEach(function(m, idx) {
+    var isUser = m.role === 'user';
+    if (idx === 0 || m.role !== lastRole || idx % 3 === 0) {
+      var timeStr = '';
+      if (idx === 0) timeStr = '今天';
+      else if (m.role !== lastRole) timeStr = '刚刚';
+      if (timeStr) html += '<div style="text-align:center;padding:8px 0;font-size:10px;color:rgba(255,255,255,.2)">' + timeStr + '</div>';
+    }
+    lastRole = m.role;
+    html += '<div class="es-phone-msg ' + (isUser ? 'me' : 'you') + '">' + escHtml(resolveChatTemplates(m.content || m.msg || '')) + '</div>';
+  });
+  if (hist.length && hist[hist.length-1].role === 'user') {
+    html += '<div style="text-align:right;font-size:10px;color:rgba(255,255,255,.15);padding:2px 4px">已发送</div>';
+  }
+  msgs.innerHTML = html;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// 解析聊天消息中的模板变量 {maleLead}/{brother}/{rival}/{groupName}/{mate1-5}/{heroineName}
+function resolveChatTemplates(text) {
+  if (!text) return '';
+  var E = GS.entSim;
+  var ml = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '他';
+  var br = (E.brother && E.brother.name) || '哥哥';
+  var rv = (E.rival && E.rival.name) || '团内成员';
+  var gn = (E.groupMeta && E.groupMeta.groupName) || '女团';
+  var hn = (E.career && E.career.stageName) || '我';
+  var sisters = E.heroineGroup || [];
+  text = text.replace(/\{maleLead\}/g, ml).replace(/\{brother\}/g, br).replace(/\{rival\}/g, rv).replace(/\{groupName\}/g, gn).replace(/\{name\}/g, ml).replace(/\{heroineName\}/g, hn);
+  // 团群聊队友名替换
+  for (var s = 1; s <= 5; s++) {
+    var sis = sisters[s - 1];
+    var mateName = sis ? sis.name : ('队友' + s);
+    text = text.replace(new RegExp('\\{mate' + s + '\\}', 'g'), mateName);
+  }
+  return text;
+}
+
+function renderFeedbackContent(E) {
+  // 合并来源：每日热搜 + 粉丝反应(AI) + 事件粉丝评论(池子)
+  var posts = [];
+  // 每日热搜：星圈用独立条目（starHot），与右边面板热搜不重复
+  var buzz = E.dailyBuzz || {};
+  var hotItems = buzz.starHot || buzz.hotSearch || [];
+  for (var hi = 0; hi < hotItems.length; hi++) {
+    posts.push({ type: 'hotSearch', title: hotItems[hi].t || '', body: hotItems[hi].c || '', round: buzz.lastGenDay || E.cycle.roundTotal });
+  }
+  // 粉丝反应（AI生成长文）
+  var list = E.fanReactions || [];
+  for (var j = 0; j < list.length; j++) {
+    posts.push({ type: 'fanReaction', item: list[j], round: list[j].round });
+  }
+  // 事件粉丝评论（池子 fanReactions，来自 injectFanReactions）
+  var poolReactions = (typeof GS !== 'undefined' && GS._entSimFanReactions) || [];
+  for (var k = 0; k < poolReactions.length; k++) {
+    posts.push({ type: 'buzz', text: poolReactions[k], round: buzz.lastGenDay || E.cycle.roundTotal });
+  }
+  if (!posts.length) {
+    return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:#555;font-size:13px;gap:8px">' +
+      '<div style="font-size:40px;margin-bottom:4px">🌐</div><div>星圈暂无动态</div>' +
+      '<div style="font-size:11px;color:#444">热搜、曝光、营业后粉丝会在这里讨论</div></div>';
+  }
+  var name = (GS.heroineProfile && GS.heroineProfile.name) || '你';
+  var html = '';
+  for (var i = posts.length - 1; i >= 0; i--) {
+    var post = posts[i];
+    if (post.type === 'hotSearch') {
+      // 热搜卡片
+      html += '<div style="padding:0 0 10px 0">' +
+        '<div style="display:flex;align-items:center;padding:14px 16px 10px">' +
+          '<div style="width:36px;height:36px;border-radius:18px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-right:10px">✦</div>' +
+          '<div style="flex:1"><div style="font-size:14px;color:#eee;font-weight:600">' + escHtml(name) + '的星圈</div>' +
+          '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px">热搜</div></div>' +
+          '<div style="font-size:10px;color:rgba(255,255,255,.2);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:10px">关注</div>' +
+        '</div>' +
+        '<div style="padding:0 16px 8px;font-size:15px;color:#fff;font-weight:600;line-height:1.4">🔥 ' + escHtml(post.title) + '</div>' +
+        '<div style="margin:0 14px;padding:12px 14px;background:rgba(99,102,241,.06);border-radius:12px;font-size:12px;color:rgba(255,255,255,.5);line-height:1.7">' + escHtml(post.body) + '</div>' +
+        '<div style="display:flex;align-items:center;gap:24px;padding:8px 18px 12px;font-size:12px;color:rgba(255,255,255,.25)">' +
+          '<span>❤️ ' + Math.floor(Math.random()*400+80) + '</span><span>💬 ' + Math.floor(Math.random()*40+3) + '</span><span style="margin-left:auto">📤</span></div>' +
+        '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.03)"></div></div>';
+    } else if (post.type === 'fanReaction') {
+      // 粉丝反应卡片（原有逻辑）
+      var item = post.item;
+      var raw = item.text || '';
+    var parts = [];
+    var re = /·(大粉|路人|黑粉)[：:]([\s\S]*?)(?=·(?:大粉|路人|黑粉)[：:]|$)/g;
+    var m;
+    while ((m = re.exec(raw)) !== null) { parts.push({ role: m[1], text: m[2].trim().replace(/\n/g, ' ') }); }
+    if (!parts.length && raw) parts = [{ role: '热议', text: raw.slice(0, 200) }];
+
+    var roleCfg = {
+      '大粉': { icon: '⁂', color: '#FF6B8A', name: '守护' + name + '的站姐', sub: '铁粉' },
+      '路人': { icon: '◎', color: '#8E8E93', name: '路过看看', sub: '' },
+      '黑粉': { icon: '◉', color: '#555', name: '匿名', sub: '' },
+      '热议': { icon: '✦', color: '#FF9F43', name: '星圈热帖', sub: '' }
+    };
+
+    // 帖子容器
+    html += '<div style="padding:0 0 10px 0">';
+    // 标题：优先事件名，其次从评论区提取关键词
+    var titleText = item.reason || '';
+    if (!titleText && item.event) titleText = item.event;
+    if (!titleText && parts.length && parts[0].text) titleText = parts[0].text.slice(0, 30) + '…';
+    if (!titleText) titleText = '粉丝热议';
+    html += '<div style="display:flex;align-items:center;padding:14px 16px 10px">' +
+      '<div style="width:36px;height:36px;border-radius:18px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-right:10px">✦</div>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:14px;color:#eee;font-weight:600;line-height:1.2">' + escHtml(name) + '的星圈</div>' +
+        '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:1px">回合 ' + item.round + '</div>' +
+      '</div>' +
+      '<div style="font-size:10px;color:rgba(255,255,255,.2);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:10px">关注</div>' +
+    '</div>';
+    // 帖子标题
+    html += '<div style="padding:0 16px 8px;font-size:15px;color:#fff;font-weight:600;line-height:1.4">🔥 ' + escHtml(titleText) + '</div>';
+    // 事件摘要
+    if (item.event) {
+      html += '<div style="margin:0 16px 8px;padding:8px 12px;background:rgba(99,102,241,.08);border-radius:10px;font-size:12px;color:#A5B4FC;line-height:1.6;border-left:2px solid #6366F1">📌 ' + escHtml(item.event) + '</div>';
+    }
+    // 评论
+    for (var k = 0; k < parts.length; k++) {
+      var p = parts[k], cfg = roleCfg[p.role] || roleCfg['热议'];
+      var hasSub = cfg.sub && cfg.sub.length > 0;
+      html += '<div style="margin:4px 14px;padding:12px 14px;background:rgba(255,255,255,.025);border-radius:12px;display:flex;gap:10px">' +
+        '<div style="width:32px;height:32px;border-radius:16px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:' + cfg.color + '">' + cfg.icon + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">' +
+            '<span style="font-size:13px;color:#ddd;font-weight:500">' + cfg.name + '</span>' +
+            (hasSub ? '<span style="font-size:10px;color:' + cfg.color + ';background:rgba(255,255,255,.04);padding:1px 6px;border-radius:6px">' + cfg.sub + '</span>' : '') +
+          '</div>' +
+          '<div style="font-size:13px;color:rgba(255,255,255,.65);line-height:1.6">' + escHtml(p.text) + '</div>' +
+        '</div></div>';
+    }
+    // 底栏
+    var likes = Math.floor(Math.random()*400+80);
+    var cmts = Math.floor(Math.random()*40+3);
+    html += '<div style="display:flex;align-items:center;gap:24px;padding:8px 18px 12px;font-size:12px;color:rgba(255,255,255,.25)">' +
+      '<span>❤️ ' + likes + '</span><span>💬 ' + cmts + '</span><span style="margin-left:auto">📤</span></div>';
+    // 分割
+    html += '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.03)"></div>';
+    html += '</div>';
+    } else if (post.type === 'buzz') {
+      // 事件粉丝评论（池子 fanReactions：简单短评样式）
+      var buzzText = post.text || '';
+      if (!buzzText) continue;
+      html += '<div style="padding:0 0 10px 0">' +
+        '<div style="display:flex;align-items:center;padding:12px 16px">' +
+          '<div style="width:28px;height:28px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-right:10px">💬</div>' +
+          '<div style="flex:1"><div style="font-size:12px;color:#eee;line-height:1.5">' + escHtml(buzzText) + '</div></div>' +
+          '<div style="font-size:10px;color:rgba(255,255,255,.15);flex-shrink:0;margin-left:8px">刚刚</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:24px;padding:4px 18px 8px 54px;font-size:11px;color:rgba(255,255,255,.2)">' +
+          '<span>❤️ ' + Math.floor(Math.random()*80+5) + '</span><span>💬 ' + Math.floor(Math.random()*8+1) + '</span>' +
+        '</div>' +
+        '<div style="margin:0 14px;height:1px;background:rgba(255,255,255,.02)"></div>' +
+      '</div>';
     }
   }
-
-  // ── 组装完整面板（默认显示泡泡 Tab） ──
-  var html = '<div class="es-business-tabs">' +
-    '<button class="es-biz-tab active" data-biz-tab="bubble">💬 泡泡</button>' +
-    '<button class="es-biz-tab" data-biz-tab="feedback">📊 反馈' + (list.length ? ' (' + list.length + ')' : '') + '</button>' +
-    '</div>' +
-    '<div id="es-biz-tab-bubble" class="es-biz-content">' + bubbleContent + '</div>' +
-    '<div id="es-biz-tab-feedback" class="es-biz-content" style="display:none;max-height:50vh;overflow-y:auto">' + feedbackContent + '</div>';
-
-  showEntSimModal('📱 营业', html, [{ id: 'close', label: '关闭' }]);
-
-  // Tab 切换事件
-  setTimeout(function() {
-    document.querySelectorAll('.es-biz-tab').forEach(function(tab) {
-      tab.addEventListener('click', function() {
-        var target = tab.dataset.bizTab;
-        document.querySelectorAll('.es-biz-tab').forEach(function(t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        document.getElementById('es-biz-tab-bubble').style.display = (target === 'bubble' ? '' : 'none');
-        document.getElementById('es-biz-tab-feedback').style.display = (target === 'feedback' ? '' : 'none');
-      });
-    });
-    // 泡泡发送按钮：面板内结果不退出
-    var sendBtn = document.getElementById('es-bubble-send');
-    if (sendBtn && canSend) {
-      sendBtn.addEventListener('click', function() {
-        sendBtn.disabled = true;
-        sendBtn.textContent = '⏳ 发送中…';
-        sendBubbleMessage().then(function(res) {
-          if (res) {
-            // 刷新泡泡Tab内容（不关闭弹窗）
-            var E = GS.entSim;
-            var bubble = E.bubble || {};
-            var newChatHtml = renderBubbleChat(
-              bubble.messages || [],
-              bubble.subscribers || 0,
-              bubble.streak || 0,
-              bubble.todayCount || 0, 5,
-              (bubble.todayCount || 0) < 5
-            );
-            var tabEl = document.getElementById('es-biz-tab-bubble');
-            if (tabEl) tabEl.innerHTML = newChatHtml;
-            // 滚动到底部
-            var chatEl = document.getElementById('es-bubble-chat');
-            if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
-          } else {
-            sendBtn.disabled = false;
-            sendBtn.textContent = '💬 发送泡泡消息（失败重试）';
-          }
-        });
-      });
-    }
-  }, 100);
+  return html;
 }
+
+
+function renderScheduleInner() { return '<div class="es-panel"><div class="es-h3">🗓 日程</div><p class="es-dim">功能开发中</p></div>'; }
 
 // 泡泡聊天室渲染
 function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend) {
@@ -1690,7 +1831,11 @@ function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend
     (canSend ? '💬 发送泡泡消息' : '今日已发满') +
     '</button>' +
     '</div>';
-  return headerHtml + chatDiv + sendHtml;
+  return '<div style="display:flex;flex-direction:column;height:100%">' +
+    headerHtml +
+    chatDiv +
+    sendHtml +
+    '</div>';
 }
 
 // 100个中文粉丝名池
@@ -1955,8 +2100,8 @@ function confirmTeammateInteract(index) {
   var E = GS.entSim;
   var sis = (E.heroineGroup || [])[index];
   if (!sis) return;
-  var flavor = TEAMMATE_FLAVOR[sis.roleTag] || '队友找你聊了聊近况。';
-  var html = '和 <b>' + escHtml(sis.name) + '（' + escHtml(sis.roleTag) + '）</b> 聊聊？<br><br>' + escHtml(flavor);
+  var flavor = TEAMMATE_FLAVOR[sis.personalityTag] || TEAMMATE_FLAVOR[sis.roleTag] || '队友找你聊了聊近况。';
+  var html = '和 <b>' + escHtml(sis.name) + '（' + escHtml(sis.roleTag) + ' · ' + escHtml(sis.personalityTag || '') + '）</b> 聊聊？<br><br>' + escHtml(flavor);
   showActionInfoModal('👯 队友互动', html, '确定', '取消').then(function(ok) {
     if (!ok) return;
     triggerTeammateEvent(sis);
@@ -2059,6 +2204,8 @@ function showMilestoneCard() {
 // 发布作品面板（6选1）
 function showReleasePanel() {
   var E = GS.entSim;
+  var isDebutRelease = (E.career && E.career.debutDay > 0);
+  if (!isDebutRelease) { showToast('🌱 练习生还不能发布作品哦，出道后再来吧'); return; }
   if (E._releaseCD > 0) { showToast('📀 作品发布冷却中（还需 ' + E._releaseCD + ' 天）'); return; }
   if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
   try { var ReleasePool = RELEASE_POOL; } catch(e) { showToast('数据加载中…'); return; }
@@ -2190,26 +2337,211 @@ function showAwardPopup(award) {
   if (btn) btn.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); if (typeof rerender === 'function') rerender(); });
 }
 
-// 检查并显示待处理弹窗（在render时调用）
+// 聊天频道切换
+window.switchChatChannel = function(ch) {
+  GS._entSimChatChannel = ch;
+  renderEntSimGameScreen();
+};
+
+// 快捷回复（男主频道pool回复）
+window.sendQuickChat = function(msg) {
+  var E = GS.entSim;
+  if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+  if (!GS._entSimChatHistory.maleLead) GS._entSimChatHistory.maleLead = [];
+  GS._entSimChatHistory.maleLead.push({ role: 'user', content: msg });
+  
+  // 从池子匹配回复（纯聊天，不加好感度）
+  var reply = findChatPoolReply(msg);
+  if (reply) {
+    GS._entSimChatHistory.maleLead.push({ role: 'ai', content: reply.r[Math.floor(Math.random() * reply.r.length)] });
+  }
+  renderEntSimGameScreen();
+};
+
+function findChatPoolReply(msg) {
+  if (!CHAT_MALE_LEAD) return null;
+  for (var key in CHAT_MALE_LEAD) {
+    var pool = CHAT_MALE_LEAD[key];
+    if (pool) {
+      for (var i = 0; i < pool.length; i++) {
+        if (pool[i].q === msg) return pool[i];
+      }
+    }
+  }
+  return null;
+}
+
+// 频道初始化（首次切换只推1-2条初始消息，不整池倒出）
+window.initChatChannel = function(ch) {
+  if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+  if (GS._entSimChatHistory[ch] && GS._entSimChatHistory[ch].length) return;
+  if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
+  if (ch === 'sasaeng') return; // 私生只读
+  var pool = getChatPoolByChannel(ch);
+  if (pool && pool.length) {
+    var init = pool.slice(0, Math.min(2, pool.length));
+    GS._entSimChatHistory[ch] = init.map(function(m) {
+      var isFromPlayer = m.from === 'you';
+      return { role: isFromPlayer ? 'user' : 'ai', content: resolveChatTemplates(m.msg || m.t || '...') };
+    });
+    GS._entSimChatSentIdx[ch] = init.length; // 记录已发送位置
+  }
+};
+
+// 根据频道取对应池子（按当前状态）
+function getChatPoolByChannel(ch) {
+  var E = GS.entSim;
+  if (ch === 'brother') return CHAT_BROTHER || [];
+  if (ch === 'rival') return CHAT_RIVAL || [];
+  if (ch === 'manager') return CHAT_MANAGER || [];
+  if (ch === 'group') {
+    if (E._justGotFirstWin) return (GROUP_CHAT && GROUP_CHAT.first_win) || [];
+    if (E._scandalActive) return (GROUP_CHAT && GROUP_CHAT.scandal) || [];
+    if (E._negativeNewsActive) return (GROUP_CHAT && GROUP_CHAT.negative_news) || [];
+    if (E._comebackActive) return (GROUP_CHAT && GROUP_CHAT.comeback) || [];
+    return (GROUP_CHAT && GROUP_CHAT.daily) || [];
+  }
+  return null;
+}
+
+// 每日自动推进聊天消息（每个频道推0-1条，按场景）——由 goEntSimNextDay 调用
+window.pushDailyChats = function() {
+  if (!GS._entSimChatHistory) GS._entSimChatHistory = {};
+  if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
+  var E = GS.entSim;
+  var today = E.cycle.dayCount || 1;
+  // 哥哥频道：每2天推1条
+  tryPushOneChat('brother', CHAT_BROTHER, today % 2 === 0);
+  // 情敌频道：每3天推1条
+  tryPushOneChat('rival', CHAT_RIVAL, today % 3 === 0);
+  // 经纪人频道：每4天推1条
+  tryPushOneChat('manager', CHAT_MANAGER, today % 4 === 0);
+  // 团群聊：每2天推1条日常（有特殊事件时优先推事件池）
+  var groupPool = getChatPoolByChannel('group');
+  tryPushOneChat('group', groupPool, today % 2 === 0);
+  // 私生：每7天低概率推1条
+  if (today % 7 === 0 && Math.random() < 0.3 && CHAT_SASAENG && CHAT_SASAENG.length) {
+    if (!GS._entSimChatHistory.sasaeng) GS._entSimChatHistory.sasaeng = [];
+    if (!GS._entSimChatSentIdx.sasaeng) GS._entSimChatSentIdx.sasaeng = 0;
+    var idx = GS._entSimChatSentIdx.sasaeng % CHAT_SASAENG.length;
+    var m = CHAT_SASAENG[idx];
+    GS._entSimChatHistory.sasaeng.push({ role: 'ai', content: resolveChatTemplates(m.msg || m.t || '...') });
+    GS._entSimChatSentIdx.sasaeng = idx + 1;
+  }
+  saveGame();
+};
+
+function tryPushOneChat(ch, pool, condition) {
+  if (!condition || !pool || !pool.length) return;
+  if (!GS._entSimChatHistory[ch]) GS._entSimChatHistory[ch] = [];
+  if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
+  if (typeof GS._entSimChatSentIdx[ch] !== 'number') GS._entSimChatSentIdx[ch] = 0;
+  var idx = GS._entSimChatSentIdx[ch] % pool.length;
+  var m = pool[idx];
+  if (m) {
+    var isFromPlayer = m.from === 'you';
+    GS._entSimChatHistory[ch].push({ role: isFromPlayer ? 'user' : 'ai', content: resolveChatTemplates(m.msg || m.t || '...') });
+    GS._entSimChatSentIdx[ch] = idx + 1;
+  }
+}
+
 function checkAndShowPendingPopups() {
-  // 粉丝来信
-  if (GS._entSimFanLetter && typeof showFanLetterPopup === 'function') {
-    var letter = GS._entSimFanLetter;
-    GS._entSimFanLetter = null;
-    setTimeout(function() { showFanLetterPopup(letter); }, 500);
+  var queue = GS._entSimPopupQueue;
+  if (!queue || !queue.length) return;
+  var item = queue[0];
+  if (!item) { queue.shift(); return; }
+  
+  var showNext = function() {
+    queue.shift();
+    setTimeout(function() { checkAndShowPendingPopups(); }, 200);
+  };
+  
+  switch (item.type) {
+    case 'fanLetter': showFanLetterPopup(item.data); injectFanReactions(item.data); break;
+    case 'brandOffer': showBrandOfferPopup(item.data); injectFanReactions(item.data); break;
+    case 'award': showAwardPopup(item.data); injectFanReactions(item.data); break;
+    case 'variety': showVarietyPopupFromItem(item.data); injectFanReactions(item.data); break;
+    case 'dispatch': showDispatchPopup(item.data); injectFanReactions(item.data); break;
+    case 'magazine': showMagazinePopup(); injectFanReactions(item.data); break;
+    case 'rumor': showRumorPopup(item.data); injectFanReactions(item.data); break;
+    case 'maleContact': showMaleContactPopup(item.data, item.label); break;
+    case 'fansign': showGenericEventPopup('💜 粉丝签售会', item.data); injectFanReactions(item.data); break;
+    case 'concert': showGenericEventPopup('🎪 演唱会后记', item.data); injectFanReactions(item.data); break;
+    case 'comeback': showGenericEventPopup('🎵 回归周期', item.data); injectFanReactions(item.data); break;
+    case 'musicShow': showGenericEventPopup('🎬 打歌节目', item.data); injectFanReactions(item.data); break;
+    case 'setback': showGenericEventPopup('⚠️ 事业波折', item.data); injectFanReactions(item.data); break;
+    case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); break;
+    default: break;
   }
-  // 品牌代言
-  if (GS._entSimBrandOffer && typeof showBrandOfferPopup === 'function') {
-    var offer = GS._entSimBrandOffer;
-    GS._entSimBrandOffer = null;
-    setTimeout(function() { showBrandOfferPopup(offer); }, 600);
+  showNext();
+}
+
+function showVarietyPopupFromItem(item) {
+  if (!item) return;
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-card" style="max-width:420px"><div class="es-stageup-icon">🎬</div><div class="es-stageup-label">' + escHtml(item.show || '综艺通告') + '</div>';
+  html += '<div class="es-stageup-desc">' + escHtml(item.t) + '</div>';
+  if (item.fanReactions) html += '<p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:8px">💬 ' + escHtml(item.fanReactions.slice(0,3).join(' · ')) + '</p>';
+  html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  if (item.pop) GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + (item.pop || 0);
+  
+}
+
+function showDispatchPopup(item) {
+  if (!item) return;
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-overlay" style="max-width:420px;border-color:rgba(255,80,80,.3)"><div class="es-stageup-label">📰 Dispatch爆料</div>';
+  html += '<div class="es-stageup-desc">' + escHtml(item.t) + '</div>';
+  if (item.fanReactions) html += '<p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:8px">💬 ' + escHtml(item.fanReactions.slice(0,3).join(' · ')) + '</p>';
+  html += '<div style="margin-top:12px">';
+  html += '<button class="es-pop-btn" onclick="window.closeEntSimModal()" style="background:#a44">否认</button> ';
+  html += '<button class="es-pop-btn" onclick="window.closeEntSimModal()">沉默</button>';
+  html += '</div></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  window.closeEntSimModal = function() { closeModalDirect(overlay); };
+}
+
+function showRumorPopup(item) {
+  if (!item) return;
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-overlay" style="max-width:420px;border-color:rgba(255,120,200,.3)"><div class="es-stageup-label">💕 绯闻传闻</div>';
+  html += '<div class="es-stageup-desc">' + escHtml(item.t) + '</div>';
+  if (item.fanReactions) html += '<p style="font-size:11px;color:rgba(255,255,255,.35);margin-top:8px">💬 ' + escHtml(item.fanReactions.slice(0,3).join(' · ')) + '</p>';
+  html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  window.closeEntSimModal = function() { closeModalDirect(overlay); };
+}
+
+function showMaleContactPopup(item, label) {
+  if (!item) return;
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-overlay" style="max-width:400px;border-color:rgba(180,140,255,.3)"><div class="es-stageup-label">' + (label || '📞联络') + '</div>';
+  html += '<div class="es-stageup-desc">' + escHtml(item.t) + '</div>';
+  if (item.options && item.options.length) {
+    html += '<div style="margin-top:12px">';
+    for (var i = 0; i < item.options.length; i++) {
+      var o = item.options[i];
+      html += '<button class="es-pop-btn" onclick="window.pickContactOption(' + o.aff + ',' + o.jealous + ')" style="margin:3px">' + escHtml(o.t) + '</button> ';
+    }
+    html += '</div>';
   }
-  // 季度颁奖
-  if (GS._entSimAward && typeof showAwardPopup === 'function') {
-    var awd = GS._entSimAward;
-    GS._entSimAward = null;
-    setTimeout(function() { showAwardPopup(awd); }, 700);
-  }
+  html += '<button class="es-pop-btn" onclick="window.closeEntSimModal()" style="margin-top:10px">好的</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  window.pickContactOption = function(affD, jealousD) {
+    if (affD) applyEntSimAffection(affD);
+    if (jealousD) { GS.entSim._jealousLevel = (GS.entSim._jealousLevel || 0) + jealousD; }
+    closeModalDirect(overlay);
+  };
+  window.closeEntSimModal = function() { closeModalDirect(overlay); };
 }
 
 // 简易弹窗（直接返回容器元素）
@@ -2234,6 +2566,159 @@ function showEntSimModalDirect(title, body, buttons) {
   return overlay;
 }
 
+function showLetterHistory() {
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-card" style="max-width:420px"><div class="es-stageup-label">📬 粉丝信箱</div>';
+  var E = GS.entSim;
+  if (GS._entSimPopupQueue && GS._entSimPopupQueue.length) {
+    GS._entSimPopupQueue.forEach(function(p) {
+      if (p.type === 'fanLetter' && p.data) {
+        html += '<div style="padding:8px;margin:4px 0;background:rgba(255,255,255,.04);border-radius:6px">' + escHtml(p.data.t || p.data) + '</div>';
+      }
+    });
+  }
+  if (!GS._entSimPopupQueue || !GS._entSimPopupQueue.some(function(p){return p.type==='fanLetter'})) {
+    html += '<p style="opacity:.5">暂无未读来信。每天会自动收到粉丝来信。</p>';
+  }
+  html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  GS._entSimPopupQueue = (GS._entSimPopupQueue || []).filter(function(p) { return p.type !== 'fanLetter'; });
+  
+}
+
+function showBrandHistory() {
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-card" style="max-width:420px"><div class="es-stageup-icon">💼</div><div class="es-stageup-label">代言邀约</div>';
+  var queue = GS._entSimPopupQueue || [];
+  var found = false;
+  for (var i = 0; i < queue.length; i++) {
+    if (queue[i].type === 'brandOffer' && queue[i].data) {
+      found = true;
+      var d = queue[i].data;
+      html += '<div style="padding:8px;margin:6px 0;background:rgba(255,255,255,.05);border-radius:6px">';
+      html += '<b>' + escHtml(d.brand || '品牌') + '</b> · ' + escHtml(d.product || '') + '<br>';
+      html += '<span style="font-size:12px;opacity:.6">📍 ' + escHtml(d.loc || '') + ' | 人气+' + (d.pop || 0) + ' 曝光+' + (d.exp || 0) + '</span>';
+      if (d.fanReactions) html += '<br><span style="font-size:11px;color:rgba(255,255,255,.35)">💬 ' + escHtml(d.fanReactions.slice(0,3).join(' · ')) + '</span>';
+      html += '<div style="margin-top:4px"><button class="es-pop-btn" onclick="window.acceptBrand(' + i + ')" style="background:#4a9">✅ 接受</button> <button class="es-pop-btn" onclick="window.rejectBrand(' + i + ')" style="background:#a44">❌ 拒绝</button></div>';
+      html += '</div>';
+    }
+  }
+  if (!found) html += '<p style="opacity:.5">暂无代言邀约。人气≥20后每2天可能收到品牌邀约。</p>';
+  html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  window.acceptBrand = function(idx) {
+    var q = GS._entSimPopupQueue || [];
+    if (q[idx] && q[idx].data) {
+      GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + (q[idx].data.pop || 0);
+      GS.entSim.misc.exposureAccum = (GS.entSim.misc.exposureAccum || 0) + (q[idx].data.exp || 0);
+      showToast('✅ 代言签约！人气+' + (q[idx].data.pop || 0));
+    }
+    q.splice(idx, 1);
+    closeModalDirect(overlay);
+  };
+  window.rejectBrand = function(idx) { showToast('已拒绝该代言'); closeModalDirect(overlay); };
+  window.closeEntSimModal = function() { closeModalDirect(overlay); };
+}
+
+function showAwardHistory() {
+  var overlay = document.createElement("div");
+  overlay.className = "es-stageup-overlay";
+  var html = '<div class="es-stageup-card" style="max-width:400px"><div class="es-stageup-icon">🏆</div><div class="es-stageup-label">颁奖记录</div>';
+  var queue = GS._entSimPopupQueue || [];
+  var found = false;
+  for (var i = 0; i < queue.length; i++) {
+    if (queue[i].type === 'award' && queue[i].data) {
+      found = true;
+      var d = queue[i].data;
+      html += '<div style="padding:8px;margin:6px 0;background:rgba(255,255,255,.05);border-radius:6px">';
+      html += '<b>' + escHtml(d.t || '') + '</b>';
+      if (d.fanReactions) html += '<br><span style="font-size:11px;color:rgba(255,255,255,.35)">💬 ' + escHtml(d.fanReactions.slice(0,3).join(' · ')) + '</span>';
+      html += '<br><span style="font-size:12px;opacity:.6">人气+' + (d.pop || 0) + '</span>';
+      html += '</div>';
+    }
+  }
+  if (!found) html += '<p style="opacity:.5">暂无颁奖记录。每4天可能触发季度颁奖。</p>';
+  html += '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  window.closeEntSimModal = function() { closeModalDirect(overlay); };
+}
+
+// 统一日程事件调度（代言/综艺/画报/CD）
+function scheduleEvent(type) {
+  var E = GS.entSim;
+  var pool, label, icon, textFn, locFn;
+  if (type === 'variety') { pool = VARIETY_SHOW_POOL; label = '综艺通告'; icon = '🎬'; textFn = function(d) { return '录制' + (d.show || '综艺'); }; locFn = function(d) { return '电视台/摄影棚'; }; }
+  else if (type === 'magazine') { pool = MAGAZINE_POOL; label = '画报邀约'; icon = '📸'; textFn = function(d) { return '拍摄' + (d.mag || '画报'); }; locFn = function(d) { return '摄影棚'; }; }
+  else if (type === 'brand') { pool = BRAND_OFFER_POOL; label = '代言邀约'; icon = '💼'; textFn = function(d) { return '代言拍摄：' + (d.brand || '品牌'); }; locFn = function(d) { return '摄影棚'; }; }
+  else if (type === 'release') { pool = RELEASE_POOL; label = '作品发布'; icon = '📀'; textFn = function(d) { return '发布' + (d.t || '作品'); }; locFn = function(d) { return '工作室/公司'; }; }
+  else return;
+  if (!pool || !pool.length) { showToast('暂无' + label); return; }
+  var item = pool[Math.floor(Math.random() * pool.length)];
+  if (Array.isArray(item)) item = item[Math.floor(Math.random() * item.length)];
+  if (!item) { showToast('暂无' + label); return; }
+  var t = textFn(item);
+  var l = locFn(item);
+  var detail = (item.show || item.brand || item.mag || item.t || '') + ' · 人气+' + (item.pop || 2) + (item.exp ? ' 曝光+' + item.exp : '');
+  // 确认弹窗
+  showEntSimModal(icon + ' ' + label, '<p style="text-align:center;padding:8px 0">' + escHtml(detail) + '<br><small style="color:var(--text-muted)">接受后将排入明日日程，AI自动生成工作剧情并结算奖励</small></p>', [
+    { id: 'cancel', label: '拒绝' },
+    { id: 'confirm', label: '接受', primary: true }
+  ]).then(function(r) {
+    if (r !== 'confirm') return;
+    E._scheduledEvents = E._scheduledEvents || [];
+    var targetDay = E.cycle.dayCount + 1;
+    E._scheduledEvents.push({ id: type + '_' + targetDay + '_' + randInt(1000, 9999), type: type, data: item, targetDay: targetDay, text: t, loc: l, done: false });
+    if (!E.careerHistory) E.careerHistory = [];
+    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: type, text: '接受' + label + '：' + (item.show || item.brand || item.mag || item.t || '') });
+    showToast(icon + ' ' + label + '已排入明天日程！');
+    saveGame();
+    rerender();
+  });
+}
+
+function showVarietyPopup() { scheduleEvent('variety'); }
+function showMagazinePopup() { scheduleEvent('magazine'); }
+function showBrandSchedule() { scheduleEvent('brand'); }
+function showReleaseSchedule() { scheduleEvent('release'); }
+
+// 通用事件弹窗（签售/演唱会/回归/打歌/挫折）
+function showGenericEventPopup(title, data) {
+  if (!data) return;
+  var text = (data.t || data.text || '').slice(0, 180);
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:420px;border-color:rgba(180,160,220,.3)">' +
+    '<div class="es-stageup-icon">🎬</div>' +
+    '<div class="es-stageup-label">' + escHtml(title) + '</div>' +
+    '<div class="es-stageup-desc">' + escHtml(text) + '</div>' +
+    (data.fanReactions ? '<p style="font-size:11px;color:rgba(255,255,255,.35);margin:0 0 12px">💬 ' + escHtml(data.fanReactions.join(' · ')) + '</p>' : '') +
+    '<button class="primary" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">关闭</button>' +
+  '</div>';
+  document.body.appendChild(overlay);
+  if (typeof data.pop === 'number') GS.entSim.career.popularity = (GS.entSim.career.popularity || 0) + data.pop;
+}
+
+// 从事件条目fanReactions抽取3条注入右栏粉丝讨论区
+function injectFanReactions(item) {
+  if (!item || !item.fanReactions || !item.fanReactions.length) return;
+  var reactions = item.fanReactions.slice(0, 3);
+  if (!GS._entSimFanReactions) GS._entSimFanReactions = [];
+  for (var i = 0; i < reactions.length; i++) {
+    GS._entSimFanReactions.push(reactions[i]);
+  }
+  if (GS._entSimFanReactions.length > 15) GS._entSimFanReactions.splice(0, GS._entSimFanReactions.length - 15);
+}
+
+function createOverlay() {
+  var d = document.createElement("div");
+  d.className = "es-stageup-overlay";
+  return d;
+}
 function closeModalDirect(overlay) {
   if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
 }

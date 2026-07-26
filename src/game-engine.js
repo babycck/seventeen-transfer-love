@@ -59,6 +59,9 @@ export async function generatePhaseNarrative() {
   if (GS.gameMode === 'oneHeart') {
     return generateOneHeartRound();
   }
+  if (GS.gameMode === 'entSim') {
+    return;
+  }
   if (GS._isGenerating) { console.log('[gen] skip reentrant call'); return; }
   GS._isGenerating = true;
   try {
@@ -1542,11 +1545,14 @@ export async function advancePhase() {
     var maxPhase = GS.day === 12 ? 2 : 3;
     if (GS.phaseIndex < maxPhase) {
       GS.phaseIndex++;
+      GS._transitioning = true;
       resetPhaseState();
       saveGame();
       showLoading('正在进入下一时段...');
       if (window.__renderAll) window.__renderAll();
       await generatePhaseNarrative();
+      GS._transitioning = false;
+      saveGame();
     } else {
       await goToNextDay();
     }

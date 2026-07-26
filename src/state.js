@@ -1,5 +1,4 @@
 ﻿import { STORAGE_KEY, SAVE_SIZE_WARN, MISSION_CARDS } from './data.js';
-import { clearStoryCache } from './story-cache.js';
 import { showConfirmModal } from './modals/confirm-modal.js';
 import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from './data.js';
 
@@ -504,6 +503,27 @@ export function migrateSave() {
     if (!Array.isArray(E.theaterHistory)) E.theaterHistory = [];
     if (!Array.isArray(E.careerHistory)) E.careerHistory = [];
 
+    // v2 新增字段兜底（Bug 修复：旧存档升级后为 undefined 导致异常触发）
+    if (typeof E._jealousLevel !== 'number') E._jealousLevel = 0;
+    if (typeof E._jealousLastUpdateDay !== 'number') E._jealousLastUpdateDay = 0;
+    if (!E._intimacyUnlocked || typeof E._intimacyUnlocked !== 'object') E._intimacyUnlocked = { hand: false, hug: false, kiss: false };
+    if (!E._romanceMilestones || typeof E._romanceMilestones !== 'object') E._romanceMilestones = {};
+    if (typeof E._maleContactTimer !== 'number') E._maleContactTimer = 8;
+    if (typeof E._lastFanLetterDay !== 'number') E._lastFanLetterDay = 0;
+    if (typeof E._lastBrandOfferDay !== 'number') E._lastBrandOfferDay = 0;
+    if (typeof E._releaseCD !== 'number') E._releaseCD = 0;
+    if (typeof E._lastAwardDay !== 'number') E._lastAwardDay = 0;
+    if (typeof E._lastVarietyDay !== 'number') E._lastVarietyDay = 0;
+    if (typeof E._lastMagazineDay !== 'number') E._lastMagazineDay = 0;
+    if (!Array.isArray(E._scheduledEvents)) E._scheduledEvents = [];
+    if (!E.brother) E.brother = {};
+    if (!Array.isArray(E.brother.supportLog)) E.brother.supportLog = [];
+    if (!Array.isArray(GS._entSimPopupQueue)) GS._entSimPopupQueue = [];
+    // v5 新增状态字段
+    if (typeof E._entSimBubblePhotoDesc !== 'string') E._entSimBubblePhotoDesc = '';
+    if (typeof E._entSimChartTrack !== 'object') E._entSimChartTrack = null;
+    if (typeof E._entSimComebackProgress !== 'object') E._entSimComebackProgress = null;
+
     if (!E.cycle) E.cycle = {};
     if (typeof E.cycle.timeOfDay !== 'number') E.cycle.timeOfDay = 0;
     if (typeof E.cycle.dayCount !== 'number') E.cycle.dayCount = 1;
@@ -855,10 +875,6 @@ export async function resetGame() {
   var savedCode = localStorage.getItem('svt_auth_saved_code');
   var savedDeviceId = localStorage.getItem('svt_auth_device_id');
   localStorage.removeItem(STORAGE_KEY);
-  var clearCache = GS.gameMode === 'oneHeart' ? false : await showConfirmModal('是否同时清除已缓存的 X 档案故事？（清除后下次开局会重新生成）');
-  if (clearCache) {
-    clearStoryCache();
-  }
   // 恢复激活码设置
   if (savedAuthToken) localStorage.setItem('svt_auth_token', savedAuthToken);
   if (savedRememberCode) localStorage.setItem('svt_auth_remember_code', savedRememberCode);

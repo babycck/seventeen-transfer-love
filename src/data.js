@@ -1,4 +1,6 @@
 ﻿// ==================== 常量 ====================
+import { randInt } from './utils.js';
+import { TEAMMATE_NAMES, SISTER_ROLES, GROUP_NAMES, COMPANY_NAMES, GROUP_CONCEPTS, HIT_SONGS, pickFromPool, pickFromPoolMulti } from './ent-sim/pools/index.js';
 export var STORAGE_KEY = 'svt_transfer_v20';
 export var PLAYER_BIRTH_YEAR = 2000; // 已废弃，请使用 getPlayerBirthYear()
 export function getPlayerBirthYear(age, year) {
@@ -16,23 +18,22 @@ export var DAILY_EXPOSURE_DECAY = 12; // [H] 曝光风险每日自然衰减量
 
 // ---------- 女团队友具象化（entSim 模式）：5 位姐姐（化名 + 性格标签 + 与女主关系） ----------
 // 注意：1v1 模式另有同名 buildHeroineGirlGroup(heroineName)（见本文件下文），二者结构不同，此处加 EntSim 前缀避免碰撞。
-import { randInt } from './utils.js';
 export function buildEntSimHeroineGroup() {
-  var namePool = ['恩率', '知允', '秀妍', '宥娜', '彩琳', '瑞胤', '河英', '允真', '艺璘', '多彬'];
-  var roles = [
-    { tag: '最疼你的大姐', rel: 'r1' },
-    { tag: '舞台疯子', rel: 'r2' },
-    { tag: '想退团的', rel: 'r3' },
-    { tag: '综艺担当', rel: 'r4' },
-    { tag: '佛系维他命', rel: 'r5' }
-  ];
+  var namePool = TEAMMATE_NAMES.slice();
+  // SISTER_ROLES 格式: [{ roles:['队长/主唱','主舞',...], size:N }, ...]
+  var template = SISTER_ROLES[randInt(0, SISTER_ROLES.length - 1)];
+  var roles = (template.roles || template).slice(0, 5);
+  // TEAMMATE_FLAVOR 性格标签池（5种性格，每人分配一种，用于确认弹窗展示）
+  var flavorKeys = ['最疼你的大姐', '舞台疯子', '想退团的', '综艺担当', '佛系维他命'];
+  var shuffledFlavors = flavorKeys.slice().sort(function() { return Math.random() - 0.5; });
   var used = {};
   var out = [];
   for (var i = 0; i < roles.length; i++) {
     var nm;
     do { nm = namePool[randInt(0, namePool.length - 1)]; } while (used[nm]);
     used[nm] = true;
-    out.push({ name: nm, roleTag: roles[i].tag, rel: roles[i].rel });
+    var tag = typeof roles[i] === 'string' ? roles[i] : (roles[i].tag || roles[i].role || '队友' + (i+1));
+    out.push({ name: nm, roleTag: tag, personalityTag: shuffledFlavors[i] || '佛系维他命', rel: 'r' + (i + 1) });
   }
   return out;
 }
@@ -40,21 +41,16 @@ export function buildEntSimHeroineGroup() {
 // 生成女团全套设定（团名/公司/概念/粉丝名/出圈歌），与 buildEntSimHeroineGroup() 配合
 export function buildEntSimGroupMeta() {
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  var gi = Math.floor(Math.random() * GIRLGROUP_PRESETS.groupNames.length);
-  var pool = GIRLGROUP_PRESETS.songs.slice();
-  var songCount = 2 + (Math.random() < 0.5 ? 0 : 1);
-  var songs = [];
-  for (var i = 0; i < songCount && pool.length; i++) {
-    var idx = Math.floor(Math.random() * pool.length);
-    songs.push(pool.splice(idx, 1)[0]);
-  }
+  var picked = pick(GROUP_NAMES);
+  var groupName = picked.group;
+  var songs = pickFromPoolMulti(HIT_SONGS, 2 + (Math.random() < 0.5 ? 0 : 1));
   return {
-    groupName: GIRLGROUP_PRESETS.groupNames[gi],
-    company: GIRLGROUP_PRESETS.company,
-    concept: pick(GIRLGROUP_PRESETS.concepts),
-    fandom: GIRLGROUP_PRESETS.fandoms[gi],
-    songs: songs,
-    debutYears: Math.floor(Math.random() * 2)
+    groupName: groupName,
+    company: pick(COMPANY_NAMES),
+    concept: pick(GROUP_CONCEPTS),
+    fandom: picked.fandom,
+    songs: songs || [],
+    debutYears: 0 // 新游戏从零开始，由游戏进度决定出道年限
   };
 }
 export var LOWKEY_BONUS = 5; // [H] 低调日（未约高风险约会）额外减值
@@ -1327,23 +1323,21 @@ export var GIRLGROUP_PRESETS = {
 // 返回对象存入 GS.oneHeartHeroineGroup，由 prompts.js 注入 system prompt。
 export function buildHeroineGirlGroup(heroineName) {
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  var gi = Math.floor(Math.random() * GIRLGROUP_PRESETS.groupNames.length);
-  var groupName = GIRLGROUP_PRESETS.groupNames[gi];
-  var company = GIRLGROUP_PRESETS.company;
-  var concept = pick(GIRLGROUP_PRESETS.concepts);
-  var fandom = GIRLGROUP_PRESETS.fandoms[gi]; // 与团名同 index 匹配
+  var picked = pick(GROUP_NAMES);
+  var groupName = picked.group;
+  var company = pick(COMPANY_NAMES);
+  var concept = pick(GROUP_CONCEPTS);
+  if (typeof concept === 'object') concept = concept.label || concept.name || concept;
+  var fandom = picked.fandom;
   // 随机 2-3 首"出名"的歌
-  var pool = GIRLGROUP_PRESETS.songs.slice();
-  var songCount = 2 + (Math.random() < 0.5 ? 0 : 1);
-  var songs = [];
-  for (var i = 0; i < songCount && pool.length; i++) {
-    var idx = Math.floor(Math.random() * pool.length);
-    songs.push(pool.splice(idx, 1)[0]);
-  }
+  var songs = pickFromPoolMulti(HIT_SONGS, 2 + (Math.random() < 0.5 ? 0 : 1)) || [];
   var debutYears = Math.floor(Math.random() * 2); // 出道 0-1 年（新人团）
   // 5 位姐姐成员 + 女主（第 6 位）
-  var members = GIRLGROUP_PRESETS.sisterRoles.map(function(role, i) {
-    return { pos: i + 1, role: role, name: '姐姐' + (i + 1) };
+  var template = SISTER_ROLES[randInt(0, SISTER_ROLES.length - 1)];
+  var roleList = template.roles || template;
+  var members = roleList.slice(0, 5).map(function(role, i) {
+    var roleStr = typeof role === 'string' ? role : (role.tag || role.role || '队友' + (i + 1));
+    return { pos: i + 1, role: roleStr, name: '姐姐' + (i + 1) };
   });
   members.push({ pos: 6, role: '门面(Visual) + 忙内(Maknae)', isHeroine: true, name: heroineName || '你' });
   return {

@@ -8,7 +8,7 @@ import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
 import { buildMemorySnapshot } from './memory.js';
-import { getNpcNodes } from './npc-network.js';
+// npc-network 已移除，情敌名改用 rival 字段
 
 export function buildEntSimSystemPrompt(mode) {
   var hp = GS.heroineProfile || {};
@@ -18,11 +18,26 @@ export function buildEntSimSystemPrompt(mode) {
   var rival = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_rival']);
   var suitor = (E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor']);
 
+  // 职业阶段判定
+  var isDebut = E.career && E.career.debutDay > 0;
+  var chapterIdx = (E.chapter && E.chapter.index) || 1;
+  var careerLabel = isDebut ? '女团爱豆' : '练习生';
+  var careerDaily = isDebut ? (E.chapter ? E.chapter.name : '新人期') : '练习生期';
+  var careerDesc = isDebut
+    ? '已出道的女团成员（' + careerDaily + '），有固定团名/队友/粉丝基础，日程以打歌/签售/综艺/练习为主，事业压力来自回归成绩/人气/竞争。'
+    : '未出道的练习生，没有团名没有粉丝没有舞台，日常全部是训练（声乐课/舞蹈测评/月评/体测/外语课等），事业压力来自月末评价/出道组筛选/淘汰焦虑。';
+  var teammateDesc = isDebut
+    ? '女主在 6 人小糊团（女主 + 5 位姐姐），队友（由 AI 按设定具象化客串）：' + sisterSummary() + '。她们是日常背景，可偶尔在剧情里出现（如练习室、待机室、宿舍），增添女团真实感，但不要抢戏。'
+    : '女主有 5 位练习生同期姐妹（由 AI 按设定具象化客串）：' + sisterSummary() + '。她们一起训练/一起吃饭/一起熬月末评价，是彼此的支撑，但不要抢戏。';
   var sys = '';
-  sys += '你是一个沉浸式娱乐圈恋爱文字游戏的叙事 AI。玩家扮演一名韩国女团爱豆（艺名：' + (hp.name || '你') + '，' + (hp.age || 19) + ' 岁，小糊团成员），在娱乐圈打拼。SEVENTEEN 成员「' + (ml ? ml.name : '男主') + '」是她的哥哥的队友，但两人目前只是同行业前辈与后辈的关系——是否通过哥哥见过面、说过话，都是未知数。故事从零开始，感情完全空白，没有任何预设的暧昧或好感。\n';
+  sys += '你是一个沉浸式娱乐圈恋爱文字游戏的叙事 AI。玩家扮演一名韩国' + careerLabel + '（艺名：' + (hp.name || '你') + '，' + (hp.age || 19) + ' 岁），目前在' + careerDaily + '。' + careerDesc + ' SEVENTEEN 成员「' + (ml ? ml.name : '男主') + '」是她的哥哥的队友，但两人目前只是同行业前辈与后辈的关系——是否通过哥哥见过面、说过话，都是未知数。故事从零开始，感情完全空白，没有任何预设的暧昧或好感。\n';
   sys += '【核心定位】恋爱是主线，娱乐圈是背景层。你的重点是写好「两个陌生人如何从相识走向相爱」：初遇、相识、心动、暧昧、吃醋、试探、告白、在一起后的地下甜蜜。开局没有感情基础，一切从零开始慢热推进。娱乐圈的行程/舆论/曝光只是恋爱的张力来源，不要写成经营模拟。\n';
-  sys += '【女团队友（背景人物）】女主在 6 人小糊团（女主 + 5 位姐姐），队友（由 AI 按设定具象化客串）：' + sisterSummary() + '。她们是日常背景，可偶尔在剧情里出现（如练习室、待机室、宿舍），增添女团真实感，但不要抢戏。\n';
-  sys += '⚠️ 团魂铁则：六人非常团结、互相扶持、没有内斗。禁止写队友翻白眼、阴阳怪气、抢站位、明争暗斗等行为。她们之间的互动永远是温暖的、互相撑腰的。\n';
+  sys += '【' + (isDebut ? '女团队友' : '练习生同期') + '（背景人物）】' + teammateDesc + '\n';
+  if (isDebut) {
+    sys += '⚠️ 团魂铁则：六人非常团结、互相扶持、没有内斗。禁止写队友翻白眼、阴阳怪气、抢站位、明争暗斗等行为。她们之间的互动永远是温暖的、互相撑腰的。\n';
+  } else {
+    sys += '⚠️ 练习生铁则：六人是同期练习生，互相扶持共渡难关。禁止写勾心斗角/排挤/背后说坏话。她们之间的互动永远是温暖的、互相打气的。\n';
+  }
   sys += '【男主设定】男主「' + (ml ? ml.name : '男主') + '」是 SEVENTEEN 成员，有自己的行程/事业/情绪。让他像真实偶像：会吃醋、会主动、有小动作，不是通用男主。\n';
   if (E.romance && E.romance.seedEvent) {
     sys += '【男主上心契机·种子事件】' + E.romance.seedEvent + '\n（这是男主为什么对女主不一样的根，后续告白/吃醋/心动时刻可回溯引用，保持前后一致。）\n';
@@ -58,11 +73,15 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【心动时刻】好感度跨过「暧昧(50)→心动(60)」时，应有一段约 300 字的沉浸式心动高光描写（粉色氛围、心跳感），插入当前剧情前。\n';
   sys += '【写作风格】现实向、甜宠暗恋、地下恋视角、有压力感。每段正文剧情 800-1800 字，充分铺陈人物心理描写、环境细节、对话与互动，写出细腻的慢热恋爱张力，不要干瘪叙述。\n';
   // v2：亲密接触阶段锁
-  var intUnlocked = (E && E._intimacyUnlocked) || { hand: false, hug: false, kiss: false };
+  var intUnlocked = (E && E._intimacyUnlocked) || { hand: false, hug: false, kiss: false, bed: false, live: false, public: false, marry: false };
   sys += '【亲密接触阶梯·强制】根据好感度解锁的亲密行为，不可越级：\n';
-  sys += '  - 牵手（🤝）：好感≥15解锁。' + (intUnlocked.hand ? '✅已解锁，可在剧情中自然牵手。' : '❌未解锁，禁止出现牵手动作。') + '\n';
-  sys += '  - 拥抱（🤗）：好感≥30解锁。' + (intUnlocked.hug ? '✅已解锁，可在剧情中自然拥抱。' : '❌未解锁，禁止出现拥抱动作。') + '\n';
-  sys += '  - 接吻（💋）：好感≥50解锁。' + (intUnlocked.kiss ? '✅已解锁，可在剧情中接吻。' : '❌未解锁，绝对禁止接吻。') + '\n';
+  sys += '  - 牵手（🤝）好感≥15：' + (intUnlocked.hand ? '✅已解锁' : '❌未解锁') + '\n';
+  sys += '  - 拥抱（🤗）好感≥30：' + (intUnlocked.hug ? '✅已解锁' : '❌未解锁') + '\n';
+  sys += '  - 接吻（💋）好感≥50：' + (intUnlocked.kiss ? '✅已解锁' : '❌未解锁') + '\n';
+  sys += '  - 同床（🛏️）好感≥65：' + (intUnlocked.bed ? '✅已解锁' : '❌未解锁') + '\n';
+  sys += '  - 同居（🏠）好感≥80：' + (intUnlocked.live ? '✅已解锁' : '❌未解锁') + '\n';
+  sys += '  - 公开恋情（📣）好感≥90：' + (intUnlocked.public ? '✅已解锁' : '❌未解锁·需玩家主动选择') + '\n';
+  sys += '  - 求婚结婚（💍）好感≥100：' + (intUnlocked.marry ? '✅已解锁' : '❌未解锁') + '\n';
   sys += '  只能写已解锁阶段的亲密行为，不得越级。未解锁的行为连暗示都不行。\n';
   // v2：吃醋值指令
   var jLvl = (E && E._jealousLevel) || 0;
@@ -160,6 +179,15 @@ export function buildEntSimUserMessage(type, extra) {
     msg = '触发事件：「' + (extra.eventText || '') + '」。请描写其影响并给出应对选项。\n';
   }
 
+  // 【职业阶段上下文】告诉AI当前是什么阶段，应该写什么场景的剧情
+  var isDebutUser = E.career && E.career.debutDay > 0;
+  var chapterNameUser = (E.chapter && E.chapter.name) || '新人期';
+  if (!isDebutUser) {
+    msg += '\n【当前阶段·练习生】女主是未出道的练习生，没有团名/没有粉丝/没有舞台。日常＝训练（声乐课/舞蹈测评/月评/体测/出道组筛选等），地点＝练习室/声乐教室/评价室/公司走廊。请生成练习生视角的剧情，不要出现打歌/回归/签售/粉丝等出道后才有的概念。\n';
+  } else {
+    msg += '\n【当前阶段·' + chapterNameUser + '】女主是已出道的女团成员，有团名/队友/粉丝基础。请生成对应阶段的女团爱豆日常剧情。\n';
+  }
+
   // 同天上下文：注入最近剧情摘要，限制 1200 字避免 AI 镜像循环
   if (!extra.nextDayOpening && GS._entSimCurrent && GS._entSimCurrent.narrative) {
     var fullNar = GS._entSimCurrent.narrative;
@@ -180,9 +208,8 @@ export function buildEntSimUserMessage(type, extra) {
       '{"mine":{"post":"女主朋友圈正文 1-2句","reply":"男主回复 1句","replyBack":"女主再回复 1句（可选，留空也行）","photo":"配图描述（可选）","type":"日常/暧昧/吃醋/营业/练习"},"his":{"post":"男主朋友圈正文 1-2句","reply":"女主回复 1句","replyBack":"","photo":"","type":"日常/工作/暧昧/想念"}}\n' +
       '语气自然带emoji，两条动态内容不要重复。';
     if (extra.rivalComment) {
-      var rvNode = null;
-      try { rvNode = getNpcNodes().filter(function(n) { return n.type === 'rival' || n.type === 'suitor'; })[0]; } catch(e) {}
-      var rvName = (rvNode && rvNode.name) || '团内成员';
+      var E_ = GS.entSim;
+      var rvName = (E_.rival && E_.rival.name) || (E_.romance && E_.romance.maleLead && E_.romance.maleLead.name) || '团内成员';
       msg += '\n\n[暗斗彩蛋] 情敌「' + rvName + '」在评论区留一句暗戳戳的较劲发言（20字内），随机出现在 mine 或 his 的 rivalComment 字段。';
     }
   } else if (type === 'diary' || type === 'diaryHis') {

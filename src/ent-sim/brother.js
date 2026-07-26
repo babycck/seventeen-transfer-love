@@ -4,30 +4,9 @@
 // ============================================================
 import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
-import { GIRLGROUP_EVENTS, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
-import { getNpcNodes } from './npc-network.js';
-
-// 哥哥事件池（剧情类，不强制影响进度）
-export var BROTHER_EVENT_POOL = [
-  { text: '哥哥在练习室门口堵住你，皱眉打量你最近的状态：“最近是不是有情况？别瞒我。”', supportDelta: 0 },
-  { text: '哥哥把你和男主最近同框的传闻当笑话讲，语气却有一丝认真：“圈子里最不能碰的就是队友。”', supportDelta: -2 },
-  { text: '哥哥难得没管你，递了杯热饮：“忙归忙，别熬坏。团队需要你，我也需要。”', supportDelta: 2 },
-  { text: '哥哥撞见你和男主在走廊错身，眼神停了一瞬，什么都没说，夜里却发了条“注意分寸”的消息。', supportDelta: -3 },
-  { text: '哥哥主动帮你把深夜行程报成“团务”，在经纪人面前打了掩护：“她跟我一组，没事。”', supportDelta: 1 },
-  { text: '哥哥半开玩笑半认真地和你聊起未来：“你要是真谈了，记得选不会拖累团队的人。”', supportDelta: 0 },
-  { text: '哥哥看你状态好，难得松口：“谈就谈，别被拍到，哥哥替你兜着。”', supportDelta: 3 }
-];
-
-// 男主主动互动池（按好感阶段解锁）
-export var MALE_LEAD_INITIATIVE_POOL = [
-  { minAff: 0, text: '男主通过你哥哥给你发了条消息："明天打歌加油"——明明可以直接私聊的，却偏要绕一圈，像是第一个开口需要点勇气。' },
-  { minAff: 20, text: '男主借着工作名义给你发了条私信：“今天表现不错，辛苦了。”' },
-  { minAff: 35, text: '男主“顺路”在公司门口等你，递了杯你爱喝的，说“刚好多了一杯”。' },
-  { minAff: 50, text: '男主在只有你们两人的场合，低声问你：“最近……有没有想我？”' },
-  { minAff: 60, text: '男主听到别人聊起你，眼神暗了暗，过后私信你：“别理那些，你最重要。”' },
-  { minAff: 70, text: '男主趁没人，悄悄把你拉到角落，指尖蹭过你手背：“再忍忍，好吗？”' },
-  { minAff: 80, text: '男主发来一条语音，声音压得很低：“我想你想到写歌都写不下去了。”' }
-];
+import { ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
+import { GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR } from './pools/index.js';
+// npc-network 已移除，情敌名改用 rival 字段
 
 // 哥哥事件：15% 概率；成功则注入并应用影响
 export function maybeBrotherEvent() {
@@ -37,6 +16,7 @@ export function maybeBrotherEvent() {
   if (ev.stance) E.brother.stance = ev.stance;
   if (typeof ev.supportDelta === 'number') {
     E.brother.support = Math.max(-100, Math.min(100, (E.brother.support || 0) + ev.supportDelta));
+    pushSupportLog(E, ev.supportDelta, ev.text || '哥哥事件');
   }
   if (ev.text) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'brother', text: ev.text });
   GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【哥哥】' + ev.text;
@@ -71,9 +51,10 @@ export function checkOneHeartEvents() {
   // 3. 情敌主动（按 rival intimacy 阈值）
   if (!ev) ev = pickRivalAdvance(E);
 
-  // 4. 女主秘密被撞破（男主发现）
+  // 4. 女主秘密被撞破（男主发现）——合并 data.js + 池子
   if (!ev && E.secret && E.secret.items && E.secret.items.length && rnd <= 15) {
-    ev = cloneEvent(SECRET_DISCOVERY_EVENTS[randInt(0, SECRET_DISCOVERY_EVENTS.length - 1)]);
+    var secretPool = SECRET_DISCOVERY_EVENTS.concat(SPECIAL_EVENTS.filter(function(e) { return e.key && e.key.indexOf('secret_') === 0; }));
+    ev = cloneEvent(secretPool[randInt(0, secretPool.length - 1)]);
   }
 
   // 4.5. 狗仔偷拍：曝光≥30 时概率触发（每回合 15%）
@@ -87,20 +68,40 @@ export function checkOneHeartEvents() {
     ev = cloneEvent(paparazziPool[randInt(0, paparazziPool.length - 1)]);
   }
 
+  // 4.6. 嫉妒事件：好感≥20时15%触发（池子按 minAff 过滤）
+  if (!ev && rnd <= 15 && JEALOUSY_EVENTS_POOL && JEALOUSY_EVENTS_POOL.length) {
+    var affNow = E.affection || 0;
+    var jp = JEALOUSY_EVENTS_POOL.filter(function(j) { return !j.minAff || affNow >= j.minAff; });
+    if (jp.length) ev = cloneEvent(jp[randInt(0, jp.length - 1)]);
+  }
+
   // 5. 哥哥支线
   if (!ev && E.brother && E.brother.name && rnd <= 12) {
     ev = cloneEvent(BROTHER_SIDE_PLOTS[randInt(0, BROTHER_SIDE_PLOTS.length - 1)]);
   }
 
-  // 6. 女团/行业事件（按职业过滤）
-  if (!ev && rnd <= 25) {
+  // 6. 女团/行业事件（仅出道后触发，练习生期跳过）
+  var isDebutEvents = (E.career && E.career.debutDay > 0) || (E.career && E.career.profession === '女团爱豆');
+  if (!ev && rnd <= 25 && isDebutEvents) {
     var pool = [];
     if (E.career && E.career.profession === '女团爱豆') pool = pool.concat(GIRLGROUP_EVENTS);
     pool = pool.concat(INDUSTRY_EVENTS);
+    pool = pool.concat(INCIDENT_EVENTS_POOL);
     if (pool.length) ev = cloneEvent(pool[randInt(0, pool.length - 1)]);
   }
 
-  // 7. 女团队友支线：5 位姐姐偶尔在剧情里出场，增添女团真实感
+  // 7. 好感铺垫（CONTACT_PROGRESSION）：仅出道后触发
+  if (!ev && isDebutEvents && E.affection >= 0 && rnd <= 30 && CONTACT_PROGRESSION && CONTACT_PROGRESSION.length) {
+    var cp = CONTACT_PROGRESSION.filter(function(p) { return !p.minAff || E.affection >= p.minAff; });
+    if (cp.length) ev = cloneEvent(cp[randInt(0, cp.length - 1)]);
+  }
+
+  // 8. ONEHEART_RANDOM_EVENTS（仅出道后触发）
+  if (!ev && isDebutEvents && rnd <= 18 && ONEHEART_RANDOM_EVENTS && ONEHEART_RANDOM_EVENTS.length) {
+    ev = cloneEvent(ONEHEART_RANDOM_EVENTS[randInt(0, ONEHEART_RANDOM_EVENTS.length - 1)]);
+  }
+
+  // 9. 女团队友支线：5 位姐姐偶尔在剧情里出场，增添女团真实感
   if (!ev && E.heroineGroup && E.heroineGroup.length && rnd <= 22) {
     var sis = E.heroineGroup[randInt(0, E.heroineGroup.length - 1)];
     var flavor = TEAMMATE_FLAVOR[sis.roleTag] || '队友找你聊了聊近况';
@@ -112,6 +113,7 @@ export function checkOneHeartEvents() {
   // 应用数值影响
   if (ev.support && E.brother) {
     E.brother.support = Math.max(-100, Math.min(100, (E.brother.support || 0) + ev.support));
+    pushSupportLog(E, ev.support, ev.text || '剧情抉择');
   }
   if (ev.failSupport && E.brother) {
     // 失败影响暂不直接扣，留给玩家选择时结算；这里只记录 pending
@@ -134,6 +136,19 @@ export function checkOneHeartEvents() {
   GS._entSimPendingEvent = '【事件】' + ev.text + (ev.support ? '（哥哥支持度 +' + ev.support + '）' : '');
   saveGame();
   return true;
+}
+
+// 记录哥哥支持度变动日志（供恋情面板点击查看）
+function pushSupportLog(E, delta, reason) {
+  E.brother.supportLog = E.brother.supportLog || [];
+  E.brother.supportLog.push({
+    day: E.cycle.dayCount,
+    delta: delta,
+    reason: reason || '未知原因',
+    total: E.brother.support,
+    stance: E.brother.stance || '参谋'
+  });
+  saveGame();
 }
 
 function pickBrotherTest(E) {
@@ -170,18 +185,31 @@ function pickRivalAdvance(E) {
   // 去重：避免同id重复触发
   var triggered = E._rivalTriggered || {};
   var available = actions.filter(function(a) { return !triggered[a.id]; });
-  if (!available.length) { E._rivalTriggered = {}; available = actions; }
+  if (!available.length) {
+    E._rivalTriggered = {};
+    available = actions;
+    // 回退到 RIVAL_ADVANCE_EVENTS 事件池（按情敌倾向 minIntimacy 过滤）
+    var poolAvailable = RIVAL_ADVANCE_EVENTS.filter(function(e) { return intimacy >= e.minIntimacy && !E._rivalTriggered[e.key]; });
+    if (poolAvailable.length) {
+      var pEv = poolAvailable[randInt(0, poolAvailable.length - 1)];
+      E._rivalTriggered[pEv.key] = true;
+      var rvNameP = (E.rival && E.rival.name) || (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '团内成员';
+      return { text: '【情敌·' + ENT_SIM_RIVAL_STAGES[stage-1].label + '】' + rvNameP + '：' + pEv.text, exposure: pEv.exposure || 0, stage: stage };
+    }
+  }
   var picked = available[randInt(0, available.length - 1)];
   E._rivalTriggered = E._rivalTriggered || {};
   E._rivalTriggered[picked.id] = true;
-  var rvNode = getNpcNodes().filter(function(n) { return n.type === 'rival' || n.type === 'suitor'; })[0];
-  var rvName = (rvNode && rvNode.name) || '团内成员';
+  var rvName = (E.rival && E.rival.name) || (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '团内成员';
   return { text: '【情敌·' + ENT_SIM_RIVAL_STAGES[stage-1].label + '】' + rvName + '：' + picked.desc, exposure: stage >= 3 ? 1 : 0, stage: stage };
 }
 
 function cloneEvent(ev) {
   var out = {};
   for (var k in ev) out[k] = ev[k];
+  // 归一卷入池子条目的属性名
+  if (out.t && !out.text) out.text = out.t;
+  if (typeof out.popDelta === 'number') { out.affect = 'popularity'; out.delta = out.popDelta; }
   return out;
 }
 

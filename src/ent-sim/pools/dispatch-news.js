@@ -1,0 +1,21 @@
+// Dispatch 八卦新闻池（200条，扁平单层数组）
+export var DISPATCH_POOL = [].concat([
+  {t:'Dispatch独家：新人女团{groupName}与SEVENTEEN疑似同车离开——凌晨两点，仁川方向。',exposure:4,fanReactions:['Dispatch又来了','同车而已','凌晨有行程很正常','保护隐私','不要看图编故事']},
+  {t:'Dispatch实锤：某女团成员穿同款卫衣——是巧合还是情侣装？',exposure:3,fanReactions:['衣服同款而已','情侣装过度解读','可能只是巧合','衣服一样就提','品牌赞助']},
+  {t:'Dispatch独家直击——{name}深夜独自在天台徘徊，公司人士称她最近承受很大压力。',exposure:2,fanReactions:['一个人待着都成新闻','一定很累吧','保护艺人隐私','给她喘息的空间','不要拍天台']},
+  {t:'Dispatch曝光：{name}手机屏疑似出现某男团成员自拍——粉丝放大发现只是练习室合影背景。',exposure:2,fanReactions:['练习室背景而已','不要放大看','只是合影','又是Dispatch','手机屏还看']},
+  {t:'Dispatch目击：{name}与{maleLead}共同出入同一栋大楼——经纪公司称是工作。',exposure:3,fanReactions:['工作而已','同一栋楼','就是同公司','别大惊小怪','经纪公司澄清']},
+  {t:'Dispatch偷拍：{name}练习室深夜灯光——凌晨三点还在练习。',exposure:1,fanReactions:['凌晨练习','好辛苦','Dispatch不用休息吗','练习室都要拍','太努力了']},
+  {t:'Dispatch解析：{name}和{maleLead}的关系——七个细节让你看清真相。',exposure:3,fanReactions:['七个细节','又想炒作了','没东西写了','看图编故事','不买账']},
+  {t:'Dispatch实锤：{name}与某男团成员共用练习室——同一扇镜子，不同时间。',exposure:2,fanReactions:['练习室共用','不同时间','就是排练','同公司正常','太无聊了']},
+  {t:'Dispatch深扒：{name}出道前的素颜照——与现在差别不大，但粉丝反应意外。',exposure:2,fanReactions:['素颜也好美','差别又不大','不要扒出道前','那个时候也好可爱','保护旧照']},
+  {t:'Dispatch独家：{name}使用私人号码与{maleLead}通话——时长约12分钟。',exposure:4,fanReactions:['私人号码','通话内容谁透露的','隐私泄露太过分','Dispatch违法了','这是私生活']},
+  {t:'Dispatch拍到{maleLead}深夜独自前往{name}所在小区——车内独自沉思约二十分钟后离开。',exposure:3,fanReactions:['独自沉思','什么都没有','就算是误会','Dispatch看太多','小区而已']},
+  {t:'Dispatch年度总结：今年最受关注的十对"疑似情侣"——{name}和{maleLead}排第三。',exposure:2,fanReactions:['年度总结还来','只是排行','又是疑似的','没实锤','娱乐新闻罢了']},
+  {t:'Dispatch拍到{name}在便利店买夜宵——独自一人。但买了两人份。',exposure:3,fanReactions:['便利店夜宵','两人份','可能给队友','另一份给谁','不要乱猜']},
+  {t:'Dispatch独家：{name}更换手机号——旧号疑似频繁被骚扰。粉丝呼吁"给艺人空间"。',exposure:1,fanReactions:['换号好可怜','别骚扰了','给艺人空间','支持换号','保护隐私']},
+  {t:'Dispatch曝光：{name}和一群好友聚餐——其中包含多位圈内人士。标题却说"与神秘男子"。',exposure:1,fanReactions:['一群好友','标题又故弄玄虚','其中多位女生','就是个聚餐','神秘男子】']},
+  {t:'Dispatch直击——{name}在待机室窗外站立片刻，被队友拉回室内。公司称是透气。',exposure:1,fanReactions:['透气而已','不要放大看','在待机室很正常','被队友拉回好暖','Dispatch太多事了']},
+  {t:'Dispatch分析：{name}和{maleLead}的SNS互动频率——三个月内数字触目惊心。',exposure:2,fanReactions:['互动频率','SNS就是正常','三个月而已','什么都数','别算了']},
+  {t:'Dispatch特辑：{name}出道以来的绯闻对象——里面列了五六位不同圈内人。',exposure:2,fanReactions:['五六位都在编','出道以来的都算','都是工作上的','狗仔良心呢','不信']},
+]);

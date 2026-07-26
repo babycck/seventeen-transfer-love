@@ -97,10 +97,22 @@ async function initGame() {
     initTheme();
     renderAll();
 
-    // 如果已在游戏中且当前没有剧情，自动生成
+    // 如果已在游戏中且当前没有剧情（entSim 有独立的生成引擎，跳过）
     var hasContent = !!(GS.phaseNarrative || (GS.consequenceNarratives && GS.consequenceNarratives.length > 0));
-    if (GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent && !GS._isGenerating) {
-      await generatePhaseNarrative();
+    if (GS.gameMode !== 'entSim' && GS.step >= 5 && !GS.gameOver && GS.aiEnabled && !hasContent && !GS._isGenerating) {
+      // 如果处于时段过渡中（刷新发生在advancePhase的saveGame和generate之间），继续完成生成
+      if (GS._transitioning) {
+        await generatePhaseNarrative();
+        GS._transitioning = false;
+        saveGame();
+      } else {
+        await generatePhaseNarrative();
+      }
+    }
+    // 如果过渡已完成但未清理标记（生成成功后才save），清理之
+    if (GS._transitioning && hasContent) {
+      GS._transitioning = false;
+      saveGame();
     }
   } catch (e) {
     console.error('[Init] initGame error:', e);

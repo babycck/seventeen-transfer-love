@@ -86,7 +86,8 @@ export function applyEntSimAffection(delta) {
     };
   }
   // 好感满 100：甜蜜恋爱，10 回合后出现「进入大结局」按钮（由 UI 检测）
-  if (E.affection >= 100) E.flags.sweetMaxRound = E.cycle.roundTotal;
+  // Bug 修复：只在首次达到100时记录，防止每次好感变动都重置
+  if (E.affection >= 100 && !E.flags.sweetMaxRound) E.flags.sweetMaxRound = E.cycle.roundTotal;
   // v2：检查亲密接触解锁
   checkIntimacyUnlock(E.affection);
   saveGame();
@@ -224,11 +225,15 @@ export function getCoverRemaining() {
 export function checkIntimacyUnlock(affection) {
   var E = GS.entSim;
   if (!E) return { unlocked: [], nextAt: 0, nextLabel: '' };
-  var unlocked = E._intimacyUnlocked || { hand: false, hug: false, kiss: false };
+  var unlocked = E._intimacyUnlocked || { hand: false, hug: false, kiss: false, bed: false, live: false, public: false, marry: false };
   var milestones = [
     { key: 'hand', label: '牵手', icon: '🤝', minAff: 15 },
     { key: 'hug', label: '拥抱', icon: '🤗', minAff: 30 },
-    { key: 'kiss', label: '接吻', icon: '💋', minAff: 50 }
+    { key: 'kiss', label: '接吻', icon: '💋', minAff: 50 },
+    { key: 'bed', label: '同床', icon: '🛏️', minAff: 65 },
+    { key: 'live', label: '同居', icon: '🏠', minAff: 80 },
+    { key: 'public', label: '公开恋情', icon: '📣', minAff: 90 },
+    { key: 'marry', label: '求婚结婚', icon: '💍', minAff: 100 }
   ];
   var newlyUnlocked = null;
   for (var i = 0; i < milestones.length; i++) {
@@ -314,15 +319,18 @@ export function recordMilestone(key) {
   }
 }
 
+// Bug6修复：全部添加 GS.entSim null 检查
 export function getRomanceStageLabel() {
-  return affectionStageLabel(GS.entSim.affection);
+  return (GS.entSim && typeof GS.entSim.affection === 'number') ? affectionStageLabel(GS.entSim.affection) : '初遇';
 }
 export function getRomanceStageIcon() {
+  if (!GS.entSim || typeof GS.entSim.affection !== 'number') return '🌱';
   return AFFECTION_STAGES[affectionStageIndex(GS.entSim.affection)].icon;
 }
-export function getRomanceEmotion() { return GS.entSim.romance.emotion; }
+export function getRomanceEmotion() { return (GS.entSim && GS.entSim.romance && GS.entSim.romance.emotion) || '平静'; }
 export function getRomanceRisk() { return assessRomanceRisk(0); }
 export function getCoverMechanisms() { return COVER_MECHANISMS; }
 export function setEmotion(em) {
+  if (!GS.entSim || !GS.entSim.romance) return;
   if (ROMANCE_EMOTIONS.indexOf(em) >= 0) GS.entSim.romance.emotion = em;
 }

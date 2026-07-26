@@ -329,7 +329,7 @@ export function renderSetupWizard() {
   } else if (GS.step === 2) {
     if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') {
       var hp = GS.heroineProfile;
-      if (GS.gameMode === 'entSim') { hp.job = '队友的妹妹'; hp.profession = '女团爱豆'; } // 娱乐圈模拟器：身份与职业锁定
+      if (GS.gameMode === 'entSim') { hp.job = '队友的妹妹'; hp.profession = '练习生'; } // 娱乐圈模拟器：身份与职业锁定，开局为练习生
       html = '<div class="setup-step"><h2>💗 Step 2：心动对象 + 女主</h2>' +
         '<p class="step-desc">选择 1 位成员并设定你的角色</p>' +
         '<h4 style="margin:12px 0 6px;font-size:14px;color:var(--text-primary)">选择心动对象</h4>' +
@@ -361,7 +361,7 @@ export function renderSetupWizard() {
         '<option value="__custom__"' + (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? ' selected' : '') + '>✍️ 自定义</option></select>' +
         (GS.gameMode === 'entSim' ? '<p style="font-size:11px;color:#8b6b6b;margin:-4px 0 8px">🔒 娱乐圈模拟器：身份锁定为「队友的妹妹」</p>' : '') +
         (hp.job && HEROINE_PUBLIC_IDENTITIES.indexOf(hp.job) < 0 ? '<input type="text" id="hpJobCustom" value="' + escHtml(hp.job) + '" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px">' : '<input type="text" id="hpJobCustom" placeholder="输入自定义身份" style="width:100%;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit;margin-bottom:10px;display:none">') +
-        buildSisterProfHtml(hp, GS.gameMode === 'entSim', ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"', GS.gameMode === 'entSim' ? ['女团爱豆'] : undefined) +
+        buildSisterProfHtml(hp, GS.gameMode === 'entSim', ' readonly disabled style="background:#f5f5f5;color:#888;cursor:not-allowed"', GS.gameMode === 'entSim' ? ['练习生'] : undefined) +
         '<label>生日</label>' +
         '<div style="display:flex;gap:8px">' +
         '<select id="hpBirthMonth" style="flex:1;padding:8px 10px;border:1.5px solid var(--border-primary);border-radius:10px;font-size:12px;font-family:inherit">' +
@@ -842,7 +842,7 @@ export function bindSetupEvents() {
         GS.heroineProfile.age = tpl.age;
         GS.heroineProfile.job = tpl.publicIdentity;
         if (tpl.publicIdentity === '队友的妹妹' && !GS.heroineProfile.profession) {
-          GS.heroineProfile.profession = (GS.gameMode === 'entSim') ? '女团爱豆' : '女团爱豆';
+          GS.heroineProfile.profession = '练习生';
         }
         GS.heroineProfile.appearance = tpl.appearance.slice();
         GS.heroineProfile.personality = tpl.personality.slice();
@@ -894,7 +894,7 @@ export function bindSetupEvents() {
           if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
         }
         if ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') && this.value === '队友的妹妹' && !GS.heroineProfile.profession) {
-          GS.heroineProfile.profession = (GS.gameMode === 'entSim') ? '女团爱豆' : '女团爱豆';
+          GS.heroineProfile.profession = '练习生';
         }
         saveGame();
         renderAll();

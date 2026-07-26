@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>选项按钮设计预览</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --bg-soft: #2d1a2e;
+  --bg-soft-hover: #3d2a3e;
+  --bg-secondary: #252540;
+  --border-primary: #e0c0c0;
+  --accent-primary: #e91e63;
+  --accent-success: #2e7d32;
+  --accent-success-bg: #e8f5e9;
+  --accent-success-light: #c8e6c9;
+  --text: #f0e6f6;
+  --text-secondary: #d5c8dc;
+  --text-muted: #8888a0;
+  --text-on-accent: #fff;
+  --card: #1e1e36;
+  --card-border: #2a2a4a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 30px;
+  min-height: 100vh;
+}
+
+h1 {
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #fff;
+}
+.subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 30px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.panel h3 {
+  font-size: 15px;
+  margin-bottom: 4px;
+  color: #fff;
+}
+.panel .badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+.badge-green { background: rgba(91,214,160,.18); color: #5bd6a0; }
+.badge-purple { background: rgba(124,111,240,.18); color: #b9aee0; }
+.badge-pink { background: rgba(233,30,99,.18); color: #f48fb1; }
+.badge-blue { background: rgba(66,165,245,.18); color: #90caf9; }
+
+.narrative {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,.03);
+  border-radius: 10px;
+  min-height: 60px;
+}
+
+/* ===== 方案A: 卡片式横向三列 ===== */
+.opt-a {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.opt-a-btn {
+  background: linear-gradient(160deg, var(--bg-soft), rgba(233,30,99,.08));
+  border: 1.5px solid rgba(233,30,99,.15);
+  border-radius: 14px;
+  padding: 14px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all .25s;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.opt-a-btn:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-primary);
+  box-shadow: 0 8px 20px rgba(233,30,99,.15);
+  background: linear-gradient(160deg, var(--bg-soft-hover), rgba(233,30,99,.14));
+  color: #fff;
+}
+.opt-a-icon {
+  display: block;
+  width: 36px; height: 36px;
+  line-height: 36px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.opt-a-icon.i1 { background: linear-gradient(135deg, #e91e63, #f06292); }
+.opt-a-icon.i2 { background: linear-gradient(135deg, #7c6ff0, #b39ddb); }
+.opt-a-icon.i3 { background: linear-gradient(135deg, #42a5f5, #90caf9); }
+
+/* ===== 方案B: 竖排增强 + 左边框色条 + emoji ===== */
+.opt-b {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.opt-b-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: all .25s;
+  text-align: left;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.opt-b-bar {
+  width: 4px;
+  min-height: 52px;
+  border-radius: 4px 0 0 4px;
+  flex-shrink: 0;
+  transition: all .25s;
+}
+.opt-b-bar.c1 { background: linear-gradient(180deg, #e91e63, #f06292); }
+.opt-b-bar.c2 { background: linear-gradient(180deg, #7c6ff0, #b39ddb); }
+.opt-b-bar.c3 { background: linear-gradient(180deg, #42a5f5, #90caf9); }
+
+.opt-b-body {
+  flex: 1;
+  background: linear-gradient(135deg, var(--bg-soft), rgba(233,30,99,.06));
+  border: 1.5px solid rgba(233,30,99,.12);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  padding: 10px 14px;
+  transition: all .25s;
+}
+.opt-b-btn:hover .opt-b-body {
+  background: linear-gradient(135deg, var(--bg-soft-hover), rgba(233,30,99,.12));
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px rgba(233,30,99,.08);
+}
+.opt-b-btn:hover .opt-b-bar { width: 6px; }
+.opt-b-emoji { font-size: 16px; margin-right: 4px; display: inline-block; }
+.opt-b-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.opt-b-hint { display: block; font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+.opt-b-btn:hover .opt-b-text { color: #fff; }
+
+/* ===== 方案C: 底部悬浮条 ===== */
+.opt-c {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(30,30,54,.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+}
+.opt-c-btn {
+  flex: 1;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: rgba(255,255,255,.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: all .25s;
+}
+.opt-c-btn:hover {
+  background: rgba(233,30,99,.12);
+  border-color: var(--accent-primary);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(233,30,99,.12);
+}
+.opt-c-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+.opt-c-btn.highlight {
+  background: linear-gradient(135deg, rgba(233,30,99,.2), rgba(124,111,240,.15));
+  border-color: rgba(233,30,99,.3);
+  color: #fff;
+}
+.opt-c-btn.highlight:hover {
+  background: linear-gradient(135deg, rgba(233,30,99,.35), rgba(124,111,240,.25));
+}
+
+/* ===== 方案D: 聊天气泡式 ===== */
+.opt-d {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.opt-d-btn {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 16px 6px 16px 16px;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  transition: all .25s;
+  position: relative;
+  color: #fff;
+}
+.opt-d-btn::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translateX(50%);
+}
+.opt-d-btn.d1 { background: linear-gradient(135deg, #e91e63, #c2185b); }
+.opt-d-btn.d1::after { background: #c2185b; }
+.opt-d-btn.d2 { background: linear-gradient(135deg, #7c6ff0, #5c4fd4); }
+.opt-d-btn.d2::after { background: #5c4fd4; }
+.opt-d-btn.d3 { background: linear-gradient(135deg, #42a5f5, #1e88e5); }
+.opt-d-btn.d3::after { background: #1e88e5; }
+
+.opt-d-btn:hover {
+  transform: translateX(-3px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+.opt-d-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  opacity: .7;
+  margin-bottom: 3px;
+  letter-spacing: .5px;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.tag-pink { background: rgba(233,30,99,.2); color: #f48fb1; }
+.tag-green { background: rgba(91,214,160,.2); color: #5bd6a0; }
+.tag-yellow { background: rgba(255,213,79,.2); color: #ffd54f; }
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+  .opt-a { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<h1>选项按钮设计预览</h1>
+<p class="subtitle">剧情文本"三个选项"的4种设计方案｜hover 查看动效</p>
+
+<div class="grid">
+
+  <!-- 方案A: 卡片式横向三列 -->
+  <div class="panel">
+    <h3>方案A · 卡片式</h3>
+    <span class="badge badge-green">横向三列 · 圆形图标 · 上浮动效</span>
+    <div class="narrative">你在打歌后台走廊里遇见了正在喝水的他。他放下水瓶，看了你一眼，又迅速地移开了视线。</div>
+    <div class="opt-a">
+      <button class="opt-a-btn">
+        <span class="opt-a-icon i1">A</span>
+        主动打招呼："辛苦了，今天舞台很棒"
+        <span class="tag tag-green">+好感</span>
+      </button>
+      <button class="opt-a-btn">
+        <span class="opt-a-icon i2">B</span>
+        假装没看见，从他身边路过
+        <span class="tag tag-yellow">冷淡</span>
+      </button>
+      <button class="opt-a-btn">
+        <span class="opt-a-icon i3">C</span>
+        笑着看他："前辈在等我吗？"
+        <span class="tag tag-pink">大胆</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 方案B: 竖排增强 + 左边框色条 -->
+  <div class="panel">
+    <h3>方案B · 竖排增强</h3>
+    <span class="badge badge-purple">左边框色条 · emoji前缀 · 后果提示</span>
+    <div class="narrative">你在打歌后台走廊里遇见了正在喝水的他。他放下水瓶，看了你一眼，又迅速地移开了视线。</div>
+    <div class="opt-b">
+      <button class="opt-b-btn">
+        <span class="opt-b-bar c1"></span>
+        <span class="opt-b-body">
+          <span class="opt-b-emoji">💬</span>
+          <span class="opt-b-text">主动打招呼："辛苦了，今天舞台很棒"</span>
+          <span class="opt-b-hint">→ 他可能会回应，氛围变好</span>
+        </span>
+      </button>
+      <button class="opt-b-btn">
+        <span class="opt-b-bar c2"></span>
+        <span class="opt-b-body">
+          <span class="opt-b-emoji">👤</span>
+          <span class="opt-b-text">假装没看见，从他身边安静路过</span>
+          <span class="opt-b-hint">→ 保持距离，今天不会有更多互动</span>
+        </span>
+      </button>
+      <button class="opt-b-btn">
+        <span class="opt-b-bar c3"></span>
+        <span class="opt-b-body">
+          <span class="opt-b-emoji">😏</span>
+          <span class="opt-b-text">笑着看他："前辈在等我吗？"</span>
+          <span class="opt-b-hint">→ 主动撩拨，好感变化明显</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 方案C: 底部悬浮条 -->
+  <div class="panel">
+    <h3>方案C · 底部悬浮条</h3>
+    <span class="badge badge-blue">毛玻璃背景 · 横向一排 · 主选项突出</span>
+    <div class="narrative">你在打歌后台走廊里遇见了正在喝水的他。他放下水瓶，看了你一眼，又迅速地移开了视线。</div>
+    <div class="opt-c">
+      <button class="opt-c-btn">
+        <span class="opt-c-label">A · 友善</span>
+        主动打招呼
+      </button>
+      <button class="opt-c-btn highlight">
+        <span class="opt-c-label">B · 推荐</span>
+        笑着调侃他
+      </button>
+      <button class="opt-c-btn">
+        <span class="opt-c-label">C · 回避</span>
+        假装没看见
+      </button>
+    </div>
+  </div>
+
+  <!-- 方案D: 聊天气泡式 -->
+  <div class="panel">
+    <h3>方案D · 聊天气泡式</h3>
+    <span class="badge badge-pink">右对齐气泡 · 渐变色彩 · 小尾巴</span>
+    <div class="narrative">你在打歌后台走廊里遇见了正在喝水的他。他放下水瓶，看了你一眼，又迅速地移开了视线。</div>
+    <div class="opt-d">
+      <button class="opt-d-btn d1">
+        <span class="opt-d-label">A · 友善问候</span>
+        辛苦了，今天舞台很棒 🌟
+      </button>
+      <button class="opt-d-btn d2">
+        <span class="opt-d-label">B · 悄悄路过</span>
+        （假装没看见，从他身边路过……）
+      </button>
+      <button class="opt-d-btn d3">
+        <span class="opt-d-label">C · 主动出击</span>
+        前辈在等我吗？😏
+      </button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
