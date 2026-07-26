@@ -32,7 +32,7 @@ export { COMMON_POOL, RELATED_POOL, TRAINEE_POOL, CHAPTER1_NOVICE, CHAPTER2_SPRO
 
 // ── 五、聊天系统 (8个) ──
 export { CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ML_DAILY_STARTERS } from './chat-male-lead.js';
-export { getChatAckByChannel } from './chat-ack/index.js';
+export { getChatPresetsByChannel, getChatAckByChannel } from './chat-stage/index.js';
 
 // ── 六、男主/感情线 (6个) ──
 export { MALE_LEAD_INITIATIVE_POOL } from './male-lead-init.js';

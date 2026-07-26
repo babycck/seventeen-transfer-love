@@ -10,7 +10,7 @@ import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatAckByChannel, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
@@ -1993,35 +1993,14 @@ function renderPhoneChatMsgs(ch) {
     return;
   }
 
-  // 渲染预设回复按钮：getChatPoolByChannel 已统一处理所有频道+阶段过滤
+  // 渲染预设回复按钮：按当前阶段取快捷回复池（13人×3角色×4阶段）
   var presets = [];
-  var pending = (GS._entSimPendingChat || {})[ch];
-  var isPaired = (ch === 'brother' || ch === 'rival');
-  if (isPaired && pending && pending.reply) {
-    // 哥哥/情敌有 pending：以该条目的 reply 作为唯一预设，加2条随机 reply 做备选
-    presets.push({ q: pending.reply, t: pending.reply });
-    var pool = getChatPoolByChannel(ch) || [];
-    var shuffled2 = pool.slice().sort(function() { return Math.random() - 0.5; });
-    for (var si = 0; si < shuffled2.length && presets.length < 3; si++) {
-      var alt = shuffled2[si];
-      var altText = alt.reply || alt.q || alt.msg || '';
-      if (altText && altText !== pending.reply) presets.push({ q: altText, t: altText });
-    }
-  } else if (isPaired) {
-    // 哥哥/情敌无 pending（已回复完）：不显示预设
-    presets = [];
-  } else {
-    // 男主/其他频道：随机抽3条
-    var pool2 = getChatPoolByChannel(ch) || [];
-    var hasReplies2 = pool2.some(function(m) { return m && (m.r || m.reply); });
-    if (pool2.length && hasReplies2) {
-      var shuffled3 = pool2.slice().sort(function() { return Math.random() - 0.5; });
-      presets = shuffled3.slice(0, Math.min(3, shuffled3.length)).map(function(m) {
-        var key = m.q || m.reply || m.msg || '';
-        var disp = m.reply || m.q || m.msg || m.t || '';
-        return { q: key, t: disp };
-      });
-    }
+  var lastMsg = hist.length ? hist[hist.length-1] : null;
+  // 如果最后一条是玩家发的，不显示预设（等待回复中）
+  if (!lastMsg || lastMsg.role !== 'user') {
+    var stagePresets = getChatPresetsByChannel(ch);
+    var shuffled = stagePresets.slice().sort(function() { return Math.random() - 0.5; });
+    presets = shuffled.slice(0, 3).map(function(t) { return { q: t, t: t }; });
   }
   updateQuickReplies(ch, presets);
   var html = '';
