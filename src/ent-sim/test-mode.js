@@ -175,5 +175,5 @@ window.__toggleTestMode = function(on) {
   return on;
 };
 
-// 默认开启（无AI环境自动试用）
-window.__ENT_SIM_TEST = true;
+// 默认关闭（控制台 __toggleTestMode() 可手动开启）
+window.__ENT_SIM_TEST = false;
