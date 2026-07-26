@@ -161,8 +161,10 @@ export function renderEntSimGameScreen() {
     app.innerHTML = renderHtml();
     bindEntSimEvents();
     setTimeout(function() {
-      var endEl = document.getElementById('es-narrative-end');
-      if (endEl) endEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 优先定位到最新的「你的选择」分隔线，找不到再滚到底部
+      var seps = document.querySelectorAll('.es-branch-sep');
+      var target = seps.length ? seps[seps.length - 1] : document.getElementById('es-narrative-end');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
     if (GS._entSimStageUpPending) showStageUpCeremony();
     if (GS._entSimMilestonePending) showMilestoneCard();
