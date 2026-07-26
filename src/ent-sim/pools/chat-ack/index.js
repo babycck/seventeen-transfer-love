@@ -31,7 +31,7 @@ function getChatAckByChannel(ch) {
   if (ch === 'maleLead') {
     memberId = (E.romance && E.romance.maleLead && E.romance.maleLead.id) || '';
   } else if (ch === 'brother') {
-    memberId = E.brother && E.brother.id || '';
+    memberId = (E.brother && E.brother.id) || (GS.oneHeartRelationCharacter && GS.oneHeartRelationCharacter.id) || '';
   } else if (ch === 'rival') {
     var suitor = E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor'];
     memberId = suitor && suitor.id || '';

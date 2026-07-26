@@ -89,6 +89,7 @@ export function initEntSimState() {
     stance: brother ? '参谋' : '无',
     support: brother ? 0 : 0,
     name: brother ? brother.name : '',
+    id: brother ? brother.id : '',
     pool: [],
     testNudged: { 1: false, 2: false, 3: false },
     rivalAware: false,
