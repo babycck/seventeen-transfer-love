@@ -10,7 +10,7 @@ import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ACK_BROTHER, CHAT_ACK_RIVAL, CHAT_ACK_MALE_LEAD, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatAckByChannel, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
@@ -1883,14 +1883,15 @@ function showBusinessPanel() {
     }
     if (!replyContent) replyContent = '嗯。';
   } else if (isPaired) {
-    // 哥哥/情敌频道：取确认回应池
-    var ackPool = ch === 'brother' ? (CHAT_ACK_BROTHER || ['嗯。']) : (CHAT_ACK_RIVAL || ['嗯。']);
+    // 哥哥/情敌频道：按成员 ID 取对应 ACK 池
+    var ackPool = getChatAckByChannel(ch);
     replyContent = ackPool[Math.floor(Math.random() * ackPool.length)];
     // 清除 pending（本轮对话结束，不再显示预设）
     if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
   } else {
-    // 男主频道未命中池子 → 用 ACK 池
-    replyContent = (CHAT_ACK_MALE_LEAD || ['嗯。'])[Math.floor(Math.random() * (CHAT_ACK_MALE_LEAD ? CHAT_ACK_MALE_LEAD.length : 1))];
+    // 男主频道未命中池子 → 按成员 ID 取 ACK 池
+    var ackPoolML = getChatAckByChannel('maleLead');
+    replyContent = ackPoolML[Math.floor(Math.random() * ackPoolML.length)];
   }
   // 3. 延迟推对方回复
   setTimeout(function() {
@@ -1943,7 +1944,7 @@ window.__phoneSend = function() {
           renderPhoneChatMsgs(ch);
         }
       } else if (ch === 'brother' || ch === 'rival') {
-        var ackPool2 = ch === 'brother' ? (CHAT_ACK_BROTHER || ['嗯。']) : (CHAT_ACK_RIVAL || ['嗯。']);
+        var ackPool2 = getChatAckByChannel(ch);
         replyContent = ackPool2[Math.floor(Math.random() * ackPool2.length)];
         if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
       }

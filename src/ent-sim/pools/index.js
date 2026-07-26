@@ -31,7 +31,8 @@ export { TRAINEE_CHAT } from './trainee-chat.js';
 export { COMMON_POOL, RELATED_POOL, TRAINEE_POOL, CHAPTER1_NOVICE, CHAPTER2_SPROUTING, CHAPTER2_RISING, CHAPTER3_PEAK, CHAPTER5_TOPSTAR, CHAPTER4_LEGEND, BOYGROUP_POOL } from './ent-schedules.js';
 
 // ── 五、聊天系统 (8个) ──
-export { CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ACK_BROTHER, CHAT_ACK_RIVAL, CHAT_ACK_MALE_LEAD, CHAT_ML_DAILY_STARTERS } from './chat-male-lead.js';
+export { CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ML_DAILY_STARTERS } from './chat-male-lead.js';
+export { CHAT_ACK_MEMBER, getChatAckByChannel } from './chat-ack/index.js';
 
 // ── 六、男主/感情线 (6个) ──
 export { MALE_LEAD_INITIATIVE_POOL } from './male-lead-init.js';
