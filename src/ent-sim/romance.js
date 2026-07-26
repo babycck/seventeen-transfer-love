@@ -330,11 +330,11 @@ export function getRomanceStageIcon() {
   if (!GS.entSim || typeof GS.entSim.affection !== 'number') return '🌱';
   return AFFECTION_STAGES[affectionStageIndex(GS.entSim.affection)].icon;
 }
-export function getRomanceEmotion() { return (GS.entSim && GS.entSim.romance && GS.entSim.romance.emotion) || '平静'; }
+function getRomanceEmotion() { return (GS.entSim && GS.entSim.romance && GS.entSim.romance.emotion) || '平静'; }
 export function getRomanceRisk() { return assessRomanceRisk(0); }
 export function getCoverMechanisms() { return COVER_MECHANISMS; }
 // 好感-事业门控：5档关系阶段（仿明星志愿3），综合aff+事业阶段+oneHeartRomanceStage判断
-export function checkRomanceUnlock() {
+function checkRomanceUnlock() {
   var E = GS.entSim;
   if (!E) return { stage: 0, label: '初识', unlocked: true, reason: '' };
   var aff = E.affection || 0;
@@ -354,7 +354,7 @@ export function checkRomanceUnlock() {
   if (aff >= 20 && tPhase < 2) return { stage: 0, label: '初识', unlocked: false, reason: '需要练习生中期(day5起)' };
   return { stage: 0, label: '初识', unlocked: true, reason: '' };
 }
-export function setEmotion(em) {
+function setEmotion(em) {
   if (!GS.entSim || !GS.entSim.romance) return;
   if (ROMANCE_EMOTIONS.indexOf(em) >= 0) GS.entSim.romance.emotion = em;
 }

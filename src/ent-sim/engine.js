@@ -5,7 +5,6 @@
 // ============================================================
 import { GS, saveGame } from '../state.js';
 import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday } from './state.js';
-import { ENT_SIM_CAREERS } from './data.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { showToast, randInt } from '../utils.js';
 import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
@@ -23,7 +22,7 @@ import { pickFromPool, SVT_TEAMMATE_EVENT_POOL, FAN_LETTER_POOL, BRAND_OFFER_POO
 import { checkAwardCeremony } from './pools/awards.js';
 import { getFanLetter } from './pools/fan-letters.js';
 import { COMPANY_EVENT_POOL } from './pools/company-events.js';
-import { getRandomTeammate, getTeammateDesc, TEAMMATE_FLAVOR as _TMFLAVOR } from './pools/teammate-flavor.js';
+import { getRandomTeammate, getTeammateDesc } from './pools/teammate-flavor.js';
 import { tickComebackCycle } from './pools/comeback-cycle.js';
 import { calculateMusicShowRank } from './pools/music-show-pool.js';
 import { buildTestNarrative, buildTestOptions } from './test-mode.js';

@@ -74,9 +74,9 @@ export function tickComebackCycle(E) {
   var day = E.cycle._gameDayCount || E.cycle.dayCount || 1;
   // 每50-80天自动触发一次回归
   if (cb.phase === 'idle') {
-    if (day - (E._lastComebackDay || 0) > (50 + Math.floor(Math.random() * 30)) && E.career.debutDay > 0) {
+    if (day - (E._cbCycleCooldownDay || 0) > (50 + Math.floor(Math.random() * 30)) && E.career.debutDay > 0) {
       cb.phase = 'teaser'; cb.startDay = day; cb.week = 0; cb.title = '';
-      E._lastComebackDay = day;
+      E._cbCycleCooldownDay = day;
       return { phase:'teaser', label:'🎵 回归预告' };
     }
     return null;

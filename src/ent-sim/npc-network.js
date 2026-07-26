@@ -9,7 +9,7 @@ import { NPC_TYPES } from './data.js';
 import { addExposure } from './public-opinion.js';
 
 // 获取关系网节点数组（UI 用）
-export function getNpcNodes() {
+function getNpcNodes() {
   var nodes = GS.entSim.npcNetwork.nodes;
   var out = [];
   for (var id in nodes) {
@@ -45,13 +45,13 @@ var NPC_INTERACTIONS = {
 };
 
 // 返回某 NPC 类型可选互动（UI 弹菜单用）
-export function getNpcInteractions(type) {
+function getNpcInteractions(type) {
   var map = NPC_INTERACTIONS[type] || {};
   return Object.keys(map).map(function (k) { return Object.assign({ key: k }, map[k]); });
 }
 
 // 执行玩家主动互动
-export function interactNpc(type, actionKey) {
+function interactNpc(type, actionKey) {
   var E = GS.entSim;
   var node = E.npcNetwork.nodes['npc_' + type];
   if (!node) return { success: false, note: '该 NPC 不存在' };

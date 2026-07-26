@@ -205,17 +205,17 @@ function defaultSecrets() {
   return out;
 }
 
-export function rivalNode() {
+function rivalNode() {
   // 女性情敌已移除，统一返回 suitor（SEVENTEEN 团内竞争者）
   return suitorNode();
 }
 
-export function suitorNode() {
+function suitorNode() {
   return (GS.entSim && GS.entSim.npcNetwork && GS.entSim.npcNetwork.nodes['npc_suitor']) || null;
 }
 
 // ---------- 便捷取值 ----------
-export function entSim() { return GS.entSim || {}; }
+function entSim() { return GS.entSim || {}; }
 export function popularity() { return (GS.entSim && GS.entSim.career.popularity) || 0; }
 export function careerLevel() { return (GS.entSim && GS.entSim.career.careerLevel) || '新人'; }
 export function resourcesLevel() { return (GS.entSim && GS.entSim.career.resourcesLevel) || '新人'; }
@@ -227,7 +227,7 @@ export function romanceDepthLabel() { return (ROMANCE_DEPTH_LABELS[romanceDepth(
 export function maleLead() { return (GS.entSim && GS.entSim.romance.maleLead) || { id: '', name: '' }; }
 export function brotherNode() { return GS.oneHeartRelationCharacter || null; }
 
-export function onAirWorkCount() {
+function onAirWorkCount() {
   var slots = (GS.entSim && GS.entSim.works.slots) || {};
   var n = 0;
   for (var k in slots) { if (slots[k].stage === 2) n++; }
@@ -239,13 +239,13 @@ export function isStageProfession() {
   var p = (GS.entSim && GS.entSim.career && GS.entSim.career.profession) || (GS.heroineProfile && GS.heroineProfile.profession) || '';
   return ['爱豆', '演员', '歌手', '主播', '模特', '练习生', '女团爱豆'].indexOf(p) >= 0;
 }
-export function isSisterSettingOn() {
+function isSisterSettingOn() {
   var p = (GS.entSim && GS.entSim.career && GS.entSim.career.profession) || (GS.heroineProfile && GS.heroineProfile.profession) || '';
   return (ENT_SIM_CAREERS[p] && ENT_SIM_CAREERS[p].sisterSetting) || false;
 }
 
 // ---------- 派生 ----------
-export function careerLevelOf(pop) {
+function careerLevelOf(pop) {
   if (pop >= 90) return '传奇';
   if (pop >= 75) return '顶流';
   if (pop >= 55) return '当红';
@@ -261,10 +261,10 @@ export function traineePhaseOf(dayCount) {
 }
 // 日期推导：365天周期，从dayCount算季节和模拟月份（防止天气/节日池穿帮）
 // dayCount 0 = 实际日期 2024-01-01（由 _startDayOffset 偏移）
-export function gameDayOf(dayCount) {
+function gameDayOf(dayCount) {
   return ((dayCount - 1) % 365) % 30 + 1; // 1-30
 }
-export function gameMonthOf(dayCount) {
+function gameMonthOf(dayCount) {
   return Math.floor(((dayCount - 1) % 365) / 30) + 1; // 1-12
 }
 export function gameSeasonOf(dayCount) {
@@ -274,7 +274,7 @@ export function gameSeasonOf(dayCount) {
   if (m >= 6 && m <= 8) return 'summer';     // 6-8月
   return 'autumn';                             // 9-11月
 }
-export function gameYearOf(dayCount) {
+function gameYearOf(dayCount) {
   return 2024 + Math.floor((dayCount - 1) / 365);
 }
 // 格式化为中文日期字符串，如 "2024年3月14日"
@@ -292,7 +292,7 @@ function chapterIconOf(idx) {
   return (CHAPTERS[idx - 1] && CHAPTERS[idx - 1].icon) || '🌱';
 }
 // 根据人气阈值计算应处章节（1-6），只进不退。出道后6阶段参考明星志愿3称号体系。
-export function chapterByPopularity(pop, startChapter) {
+function chapterByPopularity(pop, startChapter) {
   var start = startChapter || 1;
   var threshold = 1;
   if (pop >= 90) threshold = 6;
@@ -373,12 +373,12 @@ export function todayHoliday(dayCount) {
   if (m === 12 && d === 31) return '跨年夜';
   return null;
 }
-export function stageNameOf(idx) {
+function stageNameOf(idx) {
   return (CYCLE_STAGE_META[idx] && CYCLE_STAGE_META[idx].key) || '新人期';
 }
 
 // 每轮后重新派生资源等级（在播作品数 ×2）
-export function recomputeResourcesLevel() {
+function recomputeResourcesLevel() {
   var n = onAirWorkCount();
   var lv = n >= 4 ? '顶流' : (n >= 2 ? '当红' : (n >= 1 ? '上升' : '新人'));
   if (GS.entSim) GS.entSim.career.resourcesLevel = lv;
