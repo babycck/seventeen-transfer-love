@@ -43,21 +43,68 @@ export function affectionDepth(aff) {
 // 好感度结算：AI 每回合返回的 affectionDelta 驱动，±1-3 点
 // 跨「暧昧→心动」阈值时触发心动时刻（插当前剧情前）
 // 额外里程碑：20/40/60/80 弹心动小卡片
+// v3：三层锁 — 单日上限（按阶段分级）+ 阶段锁（接线 checkRomanceUnlock）+ 防双重结算（引擎侧）
 export function applyEntSimAffection(delta) {
   var E = GS.entSim;
   if (E === undefined || E === null) return 0;
   var oldAff = E.affection || 0;
   var oldIdx = affectionStageIndex(oldAff);
-  E.affection = Math.max(0, Math.min(100, oldAff + (delta || 0)));
-  var newIdx = affectionStageIndex(E.affection);
-  E.romance.stage = AFFECTION_STAGES[newIdx].label;
-  // 好感度来源日志（仿 1v1 模式，恋情面板展示最近 3 条）
-  if (delta !== 0) {
+
+  // ═══ 层1：阶段锁（checkRomanceUnlock）═══
+  var unlock = checkRomanceUnlock();
+  var stageMax = [19, 49, 69, 84, 100][Math.min(4, unlock.stage)]; // 对应5阶段上限
+  if (oldAff >= stageMax && delta > 0) {
+    // 已触顶且还未解锁下一阶段，锁定不涨（但在剧情中仍可记录日志提示）
     E._affectionLog = E._affectionLog || [];
     E._affectionLog.push({
-      day: E.cycle.dayCount || 1,
-      round: E.cycle.roundTotal || 0,
-      delta: delta,
+      day: E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0,
+      delta: 0, reason: '🔒阶段锁定：' + (unlock.reason || '需触发关键事件打破瓶颈'), total: oldAff
+    });
+    if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
+    saveGame();
+    return oldAff;
+  }
+
+  // ═══ 层2：单日上限（按阶段分级）═══
+  // 阶段0(初识≤19): 3/天 / 阶段1(暧昧≤49): 4/天 / 阶段2(约会≤69): 5/天 / 阶段3(恋爱≤84): 6/天 / 阶段4(公开≤100): 7/天
+  var dailyCaps = [3, 4, 5, 6, 7];
+  var dailyCap = dailyCaps[Math.min(4, unlock.stage)];
+  var today = E.cycle.dayCount || 1;
+  if (!E._affDayTotal || E._affDayTotal.day !== today) {
+    E._affDayTotal = { day: today, total: 0 };
+  }
+  var effectiveDelta = delta;
+  if (delta > 0 && E._affDayTotal.total >= dailyCap) {
+    effectiveDelta = 0; // 今日已达上限
+    E._affectionLog = E._affectionLog || [];
+    E._affectionLog.push({
+      day: today, round: E.cycle.roundTotal || 0,
+      delta: 0, reason: '📊今日好感已达上限(' + dailyCap + '/天)，明日继续', total: oldAff
+    });
+    if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
+    saveGame();
+    return oldAff;
+  }
+  if (delta > 0) {
+    var room = dailyCap - E._affDayTotal.total;
+    if (effectiveDelta > room) effectiveDelta = room;
+    // 同时不能超过阶段上限
+    var roomToStageMax = stageMax - oldAff;
+    if (effectiveDelta > roomToStageMax) effectiveDelta = Math.max(0, roomToStageMax);
+    if (effectiveDelta <= 0) return oldAff;
+    E._affDayTotal.total += effectiveDelta;
+  }
+
+  //═══ 核心结算 ═══
+  E.affection = Math.max(0, Math.min(100, oldAff + effectiveDelta));
+  var newIdx = affectionStageIndex(E.affection);
+  E.romance.stage = AFFECTION_STAGES[newIdx].label;
+  // 好感度来源日志
+  if (effectiveDelta !== 0) {
+    E._affectionLog = E._affectionLog || [];
+    E._affectionLog.push({
+      day: today, round: E.cycle.roundTotal || 0,
+      delta: effectiveDelta,
       reason: (arguments.length >= 2 && arguments[1] && arguments[1]._affReason) ? arguments[1]._affReason : '剧情推进',
       total: E.affection
     });

@@ -79,23 +79,29 @@ export function rollDailyAgenda() {
     else main = pick(COMMON_POOL);          // 30% 跨阶段通用
   }
   if (isDebut) {
-    var related = RELATED_POOL[randInt(0, RELATED_POOL.length - 1)];
+    var relatedItem = RELATED_POOL[randInt(0, RELATED_POOL.length - 1)];
+    var related = relatedItem;
+    var relatedLoc = (relatedItem && relatedItem.loc) ? relatedItem.loc : '练习室';
     var rivalItem = RIVAL_POOL[randInt(0, RIVAL_POOL.length - 1)];
-    var rival = rivalItem.key; var rivalLoc = rivalItem.loc || '';
+    var rival = rivalItem.key; var rivalLoc = rivalItem.loc || '公司';
     var maleItem = MALE_LEAD_POOL[randInt(0, MALE_LEAD_POOL.length - 1)];
-    var maleLead = maleItem.key; var maleLeadLoc = maleItem.loc || '';
+    var maleLead = maleItem.key; var maleLeadLoc = maleItem.loc || '公司';
     var brother = (E.brother && E.brother.name) ? pick(BROTHER_POOL) : null;
+    var brotherLoc = brother ? (brother.loc || '公司') : '';
   } else {
-    // 练习生阶段：仅保留基础训练提示
+    // 练习生阶段：补默认地点，避免探班显示"未知"
     var related = '基础训练';
-    var rival = ''; var rivalLoc = ''; var maleLead = ''; var maleLeadLoc = ''; var brother = null;
+    var relatedLoc = '练习室';
+    var rival = ''; var rivalLoc = '公司';
+    var maleLead = '个人练习'; var maleLeadLoc = '练习室';
+    var brother = null; var brotherLoc = '练习室';
   }
   E.agenda = {
     main: main.key, mainLoc: main.loc,
-    related: related, relatedLoc: '',
+    related: related, relatedLoc: relatedLoc,
     rival: rival, rivalLoc: rivalLoc,
     maleLead: maleLead, maleLeadLoc: maleLeadLoc,
-    brother: brother ? brother.key : '', brotherLoc: brother ? brother.loc : '',
+    brother: brother ? brother.key : '', brotherLoc: brother ? brother.loc : brotherLoc,
     doneFlags: {}
   };
   saveGame();

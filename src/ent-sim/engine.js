@@ -201,7 +201,9 @@ function applySideEffects(extras) {
   if (!extras) return;
   // 情敌 NPC 专属互动场景不应用 affectionDelta 到男主好感
   var isRivalOnly = extras._npcType === 'suitor' && !extras._hasMaleLead;
-  if (typeof extras.affectionDelta === 'number' && !isRivalOnly) {
+  // 防双重结算：romanceBeat 有 affectionDelta 时跳过顶层，避免同一回合叠加两次
+  var beatHasAff = extras.romanceBeat && typeof extras.romanceBeat.affectionDelta === 'number';
+  if (typeof extras.affectionDelta === 'number' && !isRivalOnly && !beatHasAff) {
     extras._affReason = extras._affReason || '剧情推进';
     applyEntSimAffection(extras.affectionDelta);
   }
@@ -270,7 +272,19 @@ function applyNpcEncounter(enc) {
 function applyBrotherEffect(b) {
   var E = GS.entSim;
   if (b.stance) E.brother.stance = b.stance;
-  if (typeof b.supportDelta === 'number') E.brother.support = Math.max(-100, Math.min(100, (E.brother.support || 0) + b.supportDelta));
+  if (typeof b.supportDelta === 'number') {
+    var oldSup = E.brother.support || 0;
+    E.brother.support = Math.max(-100, Math.min(100, oldSup + b.supportDelta));
+    // 支持度变动日志（哥哥支持度面板读取此日志）
+    E.brother.supportLog = E.brother.supportLog || [];
+    E.brother.supportLog.push({
+      delta: b.supportDelta,
+      reason: b.note || '剧情影响',
+      total: E.brother.support,
+      day: E.cycle.dayCount || 1
+    });
+    if (E.brother.supportLog.length > 50) E.brother.supportLog = E.brother.supportLog.slice(-50);
+  }
   if (b.note) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'brother', text: b.note });
 }
 

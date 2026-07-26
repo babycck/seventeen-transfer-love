@@ -217,7 +217,7 @@ function renderHeader() {
   return '' +
     '<div class="es-header">' +
       '<div class="es-h-left">' +
-        '<span class="es-cycle-tag">💗 地下恋 · ' + (isDebut ? formatGameDate(E.cycle.dayCount || 1) : formatTraineeDate(E.cycle.dayCount || 1)) + ' ' + getTimeOfDayLabel() + '</span>' +
+        '<span class="es-cycle-tag">💗 地下恋 · ' + formatGameDate(E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</span>' +
         (chName ? '<span class="es-chap-badge">' + chName + '</span>' : '') +
         '<span class="es-chap-badge">' + getRomanceStageIcon() + ' ' + getRomanceStageLabel() + '</span>' +
       '</div>' +
@@ -374,10 +374,12 @@ function renderCenter(cur, heartPending) {
   var heartTitle = heartPending ? '<div class="es-heartbeat-title">💗 心动时刻</div>' : '';
   var nHtml = cur.narrative ? escHtml(cur.narrative).replace(/\n/g, '<br>') : '';
   nHtml = nHtml.replace(/── (.+?) ──/g, '<div class="es-branch-sep">$1</div>');
+  // 时段过渡标记：🌤️/☀️/🌙 上午·继续 / 下午·继续 / 夜晚·继续
+  nHtml = nHtml.replace(/([🌤️☀️🌙])\s*(上午|下午|夜晚)·继续/g, '<div class="es-branch-sep es-time-sep">$1 $2·继续</div>');
   var isDebut2 = E.career && E.career.debutDay > 0;
   return '' +
     '<div class="es-panel es-center-panel">' +
-      '<div class="es-col-title">📖 剧情 · ' + (isDebut2 ? formatGameDate(E.cycle.dayCount || 1) : formatTraineeDate(E.cycle.dayCount || 1)) + ' ' + getTimeOfDayLabel() + '</div>' +
+      '<div class="es-col-title">📖 剧情 · ' + formatGameDate(E.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel() + '</div>' +
       ongoingHtml +
       heartTitle +
       '<div class="' + nCls + '" id="es-narrative">' + nHtml + '<div id="es-narrative-end"></div></div>' +
@@ -485,12 +487,13 @@ function renderRight() {
       '<div class="es-col-title" style="margin-top:4px">💬 粉丝讨论</div>' +
       '<div class="es-fan">' + (fan || '<div class="es-empty">暂无讨论</div>') + '</div>' +
       lovePanel +
+      // 约定：从状态中读取待履行约会
+      renderAptPanel() +
       // P1 #3: 粉丝数（人气联动涨跌粉）
       '<div class="es-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--es-card-border)"><span>👥 粉丝数</span><span><b>' + formatSubCount(E) + '</b>' + subDeltaText(E) + '</span></div>' +
       // P1 #9: 合约剩余年数
       '<div class="es-row"><span>📜 经纪约</span><span>' + contractLabel(E) + '</span></div>' +
       '<button class="es-rom-btn es-business-btn" id="es-business-btn" style="margin-top:8px;width:100%">📱 手机' + (E.bubble && E.bubble.todayCount > 0 ? ' · 泡泡' + E.bubble.todayCount + '/5' : '') + '</button>' +
-      '<button class="es-rom-btn" id="es-memory-btn" style="margin-top:8px;width:100%">📖 记忆回顾</button>' +
       '<button class="es-rom-btn" id="es-theater-rom-btn" style="margin-top:6px;width:100%">🎭 剧场</button>' +
       '<button class="es-rom-btn" id="es-ending-btn" style="margin-top:6px;width:100%">🌟 结局</button>' +
       // P1 #22: 存档按钮
@@ -501,21 +504,109 @@ function renderRight() {
 function intimacyIcons() {
   var E = GS.entSim;
   var un = E._intimacyUnlocked || { hand: false, hug: false, kiss: false, bed: false, live: false, public: false, marry: false };
-  var h = un.hand ? '🤝' : '🤝 —';
-  var u = un.hug ? '🤗' : '🤗 —';
-  var k = un.kiss ? '💋' : '💋 —';
-  var b = un.bed ? '🛏️' : '🛏️ 🔒';
-  var l = un.live ? '🏠' : '🏠 🔒';
-  var p = un.public ? '📣' : '📣 🔒';
-  var m = un.marry ? '💍' : '💍 🔒';
-  return '<span style="font-size:12px;opacity:' + (un.hand ? '0.9' : '0.4') + '">' + h + '</span>' +
-         '<span style="font-size:12px;opacity:' + (un.hug ? '0.9' : '0.4') + '">' + u + '</span>' +
+  var h = '🤝';
+  var u = '🤗';
+  var k = '💋';
+  var b = '🛏️';
+  var l = '🏠';
+  var p = '📣';
+  var m = '💍';
+  return '<span style="font-size:12px;opacity:' + (un.hand ? '0.9' : '0.3') + '">' + h + '</span>' +
+         '<span style="font-size:12px;opacity:' + (un.hug ? '0.9' : '0.3') + '">' + u + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.kiss ? '0.9' : '0.3') + '">' + k + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.bed ? '0.9' : '0.3') + '">' + b + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.live ? '0.9' : '0.3') + '">' + l + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.public ? '0.9' : '0.3') + '">' + p + '</span>' +
          '<span style="font-size:12px;opacity:' + (un.marry ? '0.9' : '0.3') + '">' + m + '</span>';
 }
+
+// 约定面板：显示待履行约会，支持确认履行/编辑/删除
+function renderAptPanel() {
+  var E = GS.entSim;
+  var apts = E._aptCards || [];
+  if (!apts.length) return '';
+  var html = '<div class="es-col-title" style="margin-top:4px">📅 约定（' + apts.length + '）</div>';
+  for (var ai = 0; ai < apts.length; ai++) {
+    var a = apts[ai];
+    html += '<div class="es-apt-item" data-apt-idx="' + ai + '">' +
+      '<div style="flex:1;min-width:0"><b>' + escHtml(a.summary || a.place || '赴约') + '</b>' +
+      '<small style="color:var(--text-muted);display:block">' + escHtml(a.place || '') + ' · ' + escHtml(a.timeHint || '') + '</small></div>' +
+      '<button class="es-apt-btn" onclick="window.__aptFulfill(' + ai + ')">✓</button>' +
+      '<button class="es-apt-btn" onclick="window.__aptEdit(' + ai + ')" style="margin-left:2px">✏️</button>' +
+      '<button class="es-apt-btn" onclick="window.__aptDelete(' + ai + ')" style="margin-left:2px">🗑️</button>' +
+      '</div>';
+  }
+  return html;
+}
+// 约定操作：确认履行
+window.__aptFulfill = function(idx) {
+  var E = GS.entSim;
+  var apts = E._aptCards || [];
+  if (!apts[idx]) return;
+  var apt = apts[idx];
+  showEntSimModal('✅ 确定履行约定？',
+    '<p style="text-align:center;padding:8px 0">「' + escHtml(apt.summary || apt.place || '赴约') + '」<br><small style="color:var(--text-muted)">' + escHtml(apt.place || '') + ' · ' + escHtml(apt.timeHint || '') + '</small></p>',
+    [
+      { id: 'cancel', label: '取消' },
+      { id: 'confirm', label: '确认履行', primary: true }
+    ]).then(function(r) {
+      if (r !== 'confirm') return;
+      apts.splice(idx, 1);
+      E._aptCards = apts;
+      saveGame();
+      showNarrativeLoading();
+      triggerEntSimEvent('赴约·' + (apt.place || '未知地点') + '：' + (apt.summary || ''),
+        { scene: apt.place, extraNote: '你按照约定来到了「' + (apt.place || '') + '」。请生成约300字的赴约剧情。' }
+      ).then(rerender);
+    });
+};
+// 约定编辑
+window.__aptEdit = function(idx) {
+  var E = GS.entSim;
+  var apts = E._aptCards || [];
+  if (!apts[idx]) return;
+  var apt = apts[idx];
+  var html = '<div style="display:flex;flex-direction:column;gap:8px">' +
+    '<label>摘要<input id="es-apt-edit-summary" value="' + escHtml(apt.summary || '') + '" style="width:100%;background:var(--es-card-bg);border:1px solid var(--es-card-border);border-radius:6px;padding:6px 10px;color:var(--es-text)"></label>' +
+    '<label>地点<input id="es-apt-edit-place" value="' + escHtml(apt.place || '') + '" style="width:100%;background:var(--es-card-bg);border:1px solid var(--es-card-border);border-radius:6px;padding:6px 10px;color:var(--es-text)"></label>' +
+    '<label>时间提示<input id="es-apt-edit-time" value="' + escHtml(apt.timeHint || '') + '" style="width:100%;background:var(--es-card-bg);border:1px solid var(--es-card-border);border-radius:6px;padding:6px 10px;color:var(--es-text)"></label>' +
+    '</div>';
+  showEntSimModal('✏️ 编辑约定', html, [
+    { id: 'cancel', label: '取消' },
+    { id: 'save', label: '保存', primary: true }
+  ]).then(function(r) {
+    if (r !== 'save') return;
+    var summaryEl = document.getElementById('es-apt-edit-summary');
+    var placeEl = document.getElementById('es-apt-edit-place');
+    var timeEl = document.getElementById('es-apt-edit-time');
+    if (summaryEl) apt.summary = summaryEl.value.trim();
+    if (placeEl) apt.place = placeEl.value.trim();
+    if (timeEl) apt.timeHint = timeEl.value.trim();
+    E._aptCards = apts;
+    saveGame();
+    rerender();
+    showToast('约定已更新');
+  });
+};
+// 约定删除
+window.__aptDelete = function(idx) {
+  var E = GS.entSim;
+  var apts = E._aptCards || [];
+  if (!apts[idx]) return;
+  showEntSimModal('🗑️ 删除约定？',
+    '<p style="text-align:center;padding:8px 0">确定删除「' + escHtml(apts[idx].summary || apts[idx].place || '赴约') + '」吗？</p>',
+    [
+      { id: 'cancel', label: '取消' },
+      { id: 'confirm', label: '确认删除', primary: true }
+    ]).then(function(r) {
+      if (r !== 'confirm') return;
+      apts.splice(idx, 1);
+      E._aptCards = apts;
+      saveGame();
+      rerender();
+      showToast('约定已删除');
+    });
+};
 
 // P1 #3: 粉丝数格式化（人气联动涨跌粉）
 function formatSubCount(E) {
@@ -787,7 +878,7 @@ function bindStoryEvents() {
   bindId('es-free-send', onFreeSend);
   bindId('es-settings-btn', function() { showApiSettingsModal(); });
   bindId('es-pop-btn', onPopLog);
-  bindId('es-memory-btn', onMemoryLog);
+  bindId('es-memory-btn', onPopLog);
   bindId('es-save-btn', showSaveSlotsModal);    // P1 #22
   bindId('es-milestone-btn', showMilestoneModal); // P1 #11
   document.querySelectorAll('.es-ag-btn[data-agenda]').forEach(function(b) {
@@ -966,10 +1057,8 @@ function onQuick(q) {
   if (q === 'brands') { if (checkWorkCooldown('brands')) return; showBrandHistory(); return; }
   if (q === 'variety') { if (checkWorkCooldown('variety')) return; showVarietyPopup(); return; }
   if (q === 'magazine') { if (checkWorkCooldown('magazine')) return; showMagazinePopup(); return; }
-  if (q === 'nextday') { showNarrativeLoading(); goEntSimNextDay().then(rerender); return; }
-
-  // 重新生成/下一个行程 加确认防误触
-  var confirmActions = { regenerate: '重新生成', nextagenda: '下一个行程' };
+  // 重新生成/下一个行程/下一天 加确认防误触
+  var confirmActions = { regenerate: '重新生成', nextagenda: '下一个行程', nextday: '进入下一天' };
   if (confirmActions[q]) {
     showEntSimModal('⚠️ 确认操作',
       '<p style="text-align:center;padding:8px 0">确定要 <b>' + confirmActions[q] + '</b> 吗？<br><small style="color:var(--text-muted)">当前未选择的选项将被跳过</small></p>',
@@ -981,6 +1070,7 @@ function onQuick(q) {
         showNarrativeLoading();
         if (q === 'nextagenda') continueEntSimMain().then(rerender);
         else if (q === 'regenerate') handleEntSimRegenerate().then(rerender);
+        else if (q === 'nextday') goEntSimNextDay().then(rerender);
       });
     return;
   }
@@ -1208,83 +1298,10 @@ function onChatSend() {
   }, delay);
 }
 
-// ---------- 记忆回顾（可编辑，包括当天实时剧情） ----------
-function onMemoryLog() {
-  var E = GS.entSim;
-  // 当天实时剧情 — 可编辑
-  var todayBlock = '';
-  var todayText = '';
-  if (GS._entSimCurrent && GS._entSimCurrent.narrative) {
-    todayText = GS._entSimCurrent.narrative;
-    todayBlock = '<div class="es-mem-today">' +
-      '<div class="es-col-title">📋 今天 (Day ' + (E.cycle.dayCount || 1) + ') — 实时剧情 <small>（可直接编辑，改完点保存）</small></div>' +
-      '<textarea class="es-mem-textarea" id="es-mem-today-text" rows="4" placeholder="（暂无今日剧情）">' + escHtml(todayText) + '</textarea>' +
-      '</div>';
-  }
-  // 过往压缩记忆
-  var summaries = (E.memory.dailySummaries || []).slice().reverse();
-  var daysHtml = summaries.map(function(d, di) {
-    var eventsText = (d.events || []).join('\n');
-    var idx = summaries.length - 1 - di;
-    return '<div class="es-mem-day-edit">' +
-      '<div class="es-mem-day-head"><b>Day ' + d.day + '</b> <span class="es-mem-kw">' + escHtml((d.keywords || []).join('、')) + '</span></div>' +
-      '<textarea class="es-mem-textarea" data-mem="' + idx + '" rows="2" placeholder="（无压缩记忆）">' + escHtml(eventsText) + '</textarea>' +
-      '</div>';
-  }).join('');
-  if (!daysHtml) daysHtml = '<div class="es-empty">暂无压缩记忆（进入下一天后自动生成）</div>';
+// ---------- 记忆回顾 → 已合并到人气走势与变动日志 ----------
+function onMemoryLog() { return onPopLog(); }
 
-  // 直接创建 overlay，不用 showEntSimModal（避免 Promise/按钮事件冲突）
-  var overlay = document.createElement('div');
-  overlay.className = 'es-modal-overlay';
-  overlay.innerHTML = '<div class="es-modal">' +
-    '<div class="es-modal-title">📖 记忆回顾</div>' +
-    '<div class="es-modal-body"><div class="es-mem">' +
-    todayBlock +
-    '<div class="es-col-title" style="margin-top:10px">📦 前日压缩记忆 <small>（可直接编辑文本，改完点保存）</small></div>' +
-    daysHtml +
-    '<div class="es-modal-btns" style="margin-top:10px;display:flex;gap:8px">' +
-    '<button class="es-modal-btn" id="es-mem-save">💾 保存修改</button>' +
-    '<button class="es-modal-btn" id="es-mem-close">关闭</button>' +
-    '</div>' +
-    '</div></div></div>';
-
-  document.body.appendChild(overlay);
-
-  // 关闭
-  var closeBtn = overlay.querySelector('#es-mem-close');
-  closeBtn.addEventListener('click', function(e) {
-    e.preventDefault(); e.stopPropagation();
-    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-  });
-  overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) { e.preventDefault(); e.stopPropagation(); if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
-  });
-
-  // 保存
-  overlay.querySelector('#es-mem-save').addEventListener('click', function() {
-    // 今天实时剧情 — 存入 memory.todayNote
-    var todayTa = overlay.querySelector('#es-mem-today-text');
-    if (todayTa && GS._entSimCurrent) {
-      E.memory.todayNote = E.memory.todayNote || '';
-      E.memory.todayNote = todayTa.value.trim();
-    }
-    // 过往压缩记忆
-    var textareas = overlay.querySelectorAll('.es-mem-textarea[data-mem]');
-    textareas.forEach(function(ta) {
-      var idx = parseInt(ta.getAttribute('data-mem'), 10);
-      var val = ta.value.trim();
-      var sum = E.memory.dailySummaries[idx];
-      if (sum && !isNaN(idx)) {
-        sum.events = val ? val.split('\n').filter(function(l) { return l.trim(); }) : [];
-      }
-    });
-    saveGame();
-    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    showToast('记忆已保存');
-  });
-}
-
-// ---------- 人气变动日志（含曝光、关键事件等全部 careerHistory） ----------
+// ---------- 人气走势与变动日志（含按天分组可编辑记忆卡片） ----------
 var _popLogTypeMeta = {
   popularity: { label: '人气', cls: 'pop' },
   exposure: { label: '曝光', cls: 'exp' },
@@ -1296,16 +1313,119 @@ var _popLogTypeMeta = {
 };
 function onPopLog() {
   var E = GS.entSim;
+  var todayDay = E.cycle.dayCount || 1;
   // 人气走势图 Canvas
   var chartHtml = '<div style="margin-bottom:12px"><canvas id="es-pop-chart" width="400" height="120" style="width:100%;max-width:400px;height:120px;border-radius:8px;background:rgba(20,15,40,.6)"></canvas></div>';
-  var logs = (E.careerHistory || []).slice().reverse();
-  var logHtml = logs.length ? logs.map(function(h) {
-    var meta = _popLogTypeMeta[h.type] || { label: h.type, cls: 'etc' };
-    return '<div class="es-pop-log-item"><small>Day' + (h.day != null ? h.day : h.round) + '</small>' +
-      '<span class="es-pop-tag ' + meta.cls + '">' + meta.label + '</span>' + escHtml(h.text) + '</div>';
-  }).join('') : '<div class="es-empty">暂无变动记录</div>';
-  showEntSimModal('📈 人气走势与变动日志', chartHtml + '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 恋情风险：<b>' + ((E.misc && (typeof E.misc.scandalHeat === 'number' ? E.misc.scandalHeat : E.misc.exposureAccum)) || 0) + '</b>· 事业热度：<b>' + getCareerPublicity() + '</b></div>' + logHtml, [{ id: 'close', label: '关闭' }]);
-  // 延迟绘制 Canvas（等待 DOM 就绪）
+  // 当前概况
+  var statHtml = '<div class="es-pop-log">当前人气：<b>' + popularity() + '</b>（' + careerLevel() + '）· 恋情风险：<b>' + ((E.misc && (typeof E.misc.scandalHeat === 'number' ? E.misc.scandalHeat : E.misc.exposureAccum)) || 0) + '</b>· 事业热度：<b>' + getCareerPublicity() + '</b></div>';
+  // 按天分组：careerHistory 的事件按 day 分组
+  var byDay = {};
+  var hist = E.careerHistory || [];
+  for (var i = 0; i < hist.length; i++) {
+    var h = hist[i];
+    var d = h.day != null ? h.day : h.round;
+    if (!byDay[d]) byDay[d] = { day: d, items: [] };
+    byDay[d].items.push(h);
+  }
+  var daysSorted = Object.keys(byDay).sort(function(a, b) { return b - a; }); // 最近在上
+  var dayCardsHtml = '';
+  for (var di = 0; di < daysSorted.length; di++) {
+    var dk = daysSorted[di];
+    var dg = byDay[dk];
+    var isToday = (parseInt(dk, 10) === todayDay);
+    // 分组：哥哥/brother、恋爱/romance、女主/popularity+event、其他
+    var broLines = []; var romLines = []; var selfLines = []; var otherLines = [];
+    for (var ji = 0; ji < dg.items.length; ji++) {
+      var ih = dg.items[ji];
+      var meta = _popLogTypeMeta[ih.type] || { label: ih.type, cls: 'etc' };
+      var line = '<span class="es-pop-tag ' + meta.cls + '">' + meta.label + '</span>' + escHtml(ih.text);
+      if (ih.type === 'brother') broLines.push(line);
+      else if (ih.type === 'romance') romLines.push(line);
+      else if (ih.type === 'popularity' || ih.type === 'event' || ih.type === 'cover') selfLines.push(line);
+      else otherLines.push(line);
+    }
+    var cardText = [];
+    if (broLines.length) cardText.push('<div class="es-mem-row">👨 哥哥：' + broLines.join(' ') + '</div>');
+    if (romLines.length) cardText.push('<div class="es-mem-row">💗 恋爱：' + romLines.join(' ') + '</div>');
+    if (selfLines.length) cardText.push('<div class="es-mem-row">👩 女主：' + selfLines.join(' ') + '</div>');
+    if (otherLines.length) cardText.push('<div class="es-mem-row">📋 其他：' + otherLines.join(' ') + '</div>');
+    if (!cardText.length) cardText.push('<div class="es-mem-row" style="color:var(--text-muted)">（该日无记录）</div>');
+    var editText = [];
+    for (var ei = 0; ei < dg.items.length; ei++) {
+      var eih = dg.items[ei];
+      editText.push((_popLogTypeMeta[eih.type] ? _popLogTypeMeta[eih.type].label : eih.type) + '：' + eih.text);
+    }
+    var foldedCls = isToday ? '' : ' es-mem-folded';
+    var foldIcon = isToday ? '▼' : '▶';
+    dayCardsHtml += '<div class="es-mem-card' + foldedCls + '" data-day="' + dk + '">' +
+      '<div class="es-mem-card-head" onclick="var c=this.parentElement;c.classList.toggle(\'es-mem-folded\');var i=this.querySelector(\'.es-mem-fold-icon\');i.textContent=i.textContent===\'▶\'?\'▼\':\'▶\'">' +
+      '<span class="es-mem-fold-icon">' + foldIcon + '</span> <b>Day ' + dk + '</b>' + (isToday ? ' <span style="color:#7c6ff0;font-size:11px">（今天）</span>' : '') +
+      '</div>' +
+      '<div class="es-mem-card-body">' +
+      '<textarea class="es-mem-textarea" data-mem-day="' + dk + '" rows="' + Math.max(2, dg.items.length) + '" placeholder="（无记录）">' + escHtml(editText.join('\n')) + '</textarea>' +
+      cardText.join('') +
+      '</div></div>';
+  }
+  if (!dayCardsHtml) dayCardsHtml = '<div class="es-empty">暂无变动记录</div>';
+
+  // 直接创建 overlay（需要 edit 功能，不走 showEntSimModal 纯按钮）
+  var overlay = document.createElement('div');
+  overlay.className = 'es-modal-overlay es-modal-dark';
+  overlay.innerHTML = '<div class="es-modal" style="max-height:96vh">' +
+    '<div class="es-modal-title">📈 人气走势与变动日志 <small style="color:var(--es-text-muted)">（点击日期标题展开/折叠，编辑后点保存）</small></div>' +
+    '<div class="es-modal-body" style="max-height:62vh;overflow-y:auto">' +
+    chartHtml + statHtml +
+    '<div style="margin-top:12px">' + dayCardsHtml + '</div>' +
+    '</div>' +
+    '<div class="es-modal-btns">' +
+    '<button class="es-modal-btn" id="es-pop-save">💾 保存修改</button>' +
+    '<button class="es-modal-btn" id="es-pop-close">关闭</button>' +
+    '</div></div>';
+
+  document.body.appendChild(overlay);
+
+  // 关闭
+  overlay.querySelector('#es-pop-close').addEventListener('click', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+  });
+
+  // 保存
+  overlay.querySelector('#es-pop-save').addEventListener('click', function() {
+    var textareas = overlay.querySelectorAll('.es-mem-textarea[data-mem-day]');
+    textareas.forEach(function(ta) {
+      var day = parseInt(ta.getAttribute('data-mem-day'), 10);
+      var val = ta.value.trim();
+      var lines = val ? val.split('\n').filter(function(l) { return l.trim(); }) : [];
+      // 重建该day的careerHistory条目
+      var newItems = [];
+      for (var li = 0; li < lines.length; li++) {
+        var colonIdx = lines[li].indexOf('：');
+        if (colonIdx < 0) continue;
+        var typePart = lines[li].substring(0, colonIdx);
+        var textPart = lines[li].substring(colonIdx + 1);
+        // 反向查找type
+        var foundType = 'other';
+        for (var tKey in _popLogTypeMeta) {
+          if (_popLogTypeMeta[tKey].label === typePart) { foundType = tKey; break; }
+        }
+        newItems.push({ round: 0, day: day, type: foundType, text: textPart });
+      }
+      // 替换该day的所有条目
+      E.careerHistory = (E.careerHistory || []).filter(function(h) {
+        return (h.day != null ? h.day : h.round) !== day;
+      });
+      E.careerHistory = E.careerHistory.concat(newItems);
+    });
+    saveGame();
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    showToast('记忆已保存');
+  });
+
+  // 延迟绘制 Canvas
   setTimeout(function() { drawPopChart(E); }, 100);
 }
 
@@ -1691,6 +1811,7 @@ function showBusinessPanel() {
     var isD = E2.career && E2.career.debutDay > 0;
     if (app === 'letters' && !isD) { showToast('出道后才解锁信箱功能'); return; }
     if (app === 'awards' && !isD) { showToast('出道后才解锁奖项功能'); return; }
+    if (app === 'bubble' && !isD) { showToast('出道后才解锁泡泡功能'); return; }
     document.querySelectorAll('.es-phone-page').forEach(function(p) { p.classList.remove('active'); });
     var targetPage = document.getElementById('es-phone-page-' + app);
     if (targetPage) {
@@ -2753,9 +2874,20 @@ window.initChatChannel = function(ch) {
     }
     GS._entSimChatHistory[ch] = initEntries.map(function(m) {
       var isFromPlayer = m.from === 'you';
-      return { role: isFromPlayer ? 'user' : 'ai', content: resolveChatTemplates(m.msg || m.t || '...') };
+      // 男主池子格式 {q, r:[...], aff}：取第一个回复数组的随机项
+      var content = resolveChatTemplates(m.msg || m.t || (Array.isArray(m.r) && m.r.length ? m.r[Math.floor(Math.random() * m.r.length)] : '...'));
+      return { role: isFromPlayer ? 'user' : 'ai', content: content };
     });
     GS._entSimChatSentIdx[ch] = initEntries.length;
+    // 哥哥/情敌：设置初始预设回复（renderPhoneChatMsgs 依赖 _entSimPendingChat 渲染快捷按钮）
+    if (ch === 'brother' || ch === 'rival') {
+      if (!GS._entSimPendingChat) GS._entSimPendingChat = {};
+      if (!GS._entSimPendingChat[ch]) {
+        GS._entSimPendingChat[ch] = initEntries.filter(function(m) { return m.from !== 'you'; }).map(function(m) {
+          return m.reply || (Array.isArray(m.replies) && m.replies.length ? m.replies[0] : (resolveChatTemplates(m.msg || '...')));
+        });
+      }
+    }
   }
 };
 

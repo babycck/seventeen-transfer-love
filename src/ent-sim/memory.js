@@ -60,17 +60,30 @@ export function compressEntSimMemory() {
     });
 }
 
-// 注入 prompt 用的记忆摘要（近 7 天关键词 + 全部关键事件）
+// 注入 prompt 用的记忆摘要（近 7 天关键词 + 全部关键事件 + careerHistory 事件节点）
 export function buildMemorySnapshot() {
   var E = GS.entSim;
   if (!E || !E.memory) return '';
+  var today = E.cycle.dayCount || 1;
   var days = E.memory.dailySummaries.slice(-7);
   var kw = [];
   days.forEach(function(d) { (d.keywords || []).forEach(function(k) { if (kw.indexOf(k) < 0) kw.push(k); }); });
   var recent = days.map(function(d) { return 'Day' + d.day + '：' + (d.keywords || []).join('、'); });
   var events = E.memory.eventLog.slice(-12).map(function(e) { return 'Day' + e.day + ' ' + e.text; });
+  // 补充 careerHistory 近 7 天事件（AI 可据此引用真实事件，防脑补）
+  var histEvents = [];
+  var seenTexts = {};
+  (E.careerHistory || []).slice().reverse().forEach(function(h) {
+    var d = h.day != null ? h.day : h.round;
+    if (d >= today - 7 && h.text && !seenTexts[h.text]) {
+      seenTexts[h.text] = true;
+      var tag = ({ popularity:'人气', romance:'恋爱', brother:'哥哥', exposure:'曝光', cover:'掩护', npc:'关系', event:'事件' })[h.type] || h.type;
+      histEvents.push('Day' + d + ' ' + tag + '：' + h.text);
+    }
+  });
   var parts = [];
-  if (recent.length) parts.push('【近期记忆】\n' + recent.join('\n'));
+  if (recent.length) parts.push('【近期记忆·关键词】\n' + recent.join('\n'));
+  if (histEvents.length) parts.push('【已发生事件·防脑补】\n' + histEvents.slice(0, 20).join('\n'));
   if (events.length) parts.push('【关键事件】\n' + events.join('\n'));
   if (kw.length) parts.push('【人物关键词】' + kw.join('、'));
   return parts.join('\n');
