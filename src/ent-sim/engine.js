@@ -275,11 +275,12 @@ function applyBrotherEffect(b) {
   if (typeof b.supportDelta === 'number') {
     var oldSup = E.brother.support || 0;
     E.brother.support = Math.max(-100, Math.min(100, oldSup + b.supportDelta));
-    // 支持度变动日志（哥哥支持度面板读取此日志）
     E.brother.supportLog = E.brother.supportLog || [];
+    var reason = (b.note || '剧情影响');
+    if (reason.length > 50) reason = reason.slice(0, 50) + '…';
     E.brother.supportLog.push({
       delta: b.supportDelta,
-      reason: b.note || '剧情影响',
+      reason: reason,
       total: E.brother.support,
       day: E.cycle.dayCount || 1
     });

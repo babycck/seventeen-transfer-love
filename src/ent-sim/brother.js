@@ -15,10 +15,7 @@ export function maybeBrotherEvent() {
   if (randInt(1, 100) > 15) return false;
   var ev = BROTHER_EVENT_POOL[randInt(0, BROTHER_EVENT_POOL.length - 1)];
   if (ev.stance) E.brother.stance = ev.stance;
-  if (typeof ev.supportDelta === 'number') {
-    E.brother.support = Math.max(-100, Math.min(100, (E.brother.support || 0) + ev.supportDelta));
-    pushSupportLog(E, ev.supportDelta, ev.text || '哥哥事件');
-  }
+  // 随机事件只注入剧情，不改支持度——哥哥支持度必须由玩家选项驱动
   if (ev.text) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'brother', text: ev.text });
   GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【哥哥】' + ev.text;
   saveGame();
