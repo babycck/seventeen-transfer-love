@@ -102,7 +102,7 @@ export function generateEntSimRound(type, extra) {
     }
   }
 
-  _entSimInflight = generateWithRetry(sys, user, { temperature: 0.9, maxTokens: 5000 })
+  _entSimInflight = generateWithRetry(sys, user, { temperature: 0.55, maxTokens: 5000 })
     .then(function(res) {
       var raw = (res && res.raw) ? res.raw : '';
       var parsed = parseEntSimResponse(raw);
@@ -271,12 +271,24 @@ function applyNpcEncounter(enc) {
 
 function applyBrotherEffect(b) {
   var E = GS.entSim;
-  if (b.stance) E.brother.stance = b.stance;
+  var _playerDrove = (GS._entSimCurrent && GS._entSimCurrent.type === 'choice');
+  // stance 保护：只有玩家选项驱动时允许 AI 改 stance
+  if (b.stance) {
+    if (_playerDrove) E.brother.stance = b.stance;
+  }
   if (typeof b.supportDelta === 'number') {
+    var broSup = E.brother.support || 0;
+    // support<20 时 delta 上限 +1
+    if (broSup < 20 && b.supportDelta > 1) b.supportDelta = Math.min(b.supportDelta, 1);
+    // support<10 且非玩家驱动时强制置 0
+    if (broSup < 10 && b.supportDelta > 0 && !_playerDrove) b.supportDelta = 0;
     var oldSup = E.brother.support || 0;
     E.brother.support = Math.max(-100, Math.min(100, oldSup + b.supportDelta));
     E.brother.supportLog = E.brother.supportLog || [];
-    var reason = (b.note || '剧情影响');
+    // brother.note 门控：与 stance 矛盾时替换
+    var noteText = b.note || '剧情影响';
+    if (/牵线|撮合|审查感情|推.*Kakao|月老/.test(noteText) && broSup < 20) noteText = '本轮剧情影响';
+    var reason = noteText;
     if (reason.length > 50) reason = reason.slice(0, 50) + '…';
     E.brother.supportLog.push({
       delta: b.supportDelta,

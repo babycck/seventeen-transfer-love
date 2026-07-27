@@ -184,6 +184,14 @@ export function buildEntSimUserMessage(type, extra) {
   var mlName = ml.name || '他';
   var msg = '';
 
+  // ── 层2：风格锚（primacy bias——每轮开头注入恒定风格参考）──
+  msg += '\n【叙事风格·恒定参考·必须遵守】\n' +
+    '- 第三人称，女主视角。只描写女主的所见所闻所感，不进入任何其他角色的内心。\n' +
+    '- 用具体动作和感官细节代替情绪词：不写"她很紧张"，写"她把谱子折了又展开，展开又折"。\n' +
+    '- 场景有物理质感：温度、光线、声音、空间大小。让人能"看见"这个练习室。\n' +
+    '- 对话少而精，每句话都有信息量或性格辨识度。不写"嗯""哦""好的"等填充句。\n' +
+    '- 篇幅500-700字，像一集五分钟的番剧，每轮讲好一件事。\n';
+
   if (type === 'phase') {
     if (extra.nextDayOpening) {
       msg = '【新的一天开始】这是第 ' + (E.cycle.dayCount || 1) + ' 天。请先描写新一天上午的环境与氛围（天气／练习室／通告安排），让女主从昨夜收束到今晨，再自然推进剧情。';
@@ -297,8 +305,58 @@ export function buildEntSimUserMessage(type, extra) {
     msg += '\n【本场场景·强制锁定】现在是上午，今日核心行程：' + (_ag.main || '待定') + (_ag.mainLoc ? '（地点：' + _ag.mainLoc + '）' : '') + '。本段剧情必须发生在这个行程场景内，角色位置、对话、动作都要贴合该场景的物理空间与氛围，不要凭空切换到无关地点。\n';
   }
   if (extra && extra.extraNote) msg += '\n【补充】' + extra.extraNote + '\n';
+
+  // ── 层3+9：阶段行为禁制卡（recency bias——每轮末尾注入，含范例+公共场合+叙事模式）──
+  var banCard = buildStageBanCard(E);
+  if (banCard) msg += '\n' + banCard + '\n';
+
   msg += '\n请输出 JSON（narrative + options + entSimExtras）。';
   return msg;
+}
+
+// ── 层3+9：阶段行为禁制卡（根据当前状态动态生成禁止清单+范例+叙事模式）──
+function buildStageBanCard(E) {
+  if (!E) return '';
+  var stage = (GS.oneHeartRomanceStage !== undefined ? GS.oneHeartRomanceStage : 0) || 0;
+  var aff = E.affection || 0;
+  var broSup = (E.brother && E.brother.support) || 0;
+  var genCount = GS.oneHeartGenCount || 0;
+  var weather = GS.weather || '';
+  var bans = [];
+  // 写歌/创作禁制
+  if (stage === 0 && aff < 20) {
+    bans.push({ ban: '禁止男主写歌/写词/创作/专属旋律/专属暗示',
+      example: '正确范例：他路过练习室门口时停了半步，然后继续走过去，没有推门。错误：他为你写了半首曲子。' });
+    bans.push({ ban: '禁止"专属暗号""只有我们懂""秘密约定"，男主对女主不搞特殊对待',
+      example: '正确范例：他叫了你的名字——和叫其他练习生时一样。错误：镜头扫过你的站位，他微微侧头——只有你懂的角度。' });
+  }
+  // 哥哥禁制
+  if (genCount < 10 || broSup < 20) {
+    bans.push({ ban: '禁止哥哥审查男主感情/牵线/撮合/推Kakao/当月老',
+      example: '正确范例：哥发消息问今天练习怎么样。错误：哥把全圆佑的Kakao推给你。' });
+  }
+  // 天气禁制
+  if (weather.indexOf('雾') < 0) {
+    bans.push({ ban: '禁止雾/雾气/浓雾作为氛围描写（当前天气非雾）',
+      example: '正确范例：阳光透过练习室窗户照在地板上。错误：雾气弥漫的走廊里，他的身影若隐若现。' });
+  }
+  // 公共场合禁制
+  if (stage < 2) {
+    bans.push({ ban: '禁止男主与女主二人独处。所有互动必须有第三人在场。',
+      example: '正确范例：敏珠在角落拉伸，还有两个练习生在讨论编舞。错误：练习室只剩你们两个人。' });
+  }
+  // 叙事模式约束（层9）
+  if (stage === 0) {
+    bans.push({ ban: '【叙事模式·初遇=观察模式】男主只能在场景中"存在"——他在走廊经过、他在休息室里打游戏、他的声音从某个房间传出来。女主通过自己的感官注意到他，不是他注意到女主。他不对女主做任何指向性的行为。',
+      example: '正确范例：他进了录音室，门在你身后关上。错误：他偷偷帮你换了水/他多看了你一眼/他的视线在你这边停留。' });
+  }
+  if (!bans.length) return '';
+  var result = '【本轮行为禁制·强制】请逐条确认以下行为在本轮不可出现：\n';
+  for (var i = 0; i < bans.length; i++) {
+    result += '- ❌ 禁止：' + bans[i].ban + '\n  ' + bans[i].example + '\n';
+  }
+  result += '如果上一轮已有的标志性事件与本轮阶段冲突，本轮主角应刻意拉开距离，不要延续上轮的越级行为。';
+  return result;
 }
 
 // ── 场景灵感注入：从34个池子中按当前状态筛选2-3条最相关的场景素材，
@@ -376,6 +434,13 @@ function injectPoolInspirations(E) {
   for (var pi = 0; pi < picked.length; pi++) {
     out += '- [' + picked[pi].cat + '] ' + picked[pi].text + '\n';
   }
+  // ── 层4：反向场景禁制 ──
+  var _aff = E.affection || 0;
+  var _stage = GS.oneHeartRomanceStage || 0;
+  var banLabel = '';
+  if (_aff < 20) banLabel = '禁止男主"为你写歌""专属暗示""特殊对待"，禁止哥哥"审查感情""推Kakao牵线"';
+  if (_stage < 2) banLabel += (banLabel ? '，' : '') + '禁止二人深夜独处，禁止男主私下主动联系女主';
+  if (banLabel) out += '\n【场景禁制】本轮禁止出现的场景类型：' + banLabel + '\n';
   return out;
 }
 

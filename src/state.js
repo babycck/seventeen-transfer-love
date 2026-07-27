@@ -450,6 +450,8 @@ export function migrateSave() {
     if (!Array.isArray(E.memory.dailySummaries)) E.memory.dailySummaries = [];
     if (!Array.isArray(E.memory.eventLog)) E.memory.eventLog = [];
     if (typeof E.memory.lastCompressDay !== 'number') E.memory.lastCompressDay = 0;
+    if (!Array.isArray(E.memory.milestones)) E.memory.milestones = [];
+    if (!Array.isArray(E.memory.phaseSummaries)) E.memory.phaseSummaries = [];
 
     // 女团队友：旧存档可能为空数组，自动重建而非仅兜底 []
     if (!Array.isArray(E.heroineGroup) || E.heroineGroup.length === 0) E.heroineGroup = buildEntSimHeroineGroup();

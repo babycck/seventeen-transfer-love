@@ -18,6 +18,8 @@ export function compressEntSimMemory() {
     saveGame();
     return Promise.resolve();
   }
+  // ── 层8：记忆压缩关键词清洗（发送前清洗，防越级事件存入记忆）──
+  buf = buf.replace(/写歌|写词|专属暗号|秘密约定|雾中偶遇|浓雾/g, '练习日偶遇');
   var prompt = [
     '你是记忆压缩器。把下面这段娱乐圈地下恋剧情压缩成结构化摘要。',
     '只输出 JSON，不要任何解释。格式：',
@@ -47,6 +49,16 @@ export function compressEntSimMemory() {
         E.memory.eventLog.push({ day: day, text: ev });
       });
       E.memory.lastCompressDay = day;
+      // ── 层7：每20轮生成阶段摘要（T2）──
+      if (day % 20 === 0 && E.memory.dailySummaries.length >= 10) {
+        var phaseDays = E.memory.dailySummaries.slice(-20);
+        var allKw = [];
+        phaseDays.forEach(function(d) { allKw = allKw.concat(d.keywords || []); });
+        var phaseText = '第' + (day - 19) + '-' + day + '天关键词：' + allKw.slice(0, 12).join('、');
+        E.memory.phaseSummaries = E.memory.phaseSummaries || [];
+        E.memory.phaseSummaries.push(phaseText);
+        if (E.memory.phaseSummaries.length > 10) E.memory.phaseSummaries = E.memory.phaseSummaries.slice(-10);
+      }
       // 压缩后清空缓冲，避免重复压缩
       GS._entSimNarrativeBuffer = '';
       saveGame();
@@ -60,32 +72,37 @@ export function compressEntSimMemory() {
     });
 }
 
-// 注入 prompt 用的记忆摘要（近 7 天关键词 + 全部关键事件 + careerHistory 事件节点）
+// ── 层7+10：三级记忆上下文隔离（T0里程碑/T1近期20轮/T2阶段摘要）──
 export function buildMemorySnapshot() {
   var E = GS.entSim;
   if (!E || !E.memory) return '';
   var today = E.cycle.dayCount || 1;
-  var days = E.memory.dailySummaries.slice(-7);
+  // T0: 核心里程碑（重要节点，不设上限但不取超过8条）
+  var t0 = E.memory.milestones || [];
+  // T1: 最近20轮完整摘要 + careerHistory最近10天
+  var days = E.memory.dailySummaries.slice(-20);
   var kw = [];
   days.forEach(function(d) { (d.keywords || []).forEach(function(k) { if (kw.indexOf(k) < 0) kw.push(k); }); });
   var recent = days.map(function(d) { return 'Day' + d.day + '：' + (d.keywords || []).join('、'); });
   var events = E.memory.eventLog.slice(-12).map(function(e) { return 'Day' + e.day + ' ' + e.text; });
-  // 补充 careerHistory 近 7 天事件（AI 可据此引用真实事件，防脑补）
   var histEvents = [];
   var seenTexts = {};
   (E.careerHistory || []).slice().reverse().forEach(function(h) {
     var d = h.day != null ? h.day : h.round;
-    if (d >= today - 7 && h.text && !seenTexts[h.text]) {
+    if (d >= today - 10 && h.text && !seenTexts[h.text]) {
       seenTexts[h.text] = true;
       var tag = ({ popularity:'人气', romance:'恋爱', brother:'哥哥', exposure:'曝光', cover:'掩护', npc:'关系', event:'事件' })[h.type] || h.type;
       histEvents.push('Day' + d + ' ' + tag + '：' + h.text);
     }
   });
+  // T2: 阶段摘要（最近3段）
+  var t2 = E.memory.phaseSummaries || [];
   var parts = [];
-  if (recent.length) parts.push('【近期记忆·关键词】\n' + recent.join('\n'));
-  if (histEvents.length) parts.push('【已发生事件·防脑补】\n' + histEvents.slice(0, 20).join('\n'));
-  if (events.length) parts.push('【关键事件】\n' + events.join('\n'));
-  if (kw.length) parts.push('【人物关键词】' + kw.join('、'));
+  parts.push('【风格参考·近期】\n' + (recent.length ? recent.join('\n') : '（暂无）'));
+  parts.push('【阶段背景】\n' + (t2.length ? t2.slice(-3).join('\n') : '（暂无）'));
+  parts.push('【已发生事件·防脑补】\n' + (histEvents.length ? histEvents.slice(0, 20).join('\n') : '（暂无）'));
+  if (t0.length) parts.push('【重要里程碑】\n' + t0.slice(-5).map(function(m) { return 'Day' + (m.day || '?') + ' ' + (m.text || ''); }).join('\n'));
+  if (kw.length) parts.push('【近期关键词】' + kw.join('、'));
   return parts.join('\n');
 }
 

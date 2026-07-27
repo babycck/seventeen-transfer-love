@@ -156,6 +156,32 @@ export function validateEntSimNarrative(parsed) {
   } else if (options.length > 4) {
     corrections.push({ severity: 'warning', type: 'format', message: '选项超过 4 个' });
   }
+  // ── 层5：三联内容扫描（narrative + brother.note + romanceBeat.event）──
+  if (typeof GS !== 'undefined') {
+    var _E = GS.entSim;
+    var _stage = (GS.oneHeartRomanceStage !== undefined ? GS.oneHeartRomanceStage : (_E && _E.romance ? (_E.romance.stage === '初遇' ? 0 : _E.romance.stage === '暧昧' ? 1 : _E.romance.stage === '明确' ? 2 : 3) : 0)) || 0;
+    var _aff = (_E && typeof _E.affection === 'number') ? _E.affection : 0;
+    var _broSup = (_E && _E.brother && typeof _E.brother.support === 'number') ? _E.brother.support : 0;
+    var _weatherIsFog = (GS.weather || '').indexOf('雾') >= 0;
+    var _extras = parsed && parsed.extras ? parsed.extras : {};
+    var _note = (_extras.brother && _extras.brother.note) || '';
+    var _rev = (_extras.romanceBeat && _extras.romanceBeat.event) || '';
+    var _scanText = narrative + ' ' + _note + ' ' + _rev;
+    var _contentBans = [
+      { pattern: /写歌|写词|为你创作|专属旋律|给你写了/, gate: _stage === 0 && _aff < 20, msg: '当前初遇阶段禁止写歌/写词/创作' },
+      { pattern: /暗号|只有(我|你)懂|秘密约定|只属于(我|你)/, gate: _aff < 20, msg: '当前好感禁止专属暗号/秘密约定' },
+      { pattern: /雾(?!化|霾)/, gate: !_weatherIsFog, msg: '当前天气非雾天禁止雾氛描写' },
+      { pattern: /拥抱|牵手|靠(在|着)(肩|怀)|擦(泪|眼角)/, gate: true, msg: '当前阶段禁止肢体亲密接触' },
+      { pattern: /审查.*感情|牵线|撮合|推.*Kakao|月老/, gate: _broSup < 20, msg: '哥哥支持度不足禁止牵线/审查行为' },
+      { pattern: /(只|唯独|偏偏).*(对|给|朝).*(你|她)/, gate: _stage === 0, msg: '初遇观察模式禁止男主做任何指向女主的特别行为' }
+    ];
+    for (var _ci = 0; _ci < _contentBans.length; _ci++) {
+      var _cb = _contentBans[_ci];
+      if (_cb.gate && _cb.pattern.test(_scanText)) {
+        corrections.push({ severity: 'error', type: 'content', message: _cb.msg + '。请重新生成。' });
+      }
+    }
+  }
   return corrections;
 }
 

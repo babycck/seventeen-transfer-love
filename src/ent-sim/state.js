@@ -100,7 +100,7 @@ export function initEntSimState() {
 
   E.agenda = { main: '', mainLoc: '', related: '', relatedLoc: '', rival: '', rivalLoc: '', brother: '', brotherLoc: '', doneFlags: {} };
   // 记忆系统：每日压缩的关键词摘要 + 关键事件累积（不过期）
-  E.memory = { dailySummaries: [], eventLog: [], lastCompressDay: 0 };
+  E.memory = { dailySummaries: [], eventLog: [], milestones: [], phaseSummaries: [], lastCompressDay: 0 };
   // 女团队友（5 位姐姐）：setup 时具象化，供 AI 客串
   E.heroineGroup = buildEntSimHeroineGroup();
   E.groupMeta = buildEntSimGroupMeta();
