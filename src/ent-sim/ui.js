@@ -222,8 +222,10 @@ function renderHeader() {
         '<span class="es-chap-badge">' + getRomanceStageIcon() + ' ' + getRomanceStageLabel() + '</span>' +
       '</div>' +
       '<div class="es-h-right">' +
-        '<span class="es-pop" id="es-pop-btn" style="cursor:pointer" title="点击查看人气变动日志">人气 <b>' + popularity() + '</b> <i style="font-style:normal;color:#9D8BFF">(' + careerLevel() + ')</i></span>' +
-        '<div class="es-pop-bar"><span style="width:' + Math.min(100, popularity()) + '%;background:linear-gradient(90deg,#7c6ff0,#9ad0a0)"></span></div>' +
+        '<div class="es-pop-wrap" id="es-pop-wrap" title="点击查看人气变动日志">' +
+          '<span class="es-pop">人气 <b>' + popularity() + '</b> <i style="font-style:normal;color:#9D8BFF">(' + careerLevel() + ')</i></span>' +
+          '<div class="es-pop-bar"><span style="width:' + Math.min(100, popularity()) + '%;background:linear-gradient(90deg,#7c6ff0,#9ad0a0)"></span></div>' +
+        '</div>' +
         '<span class="es-aff-mini">好感 ' + E.affection + '/100</span>' +
         '<span class="es-icon-btn" id="es-settings-btn" title="设置">⚙️</span>' +
       '</div>' +
@@ -863,7 +865,7 @@ function bindStoryEvents() {
   if (fi) fi.addEventListener('keydown', function(e) { if (e.key === 'Enter') onFreeSend(); });
   bindId('es-free-send', onFreeSend);
   bindId('es-settings-btn', function() { showApiSettingsModal(); });
-  bindId('es-pop-btn', onPopLog);
+  bindId('es-pop-wrap', onPopLog);
   bindId('es-memory-btn', onPopLog);
   bindId('es-save-btn', showSaveSlotsModal);    // P1 #22
   bindId('es-milestone-btn', showMilestoneModal); // P1 #11
@@ -1867,9 +1869,17 @@ function renderPhoneChatMsgs(ch) {
   if (!msgs) return;
   var hist = (GS._entSimChatHistory || {})[ch] || [];
   if (!hist.length) {
-    msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>暂无消息</div></div>';
-    updateQuickReplies(ch, []);
-    return;
+    // 兜底：聊天历史丢失时自动重新初始化（存档重载/旧档迁移导致 _entSimChatInited=true 但历史丢失）
+    if (ch !== 'sasaeng' && typeof window.initChatChannel === 'function') {
+      window.initChatChannel(ch);
+      hist = (GS._entSimChatHistory || {})[ch] || [];
+      if (hist.length && typeof saveGame === 'function') saveGame();
+    }
+    if (!hist.length) {
+      msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>暂无消息</div></div>';
+      updateQuickReplies(ch, []);
+      return;
+    }
   }
 
   // 渲染预设回复按钮：按当前阶段取快捷回复池（13人×3角色×4阶段）

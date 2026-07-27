@@ -175,10 +175,43 @@ export function validateEntSimNarrative(parsed) {
       { pattern: /审查.*感情|牵线|撮合|推.*Kakao|月老/, gate: _broSup < 20, msg: '哥哥支持度不足禁止牵线/审查行为' },
       { pattern: /(只|唯独|偏偏).*(对|给|朝).*(你|她)/, gate: _stage === 0, msg: '初遇观察模式禁止男主做任何指向女主的特别行为' }
     ];
+    // 季节/月份矛盾校验
+    var _gm = GS.gameMonth;
+    var _se = GS.season;
+    if (_E && _E.cycle && _E.cycle.dayCount) {
+      var dayCount = _E.cycle.dayCount;
+      if (!_gm) _gm = Math.floor(((dayCount - 1) % 365) / 30) + 1;
+      if (!_se) _se = (function(m){return m>=12||m<=2?'winter':m>=3&&m<=5?'spring':m>=6&&m<=8?'summer':'autumn';})(_gm);
+    }
+    var _isWinter = (_gm === 12 || _gm === 1 || _gm === 2);
+    var _isMarch = (_gm === 3);
+    var seasonBans = [
+      { pattern: /初雪|雪花飘|积雪|第一场雪|堆雪人/, gate: !_isWinter, msg: '当前' + _gm + '月非冬季，禁止初雪/雪花描写' },
+      { pattern: /白色情人节/, gate: !_isMarch, msg: '只有3月才可出现白色情人节' },
+      { pattern: /跨年|新年|除夕|元旦/, gate: _gm === 11 && _se === 'autumn', msg: '当前11月秋天禁止跨年/新年描写' },
+      { pattern: /供暖|暖气片|冬天的寒意|寒风凛冽/, gate: _se === 'spring' || _se === 'summer', msg: '当前' + _se + '禁止冬季取暖描写' },
+      { pattern: /樱花开了|樱花飘落|樱花树/, gate: _se === 'summer', msg: '当前夏季禁止樱花描写' }
+    ];
+    for (var _si = 0; _si < seasonBans.length; _si++) {
+      var _sb = seasonBans[_si];
+      if (_sb.gate && _sb.pattern.test(narrative)) {
+        corrections.push({ severity: 'error', type: 'content', message: _sb.msg + '。请重新生成。' });
+      }
+    }
     for (var _ci = 0; _ci < _contentBans.length; _ci++) {
       var _cb = _contentBans[_ci];
       if (_cb.gate && _cb.pattern.test(_scanText)) {
         corrections.push({ severity: 'error', type: 'content', message: _cb.msg + '。请重新生成。' });
+      }
+    }
+    // ── extras-narrative一致性校验：extras中声明的关键动作若叙事正文未出现，裁剪extras ──
+    var _actionWords = ['送了', '递给', '买了', '带来了', '寄来', '放了一', '给了'];
+    for (var _aw = 0; _aw < _actionWords.length; _aw++) {
+      var _w = _actionWords[_aw];
+      if (!_note) break;
+      if (_note.indexOf(_w) >= 0 && narrative.indexOf(_w) < 0) {
+        corrections.push({ severity: 'warning', type: 'content', message: 'extras中brother.note记录了动作"' + _w + '…"，但叙事正文未出现对应行为。请把动作写进正文或从extras中移除。' });
+        break;
       }
     }
   }

@@ -4,7 +4,7 @@
 // 换天由玩家点「进入下一天」(goEntSimNextDay) 显式触发。
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday } from './state.js';
+import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday, gameMonthOf, gameSeasonOf } from './state.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { showToast, randInt } from '../utils.js';
 import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
@@ -146,7 +146,13 @@ export function generateEntSimRound(type, extra) {
     })
     .catch(function(err) {
       showToast('生成失败：' + (err && err.message ? err.message : '未知错误'));
-      var fb = { narrative: '（剧情生成失败，请点击「拉回主线」重试）', options: ['重试'], extras: {}, type: type, failed: true };
+      // 回退 continueEntSimMain 前置递增的 roundTotal 和 timeOfDay
+      var E2 = GS.entSim;
+      if (extra && extra.timeSlot !== undefined && E2.cycle.timeOfDay > 0) {
+        E2.cycle.timeOfDay--;
+        E2.cycle.roundTotal = Math.max(0, (E2.cycle.roundTotal || 1) - 1);
+      }
+      var fb = { narrative: '（剧情生成失败，请点击选项重试）', options: ['重试'], extras: {}, type: type, failed: true };
       GS._entSimCurrent = fb;
       return fb;
     })
@@ -346,6 +352,9 @@ export function goEntSimNextDay() {
   showDayTransition(E.cycle.dayCount + 1);
   E.cycle.dayCount++;
   E.cycle.roundTotal++; // 换天才推进回合数，避免每次操作污染冷却/冷战倒计时
+  // 同步季节/月份：GS.gameMonth/season 必须随 dayCount 更新（否则 AI prompt 读到旧值产出季节矛盾）
+  GS.gameMonth = gameMonthOf(E.cycle.dayCount);
+  GS.season = gameSeasonOf(E.cycle.dayCount);
   // 秘密信箱：每 7-10 回合自动一封信
   if (E.cycle.roundTotal > 0 && E.cycle.roundTotal % (7 + randInt(0, 3)) === 0) {
     generateEntSimLetter(); // 异步，不阻塞
@@ -797,6 +806,9 @@ export function continueEntSimMain() {
   E.cycle.timeOfDay = newSlot;
   E.cycle.roundTotal = (E.cycle.roundTotal || 0) + 1;
   saveGame();
+  // 同步季节/月份
+  GS.gameMonth = gameMonthOf(E.cycle.dayCount);
+  GS.season = gameSeasonOf(E.cycle.dayCount);
   var slotLabel = ['上午', '下午', '夜晚'][newSlot];
   return generateEntSimRound('phase', {
     timeSlot: newSlot,

@@ -4,7 +4,7 @@
 // buildEntSimUserMessage：玩家动作 + 当前状态快照（含记忆注入）
 // ============================================================
 import { GS } from '../state.js';
-import { formatGameDate, formatTraineeDate, birthdayInfo, todayHoliday, gameSeasonOf } from './state.js';
+import { formatGameDate, formatTraineeDate, birthdayInfo, todayHoliday, gameSeasonOf, gameMonthOf } from './state.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
@@ -340,6 +340,31 @@ function buildStageBanCard(E) {
     bans.push({ ban: '禁止雾/雾气/浓雾作为氛围描写（当前天气非雾）',
       example: '正确范例：阳光透过练习室窗户照在地板上。错误：雾气弥漫的走廊里，他的身影若隐若现。' });
   }
+  // 季节/月份禁制：禁止产出与当前月份/季节矛盾的节日和天气词
+  var gameMonth = GS.gameMonth || gameMonthOf(E.cycle.dayCount || 1);
+  var season = GS.season || gameSeasonOf(E.cycle.dayCount || 1);
+  var isWinter = (gameMonth === 12 || gameMonth === 1 || gameMonth === 2);
+  var isMarch = (gameMonth === 3);
+  if (!isWinter) {
+    bans.push({ ban: '禁止"初雪""雪花""积雪""第一场雪""堆雪人"（当前' + gameMonth + '月非冬季）',
+      example: '正确范例：秋天的风卷着落叶吹过。错误：初雪飘落，公司门口积了薄薄一层白。' });
+  }
+  if (!isMarch) {
+    bans.push({ ban: '禁止"白色情人节"（只有3月才可出现）',
+      example: '正确范例：今天是普通的一天。错误：白色情人节的氛围弥漫在公司。' });
+  }
+  if (season === 'spring') {
+    bans.push({ ban: '禁止"冬天""供暖""暖气片""深秋""落叶""枯叶""寒风凛冽"（当前季节为春季）',
+      example: '正确范例：春风和煦，樱花正开。错误：暖气刚刚打开，房间里还残留着冬天的寒意。' });
+  }
+  if (season === 'summer') {
+    bans.push({ ban: '禁止"冬天""供暖""暖气片""樱花""落叶""春寒"（当前季节为夏季）',
+      example: '正确范例：盛夏的阳光炙烤着首尔。错误：春天的樱花还开在行道树上。' });
+  }
+  if (gameMonth === 11 && season === 'autumn') {
+    bans.push({ ban: '禁止"跨年""新年""除夕""元旦""白色圣诞""Pepero Day"（11月秋天不应出现冬季节日）',
+      example: '正确范例：秋雨淅淅沥沥。错误：新年第一天的清晨。' });
+  }
   // 公共场合禁制
   if (stage < 2) {
     bans.push({ ban: '禁止男主与女主二人独处。所有互动必须有第三人在场。',
@@ -440,6 +465,14 @@ function injectPoolInspirations(E) {
   var banLabel = '';
   if (_aff < 20) banLabel = '禁止男主"为你写歌""专属暗示""特殊对待"，禁止哥哥"审查感情""推Kakao牵线"';
   if (_stage < 2) banLabel += (banLabel ? '，' : '') + '禁止二人深夜独处，禁止男主私下主动联系女主';
+  // 季节/月份矛盾禁制
+  var _gm = GS.gameMonth || gameMonthOf(E.cycle.dayCount || 1);
+  var _se = GS.season || gameSeasonOf(E.cycle.dayCount || 1);
+  if (_gm !== 12 && _gm !== 1 && _gm !== 2) banLabel += (banLabel ? '，' : '') + '禁止"初雪""雪花""第一场雪"';
+  if (_gm !== 3) banLabel += (banLabel ? '，' : '') + '禁止"白色情人节"';
+  if (_se === 'spring') banLabel += (banLabel ? '，' : '') + '禁止"冬天""供暖""暖气片"';
+  if (_se === 'summer') banLabel += (banLabel ? '，' : '') + '禁止"冬天""供暖""樱花"';
+  if (_gm === 11 && _se === 'autumn') banLabel += (banLabel ? '，' : '') + '禁止"跨年""新年""除夕""圣诞""Pepero"';
   if (banLabel) out += '\n【场景禁制】本轮禁止出现的场景类型：' + banLabel + '\n';
   return out;
 }

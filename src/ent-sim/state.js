@@ -265,7 +265,7 @@ export function traineePhaseOf(dayCount) {
 function gameDayOf(dayCount) {
   return ((dayCount - 1) % 365) % 30 + 1; // 1-30
 }
-function gameMonthOf(dayCount) {
+export function gameMonthOf(dayCount) {
   return Math.floor(((dayCount - 1) % 365) / 30) + 1; // 1-12
 }
 export function gameSeasonOf(dayCount) {

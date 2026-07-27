@@ -2702,10 +2702,18 @@ svg text.es-radar-dim:hover { fill: var(--es-primary2); text-decoration: underli
 .es-icon-btn:hover { background: var(--es-soft-hover); border-color: var(--es-primary); }
 .es-pop {
   font-size: 12px; color: var(--es-text-dim); white-space: nowrap;
-  padding: 3px 9px; border-radius: 999px; background: var(--es-soft); border: 1px solid var(--es-card-border);
 }
 .es-pop b { color: var(--es-text); }
 .es-pop i { font-style: normal; color: var(--es-primary2); }
+.es-pop-wrap {
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 6px 10px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--es-card-border); background: var(--es-soft);
+  min-width: 70px; min-height: 44px; justify-content: center;
+  transition: .15s;
+}
+.es-pop-wrap:hover { background: var(--es-soft-hover); border-color: var(--es-primary); }
+.es-pop-wrap .es-pop-bar { margin-top: 3px; }
 
 /* 恋爱动作按钮 */
 .es-rom-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
