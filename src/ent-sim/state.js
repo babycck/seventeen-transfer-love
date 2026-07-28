@@ -145,8 +145,12 @@ export function initEntSimState() {
     GS._rivalIntroduced = true;
   }
 
-  // 随机生成四人组生日（月-日格式，均匀分布在四季）
-  function _randBday() { return (Math.floor(Math.random() * 12) + 1) + '-' + (Math.floor(Math.random() * 28) + 1); }
+  // 随机生成四人组生日（月-日格式，均匀分布在四季，真实月份天数）
+  function _randBday() {
+    var m = Math.floor(Math.random() * 12) + 1;
+    var maxDay = m === 2 ? 29 : DAYS_IN_MONTH[m - 1]; // 二月按闰年最大29天
+    return m + '-' + (Math.floor(Math.random() * maxDay) + 1);
+  }
   E.career._birthdays = {
     heroine: _randBday(),
     brother: _randBday(),
@@ -260,27 +264,49 @@ export function traineePhaseOf(dayCount) {
   if (dayCount <= 10) return 2;
   return 3;
 }
-// 日期推导：365天周期，从dayCount算季节和模拟月份（防止天气/节日池穿帮）
-// dayCount 0 = 实际日期 2024-01-01（由 _startDayOffset 偏移）
+// 日期推导：真实日历，dayCount=1 → 2024-01-01，支持闰年
+var DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+function _isLeapYear(year) {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+function _yearMonthDay(dayCount) {
+  var remaining = dayCount - 1;
+  var year = 2024;
+  while (true) {
+    var daysInYear = _isLeapYear(year) ? 366 : 365;
+    if (remaining < daysInYear) break;
+    remaining -= daysInYear;
+    year++;
+  }
+  var month = 1;
+  for (var i = 0; i < 12; i++) {
+    var dim = DAYS_IN_MONTH[i];
+    if (i === 1 && _isLeapYear(year)) dim = 29;
+    if (remaining < dim) return { year: year, month: month, day: remaining + 1 };
+    remaining -= dim;
+    month++;
+  }
+  return { year: year, month: 12, day: remaining + 1 };
+}
 function gameDayOf(dayCount) {
-  return ((dayCount - 1) % 365) % 30 + 1; // 1-30
+  return _yearMonthDay(dayCount).day;
 }
 export function gameMonthOf(dayCount) {
-  return Math.floor(((dayCount - 1) % 365) / 30) + 1; // 1-12
+  return _yearMonthDay(dayCount).month;
 }
 export function gameSeasonOf(dayCount) {
   var m = gameMonthOf(dayCount);
-  if (m === 12 || m <= 2) return 'winter';   // 12-2月
-  if (m >= 3 && m <= 5) return 'spring';     // 3-5月
-  if (m >= 6 && m <= 8) return 'summer';     // 6-8月
-  return 'autumn';                             // 9-11月
+  if (m === 12 || m <= 2) return 'winter';
+  if (m >= 3 && m <= 5) return 'spring';
+  if (m >= 6 && m <= 8) return 'summer';
+  return 'autumn';
 }
 function gameYearOf(dayCount) {
-  return 2024 + Math.floor((dayCount - 1) / 365);
+  return _yearMonthDay(dayCount).year;
 }
-// 格式化为中文日期字符串，如 "2024年3月14日"
 export function formatGameDate(dayCount) {
-  return gameYearOf(dayCount) + '年' + gameMonthOf(dayCount) + '月' + gameDayOf(dayCount) + '日';
+  var ymd = _yearMonthDay(dayCount);
+  return ymd.year + '年' + ymd.month + '月' + ymd.day + '日';
 }
 // 练习生期简易日期：dayCount直接当"练习第N天"
 export function formatTraineeDate(dayCount) {
@@ -374,6 +400,157 @@ export function todayHoliday(dayCount) {
   if (m === 12 && d === 31) return '跨年夜';
   return null;
 }
+
+// ── SVT 队友生日信息（今日寿星 + 13人完整参考表） ──
+import { SVT_TEAMMATE_PROFILES } from './pools/svt-teammate-profiles.js';
+export function svtBirthdayInfo(dayCount) {
+  var m = gameMonthOf(dayCount);
+  var d = gameDayOf(dayCount);
+  var todayList = [];
+  var refList = [];
+  for (var i = 0; i < SVT_TEAMMATE_PROFILES.length; i++) {
+    var p = SVT_TEAMMATE_PROFILES[i];
+    if (p.birthMonth === m && p.birthDay === d) {
+      todayList.push(p.name + '(' + p.birthMonth + '月' + p.birthDay + '日)');
+    }
+    refList.push(p.name + ' ' + p.birthMonth + '/' + p.birthDay);
+  }
+  var result = todayList.length ? '今天过生日的SEVENTEEN成员：' + todayList.join('、') + ' | ' : '今天无SEVENTEEN成员过生日 | ';
+  result += '参考表：' + refList.join(' | ');
+  return result;
+}
+
+// ── A区：硬事实块（代码100%预计算） ──
+export function buildHardFactsBlock(E, extra) {
+  if (!E) return '';
+  extra = extra || {};
+  var dayCount = E.cycle && E.cycle.dayCount || 1;
+  var isDebut = E.career && E.career.debutDay > 0;
+  var weather = extra.weather || GS.weather || '晴';
+  var season = gameSeasonOf(dayCount);
+  var seasonCN = { winter:'冬', spring:'春', summer:'夏', autumn:'秋' }[season] || '';
+  var tempFeel = season === 'winter' ? '偏冷' : season === 'summer' ? '炎热' : season === 'spring' ? '微凉' : '凉爽';
+  var timeLabel = extra.timeLabel || '上午';
+
+  // A1
+  var dateFmt = isDebut ? formatGameDate(dayCount) : formatTraineeDate(dayCount);
+  var a1 = dateFmt + ' · ' + seasonCN + '季 · ' + weather + ' · 体感' + tempFeel + ' · ' + timeLabel;
+
+  // A2
+  var bday = birthdayInfo(dayCount, E);
+  var holiday = todayHoliday(dayCount);
+  var a2 = (bday ? bday.label : '无人过生日') + ' · ' + (holiday ? '节日：' + holiday : '无节日');
+
+  // A3
+  var ag = E.agenda || {};
+  var a3 = '上午：' + (ag.main || '训练') + (ag.mainLoc ? '(' + ag.mainLoc + ')' : '');
+  a3 += ' | 下午：' + (ag.related || '训练') + (ag.relatedLoc ? '(' + ag.relatedLoc + ')' : '');
+  a3 += ' | 晚上：自由';
+  a3 += ' | ' + (isDebut ? '已出道' + (E.chapter ? '·' + E.chapter.name : '') : '练习生·未出道');
+
+  // A4
+  var aff = E.affection || 0;
+  var stage = GS.oneHeartRomanceStage || 0;
+  var stageLabel = stage === 0 ? '初遇·观察模式' : stage === 1 ? '暧昧期' : stage === 2 ? '明确期' : '深度期';
+  var broSup = (E.brother && E.brother.support) || 0;
+  var rivalAff = 0;
+  var rivalNode = E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor'];
+  if (rivalNode && typeof rivalNode.intimacy === 'number') rivalAff = rivalNode.intimacy;
+  var a4 = '好感' + aff + ' · ' + stageLabel + ' · 哥哥支持' + broSup;
+  a4 += rivalAff > 0 ? ' · 情敌亲密度' + rivalAff : ' · 情敌未出场';
+  if (GS._coldWarActive) a4 += ' · ⚠️冷战';
+
+  // A5
+  var broName = (E.brother && E.brother.name) || '哥哥';
+  var broLoc = E._brotherLoc || '练习室';
+  var mlName = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '他';
+  var a5 = '哥哥' + broName + '(' + broLoc + ')';
+  a5 += stage === 0 ? ' · 男主仅在背景出现' : ' · 男主' + mlName + '可见';
+
+  // A6
+  var a6 = '';
+  if (stage === 0) a6 = '允许：观察/群聊/哥哥互动 · 禁止：男主主动/二人独处/专属暗示/写歌';
+  else if (stage === 1) a6 = '允许：男主主动接触/群聊 · 禁止：接吻/公开表白/过度亲密';
+  else a6 = '允许：私下约会/肢体接触 · 禁止：公开场合过度亲密';
+
+  return '【硬事实】\n'
+    + 'A1 ' + a1 + '\n'
+    + 'A2 ' + a2 + '\n'
+    + (extra.showSvtBday ? 'A2b ' + extra.svtBdayText + '\n' : '')
+    + 'A3 ' + a3 + '\n'
+    + 'A4 ' + a4 + '\n'
+    + 'A5 ' + a5 + '\n'
+    + 'A6 ' + a6 + '\n';
+}
+
+// ── B区：软调味块（池子随机抽取） ──
+export function buildSoftFlavorBlock(E, extra) {
+  if (!E) return '';
+  extra = extra || {};
+  var parts = [];
+  var buffer = [];
+
+  // B1 日历氛围（仅首回合注入，防同天重复）
+  if (extra.isFirstRound && extra.atmoText) {
+    buffer.push('B1 氛围 ' + extra.atmoText);
+  }
+
+  // B2 今日心情
+  if (extra.moodText) {
+    buffer.push('B2 心情 ' + extra.moodText);
+  }
+
+  // B3 日常插曲
+  if (extra.detailText) {
+    buffer.push('B3 插曲 ' + extra.detailText);
+  }
+
+  // B4 手机角落
+  var phoneText = extra.phoneCorner || '手机安静，暂无新消息';
+  buffer.push('B4 手机 ' + phoneText);
+
+  // B5 五类记忆
+  if (extra.memoryByType) {
+    buffer.push('B5 ' + extra.memoryByType);
+  }
+
+  if (!buffer.length) return '';
+  return '【今日调味·可自然融入剧情】\n' + buffer.join('\n') + '\n';
+}
+
+// ── 五类近期记忆（按事业/感情/哥哥/情敌/其他分组） ──
+export function buildMemoryByType(E) {
+  if (!E) return '';
+  var history = E.career && E.career._careerHistory ? E.career._careerHistory : (GS.entSim && GS.entSim.careerHistory) || [];
+  var categories = { career: [], romance: [], brother: [], rival: [], other: [] };
+  for (var i = history.length - 1; i >= 0; i--) {
+    var h = history[i];
+    var type = h.type || 'other';
+    if (!categories[type]) type = 'other';
+    if (categories[type].length < 2) categories[type].push(h.text || '');
+  }
+  // 附数值
+  var pop = (E.career && E.career.popularity) || 0;
+  var aff = E.affection || 0;
+  var broSup = (E.brother && E.brother.support) || 0;
+  var rivalAff = 0;
+  var rvNode = E.npcNetwork && E.npcNetwork.nodes && E.npcNetwork.nodes['npc_suitor'];
+  if (rvNode && typeof rvNode.intimacy === 'number') rivalAff = rvNode.intimacy;
+
+  var lines = [];
+  if (categories.romance.length) lines.push('感情(好感' + aff + ')：' + categories.romance.join('；'));
+  else lines.push('感情(好感' + aff + ')：暂无近期记忆');
+  if (categories.career.length) lines.push('事业(人气' + pop + ')：' + categories.career.join('；'));
+  else lines.push('事业(人气' + pop + ')：暂无近期记忆');
+  if (categories.brother.length) lines.push('哥哥(支持' + broSup + ')：' + categories.brother.join('；'));
+  else lines.push('哥哥(支持' + broSup + ')：暂无近期记忆');
+  if (categories.rival.length) lines.push('情敌(亲密度' + rivalAff + ')：' + categories.rival.join('；'));
+  else lines.push('情敌(亲密度' + rivalAff + ')：暂无近期记忆');
+  if (categories.other.length) lines.push('其他：' + categories.other.join('；'));
+
+  return '近期记忆·分类 | ' + lines.join(' | ');
+}
+
 function stageNameOf(idx) {
   return (CYCLE_STAGE_META[idx] && CYCLE_STAGE_META[idx].key) || '新人期';
 }

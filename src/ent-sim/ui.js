@@ -10,7 +10,7 @@ import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, getMaleLeadPresetsForChat, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
@@ -512,8 +512,11 @@ function intimacyIcons() {
 function renderAptPanel() {
   var E = GS.entSim;
   var apts = E._aptCards || [];
-  if (!apts.length) return '';
   var html = '<div class="es-col-title" style="margin-top:4px">📅 约定（' + apts.length + '）</div>';
+  if (!apts.length) {
+    html += '<div style="color:var(--text-muted);font-size:12px;padding:6px 8px;line-height:1.5">暂无约定。与角色互动中对方可能会主动提出约定。</div>';
+    return html;
+  }
   for (var ai = 0; ai < apts.length; ai++) {
     var a = apts[ai];
     html += '<div class="es-apt-item" data-apt-idx="' + ai + '">' +
@@ -1104,12 +1107,13 @@ function showEntSimVisitChoice() {
     var riskNote = roleKey === 'rival' ? '⚠️ 探班' + suitorName() + '风险极高，可能引发媒体注意' : roleKey === 'maleLead' ? '⭐ 探班男主有风险，小心被拍' : '安全等级较高';
     showActionInfoModal('探班 · ' + sel.name,
       '📍 今日行程：' + sel.task + '（' + sel.place + '）\n\n' + riskNote + '\n\n确定要去探班吗？',
-      function() {
-        closeEntSimModal();
-        showNarrativeLoading();
-        triggerEntSimEvent('探班：你借口工作去看' + sel.name + '（他今天在' + sel.task + '），两人在工作间隙偷偷见面').then(rerender);
-      }
-    );
+      '确定', '取消'
+    ).then(function(ok) {
+      if (!ok) return;
+      closeEntSimModal();
+      showNarrativeLoading();
+      triggerEntSimEvent('探班：你借口工作去看' + sel.name + '（他今天在' + sel.task + '），两人在工作间隙偷偷见面').then(rerender);
+    });
   });
 }
 
@@ -1882,14 +1886,17 @@ function renderPhoneChatMsgs(ch) {
     }
   }
 
-  // 渲染预设回复按钮：按当前阶段取快捷回复池（13人×3角色×4阶段）
+  // 渲染预设回复按钮：男主频道用上下文匹配（与findChatPoolReply同源），哥哥/情敌用阶段池
   var presets = [];
   var lastMsg = hist.length ? hist[hist.length-1] : null;
-  // 如果最后一条是玩家发的，不显示预设（等待回复中）
   if (!lastMsg || lastMsg.role !== 'user') {
-    var stagePresets = getChatPresetsByChannel(ch);
-    var shuffled = stagePresets.slice().sort(function() { return Math.random() - 0.5; });
-    presets = shuffled.slice(0, 3).map(function(t) { return { q: t, t: t }; });
+    if (ch === 'maleLead') {
+      presets = getMaleLeadPresetsForChat();
+    } else {
+      var stagePresets = getChatPresetsByChannel(ch);
+      var shuffled = stagePresets.slice().sort(function() { return Math.random() - 0.5; });
+      presets = shuffled.slice(0, 3).map(function(t) { return { q: t, t: t }; });
+    }
   }
   updateQuickReplies(ch, presets);
   var html = '';

@@ -83,4 +83,40 @@ function getChatAckByChannel(ch) {
   return (st && st.acks) || ['嗯。'];
 }
 
-export { getChatPresetsByChannel, getChatAckByChannel };
+export { getChatPresetsByChannel, getChatAckByChannel, getMaleLeadPresetsForChat };
+
+// 男主频道上下文快捷回复：从CHAT_MALE_LEAD真实对话池取q作为预设按钮
+// 确保按钮与findChatPoolReply匹配源一致，避免"嗯"永远匹配失败回退到"嗯。"
+import { CHAT_MALE_LEAD } from '../chat-male-lead.js';
+
+function getMaleLeadPresetsForChat() {
+  var E = (typeof GS !== 'undefined' && GS.entSim) ? GS.entSim : null;
+  if (!E) return ['在干嘛', '今天怎么样', '吃了吗'];
+  var stage = _resolveStage('maleLead');
+  // 映射阶段到池子key
+  var poolKey = stage <= 0 ? 'trainee' : stage <= 1 ? 'greet' : 'stage';
+  // 收集所有候选q
+  var candidates = [];
+  var allKeys = Object.keys(CHAT_MALE_LEAD || {});
+  for (var k = 0; k < allKeys.length; k++) {
+    var key = allKeys[k];
+    var pool = CHAT_MALE_LEAD[key];
+    if (!pool || !pool.length) continue;
+    // trainee池仅练习生使用，greet/stage池可混用
+    if (poolKey === 'trainee') {
+      if (key === 'trainee') candidates = candidates.concat(pool);
+    } else if (poolKey === 'greet') {
+      if (key === 'greet' || key === 'trainee') candidates = candidates.concat(pool);
+    } else {
+      if (key === 'stage' || key === 'greet') candidates = candidates.concat(pool);
+    }
+  }
+  if (!candidates.length) return ['在干嘛', '今天怎么样', '吃了吗'];
+  // 随机选3条
+  var shuffled = candidates.slice().sort(function() { return Math.random() - 0.5; });
+  var presets = [];
+  for (var i = 0; i < Math.min(3, shuffled.length); i++) {
+    presets.push({ q: shuffled[i].q, t: shuffled[i].q });
+  }
+  return presets;
+}

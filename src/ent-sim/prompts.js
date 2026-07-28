@@ -4,7 +4,7 @@
 // buildEntSimUserMessage：玩家动作 + 当前状态快照（含记忆注入）
 // ============================================================
 import { GS } from '../state.js';
-import { formatGameDate, formatTraineeDate, birthdayInfo, todayHoliday, gameSeasonOf, gameMonthOf } from './state.js';
+import { formatGameDate, formatTraineeDate, birthdayInfo, todayHoliday, gameSeasonOf, gameMonthOf, svtBirthdayInfo, buildHardFactsBlock, buildSoftFlavorBlock, buildMemoryByType } from './state.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getRomanceStageLabel, getRomanceStageIcon, AFFECTION_STAGES, affectionStageIndex } from './romance.js';
@@ -15,6 +15,8 @@ import { getScandalHeat } from './public-opinion.js';
 import { ROMANCE_BACKSTAGE, ROMANCE_LATENIGHT, ROMANCE_PUBLIC, ROMANCE_CRISIS, ROMANCE_JEALOUSY_POOL, ROMANCE_CONFESSION } from './pools/index.js';
 import { SECRET_COMMS, SECRET_NEARMISS, SECRET_FAN_CLUES, SECRET_COMPANY } from './pools/index.js';
 import { ATMOSPHERE_WEATHER, ATMOSPHERE_MOOD, ATMOSPHERE_HIS_STATE } from './pools/index.js';
+import { getCalendarAtmo } from './pools/calendar-atmo.js';
+import { pickDailyDetail } from './pools/daily-detail.js';
 import { MILESTONE_DEBUT, MILESTONE_FIRST_WIN, MILESTONE_AWARDS } from './pools/index.js';
 import { ENCOUNTER_ML, ENCOUNTER_RIVAL, ENCOUNTER_BROTHER, ENCOUNTER_OTHERS } from './pools/index.js';
 import { DRAMA_ALMOST, DRAMA_MISUNDERSTAND, DRAMA_COLDWAR, DRAMA_DATING_RUMOR, DRAMA_DILEMMA } from './pools/index.js';
@@ -148,7 +150,7 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '【私密通信隔离·强制】女主通过手机私下发送的任何内容（泡泡私信、聊天消息、短信、私人通话）——其他角色绝对无法知道内容，除非女主当面口头告知或有可被旁人看到的物理证据（如手机屏幕被偷看、截图外泄、女主自己主动分享）。在任何剧情中，不得让任何其他角色引用、提及、或表现出知道女主私密通信的具体内容。角色只能对「你好像在发消息」「你刚才在看手机偷笑」这类可见行为做出反应，不能对消息内容本身做任何猜测或评论。这条规则高于一切其他叙事设定。\n';
   sys += '【地点隔离·强制】队友/哥哥/情敌/其他角色只能对你「在场时可被直接观察到的行为」做出反应（如溜出练习室、回来后走神、对着手机笑等外显行为）。你独自在外的经历（便利店偶遇、走廊对话、天台独处等），任何不在场的角色绝对不知情、不得猜测、不得讨论。禁止角色说「八成是XXX」「你是不是见到XXX了」等凭空猜测——猜测必须基于他们有实际途径知道的信息。\n';
   sys += '【剧情连续性·强制】本场剧情中已发生的互动不可遗忘或重置。如果前面的段落中角色已经通过短信/见面/他人传话产生实质互动，后续严禁再写「今天正式认识一下」「第一次见面」等开倒车场景。角色记忆是连续的。\n';
-  sys += '【节日季节校验·强制】节日（Pepero Day/圣诞节/新年/中秋等）只有在当日才会出现在剧情中，非节日日期严禁编造任何节日梗、节日氛围或节日相关活动。季节与天气必须与当前注入的季节一致（春/夏/秋/冬），不得出现春季樱花与深秋供暖共存的描写。\n';
+  sys += '【节日季节·依据提示】节日和季节详情请严格参考上方【硬事实】块中的日期、天气和【调味】块中的氛围指引，不要脱离提示自行编造季节或节日。\n';
   sys += '【禁止编造未发生事件·强制】男主在泡泡、短信、公开发言中提及的与你之间的互动，必须基于前面正文中「实际发生过的情节」。不得凭空创造主人公之间未曾发生过的拥抱、牵手、深夜谈话、特殊约定等虚假回忆。聊天/泡泡消息中的「你曾经XXX」「那次你XXX」必须有正文事件支撑，不可脑补。\n';
   sys += '【严禁自创韩文名/韩文台词】女主称呼只能用注入的中文艺名「' + (hp.name || '你') + '」，禁止自创韩文音译名（如 심예 之类）。直播/采访台词用中文，如需韩文必须附中文翻译。全部用中文输出。\n';
   sys += '【重要规则】\n';
@@ -208,21 +210,50 @@ export function buildEntSimUserMessage(type, extra) {
     msg = '触发事件：「' + (extra.eventText || '') + '」。请描写其影响并给出应对选项。\n';
   }
 
-  // 【职业阶段上下文】告诉AI当前是什么阶段，应该写什么场景的剧情
-  var isDebutUser = E.career && E.career.debutDay > 0;
-  var chapterNameUser = isDebutUser ? ((E.chapter && E.chapter.name) || '') : '';
-  if (!isDebutUser) {
-    msg += '\n【当前阶段·练习生】女主是未出道的练习生，没有团名/没有粉丝/没有舞台。日常＝训练（声乐课/舞蹈测评/月评/体测/出道组筛选等），地点＝练习室/声乐教室/评价室/公司走廊。请生成练习生视角的剧情，不要出现打歌/回归/签售/粉丝等出道后才有的概念。\n';
-    msg += '【今日日期】' + formatTraineeDate(E.cycle.dayCount || 1) + '，季节：' + gameSeasonOf(E.cycle.dayCount || 1) + '\n';
-  } else {
-    msg += '\n【当前阶段·' + chapterNameUser + '】女主是已出道的女团成员，有团名/队友/粉丝基础。请生成对应阶段的女团爱豆日常剧情。\n';
-    msg += '【今日日期】' + formatGameDate(E.cycle.dayCount || 1) + '，季节：' + gameSeasonOf(E.cycle.dayCount || 1) + '\n';
+  // ── A+B区：硬事实 + 软调味（代码预计算，替换旧版分散注入） ──
+  var dayCount = E.cycle.dayCount || 1;
+  var isFirstRound = !(GS._entSimCurrent && GS._entSimCurrent.narrative && GS._entSimCurrent.narrative.length > 50);
+  var sceneForDetail = (extra && extra.scene) || '';
+  if (!sceneForDetail && E.agenda) {
+    sceneForDetail = (E.agenda.main || '').indexOf('声乐') >= 0 ? '声乐教室'
+      : (E.agenda.main || '').indexOf('舞蹈') >= 0 ? '练习室'
+      : (E.agenda.main || '').indexOf('录音') >= 0 ? '录音室'
+      : '练习室';
   }
-  // 生日/节日提示
-  var bday = birthdayInfo(E.cycle.dayCount || 1, E);
-  if (bday) { msg += '【特别日子】' + bday.label + '！请围绕此事展开剧情，必须写到 ' + bday.name + ' 的生日相关场景。\n'; }
-  var holiday = todayHoliday(E.cycle.dayCount || 1);
-  if (holiday) { msg += '【节日】今天是' + holiday + '。请自然融入节日氛围到剧情中。\n'; }
+
+  // A区准备
+  var hardFactsExtra = {
+    weather: GS.weather || '',
+    timeLabel: extra.timeSlotLabel || getTimeOfDayLabel(),
+    showSvtBday: true,
+    svtBdayText: svtBirthdayInfo(dayCount)
+  };
+  var hardBlock = buildHardFactsBlock(E, hardFactsExtra);
+
+  // B区准备
+  var moodPool = ATMOSPHERE_MOOD || [];
+  var moodPick = moodPool.length ? moodPool[Math.floor(Math.random() * moodPool.length)] : '';
+  var moodText = typeof moodPick === 'string' ? moodPick : (moodPick.text || moodPick.mood || '');
+
+  var softExtra = {
+    isFirstRound: isFirstRound,
+    atmoText: isFirstRound ? getCalendarAtmo(dayCount) : '',
+    moodText: moodText,
+    detailText: pickDailyDetail(sceneForDetail),
+    phoneCorner: '',
+    memoryByType: buildMemoryByType(E)
+  };
+  var softBlock = buildSoftFlavorBlock(E, softExtra);
+
+  // 注入A+B块（替代旧版日期/季节/生日/节日分散注入）
+  msg += '\n' + hardBlock + '\n';
+  if (softBlock) msg += softBlock;
+
+  // 旧版独立注入保留：生日/节日（作为"强力提示"而非代码预计算）仅当有对应日子时注入
+  var bday = birthdayInfo(dayCount, E);
+  if (bday) { msg += '【特别日子·必须重点描写】' + bday.label + '！请围绕此事展开剧情，必须写到 ' + bday.name + ' 的生日相关场景。\n'; }
+  var holiday = todayHoliday(dayCount);
+  if (holiday) { msg += '【节日·请自然融入】今天是' + holiday + '。请自然融入节日氛围到剧情中。\n'; }
 
   // 同天上下文：注入最近剧情摘要，限制 1200 字避免 AI 镜像循环
   if (!extra.nextDayOpening && GS._entSimCurrent && GS._entSimCurrent.narrative) {
@@ -340,31 +371,7 @@ function buildStageBanCard(E) {
     bans.push({ ban: '禁止雾/雾气/浓雾作为氛围描写（当前天气非雾）',
       example: '正确范例：阳光透过练习室窗户照在地板上。错误：雾气弥漫的走廊里，他的身影若隐若现。' });
   }
-  // 季节/月份禁制：禁止产出与当前月份/季节矛盾的节日和天气词
-  var gameMonth = GS.gameMonth || gameMonthOf(E.cycle.dayCount || 1);
-  var season = GS.season || gameSeasonOf(E.cycle.dayCount || 1);
-  var isWinter = (gameMonth === 12 || gameMonth === 1 || gameMonth === 2);
-  var isMarch = (gameMonth === 3);
-  if (!isWinter) {
-    bans.push({ ban: '禁止"初雪""雪花""积雪""第一场雪""堆雪人"（当前' + gameMonth + '月非冬季）',
-      example: '正确范例：秋天的风卷着落叶吹过。错误：初雪飘落，公司门口积了薄薄一层白。' });
-  }
-  if (!isMarch) {
-    bans.push({ ban: '禁止"白色情人节"（只有3月才可出现）',
-      example: '正确范例：今天是普通的一天。错误：白色情人节的氛围弥漫在公司。' });
-  }
-  if (season === 'spring') {
-    bans.push({ ban: '禁止"冬天""供暖""暖气片""深秋""落叶""枯叶""寒风凛冽"（当前季节为春季）',
-      example: '正确范例：春风和煦，樱花正开。错误：暖气刚刚打开，房间里还残留着冬天的寒意。' });
-  }
-  if (season === 'summer') {
-    bans.push({ ban: '禁止"冬天""供暖""暖气片""樱花""落叶""春寒"（当前季节为夏季）',
-      example: '正确范例：盛夏的阳光炙烤着首尔。错误：春天的樱花还开在行道树上。' });
-  }
-  if (gameMonth === 11 && season === 'autumn') {
-    bans.push({ ban: '禁止"跨年""新年""除夕""元旦""白色圣诞""Pepero Day"（11月秋天不应出现冬季节日）',
-      example: '正确范例：秋雨淅淅沥沥。错误：新年第一天的清晨。' });
-  }
+  // ⚠️ 季节/月份负面禁止规则已删除——改为A区硬事实块中的正面氛围描述引导AI
   // 公共场合禁制
   if (stage < 2) {
     bans.push({ ban: '禁止男主与女主二人独处。所有互动必须有第三人在场。',

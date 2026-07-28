@@ -32,7 +32,7 @@ export { COMMON_POOL, RELATED_POOL, TRAINEE_POOL, CHAPTER1_NOVICE, CHAPTER2_SPRO
 
 // ── 五、聊天系统 (8个) ──
 export { CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, CHAT_ML_DAILY_STARTERS } from './chat-male-lead.js';
-export { getChatPresetsByChannel, getChatAckByChannel } from './chat-stage/index.js';
+export { getChatPresetsByChannel, getChatAckByChannel, getMaleLeadPresetsForChat } from './chat-stage/index.js';
 
 // ── 六、男主/感情线 (6个) ──
 export { MALE_LEAD_INITIATIVE_POOL } from './male-lead-init.js';
@@ -114,6 +114,10 @@ export { ATMOSPHERE_HIS_STATE } from './atmosphere-his-state.js';
 export { MILESTONE_DEBUT } from './milestone-debut.js';
 export { MILESTONE_FIRST_WIN } from './milestone-first-win.js';
 export { MILESTONE_AWARDS } from './milestone-awards.js';
+
+// ── 日历氛围 + 日常插曲 (2个) NEW ──
+export { CALENDAR_ATMO_POOL, getCalendarAtmo } from './calendar-atmo.js';
+export { DAILY_DETAIL_POOL, filterDailyDetail, pickDailyDetail } from './daily-detail.js';
 
 // ── 十九、偶遇场景 (4个) NEW ──
 export { ENCOUNTER_ML } from './encounter-ml.js';

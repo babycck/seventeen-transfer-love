@@ -3,6 +3,28 @@
 // pickFromPool：按类别过滤 + 轮替避免重复
 // ============================================================
 
+// 内联真实日历（避免循环import state.js）
+function _inlineMonthDay(dayCount) {
+  var rem = (dayCount || 1) - 1;
+  var y = 2024;
+  while (true) {
+    var diy = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0) ? 366 : 365;
+    if (rem < diy) break;
+    rem -= diy;
+    y++;
+  }
+  var dimArr = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  var m = 1;
+  for (var i = 0; i < 12; i++) {
+    var dim = dimArr[i];
+    if (i === 1 && ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0))) dim = 29;
+    if (rem < dim) return { month: m, day: rem + 1 };
+    rem -= dim;
+    m++;
+  }
+  return { month: 12, day: rem + 1 };
+}
+
 // 从给定池子中随机抽取一条（可指定cat过滤）
 export function pickFromPool(pool, cat) {
   if (!pool || !pool.length) return null;
@@ -111,17 +133,15 @@ function _checkSingle(req, E) {
   var sMatch = req.match(/season=(winter|spring|summer|autumn)/);
   if (sMatch) {
     var dayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
-    // 延迟import避免循环依赖，内联季节计算
-    var m = Math.floor(((dayCount - 1) % 365) / 30);
-    var curSeason = m === 11 || m <= 1 ? 'winter' : m >= 2 && m <= 4 ? 'spring' : m >= 5 && m <= 7 ? 'summer' : 'autumn';
+    var _md = _inlineMonthDay(dayCount);
+    var curSeason = _md.month === 12 || _md.month <= 2 ? 'winter' : _md.month >= 3 && _md.month <= 5 ? 'spring' : _md.month >= 5 && _md.month <= 7 ? 'summer' : 'autumn';
     return curSeason === sMatch[1];
   }
   // 'month=N' → 月份过滤（防7月过情人节）
   var mMatch = req.match(/month=(\d+)/);
   if (mMatch) {
     var _dayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
-    var curMonth = Math.floor(((_dayCount - 1) % 365) / 30) + 1;
-    return curMonth === parseInt(mMatch[1], 10);
+    return _inlineMonthDay(_dayCount).month === parseInt(mMatch[1], 10);
   }
   // 'birthday=heroine|brother|ml|rival' → 仅今天该人生日时触发
   var bdMatch = req.match(/birthday=(heroine|brother|ml|rival)/);
@@ -129,9 +149,8 @@ function _checkSingle(req, E) {
     var bDayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
     var bdays = E && E.career ? E.career._birthdays : null;
     if (!bdays) return false;
-    var bm = Math.floor(((bDayCount - 1) % 365) / 30) + 1;
-    var bd = ((bDayCount - 1) % 365) % 30 + 1;
-    var today = bm + '-' + bd;
+    var _md2 = _inlineMonthDay(bDayCount);
+    var today = _md2.month + '-' + _md2.day;
     return bdays[bdMatch[1]] === today;
   }
   return true;
