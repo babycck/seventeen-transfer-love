@@ -771,7 +771,7 @@ export function handleEntSimFreeInput(text) {
 // 不在开局立即生成——开局两人只是陌生人/前辈后辈，种子事件应在有互动基础后才产生
 export function ensureSeedEvent() {
   var E = GS.entSim;
-  if (E.romance.seedEvent) return Promise.resolve();
+  if (E.romance.seedEvent && E.romance.seedEvent.length > 10) return Promise.resolve();
   // 延迟门槛：必须好感 >= 5 或已推进 >= 3 回合，避免开局就预设男主心动
   if ((E.affection || 0) < 5 && (E.cycle.roundTotal || 0) < 3) return Promise.resolve();
   var ml = E.romance.maleLead;
