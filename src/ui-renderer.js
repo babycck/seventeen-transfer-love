@@ -1150,14 +1150,13 @@ var d = parseInt(document.getElementById('hpBirthDay').value, 10) || 0;
           GS._entSimGenerating = false;
           GS._entSimCurrent = null;
           GS._entSimNarrativeBuffer = '';
-          // 生成 365 天日期（复用 oneHeart 日期生成器，仅作时间背景）
-          var _esDates = generateOneHeartDates();
-          GS.season = _esDates.season;
-          GS.gameMonth = _esDates.month;
-          GS.gameDates = _esDates.dates;
-          GS.currentDate = _esDates.dates[0];
-          var _esSeason = getSeasonByMonth(GS.currentDate.month);
-          if (_esSeason) GS.season = _esSeason.season;
+          // 真实日历初始化（entSim 从 2024-01-01 开始，不用随机季节）
+          var _esDayCount = GS.entSim && GS.entSim.cycle && GS.entSim.cycle.dayCount || 1;
+          var _esMonth = gameMonthOf(_esDayCount);
+          GS.season = gameSeasonOf(_esDayCount);
+          GS.gameMonth = _esMonth;
+          GS.gameDates = []; // entSim 不使用预生成日期表
+          GS.currentDate = { month: _esMonth, day: gameDayOf ? gameDayOf(_esDayCount) : 1 };
           GS.weather = generateDailyWeather('', GS.season);
           GS.weathers = [];
           GS.todayHoliday = null;

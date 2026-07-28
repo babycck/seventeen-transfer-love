@@ -59,6 +59,16 @@ export function generateEntSimRound(type, extra) {
   GS._entSimGenerating = true;
   extra = extra || {};
 
+  // 每次生成前同步季节/月份/天气（旧存档的 GS.season/gameMonth/weather 可能和 dayCount 对不上）
+  var E0 = GS.entSim;
+  if (E0 && E0.cycle && E0.cycle.dayCount) {
+    GS.gameMonth = gameMonthOf(E0.cycle.dayCount);
+    GS.season = gameSeasonOf(E0.cycle.dayCount);
+    if (typeof generateDailyWeather === 'function') {
+      GS.weather = generateDailyWeather(GS.weather || '', GS.season);
+    }
+  }
+
   // ═══ 测试模式：绕过AI生成，使用池子文本 ═══
   if (window.__ENT_SIM_TEST) {
     return Promise.resolve().then(function() {
@@ -355,6 +365,10 @@ export function goEntSimNextDay() {
   // 同步季节/月份：GS.gameMonth/season 必须随 dayCount 更新（否则 AI prompt 读到旧值产出季节矛盾）
   GS.gameMonth = gameMonthOf(E.cycle.dayCount);
   GS.season = gameSeasonOf(E.cycle.dayCount);
+  // 天气跟着季节刷新（否则旧存档天气残留跨季：5月还是"寒冷"）
+  if (typeof generateDailyWeather === 'function') {
+    GS.weather = generateDailyWeather(GS.weather, GS.season);
+  }
   // 秘密信箱：每 7-10 回合自动一封信
   if (E.cycle.roundTotal > 0 && E.cycle.roundTotal % (7 + randInt(0, 3)) === 0) {
     generateEntSimLetter(); // 异步，不阻塞

@@ -53,7 +53,7 @@ export function initEntSimState() {
   };
   E.skills = { vocal: 60, dance: 45, variety: 30, visual: 80 };
   E.works = { slots: {} }; // 在播作品槽位（onAirWorkCount 读取，防止 .slots 未初始化抛 TypeError）
-  E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: Math.floor(Math.random() * 180) + 1, _gameDayCount: 1 }; // dayCount=日历时间戳(季节/节日)，_gameDayCount=独立游戏天数(冷却/阶段推进)
+  E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: 1, _gameDayCount: 1 }; // dayCount=2024-01-01起算(真实日历)，_gameDayCount=独立游戏天数(冷却/阶段推进)
   // 好感度（0-100）：恋爱主线核心驱动，AI 每回合返回 affectionDelta 推进
   E.affection = 0;
   E.npcNetwork = {
@@ -288,7 +288,7 @@ function _yearMonthDay(dayCount) {
   }
   return { year: year, month: 12, day: remaining + 1 };
 }
-function gameDayOf(dayCount) {
+export function gameDayOf(dayCount) {
   return _yearMonthDay(dayCount).day;
 }
 export function gameMonthOf(dayCount) {
