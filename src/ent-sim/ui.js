@@ -117,8 +117,8 @@ function suitorName() {
     if (all[i].id !== mlId && all[i].id !== broId) candidates.push(all[i]);
   }
   if (candidates.length) {
-    // 用 dayCount 做 seed，同一天固定不跳变
-    var idx = (E.cycle._gameDayCount || 1) % candidates.length;
+    // 随机选取情敌（首次生成后持久化，不会跳变）
+    var idx = Math.floor(Math.random() * candidates.length);
     var picked = candidates[idx];
     // 写入 npcNetwork 持久化
     if (E.npcNetwork && E.npcNetwork.nodes) E.npcNetwork.nodes['npc_suitor'] = { name: picked.name, id: picked.id, intimacy: 0, stance: '观望' };
