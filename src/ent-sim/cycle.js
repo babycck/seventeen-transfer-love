@@ -9,7 +9,7 @@ import {
   CHAPTER1_NOVICE, CHAPTER2_SPROUTING, CHAPTER2_RISING, CHAPTER3_PEAK, CHAPTER5_TOPSTAR, CHAPTER4_LEGEND, BOYGROUP_POOL,
   TRAINEE_EARLY_POOL, TRAINEE_MID_POOL, TRAINEE_LATE_POOL
 } from './pools/index.js';
-import { filterByRequire } from './pools/_utils.js';
+import { filterByRequire, pickFromPoolRotate } from './pools/_utils.js';
 
 var TIME_SLOTS = ['上午', '下午', '夜晚'];
 var SLOTS_PER_DAY = 3;
@@ -89,9 +89,10 @@ export function rollDailyAgenda() {
     var brother = (E.brother && E.brother.name) ? pick(BROTHER_POOL) : null;
     var brotherLoc = brother ? (brother.loc || '公司') : '';
   } else {
-    // 练习生阶段：补默认地点，避免探班显示"未知"
-    var related = '基础训练';
-    var relatedLoc = '练习室';
+    // 练习生阶段：related从当前阶段池子抽，不重复
+    var relatedItem = pickFromPoolRotate(validPool, 'trainee_related_' + tp);
+    var related = relatedItem ? relatedItem.key : '基础训练';
+    var relatedLoc = relatedItem ? (relatedItem.loc || '练习室') : '练习室';
     var rival = ''; var rivalLoc = '公司';
     var maleLead = '个人练习'; var maleLeadLoc = '练习室';
     var brother = null; var brotherLoc = '练习室';
