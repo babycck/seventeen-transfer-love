@@ -416,7 +416,7 @@ function renderQuickActions() {
     { q: 'visit', label: '探班' },
     { q: 'nextday', label: '下一天' }
   ];
-  if (isTrainee) row2.push({ q: 'fastforward', label: '⚡快进5天' });
+  if (isTrainee) row2.push({ q: 'fastforward', label: '🎀速通出道' });
   var row2Html = row2.map(function(b) {
     return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>';
   }).join('');
@@ -1007,27 +1007,18 @@ function checkWorkCooldown(type) {
   return false;
 }
 
-// 快进练习生期（测试用）
+// 速通出道：直接跳到出道触发
 function fastForwardTrainee() {
   var E = GS.entSim;
-  var oldDay = E.cycle.dayCount || 1;
-  var advanceDays = 5;
-  E.cycle.dayCount = oldDay + advanceDays;
-  E.cycle.practiceDayCount = (E.cycle.practiceDayCount || 1) + advanceDays;
-  E.cycle._gameDayCount = (E.cycle._gameDayCount || 1) + advanceDays;
-  // 推进练习生阶段
-  if (E.career && E.career.traineePhase && E.career.traineePhase < 2 && E.cycle.practiceDayCount >= 5) {
-    E.career.traineePhase = 2;
-  }
-  // 检查是否到达可以出道的节点
-  if (E.career && !E.career.debutDay && E.cycle.practiceDayCount >= 10) {
-    E.career.debutDay = E.cycle.dayCount;
-    E.career.traineePhase = 3;
-  }
+  // 直接设到后期最后一天，让出道立刻触发
+  E.cycle.practiceDayCount = Math.max(E.cycle.practiceDayCount || 1, 6);
+  E.career.traineePhase = 3;
+  E.career._traineeDayCount = Math.max(E.career._traineeDayCount || 1, 5);
+  E.career._debutTriggerDay = 2;
   E.cycle.timeOfDay = 0;
   saveGame();
-  return goEntSimNextDay().then(function() {
-    showToast('⚡ 快进 ' + advanceDays + ' 天完成（Day ' + E.cycle.dayCount + '）');
+  return goEntSimNextDay(true).then(function() {
+    showToast('🎀 已跳至出道日！');
   });
 }
 
@@ -1069,8 +1060,12 @@ function onQuick(q) {
   if (q === 'cover') { showCoverPanel(); return; }
 
   if (q === 'fastforward') {
-    showNarrativeLoading();
-    fastForwardTrainee().then(rerender);
+    showConfirmModal('确定要速通出道吗？练习生阶段将直接跳到最后一天。', '速通出道')
+      .then(function(ok) {
+        if (!ok) return;
+        showNarrativeLoading();
+        fastForwardTrainee().then(rerender);
+      });
     return;
   }
 
@@ -1839,13 +1834,11 @@ window.__phoneSend = function() {
     }, 500 + Math.random() * 800);
   };
   window.__phoneBubbleSend = function() {
-    var input = document.getElementById('es-phone-bubble-input');
-    if (!input || !input.value.trim()) return;
-    input.value = '';
     sendBubbleMessage().then(function() {
       var E2 = GS.entSim;
       var b2 = E2.bubble || {};
-      document.getElementById('es-phone-bubble-content').innerHTML = renderBubbleChat(
+      var bcEl = document.getElementById('es-phone-bubble-content');
+      if (bcEl) bcEl.innerHTML = renderBubbleChat(
         b2.messages || [], b2.subscribers || 0, b2.streak || 0,
         b2.todayCount || 0, 5, (b2.todayCount || 0) < 5
       );
@@ -2187,9 +2180,9 @@ function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend
     (histHtml || '<div class="bubble-empty">还没有发过泡泡～发第一条消息给粉丝吧 💜</div>') +
     '</div>';
   var sendHtml = '<div class="bubble-send-bar">' +
-    '<button id="es-bubble-send" class="bubble-send-btn"' + (canSend ? '' : ' disabled') + '>' +
-    (canSend ? '💬 发送泡泡消息' : '今日已发满') +
-    '</button>' +
+      '<button id="es-bubble-send" class="bubble-send-btn"' + (canSend ? ' onclick="window.__phoneBubbleSend()"' : ' disabled') + '>' +
+      (canSend ? '💬 发送泡泡消息' : '今日已发满') +
+      '</button>' +
     '</div>';
   return '<div style="display:flex;flex-direction:column;height:100%">' +
     headerHtml +
@@ -2500,11 +2493,19 @@ function showEndingGallery() {
   } catch(e) { showToast('画廊读取失败'); }
 }
 
-// ---------- 好感阶段升级仪式感 ----------
+// ---------- 好感阶段升级/出道仪式感 ----------
 function showStageUpCeremony() {
   var p = GS._entSimStageUpPending;
   if (!p) return;
   GS._entSimStageUpPending = null;
+
+  // 出道仪式：粉色渐变全屏 overlay
+  if (p.type === 'debut') {
+    var meta = p.group || {};
+    showDebutCeremonyOverlay(meta);
+    return;
+  }
+
   var ceremony = STAGE_CEREMONY[p.to] || '你们的相处又近了一步。';
   var overlay = document.createElement('div');
   overlay.className = 'es-stageup-overlay';
@@ -2517,6 +2518,51 @@ function showStageUpCeremony() {
   document.body.appendChild(overlay);
   var go = document.getElementById('es-stageup-go');
   if (go) go.addEventListener('click', function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); });
+}
+
+// 出道仪式 overlay：粉色渐变 + 团名/队友/概念/出道曲 展示
+function showDebutCeremonyOverlay(meta) {
+  var groupName = meta.groupName || 'HORIZON';
+  var company = meta.company || 'Konnect Entertainment';
+  var concept = meta.concept || 'City Pop Retro';
+  var fanName = meta.fanName || 'VOYAGERS';
+  var debutSong = meta.hitSongs && meta.hitSongs.length ? meta.hitSongs[0] : 'First Light';
+  var members = meta.members ? meta.members.split(/\s*,\s*/) : [];
+
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  overlay.style.background = 'linear-gradient(135deg, #1a0a20 0%, #2d1040 40%, #1a0a20 100%)';
+
+  var items = [
+    '🎀  女团出道 · ' + escHtml(groupName),
+    '🏢 所属社 · ' + escHtml(company),
+    '🎵 概念 · ' + escHtml(concept),
+    '👥 队友 · ' + (members.length ? members.map(escHtml).join(' / ') : '5人团'),
+    '📀 出道曲 · ' + escHtml(debutSong),
+    '❤️ 粉丝名 · ' + escHtml(fanName)
+  ];
+
+  var html = '<div class="es-stageup-card" style="border-color:rgba(255,150,200,.5);background:linear-gradient(160deg,rgba(60,20,60,.95),rgba(20,10,30,.95));max-width:420px;text-align:center">';
+  for (var i = 0; i < items.length; i++) {
+    html += '<div style="font-size:14px;color:rgba(255,200,220,' + (0.6 + i * 0.07).toFixed(2) + ');margin:10px 0;opacity:0;animation:es-fadein .4s ' + (i * .35).toFixed(2) + 's forwards;letter-spacing:1px">' + items[i] + '</div>';
+  }
+  html += '<button id="es-stageup-go" class="primary" style="margin-top:18px;animation:es-fadein .4s 2.2s forwards;opacity:0">✨ 进入出道日</button></div>';
+
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+
+  // CSS keyframes注入（一次即可）
+  if (!document.getElementById('es-debut-anim')) {
+    var style = document.createElement('style');
+    style.id = 'es-debut-anim';
+    style.textContent = '@keyframes es-fadein { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }';
+    document.head.appendChild(style);
+  }
+
+  var go = document.getElementById('es-stageup-go');
+  if (go) go.addEventListener('click', function() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  });
 }
 
 // 好感里程碑卡片（20/40/60/80）

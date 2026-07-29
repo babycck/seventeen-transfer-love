@@ -36,11 +36,11 @@ export function checkOneHeartEvents() {
 
   // 1. 男主小动作：每 5-8 回合自然出现一次
   var lastM = E._lastMannerismRound || 0;
-  var interval = E._mannerismInterval || randInt(5, 8);
+  var interval = E._mannerismInterval || randInt(10, 15);
   if (r - lastM >= interval && E.romance.mannerisms && E.romance.mannerisms.length) {
     ev = { text: '男主的小动作：' + E.romance.mannerisms[randInt(0, E.romance.mannerisms.length - 1)], key: 'mannerism' };
     E._lastMannerismRound = r;
-    E._mannerismInterval = randInt(5, 8);
+    E._mannerismInterval = randInt(10, 15);
   }
 
   // 2. 哥哥递进考验（优先级高于随机事件）

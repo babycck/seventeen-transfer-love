@@ -260,8 +260,8 @@ function careerLevelOf(pop) {
 }
 // 练习生阶段：纯天数驱动，dayCount驱动1=前期/2=中期/3=后期
 export function traineePhaseOf(dayCount) {
-  if (dayCount <= 4) return 1;
-  if (dayCount <= 10) return 2;
+  if (dayCount <= 2) return 1;
+  if (dayCount <= 4) return 2;
   return 3;
 }
 // 日期推导：真实日历，dayCount=1 → 2024-01-01，支持闰年

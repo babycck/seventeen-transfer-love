@@ -4,7 +4,8 @@
 // 换天由玩家点「进入下一天」(goEntSimNextDay) 显式触发。
 // ============================================================
 import { GS, saveGame } from '../state.js';
-import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday, gameMonthOf, gameSeasonOf } from './state.js';
+import { checkChapterAdvance, initEntSimState, popularity, careerLevel, addPopularity, traineePhaseOf, formatGameDate, todayBirthday, todayHoliday, gameMonthOf, gameSeasonOf, gameDayOf } from './state.js';
+import { generateDailyWeather } from '../formatters.js';
 import { generateWithRetry } from '../ai-generator.js';
 import { showToast, randInt } from '../utils.js';
 import { parseEntSimResponse, parseEntSimExtras, safeParseJson } from './parser.js';
@@ -67,6 +68,7 @@ export function generateEntSimRound(type, extra) {
     if (typeof generateDailyWeather === 'function') {
       GS.weather = generateDailyWeather(GS.weather || '', GS.season);
     }
+    GS.currentDate = { month: GS.gameMonth, day: gameDayOf(E0.cycle.dayCount) };
   }
 
   // ═══ 测试模式：绕过AI生成，使用池子文本 ═══
@@ -449,7 +451,7 @@ export function goEntSimNextDay() {
     // 出道触发：后期累计2-4天
     if (E.career.traineePhase === 3) {
       E.career._debutTriggerDay = (E.career._debutTriggerDay || 0) + 1;
-      if (E.career._debutTriggerDay >= 2 + randInt(0, 2)) {
+      if (E.career._debutTriggerDay >= 1 + randInt(0, 1)) {
         // 触发"出道最终评价"事件 → 正式出道
         var debutBaseText = '今天是出道最终评价的日子。你站在评价室门口深吸一口气——这一关过后，要么出道，要么离开。';
         // 从里程碑池中随机选一条出道场景融入
@@ -464,9 +466,17 @@ export function goEntSimNextDay() {
         E.career.popularity = 0; // 出道当天人气=0，从零开始积累
         E.career.yearsActive = 0;
         E.chapter = { index: 1, name: '新人出道', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足', roundInChapter: 0, entered: true };
+        E.career.profession = '新人偶像';
+        E.career.careerKey = 'idol';
+        GS._entSimStageUpPending = { type: 'debut', group: E.groupMeta, timestamp: Date.now() };
         showToast('🎀 恭喜出道！你正式成为了' + (E.groupMeta ? E.groupMeta.groupName || '新人女团' : '新人女团') + '的一员！');
       }
     }
+  }
+  // 出道后每日同步粉丝数
+  if (E.career.debutDay > 0 && E.bubble) {
+    var pop = E.career.popularity || 0;
+    E.bubble.subscribers = Math.max(100, Math.floor(pop * 15) + 100 + randInt(0, 50));
   }
   // 章节跨越检查（人气推进，只进不退）
   var chapterCrossed = checkChapterAdvance();

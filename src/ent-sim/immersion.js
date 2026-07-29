@@ -127,7 +127,7 @@ export function generateDailyBuzz() {
   E.buzzReplies = {};
   // 音源榜：仅出道后有（练习生没有发歌，不上榜）
   var chartItem = null;
-  if (isDebut && CHART_POOL && CHART_POOL.length) chartItem = CHART_POOL[randInt(0, CHART_POOL.length - 1)];
+  if (isDebut && CHART_POOL && CHART_POOL.length && (E.career.popularity || 0) >= 30) chartItem = CHART_POOL[randInt(0, CHART_POOL.length - 1)];
   E.dailyBuzz = {
     hotSearch: hotSearch,
     starHot: starHot,
