@@ -23,7 +23,7 @@ import { showMidnightCallModal } from './modals/midnight-call.js';
 import { showDiaryModal, showChatModal, showMomentsModal, showTheaterModal, showEventCardModal } from './modals.js';
 // 娱乐圈模拟器（独立模块，不再复用 oneHeart 引擎）
 import { renderEntSimGameScreen, bindEntSimEvents } from './ent-sim/ui.js';
-import { initEntSimState } from './ent-sim/state.js';
+import { initEntSimState, gameMonthOf, gameSeasonOf, gameDayOf } from './ent-sim/state.js';
 // UI 组件（Phase 5 模块化）
 import { renderHeader } from './ui/header-bar.js';
 import { renderParsedNarrative, renderNarrativeSection, startTypewriter, showEditButton } from './ui/narrative-box.js';
