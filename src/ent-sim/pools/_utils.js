@@ -84,6 +84,38 @@ export function pickFromPoolRotate(pool, key, cat) {
   return candidates[idx];
 }
 
+// 防重复抽取：排除 usedArr 中近 maxAvoid 条已用 key，短期不重复
+// usedArr: 调用方维护的引用数组，函数内部直接 push/shift 修改
+export function pickFromPoolNoRepeat(pool, usedArr, maxAvoid, cat) {
+  usedArr = usedArr || [];
+  maxAvoid = maxAvoid || 10;
+  if (!pool || !pool.length) return null;
+  // 池子太小时自动缩小回避窗口
+  if (pool.length < maxAvoid * 2) maxAvoid = Math.max(1, Math.floor(pool.length / 3));
+  // 候选：过滤掉 usedArr 中的 key
+  var usedSet = {};
+  for (var i = 0; i < usedArr.length; i++) usedSet[usedArr[i]] = true;
+  var candidates = pool.filter(function(p) {
+    var k = typeof p === 'string' ? p : (p.key || '');
+    return !usedSet[k];
+  });
+  // 再按 cat 过滤
+  if (cat && candidates.length > 1) {
+    candidates = candidates.filter(function(p) { return p.cat === cat; });
+  }
+  // fallback：候选不足时清空 usedArr，全池随机
+  if (!candidates.length) {
+    usedArr.length = 0;
+    candidates = cat ? pool.filter(function(p) { return p.cat === cat; }) : pool.slice();
+    if (!candidates.length) candidates = pool.slice();
+  }
+  var pick = candidates[Math.floor(Math.random() * candidates.length)];
+  var pickKey = typeof pick === 'string' ? pick : (pick.key || '');
+  usedArr.push(pickKey);
+  if (usedArr.length > maxAvoid) usedArr.shift();
+  return pick;
+}
+
 // ===== 数据驱动调度 =====
 // 解析require条件字符串，判断条目是否可触发
 // 支持：'debut'/'trainee'/'traineePhase=N'/'aff>=N'/'chapter>=N'/'romance>=N'/'season=winter'/'month=N'
