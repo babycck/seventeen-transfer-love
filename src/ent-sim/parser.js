@@ -41,18 +41,30 @@ function regexEntSimFallback(rawText) {
   return res;
 }
 
+// 给 parseEntSimResponse 返回值补 blocks 字段（validator.js 检查 parsed.blocks.length）
+function _addBlocks(result) {
+  if (!result.blocks || !result.blocks.length) {
+    result.blocks = result.narrative ? [{ type: 'narrative', content: result.narrative }] : [];
+  }
+}
+
 // 解析整段 AI 返回：优先 JSON，否则用叙事/截断正则兜底
+// 返回值始终包含 blocks 字段（与 validator.js 期望的 {narrative,options,blocks,extras} 对齐）
 export function parseEntSimResponse(rawText) {
-  if (!rawText) return { narrative: '', options: [], extras: {} };
+  var result = { narrative: '', options: [], extras: {}, blocks: [] };
+  if (!rawText) return result;
   var json = safeParseJson(rawText);
   if (json && typeof json === 'object') {
     // 标准格式：{narrative, options, entSimExtras}
     if (typeof json.narrative === 'string' || Array.isArray(json.options) || json.entSimExtras) {
-      return {
+      result = {
         narrative: typeof json.narrative === 'string' ? json.narrative : '',
         options: Array.isArray(json.options) ? json.options : [],
-        extras: json.entSimExtras && typeof json.entSimExtras === 'object' ? json.entSimExtras : {}
+        extras: json.entSimExtras && typeof json.entSimExtras === 'object' ? json.entSimExtras : {},
+        blocks: []
       };
+      _addBlocks(result);
+      return result;
     }
     // 兜底：AI 偶尔返回 {blocks:[{type:"narrative",content:"..."}]} 格式
     if (Array.isArray(json.blocks) && json.blocks.length) {
@@ -78,23 +90,29 @@ export function parseEntSimResponse(rawText) {
         if (!options.length) options = ['继续', '换个话题', '自由行动'];
       }
       if (narrative || options.length) {
-        return { narrative: narrative, options: options, extras: extras };
+        result = { narrative: narrative, options: options, extras: extras, blocks: [] };
+        _addBlocks(result);
+        return result;
       }
     }
   }
   // blocks 正则兜底：safeParseJson 解析失败时（如 content 中含未转义引号/换行），直接从原始文本提取
   if (!json && rawText.indexOf('"blocks"') >= 0) {
     var bn = extractBlocksNarrative(rawText);
-    if (bn) return { narrative: bn, options: ['继续', '换个话题', '自由行动'], extras: {} };
+    if (bn) { result = { narrative: bn, options: ['继续', '换个话题', '自由行动'], extras: {}, blocks: [] }; _addBlocks(result); return result; }
   }
   // JSON 截断兜底：从原始文本正则提取关键字段
   var fb = regexEntSimFallback(rawText);
   if (fb.narrative || fb.options.length) {
-    return { narrative: fb.narrative, options: fb.options, extras: fb.extras };
+    result = { narrative: fb.narrative, options: fb.options, extras: fb.extras, blocks: [] };
+    _addBlocks(result);
+    return result;
   }
   // 兜底：作为 markdown 叙事处理
   var parsed = parseNarrative(rawText);
-  return { narrative: parsed.narrative || '', options: parsed.options || [], extras: {} };
+  result = { narrative: parsed.narrative || '', options: parsed.options || [], extras: {}, blocks: [] };
+  _addBlocks(result);
+  return result;
 }
 
 // 当 safeParseJson 失败时，从原始文本正则提取 blocks 中的 narrative content
