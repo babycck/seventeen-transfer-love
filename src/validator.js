@@ -173,7 +173,7 @@ export function validateEntSimNarrative(parsed) {
       { pattern: /雾(?!化|霾)/, gate: !_weatherIsFog, msg: '当前天气非雾天禁止雾氛描写' },
       { pattern: /拥抱|牵手|靠(在|着)(肩|怀)|擦(泪|眼角)/, gate: true, msg: '当前阶段禁止肢体亲密接触' },
       { pattern: /审查.*感情|牵线|撮合|推.*Kakao|月老/, gate: _broSup < 20, msg: '哥哥支持度不足禁止牵线/审查行为' },
-      { pattern: /(只|唯独|偏偏).*(对|给|朝).*(你|她)/, gate: _stage === 0, msg: '初遇观察模式禁止男主做任何指向女主的特别行为' }
+      { pattern: /(只对(你|她)|唯独(对你|给她)|偏偏(找你|看她))/, gate: _stage === 0, msg: '初遇观察模式禁止男主做任何指向女主的特别行为' }
     ];
     // 季节/月份矛盾校验
     var _gm = GS.gameMonth;
