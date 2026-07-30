@@ -20,12 +20,10 @@ export { SVT_TEAMMATE_EVENT_POOL } from './svt-teammate.js';
 export { TEAMMATE_FLAVOR } from './teammate-flavor.js';
 export { MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO } from './members.js';
 
-// ── 三、练习生三阶段 (5个) ──
+// ── 三、练习生三阶段 (3个) ──
 export { TRAINEE_EARLY_POOL } from './trainee-early.js';
 export { TRAINEE_MID_POOL } from './trainee-mid.js';
 export { TRAINEE_LATE_POOL } from './trainee-late.js';
-export { TRAINEE_EVENTS } from './trainee-events.js';
-export { TRAINEE_CHAT } from './trainee-chat.js';
 
 // ── 四、章节日程 (10个) ──
 export { COMMON_POOL, RELATED_POOL, TRAINEE_POOL, CHAPTER1_NOVICE, CHAPTER2_SPROUTING, CHAPTER2_RISING, CHAPTER3_PEAK, CHAPTER5_TOPSTAR, CHAPTER4_LEGEND, BOYGROUP_POOL } from './ent-schedules.js';
@@ -132,8 +130,6 @@ export { DRAMA_COLDWAR } from './drama-coldwar.js';
 export { DRAMA_DATING_RUMOR } from './drama-dating-rumor.js';
 export { DRAMA_DILEMMA } from './drama-dilemma.js';
 
-export { ENT_SCHEDULE_POOL } from './ent-schedule.js';
-
 // ── 二十一、新增池子 (13个) 2026-07-26 ──
 export { CHEER_CULTURE_POOL } from './cheer-culture.js';
 export { SASAENG_ESCALATION_POOL } from './sasaeng-escalation.js';
@@ -148,4 +144,23 @@ export { YEAR_END_REVIEW_POOL } from './year-end-review.js';
 export { MV_FILMING_POOL } from './mv-filming.js';
 export { PRESS_INTERVIEW_POOL } from './press-interview.js';
 export { HIDDEN_ROUTE_POOL } from './hidden-route.js';
+
+// ── 二十二、v5新增池子 (17个) ──
+export { MAINLINE_ROMANCE, MAINLINE_RIVAL } from './mainline-beats.js';
+export { INSECURITY_POOL } from './insecurity-pool.js';
+export { FAME_PRESSURE_POOL } from './fame-pressure-pool.js';
+export { FAN_REACTIONS_POOL } from './fan-reactions-pool.js';
+export { FAMILY_ENCOUNTER_POOL } from './family-encounter-pool.js';
+export { JUNIOR_INDUSTRY_POOL } from './junior-industry-pool.js';
+export { SEASON_ROMANCE_POOL } from './season-romance-pool.js';
+export { CAREER_MILESTONE_SCENES } from './career-milestone-scenes.js';
+export { RIVAL_PSYCHOLOGY_POOL } from './rival-psychology.js';
+export { MALE_LEAD_PERSPECTIVE_POOL } from './male-lead-perspective.js';
+export { TIME_SKIP_TRANSITION } from './time-skip-transition.js';
+export { ENDING_PRELUDE_POOL, pickEndingPrelude } from './ending-prelude.js';
+export { MAINLINE_ANCHORS, MAINLINE_BAN_LISTS, getMainlineAnchor, getMainlineBanList } from './mainline-anchor-text.js';
+export { TRAINEE_ROMANCE_POOL } from './trainee-romance-pool.js';
+export { DEBUT_TRANSITION_POOL } from './debut-transition.js';
+export { SISTER_DAILY_POOL } from './sister-daily-pool.js';
+export { FAN_NPC_POOL } from './fan-npc-pool.js';
 
