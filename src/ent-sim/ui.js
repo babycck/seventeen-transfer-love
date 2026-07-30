@@ -1753,7 +1753,13 @@ function showBusinessPanel() {
   var replyContent = '';
   var isPaired = (ch === 'brother' || ch === 'rival');
   var isMaleLead = (ch === 'maleLead');
-  if (isMaleLead) {
+  // 优先用 pendingChat 的 responses（绑定式 Q&A：选 replies[idx] → 对方回 responses[idx]）
+  var pcQR = GS._entSimPendingChat && GS._entSimPendingChat[ch];
+  if (pcQR && pcQR.responses && pcQR.responses.length && typeof idx === 'number') {
+    replyContent = pcQR.responses[idx] || pcQR.responses[0];
+    // 清除 pending（本轮绑定式 Q&A 结束）
+    delete GS._entSimPendingChat[ch];
+  } else if (isMaleLead) {
     // 男主频道：q/r 格式，findChatPoolReply 查找匹配条目取 r
     var found = findChatPoolReply(q);
     if (found && found.r && found.r.length) {
@@ -1761,7 +1767,13 @@ function showBusinessPanel() {
     } else if (found && found.msg) {
       replyContent = found.msg;
     }
-    if (!replyContent) replyContent = '嗯。';
+    if (!replyContent) {
+      // 池子未命中：从男主 acks 池取
+      var mlAckPool = getChatAckByChannel('maleLead');
+      replyContent = mlAckPool[Math.floor(Math.random() * mlAckPool.length)];
+    }
+    // 清除 pending（本轮对话结束）
+    if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
   } else if (isPaired) {
     // 哥哥/情敌频道：按成员 ID 取对应 ACK 池
     var ackPool = getChatAckByChannel(ch);
@@ -1769,7 +1781,7 @@ function showBusinessPanel() {
     // 清除 pending（本轮对话结束，不再显示预设）
     if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
   } else {
-    // 男主频道未命中池子 → 按成员 ID 取 ACK 池
+    // 未命中 → 按成员 ID 取 ACK 池
     var ackPoolML = getChatAckByChannel('maleLead');
     replyContent = ackPoolML[Math.floor(Math.random() * ackPoolML.length)];
   }
@@ -1879,13 +1891,19 @@ function renderPhoneChatMsgs(ch) {
     }
   }
 
-  // 渲染预设回复按钮：男主频道用上下文匹配（与findChatPoolReply同源），哥哥/情敌用阶段池
+  // 渲染预设回复按钮：优先用 pendingChat 的 replies（绑定式Q&A）
   var presets = [];
   var lastMsg = hist.length ? hist[hist.length-1] : null;
   if (!lastMsg || lastMsg.role !== 'user') {
-    if (ch === 'maleLead') {
+    var pc = GS._entSimPendingChat && GS._entSimPendingChat[ch];
+    if (pc && pc.replies && pc.replies.length) {
+      // 绑定式 Q&A：对方发 msg → 用 replies 作预设按钮
+      presets = pc.replies.map(function(r, i) { return { q: r, t: r, idx: i }; });
+    } else if (ch === 'maleLead') {
+      // 男主频道无 pending：用 getMaleLeadPresetsForChat（旧格式 Q&A 池）
       presets = getMaleLeadPresetsForChat();
     } else {
+      // 哥哥/情敌无 pending：回退阶段池预设
       var stagePresets = getChatPresetsByChannel(ch);
       var shuffled = stagePresets.slice().sort(function() { return Math.random() - 0.5; });
       presets = shuffled.slice(0, 3).map(function(t) { return { q: t, t: t }; });
@@ -1942,8 +1960,40 @@ function stableRand(seed, min, max) {
 function renderFeedbackContent(E) {
   var buzz = E.dailyBuzz || {};
   var name = (GS.heroineProfile && GS.heroineProfile.name) || '你';
+  var isDebut = E.career && E.career.debutDay > 0;
   var html = '';
   var hasContent = false;
+
+  // ── 练习生期门控：只显示外部热搜（starHot），不显示营业事件/粉丝反应 ──
+  if (!isDebut) {
+    // 清理练习生期脏数据
+    if (typeof GS !== 'undefined' && GS._entSimFanEvents && GS._entSimFanEvents.length) {
+      GS._entSimFanEvents = [];
+    }
+    if (typeof GS !== 'undefined' && GS._entSimFanReactions && GS._entSimFanReactions.length) {
+      GS._entSimFanReactions = [];
+    }
+    // 只展示外部热搜（starHot）
+    var hotItems = buzz.starHot || buzz.hotSearch || [];
+    if (!hotItems.length) {
+      return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">🌐</div><div>暂无热搜</div><div style="font-size:11px;color:#444">出道后将解锁星圈</div></div>';
+    }
+    for (var hi = 0; hi < hotItems.length; hi++) {
+      var hi2 = hotItems[hi];
+      var hTitle2 = (typeof hi2 === 'object' && hi2.t) ? hi2.t : (typeof hi2 === 'string' ? hi2 : '');
+      var hBody2 = (typeof hi2 === 'object' && hi2.c) ? hi2.c : '';
+      if (!hTitle2) continue;
+      html += '<div class="es-weibo-card">';
+      html += '<div class="es-weibo-header">' +
+        '<div class="es-weibo-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706)">🌐</div>' +
+        '<div class="es-weibo-user"><div class="es-weibo-name">星圈热帖</div>' +
+        '<div class="es-weibo-sub">实时热搜</div></div></div>';
+      html += '<div class="es-weibo-title">🔥 ' + escHtml(hTitle2) + '</div>';
+      if (hBody2) html += '<div class="es-weibo-body">' + escHtml(hBody2) + '</div>';
+      html += '</div>';
+    }
+    return html;
+  }
 
   // ── 1. 合并帖子流（AI粉丝反应 + popup注入事件）──
   var combined = [];
@@ -2945,7 +2995,7 @@ function tryPushOneChat(ch, pool, condition) {
   }
 }
 
-// 男主每日主动推送：过滤章节，每1-3天推1条（不等于哥哥的每天一推）
+// 男主每日主动推送：过滤章节，每1-3天推1条，存 replies/responses 到 pendingChat
 function tryPushMLDailyStarter(isDebut, today) {
   if (!CHAT_ML_DAILY_STARTERS || !CHAT_ML_DAILY_STARTERS.length) return;
   // 练习生期每天推，出道后每1-3天推（比哥哥少）
@@ -2956,11 +3006,26 @@ function tryPushMLDailyStarter(isDebut, today) {
   if (!GS._entSimChatHistory.maleLead) GS._entSimChatHistory.maleLead = [];
   if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
   if (typeof GS._entSimChatSentIdx.maleLead !== 'number') GS._entSimChatSentIdx.maleLead = 0;
+  if (!GS._entSimPendingChat) GS._entSimPendingChat = {};
+  // 已有未回复的 pending，不推新消息
+  if (GS._entSimPendingChat.maleLead) return;
   var idx = GS._entSimChatSentIdx.maleLead % pool.length;
   var m = pool[idx];
   if (m && m.msg) {
     GS._entSimChatHistory.maleLead.push({ role: 'ai', content: resolveChatTemplates(m.msg) });
     GS._entSimChatSentIdx.maleLead = idx + 1;
+    // 存储 pending：replies(预设回复按钮) + responses(对应回复)
+    var _replies = null;
+    var _responses = null;
+    if (m.replies && m.replies.length) {
+      _replies = m.replies;
+      _responses = m.responses || null;
+    }
+    GS._entSimPendingChat.maleLead = {
+      replies: _replies,
+      responses: _responses,
+      entryIdx: idx
+    };
   }
 }
 
@@ -2983,8 +3048,22 @@ function pushPairedChat(ch, pool, condition) {
   var entry = oppEntries[idx];
   GS._entSimChatHistory[ch].push({ role: 'ai', content: resolveChatTemplates(entry.msg) });
   GS._entSimChatSentIdx[ch] = idx + 1;
-  // 记录 pending：条目引用 + 供预设渲染的 reply 文本
-  GS._entSimPendingChat[ch] = { reply: entry.reply || entry.msg || '', entryIdx: idx };
+  // 存储 pending：replies(预设回复按钮) + responses(对应回复)
+  // 新格式 {replies:[...], responses:[...]}；旧格式 {reply} 兼容为单条
+  var _replies = null;
+  var _responses = null;
+  if (entry.replies && entry.replies.length) {
+    _replies = entry.replies;
+    _responses = entry.responses || null;
+  } else if (entry.reply) {
+    _replies = [entry.reply];
+    _responses = null;
+  }
+  GS._entSimPendingChat[ch] = {
+    replies: _replies,
+    responses: _responses,
+    entryIdx: idx
+  };
 }
 
 function checkAndShowPendingPopups() {
@@ -3236,6 +3315,7 @@ function scheduleEvent(type, passedItem) {
       if (!GS._entSimPendingOffers) GS._entSimPendingOffers = {};
       GS._entSimPendingOffers[type] = { type: type, item: item, t: t, l: l, day: E.cycle._gameDayCount || 1 };
       showToast('已暂存，可随时再点');
+      rerender(); // v4: dismiss分支补render刷新按钮状态
       return;
     }
     if (r !== 'confirm') return;
@@ -3278,18 +3358,29 @@ function showGenericEventPopup(title, data) {
 function injectFanReactions(item) {
   if (!item || !item.fanReactions || !item.fanReactions.length) return;
   var reactions = item.fanReactions.slice(0, 3);
-  var tag = '';
-  if (item.t) tag = item.t.slice(0, 30);
-  else if (item.text) tag = item.text.slice(0, 30);
-  else if (item.reason) tag = item.reason.slice(0, 30);
-  else if (item.cat) tag = item.cat;
+  // v4: 智能截断——在30字内找最近的标点/空格断开，避免硬截半句
+  var rawTag = item.t || item.text || item.reason || item.cat || '今日热议';
+  var tag = smartTruncate(rawTag, 30);
   if (!GS._entSimFanEvents) GS._entSimFanEvents = [];
   GS._entSimFanEvents.push({ title: tag || '今日热议', texts: reactions, day: (GS.entSim.cycle._gameDayCount || 1) });
+  // 只保留最近10条，且按day倒序排列
   if (GS._entSimFanEvents.length > 10) GS._entSimFanEvents.splice(0, GS._entSimFanEvents.length - 10);
-  // 兼容旧版 _entSimFanReactions
-  if (!GS._entSimFanReactions) GS._entSimFanReactions = [];
-  for (var i = 0; i < reactions.length; i++) GS._entSimFanReactions.push(reactions[i]);
-  if (GS._entSimFanReactions.length > 15) GS._entSimFanReactions.splice(0, GS._entSimFanReactions.length - 15);
+  GS._entSimFanEvents.sort(function(a, b) { return (b.day || 0) - (a.day || 0); });
+}
+
+// v4: 智能截断函数，在极限字数内找最近标点断开
+function smartTruncate(str, maxLen) {
+  if (!str || str.length <= maxLen) return str;
+  var truncated = str.slice(0, maxLen + 5); // 多取5字符找断开点
+  // 从末尾向前找最近的标点/空格
+  for (var i = maxLen; i >= maxLen - 10; i--) {
+    if (i <= 0) break;
+    var ch = truncated[i];
+    if (ch === '，' || ch === '。' || ch === '、' || ch === ' ' || ch === '！' || ch === '？' || ch === '；' || ch === ',') {
+      return truncated.slice(0, i) + '…';
+    }
+  }
+  return str.slice(0, maxLen) + '…';
 }
 
 function createOverlay() {
