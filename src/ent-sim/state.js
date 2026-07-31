@@ -473,7 +473,7 @@ export function buildHardFactsBlock(E, extra) {
   var timeLabel = extra.timeLabel || '上午';
 
   // A1
-  var dateFmt = isDebut ? formatGameDate(dayCount) : formatTraineeDate(dayCount);
+  var dateFmt = isDebut ? formatGameDate(dayCount) : formatTraineeDate((E.cycle && E.cycle._gameDayCount) || 1);
   var a1 = dateFmt + ' · ' + seasonCN + '季 · ' + weather + ' · 体感' + tempFeel + ' · ' + timeLabel;
 
   // A2

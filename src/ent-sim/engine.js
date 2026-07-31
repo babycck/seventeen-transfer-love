@@ -170,7 +170,7 @@ export function generateEntSimRound(type, extra) {
       else if (type === 'free' && extra.freeText) branchLabel = '你输入：' + extra.freeText;
       else if (type === 'event' && extra.eventText) branchLabel = '触发：' + extra.eventText;
       else if (type === 'hypothetical' && extra.hypotheticalText) branchLabel = '自由推演：' + extra.hypotheticalText;
-      else if (type === 'phase' && extra.nextDayOpening) branchLabel = 'Day ' + (GS.entSim.cycle.dayCount || 1) + ' ' + getTimeOfDayLabel();
+      else if (type === 'phase' && extra.nextDayOpening) branchLabel = 'Day ' + (GS.entSim.cycle._gameDayCount || 1) + ' ' + getTimeOfDayLabel();
       else if (type === 'phase') branchLabel = '▸';
       // 累积剧情：所有类型都拼接到上一段之后（首段无 prev、上一段为错误提示时不拼接）
       if (prev && prev.narrative && narrative && !prev.failed) {
@@ -195,6 +195,7 @@ export function generateEntSimRound(type, extra) {
       if (!extra.noSideEffects) {
         GS._entSimNarrativeBuffer = (GS._entSimNarrativeBuffer || '') + '\n' + parsed.narrative;
       }
+      current._roundNarrative = parsed.narrative || '';
       saveGame();
       return current;
     })
@@ -219,12 +220,13 @@ export function generateEntSimRound(type, extra) {
       // 自动写日记：每 3 回合 AI 生成完整日记（对齐 1v1）
       if (current && current.narrative && !extra.noSideEffects) {
         var E = GS.entSim;
-        // 简洁摘要同时保留（记忆回顾用）
-        var sum = (current.narrative || '').replace(/\n/g, ' ').substring(0, 50).trim();
+        // 简洁摘要同时保留（记忆回顾用）——用本回合新生成段落，非累积全文
+        var _newNarr = current._roundNarrative || current.narrative || '';
+        var sum = _newNarr.replace(/\n/g, ' ').substring(0, 50).trim();
         var choiceText = extra.choiceText || extra.freeText || '';
         if (sum) {
           E.diarySummary = E.diarySummary || [];
-          E.diarySummary.push({ day: E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0, summary: sum, choice: choiceText });
+          E.diarySummary.push({ day: E.cycle._gameDayCount || 1, round: E.cycle.roundTotal || 0, summary: sum, choice: choiceText });
           if (E.diarySummary.length > 60) E.diarySummary = E.diarySummary.slice(-60);
         }
         // AI 日记：每 3 回合触发一次（女主 + 男主双视角）
@@ -448,7 +450,7 @@ export function goEntSimNextDay() {
   // 独立游戏天数+1（不受章节跳跃影响，用于冷却/阶段推进）
   E.cycle._gameDayCount = (E.cycle._gameDayCount || 1) + 1;
   // 换天过渡：淡出 →「新的一天 DayX」→淡入
-  showDayTransition(E.cycle.dayCount + 1);
+  showDayTransition(E.cycle._gameDayCount);
   E.cycle.dayCount++;
   E.cycle.roundTotal++; // 换天才推进回合数，避免每次操作污染冷却/冷战倒计时
   // 同步季节/月份：GS.gameMonth/season 必须随 dayCount 更新（否则 AI prompt 读到旧值产出季节矛盾）
@@ -706,7 +708,7 @@ export function goEntSimNextDay() {
   if (isDebutPopup && E.cycle._gameDayCount - (E._lastAwardDay || 0) >= 4 && E.cycle._gameDayCount >= 8 && Math.random() < 0.5) {
     E._lastAwardDay = E.cycle._gameDayCount;
     var awardTypes = ['newcomer', 'popularity', 'stage'];
-    var at = E.cycle.dayCount <= 20 ? 'newcomer' : awardTypes[Math.floor(Math.random() * 3)];
+    var at = E.cycle._gameDayCount <= 20 ? 'newcomer' : awardTypes[Math.floor(Math.random() * 3)];
     var awardPool = AWARD_POOL ? AWARD_POOL.filter(function(a) { return a.type === at; }) : [];
     if (awardPool.length) {
       var aw = awardPool[Math.floor(Math.random() * awardPool.length)];
@@ -907,7 +909,7 @@ export function goEntSimNextDay() {
   if (E.cycle._gameDayCount - (E._lastDiaryDay || 0) >= 3 && Math.random() < 0.6) {
     E._lastDiaryDay = E.cycle._gameDayCount;
     if (!E._diaryEntries) E._diaryEntries = [];
-    E._diaryEntries.push({ day: E.cycle.dayCount, timestamp: Date.now() });
+    E._diaryEntries.push({ day: E.cycle._gameDayCount || E.cycle.dayCount, timestamp: Date.now() });
   }
   // v6：日程事件统一结算（代言/综艺/画报/CD）
   var E = GS.entSim;
@@ -1318,7 +1320,7 @@ export function generateEntSimDiary() {
     if (!narrative || narrative.length < 20) return;
     var E = GS.entSim;
     E.diary = E.diary || [];
-    E.diary.push({ day: E.cycle.dayCount || 1, content: narrative, ts: Date.now() });
+    E.diary.push({ day: E.cycle._gameDayCount || 1, content: narrative, ts: Date.now() });
     if (E.diary.length > 30) E.diary = E.diary.slice(-30);
     saveGame();
   });
@@ -1330,7 +1332,7 @@ export function generateEntSimDiaryHis() {
     if (!narrative || narrative.length < 20) return;
     var E = GS.entSim;
     E.diaryHis = E.diaryHis || [];
-    E.diaryHis.push({ day: E.cycle.dayCount || 1, content: narrative, ts: Date.now() });
+    E.diaryHis.push({ day: E.cycle._gameDayCount || 1, content: narrative, ts: Date.now() });
     if (E.diaryHis.length > 30) E.diaryHis = E.diaryHis.slice(-30);
     saveGame();
   });
@@ -1345,7 +1347,7 @@ export function generateEntSimLetter() {
     if (item && item.text && item.text.length > 20) {
       var E = GS.entSim;
       E.letters = E.letters || [];
-      E.letters.push({ round: E.cycle.roundTotal || 1, content: '【男主心声】\n' + item.text, ts: Date.now(), read: false });
+      E.letters.push({ day: E.cycle._gameDayCount || 1, round: E.cycle.roundTotal || 1, content: '【男主心声】\n' + item.text, ts: Date.now(), read: false });
       if (E.letters.length > 30) E.letters = E.letters.slice(-30);
       saveGame();
       return;
@@ -1356,7 +1358,7 @@ export function generateEntSimLetter() {
     if (!narrative || narrative.length < 20) return;
     var E = GS.entSim;
     E.letters = E.letters || [];
-    E.letters.push({ round: E.cycle.roundTotal || 1, content: narrative, ts: Date.now(), read: false });
+    E.letters.push({ day: E.cycle._gameDayCount || 1, round: E.cycle.roundTotal || 1, content: narrative, ts: Date.now(), read: false });
     if (E.letters.length > 30) E.letters = E.letters.slice(-30);
     saveGame();
   });
@@ -1772,7 +1774,7 @@ function showDailySettlement(E, lastPop, lastExp, lastAff) {
     overlay.className = 'es-stageup-overlay';
     overlay.innerHTML = '<div class="es-stageup-card">' +
       '<div class="es-stageup-icon">📋</div>' +
-      '<div class="es-stageup-label">Day ' + (E.cycle.dayCount - 1) + ' 结算</div>' +
+      '<div class="es-stageup-label">Day ' + (E.cycle._gameDayCount - 1) + ' 结算</div>' +
       '<div class="es-stageup-desc">' + popStr + '<br>' + expStr + '<br>' + affStr + '<br><span style="font-size:12px;color:rgba(255,255,255,.5)">🛡 公关次数 <b style="color:var(--es-yellow)">' + pr + '</b>/5</span></div>' +
       '<button class="primary">继续</button>' +
       '</div>';

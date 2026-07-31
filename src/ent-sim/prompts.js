@@ -213,7 +213,7 @@ export function buildEntSimUserMessage(type, extra) {
 
   if (type === 'phase') {
     if (extra.nextDayOpening) {
-      msg = '【新的一天开始】这是第 ' + (E.cycle.dayCount || 1) + ' 天。请先描写新一天上午的环境与氛围（天气／练习室／通告安排），让女主从昨夜收束到今晨，再自然推进剧情。';
+      msg = '【新的一天开始】这是第 ' + (E.cycle._gameDayCount || E.cycle.dayCount || 1) + ' 天。请先描写新一天上午的环境与氛围（天气／练习室／通告安排），让女主从昨夜收束到今晨，再自然推进剧情。';
     } else if (extra.timeSlotLabel) {
       msg = '【时段推进·视觉标记】现在是' + extra.timeSlotLabel + '，请在剧情开头以「🌤️ ' + extra.timeSlotLabel + '·继续」作为独立一行分隔符，然后再推进到新时段场景。例：\n🌤️ 下午·继续\n推动到新的场景中…';
     } else {
@@ -624,7 +624,7 @@ function addPoolCandidates(arr, pool, E, count, catLabel) {
   for (var i = 0; i < pool.length; i++) {
     if (canTrigger(pool[i], E)) filtered.push(pool[i]);
   }
-  if (!filtered.length) filtered = pool; // canTrigger兜底：全池都可用
+  if (!filtered.length) return; // 无匹配条目：跳过该池（不再兜底全放行，避免生日/节日幻觉）
   // 第二步：commit-only去重，跳过已注入过的条目
   var unused = [];
   for (var j = 0; j < filtered.length; j++) {
@@ -644,7 +644,7 @@ function addPoolCandidates(arr, pool, E, count, catLabel) {
 function buildEntSimContextSnapshot() {
   var E = GS.entSim;
   var s = '';
-  s += '当前时段：' + getTimeOfDayLabel() + '（第' + (E.cycle.dayCount || 1) + '天，第' + (E.cycle.roundTotal || 0) + '回合）\n';
+  s += '当前时段：' + getTimeOfDayLabel() + '（第' + (E.cycle._gameDayCount || E.cycle.dayCount || 1) + '天，第' + (E.cycle.roundTotal || 0) + '回合）\n';
   s += '恋爱阶段：' + getRomanceStageIcon() + getRomanceStageLabel() + '（好感度 ' + E.affection + '/100）\n';
   s += '男主情绪：' + E.romance.emotion + '｜已告白：' + (E.romance.confessionDone ? '是(' + E.romance.confessionResult + ')' : '否') + '\n';
   s += '恋情曝光风险：' + getScandalHeat() + '/25+（越高越危险，驱Dispatch/绯闻/塌房）\n';

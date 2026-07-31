@@ -729,7 +729,7 @@ function renderDiaryInner() {
     // 首次打开日记：从模板池生成一条初始日记
     var tpl = DIARY_TEMPLATES[Math.floor(Math.random() * DIARY_TEMPLATES.length)];
     E._diaryEntries = [{
-      day: E.cycle && E.cycle.dayCount || 1,
+      day: (E.cycle && E.cycle._gameDayCount) || (E.cycle && E.cycle.dayCount) || 1,
       text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。',
       timestamp: Date.now()
     }];
@@ -796,7 +796,7 @@ function renderDiaryInnerFS() {
   var entries = E2._diaryEntries || [];
   if (!entries.length && DIARY_TEMPLATES && DIARY_TEMPLATES.length) {
     var tpl = DIARY_TEMPLATES[Math.floor(Math.random() * DIARY_TEMPLATES.length)];
-    E2._diaryEntries = [{ day: E2.cycle ? E2.cycle.dayCount : 1, text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。', timestamp: Date.now() }];
+    E2._diaryEntries = [{ day: E2.cycle ? (E2.cycle._gameDayCount || E2.cycle.dayCount) : 1, text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。', timestamp: Date.now() }];
     entries = E2._diaryEntries;
   }
   if (!entries.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📔 日记为空<br><small style="color:#555">每日事件会自动生成日记</small></div>';
@@ -1327,7 +1327,7 @@ function drawPopChart(E) {
       }
     }
     // 补最近7天
-    var curDay = E.cycle.dayCount || 1;
+    var curDay = E.cycle._gameDayCount || 1;
     for (var d = Math.max(1, curDay - 6); d <= curDay; d++) {
       data.push({ day: d, pop: (dayPop[d] != null) ? dayPop[d] : null });
     }
@@ -2872,9 +2872,13 @@ window.initChatChannel = function(ch) {
     if (ch === 'brother' || ch === 'rival') {
       if (!GS._entSimPendingChat) GS._entSimPendingChat = {};
       if (!GS._entSimPendingChat[ch]) {
-        GS._entSimPendingChat[ch] = initEntries.filter(function(m) { return m.from !== 'you'; }).map(function(m) {
-          return m.reply || (Array.isArray(m.replies) && m.replies.length ? m.replies[0] : (resolveChatTemplates(m.msg || '...')));
-        });
+        var npcEntry = initEntries.find(function(m) { return m.from !== 'you'; });
+        if (npcEntry) {
+          var _r = null, _rs = null;
+          if (npcEntry.replies && npcEntry.replies.length) { _r = npcEntry.replies; _rs = npcEntry.responses || null; }
+          else if (npcEntry.reply) { _r = [npcEntry.reply]; }
+          GS._entSimPendingChat[ch] = { replies: _r, responses: _rs, entryIdx: 0 };
+        }
       }
     }
   }
@@ -3342,7 +3346,7 @@ function scheduleEvent(type, passedItem) {
     var targetDay = E.cycle.dayCount + 1;
     E._scheduledEvents.push({ id: type + '_' + targetDay + '_' + randInt(1000, 9999), type: type, data: item, targetDay: targetDay, text: t, loc: l, done: false });
     if (!E.careerHistory) E.careerHistory = [];
-    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: type, text: '接受' + label + '：' + (item.show || item.brand || item.mag || item.t || '') });
+    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: type, text: '接受' + label + '：' + (item.show || item.brand || item.mag || item.t || '') });
     showToast(icon + ' ' + label + '已排入明天日程！');
     saveGame();
     rerender();

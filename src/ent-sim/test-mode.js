@@ -97,7 +97,7 @@ export function buildTestNarrative(type, extra) {
   var E = GS.entSim;
   if (!E) return 'Loading...';
   var aff = E.affection || 0, pop = E.career.popularity || 0;
-  var ch = E.chapter.index || 1, day = E.cycle.dayCount || 1;
+  var ch = E.chapter.index || 1, day = E.cycle._gameDayCount || E.cycle.dayCount || 1;
   var phase = E.cycle.timeOfDay || 0;
   var phaseLabels = ['上午', '下午', '夜晚'];
   var chNames = ['', '新人出道', '崭露头角', '稳步上升', '人气偶像', '顶流巨星', '传奇殿堂'];

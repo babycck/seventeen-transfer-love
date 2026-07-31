@@ -70,7 +70,7 @@ export function applyEntSimAffection(delta) {
   // v4 温和提升1.5倍：0→60约需12-15天
   var dailyCaps = [5, 7, 9, 11, 13];
   var dailyCap = dailyCaps[Math.min(4, unlock.stage)];
-  var today = E.cycle.dayCount || 1;
+  var today = E.cycle._gameDayCount || 1;
   if (!E._affDayTotal || E._affDayTotal.day !== today) {
     E._affDayTotal = { day: today, total: 0 };
   }
@@ -324,7 +324,7 @@ export function checkIntimacyUnlock(affection) {
 export function tickJealousy(rivalInteractionToday) {
   var E = GS.entSim;
   if (!E) return 0;
-  var today = E.cycle.dayCount || 1;
+  var today = E.cycle._gameDayCount || 1;
   if (E._jealousLastUpdateDay !== today) {
     // 每日衰减
     E._jealousLevel = Math.max(0, (E._jealousLevel || 0) - 1);
@@ -349,7 +349,7 @@ export function getJealousLabel(level) {
 export function checkAnniversaries() {
   var E = GS.entSim;
   if (!E || !E._romanceMilestones) return null;
-  var today = E.cycle.dayCount || 1;
+  var today = E.cycle._gameDayCount || 1;
   var m = E._romanceMilestones;
   var labels = { firstDateDay: '第一次约会', firstConfessDay: '告白纪念日', firstKissDay: '初吻纪念日', firstHandDay: '第一次牵手', firstHugDay: '第一次拥抱' };
   var icons = { firstDateDay: '💞', firstConfessDay: '💍', firstKissDay: '💋', firstHandDay: '🤝', firstHugDay: '🤗' };
