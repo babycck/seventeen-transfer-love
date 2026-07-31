@@ -1325,7 +1325,7 @@ export function buildOneHeartSystemPrompt() {
     (GS.gameMode === 'entSim' ? (function() {
       var _prof = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
       var _lvNow = (GS.entSimPopularity || 0) >= 80 ? '顶流' : ((GS.entSimPopularity || 0) >= 50 ? '当红' : ((GS.entSimPopularity || 0) >= 20 ? '上升' : '新人'));
-      var _chapName = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
+      var _chapName = GS.entSimChapter === 0 ? '练习生期' : (GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期'));
       return '[娱乐圈模拟器·职业模式]\n' +
         '本游戏是「娱乐圈模拟器」：女主是一名在韩娱打拼的' + _prof + '，既要经营事业（人气/资源/口碑），也要经营与男主（哥哥的队友）的感情。事业线与感情线并重，不要只写恋爱忽略事业，也不要只写事业忽略感情。\n' +
         '当前章节：「' + _chapName + '」（第 ' + (GS.entSimChapter || 1) + ' 章）。章节随剧情回合数推进，代表女主事业所处的阶段——新人期（小糊团刚起步/攒人气）→上升期（曝光与资源爆发）→巅峰期（顶流与抉择）。\n' +
@@ -1641,7 +1641,7 @@ export function buildOneHeartUserMessage(type, extra) {
     if (GS.gameMode === 'entSim') {
       var _ep = GS.entSimPopularity || 0;
       var _elv = _ep >= 80 ? '顶流' : (_ep >= 50 ? '当红' : (_ep >= 20 ? '上升' : '新人'));
-      var _ecn = GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期');
+      var _ecn = GS.entSimChapter === 0 ? '练习生期' : (GS.entSimChapter === 1 ? '新人期' : (GS.entSimChapter === 2 ? '上升期' : '巅峰期'));
       msg += '📊 [事业状态] 职业：' + ((GS.heroineProfile && GS.heroineProfile.profession) || '练习生') + '　|　人气 ' + _ep + '/100（' + _elv + '）　|　章节「' + _ecn + '」　|　曝光风险 ' + (GS.exposureRisk || 0) + '/100。请在剧情中自然体现女主当下的事业处境（训练/舞台/片场/榜单/粉丝反应），与感情线交织推进。\n\n';
     }
     if (GS.oneHeartRival && !GS._rivalSwitched && GS.oneHeartRival.name) {

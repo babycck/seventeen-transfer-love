@@ -9,15 +9,26 @@ import { ENT_SIM_CAREERS, CHAPTERS, RIVAL_NAMES, CYCLE_STAGE_META, ROMANCE_DEPTH
 
 // 初始化 entSim 全部运行时状态（setup 完成后调用一次）
 export function initEntSimState() {
-  if (!GS.entSim) GS.entSim = {};
-  // 清空聊天历史（避免新游戏复用旧档）
+  // 无条件重建 entSim（旧档的 GS.entSim 已存在，只覆盖部分字段 = 残留脏数据）
+  GS.entSim = {};
+  // 清空所有 GS 级 entSim 运行时字段，杜绝跨局残留
   GS._entSimChatHistory = {};
   GS._entSimChatSentIdx = {};
+  GS._entSimAwardHistory = [];
+  GS._entSimFanEvents = [];
+  GS._entSimFanReactions = [];
+  GS._entSimPendingChat = {};
+  GS.entSimChapter = 0;
   // 清空场景灵感去重记录（commit-only模型：新游戏所有池子重新可用）
   if (window.__resetInspUsedTexts) window.__resetInspUsedTexts();
   var E = GS.entSim;
-  // 手册规定：队友妹妹世界观下职业固定为「女团爱豆」
-  var careerKey = '练习生';
+  // 清空 E 级旧档残留日记字段（防止跨局累积）
+  E.diary = [];
+  E.diaryHis = [];
+  E._diaryEntries = [];
+  E.diarySummary = [];
+  // 从玩家 Setup 选择的女主职业读取（队友妹妹线支持练习生 & 女团爱豆）
+  var careerKey = (GS.heroineProfile && GS.heroineProfile.profession) || '练习生';
   var career = ENT_SIM_CAREERS[careerKey] || ENT_SIM_CAREERS['练习生'];
 
   // 男主：优先使用 setup 选中的成员（R1 独立 NPC），否则随机
@@ -56,8 +67,20 @@ export function initEntSimState() {
   E.cycle = { phaseIndex: 0, stageIndex: 0, roundTotal: 0, timeOfDay: 0, dayCount: randInt(1, 366), _gameDayCount: 1 }; // dayCount=2024随机起始日(真实日历)，_gameDayCount=独立游戏天数(冷却/阶段推进)
   // 好感度（0-100）：恋爱主线核心驱动，AI 每回合返回 affectionDelta 推进
   E.affection = 0;
+  // NPC 关系网节点初始化（4类：经纪人/站姐/情敌/男主的情敌）
+  // 修复#17: 原先 nodes:{} 为空，romance.js:253 访问 npc_fanleader.stance 会 TypeError 崩溃
+  // suitor 选一个非男主非哥哥的 SVT 成员（与 ui.js suitorName() 懒初始化逻辑一致，但前置到 setup）
+  var suitorPool = MEMBERS.filter(function(m) {
+    return m.id !== (maleLead ? maleLead.id : '') && m.id !== (brother ? brother.id : '');
+  });
+  var suitorMember = suitorPool.length ? suitorPool[randInt(0, suitorPool.length - 1)] : MEMBERS[0];
   E.npcNetwork = {
-    nodes: {}
+    nodes: {
+      npc_broker: { id: 'npc_broker', type: 'broker', name: '朴组长', intimacy: 10, stance: '利益绑定' },
+      npc_fanleader: { id: 'npc_fanleader', type: 'fanleader', name: RIVAL_NAMES[randInt(0, RIVAL_NAMES.length - 1)], intimacy: 5, stance: '护你' },
+      npc_suitor: { id: 'npc_suitor', type: 'suitor', name: suitorMember.name, memberId: suitorMember.id, intimacy: 0, stance: '暗恋你' }
+      // npc_rival 已废弃（rivalNode() 统一返回 suitorNode()），不初始化；prompts.js:39 读取时有 if 防御
+    }
   };
   E.romance = {
     depth: 0, // 兼容保留（不再作为主驱动，由 affection 派生 stage）
@@ -81,7 +104,8 @@ export function initEntSimState() {
   E.appointments = []; // { with, place, timeHint, summary, roundCreated, done }
   E._svtTodaySeen = []; // 今天出场的 SVT 队友（name+desc），防同一天重复出场
   // 粉丝泡泡系统（替代旧营业反馈）
-  E.bubble = { subscribers: 100 + randInt(0, 900), messages: [], todayCount: 0, lastSentDay: 0, streak: 0 };
+  // 练习生无粉丝基数；出道后 100-1000
+  E.bubble = { subscribers: (careerKey === '练习生' ? 0 : 100 + randInt(0, 900)), messages: [], todayCount: 0, lastSentDay: 0, streak: 0 };
   E._affectionLog = []; // 好感度来源日志（{day, round, delta, reason, total}）
   E.careerHistory = [];
   E.secret = { items: defaultSecrets(), foundByRival: false, broTeaseRound: 0, maleRound: 0, rivalRound: 0 };
@@ -95,15 +119,20 @@ export function initEntSimState() {
     rivalAware: false,
     talkPending: false
   };
-  var chapDef = CHAPTERS[career.startChapter - 1] || {};
-  E.chapter = { index: career.startChapter, name: chapterNameOf(career.startChapter), desc: chapDef.desc || '', roundInChapter: 0, entered: true };
+  // 章节初始化：练习生用「练习生期」(index=0)，其他职业按 ENT_SIM_CAREERS.startChapter
+  if (career.startChapter === 0) {
+    E.chapter = { index: 0, name: '练习生期', desc: '未出道的练习生，每天在练习室挥洒汗水，等待月度评价与出道考核', roundInChapter: 0, entered: true };
+  } else {
+    var chapDef = CHAPTERS[career.startChapter - 1] || {};
+    E.chapter = { index: career.startChapter, name: chapterNameOf(career.startChapter), desc: chapDef.desc || '', roundInChapter: 0, entered: true };
+  }
 
   E.agenda = { main: '', mainLoc: '', related: '', relatedLoc: '', rival: '', rivalLoc: '', brother: '', brotherLoc: '', doneFlags: {} };
   // 记忆系统：每日压缩的关键词摘要 + 关键事件累积（不过期）
   E.memory = { dailySummaries: [], eventLog: [], milestones: [], phaseSummaries: [], lastCompressDay: 0 };
-  // 女团队友（5 位姐姐）：setup 时具象化，供 AI 客串
-  E.heroineGroup = buildEntSimHeroineGroup();
-  E.groupMeta = buildEntSimGroupMeta();
+  // 女团队友（5 位姐姐）：仅女团爱豆职业生成，练习生不生成
+  E.heroineGroup = careerKey === '女团爱豆' ? buildEntSimHeroineGroup() : [];
+  E.groupMeta = careerKey === '女团爱豆' ? buildEntSimGroupMeta() : null;
   E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, scandalHeat: 0, careerPublicity: 0, cpRealProgress: 0, cpRealTriggered: false };
   // v2 新增：吃醋值系统
   E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
@@ -112,18 +141,22 @@ export function initEntSimState() {
   E._intimacyUnlocked = { hand: false, hug: false, kiss: false }; // 牵手≥15/拥抱≥30/接吻≥50
   // v2 新增：纪念日记录
   E._romanceMilestones = {}; // { firstDateDay, firstConfessDay, firstKissDay, firstHandDay, firstHugDay }
-  // v2 新增：男主主动联络倒计时
-  E._maleContactTimer = 8 + randInt(0, 10); // 8-18天倒计时
+  // v4: 每日人气结算快照（用于跨天弹窗delta计算）
+  E._lastPopSnapshot = 0;
+  // v2 新增：男主主动联络倒计时从8-18天降为3-5天
+  E._maleContactTimer = 3 + randInt(0, 2);
   // v2 新增：粉丝来信/品牌代言/作品发布/季度颁奖CD
   E._lastFanLetterDay = 0;
   E._lastBrandOfferDay = 0;
   E._releaseCD = 0; // 0=可用 >0=冷却剩余天数
   E._lastAwardDay = 0;
+  // v5: 心理状态系统——影响选项可用性和AI剧情基调
+  E.psyche = { stress: 0, confidence: 50, anxiety: 0, fatigue: 0 };
   E._lastVarietyDay = 0; // 综艺冷却（5天）
   E._lastMagazineDay = 0; // 画报冷却（3天）
   E.brother.supportLog = E.brother.supportLog || []; // 哥哥支持度变动日志
   E._scheduledEvents = []; // 日程事件队列 [{id,type:variety|brand|magazine|release,data:poolItem,targetDay,text,loc,done}]
-  E.flags = {};
+  E.flags = { rivalConfessionAccepted: false }; // v4: 情敌告白是否被接受(结局门控)
   E.endings = { hint: '', locked: false, type: '', eligible: false, text: '' }; // 系统10 结局
   E.started = false; // 首轮剧情是否已成功生成（renderHtml 据此避免重复触发生成）
 
@@ -143,6 +176,10 @@ export function initEntSimState() {
   if (career.sisterSetting) {
     GS._relCharIntroduced = true;
     GS._rivalIntroduced = true;
+    // 情敌 = npc_suitor（SEVENTEEN 团内竞争者），与 _rivalIntroduced 配套初始化
+    GS.oneHeartRival = GS.oneHeartRival || {};
+    GS.oneHeartRival.name = suitorMember.name;
+    GS.oneHeartRival.memberId = suitorMember.id;
   }
 
   // 随机生成四人组生日（月-日格式，均匀分布在四季，真实月份天数）
@@ -152,7 +189,9 @@ export function initEntSimState() {
     return m + '-' + (Math.floor(Math.random() * maxDay) + 1);
   }
   E.career._birthdays = {
-    heroine: _randBday(),
+    heroine: (GS.heroineProfile && GS.heroineProfile.birthday && GS.heroineProfile.birthday.month)
+      ? (GS.heroineProfile.birthday.month + '-' + GS.heroineProfile.birthday.day)
+      : _randBday(),
     brother: _randBday(),
     ml: _randBday(),
     rival: _randBday()
@@ -330,7 +369,8 @@ function chapterByPopularity(pop, startChapter) {
   return Math.max(start, threshold);
 }
 // 章节跨越时的时间跳跃（天），模拟事业积累需要时间
-export var CHAPTER_TIME_SKIP = { 2: 30, 3: 45, 4: 60, 5: 75, 6: 90 };
+// v5: 章节跨越时间跳跃加大以跨3年（练习生1年+出道后2年），模拟真实娱乐圈时间跨度
+export var CHAPTER_TIME_SKIP = { 2: 60, 3: 120, 4: 180, 5: 240, 6: 300 };
 // 检查并推进章节，返回是否发生跨越。跨越时自动加时间跳
 export function checkChapterAdvance() {
   var E = GS.entSim;
@@ -574,7 +614,7 @@ export function addPopularity(delta, reason) {
   GS.entSim.career.popularity = p;
   recomputeCareerLevel();
   if (reason) {
-    GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, day: GS.entSim.cycle.dayCount, type: 'popularity', text: reason + ' ' + (delta >= 0 ? '+' : '') + delta });
+    GS.entSim.careerHistory.push({ round: GS.entSim.cycle.roundTotal, day: GS.entSim.cycle._gameDayCount || GS.entSim.cycle.dayCount, type: 'popularity', text: reason + ' ' + (delta >= 0 ? '+' : '') + delta });
   }
   // 人气飘字：页面有 es-pop 元素时浮动显示 +N/-N
   if (typeof delta === 'number' && delta !== 0 && typeof document !== 'undefined') {

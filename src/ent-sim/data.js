@@ -19,7 +19,7 @@ export var ENT_SIM_CAREERS = {
   },
   '练习生': {
     label: '练习生', icon: '🌱',
-    startChapter: 1, startPopularity: 12,
+    startChapter: 0, startPopularity: 0,
     diff: '准台前，资源最少压力最大，出道即分水岭，暗恋前辈不敢声张。',
     proximity: '团内',
     sisterSetting: true
