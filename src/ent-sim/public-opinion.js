@@ -50,7 +50,7 @@ export function addExposure(mag, reason) {
     try { if (typeof showToast !== 'undefined') showToast('⚠️ 恋情曝光等级上升：' + newTier + ' — ' + getExposureTier().label); } catch(e) {}
   }
   if (reason) {
-    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'scandal', text: reason + '（恋情曝光' + (mag >= 0 ? '+' : '') + mag + '，累计' + E.misc.scandalHeat + '）' });
+    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'scandal', text: reason + '（恋情曝光' + (mag >= 0 ? '+' : '') + mag + '，累计' + E.misc.scandalHeat + '）' });
   }
   saveGame();
   return E.misc.scandalHeat;
@@ -65,7 +65,7 @@ export function addCareerPublicity(mag, reason) {
   if (typeof E.misc.careerPublicity !== 'number') E.misc.careerPublicity = 0;
   E.misc.careerPublicity = Math.max(0, E.misc.careerPublicity + mag);
   if (reason) {
-    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'publicity', text: reason + '（事业曝光' + (mag >= 0 ? '+' : '') + mag + '，累计' + E.misc.careerPublicity + '）' });
+    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'publicity', text: reason + '（事业曝光' + (mag >= 0 ? '+' : '') + mag + '，累计' + E.misc.careerPublicity + '）' });
   }
   saveGame();
   return E.misc.careerPublicity;
@@ -83,7 +83,7 @@ export function applyDiscoveryBlowback(severity) {
   if (!E) return { severity: severity, popDrop: 0 };
   var popDrop = severity * 7;
   addPopularity(-popDrop, '恋情曝光反噬·粉丝与舆论淹没（严重度' + severity + '）');
-  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'exposure', text: '恋情曝光反噬·粉丝与舆论淹没（严重度' + severity + '）' });
+  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'exposure', text: '恋情曝光反噬·粉丝与舆论淹没（严重度' + severity + '）' });
   saveGame();
   return { severity: severity, popDrop: popDrop };
 }

@@ -63,7 +63,7 @@ function interactNpc(type, actionKey) {
   E.misc.npcInteractionUsed = (E.misc.npcInteractionUsed || 0) + 1;
   if (act.pop) addPopularity(act.pop, '互动·' + (NPC_TYPES[type] || {}).label);
   if (act.exposure) addExposure(act.exposure, '互动·' + (NPC_TYPES[type] || {}).label + '·' + act.label);
-  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'npc', text: (NPC_TYPES[type] || {}).label + '·' + act.label + '：' + act.note });
+  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'npc', text: (NPC_TYPES[type] || {}).label + '·' + act.label + '：' + act.note });
   saveGame();
   return { success: true, note: act.note, npc: node.name };
 }

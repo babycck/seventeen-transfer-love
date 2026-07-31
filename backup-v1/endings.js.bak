@@ -1,0 +1,144 @@
+// ============================================================
+// 系统10 结局：全维度矩阵 v4
+// 好感度(5档) × 曝光(5档) × 事业(3档) × 告白状态 × 哥哥立场
+// 含 情敌隐藏结局(需rivalConfessionAccepted) + HIDDEN_ROUTE_POOL
+// ============================================================
+import { GS } from '../state.js';
+import { getExposureTier } from './public-opinion.js';
+import { popularity, careerLevel } from './state.js';
+import { affectionDepth } from './romance.js';
+import { HIDDEN_ROUTE_POOL } from './pools/hidden-route.js';
+
+// 结局矩阵：好感×曝光×事业×告白状态×哥哥立场 → 12+种结局
+function pickEnding(tier, careerLv, depth, confessResult, brotherStance, rivalLean) {
+  var E = GS.entSim;
+  var aff = E.affection || 0;
+  var unlock = E.romance ? { stage: E.romance.confessionDone ? 3 : (depth >= 4 ? 2 : depth >= 2 ? 1 : 0) } : { stage: 0 };
+
+  // ── 隐藏结局(1)：情敌隐藏结局——必须玩家主动接受情敌告白 ──
+  if (E.flags && E.flags.rivalConfessionAccepted && rivalLean >= 50 && aff < 40) {
+    return { type: 'hidden_rival', label: '藏在掌声里的他',
+      text: '你最终走向了那个一直站在你身边的人。男主成了回忆里最亮的光——不是遗憾，是你们选择的路不同。他在安可舞台上看到的第一排，是你的位置。', icon: '💞' };
+  }
+
+  // ── 隐藏结局(2)：独美封神——顶流事业+无恋爱线 ──
+  if ((careerLv === '传奇' || careerLv === '顶流' || (E.career.popularity || 0) >= 85) && aff < 20) {
+    return { type: 'hidden_solo', label: '独美封神',
+      text: '你把所有热爱给了舞台，单身亦封神。聚光灯下没有恋爱的位置，但有你的整个时代。', icon: '👑' };
+  }
+
+  // ── 隐藏路线(3)：HIDDEN_ROUTE_POOL 特殊触发 ──
+  if (HIDDEN_ROUTE_POOL && HIDDEN_ROUTE_POOL.length) {
+    for (var hi = 0; hi < HIDDEN_ROUTE_POOL.length; hi++) {
+      var hr = HIDDEN_ROUTE_POOL[hi];
+      var meets = true;
+      if (hr.require) {
+        var rq = hr.require.split('&&');
+        for (var ri = 0; ri < rq.length && meets; ri++) {
+          var item = rq[ri].trim();
+          if (item.indexOf('aff>=') === 0 && aff < parseInt(item.slice(5), 10)) meets = false;
+          if (item.indexOf('popularity>=') === 0 && (E.career.popularity || 0) < parseInt(item.slice(11), 10)) meets = false;
+        }
+      }
+      if (meets && Math.random() < 0.3) {
+        return { type: 'hidden_route', label: '隐藏路线',
+          text: hr.text, icon: '🔮' };
+      }
+    }
+  }
+
+  // ── HE 系列：必须已接受告白 + 哥哥不反对公开 ──
+  var brotherOk = (brotherStance === '支持' || brotherStance === '参谋' || brotherStance === '观望' || !brotherStance);
+  if (confessResult === 'accepted') {
+    // HE1: 公开童话 — 高好感(depth>=5) + 中高事业 + 安全/暗涌曝光
+    if (depth >= 5 && brotherOk && (careerLv === '顶流' || careerLv === '传奇' || careerLv === '稳步')) {
+      if (tier === '安全' || tier === '暗涌') {
+        return { type: 'he_public_fairytale', label: '台前的童话',
+          text: '你们大方牵手走上红毯，全网祝福。不是藏不住了才公开——是爱到了再也藏不住。记者问他恋爱秘诀，他说"她是我的全部歌词"。', icon: '💍' };
+      }
+    }
+    // HE2: 甜宠公开 — 中高好感 + 哥哥支持 + 曝光可控(非引爆)
+    if (depth >= 3 && (brotherStance === '支持' || brotherStance === '参谋') && tier !== '引爆') {
+      return { type: 'he_sweet', label: '甜宠相守',
+        text: '从练习室到万人舞台，从偷瞄到十指相扣。哥哥终于点了头——他说"好好对我妹妹"。队长在群聊里发了一个"终于"的表情包。', icon: '💝' };
+    }
+    // HE3: 地下永久 — 安全/暗涌曝光(恋情藏得好)
+    if (tier === '安全' || tier === '暗涌') {
+      return { type: 'he_underground', label: '地下永久',
+        text: '事业巅峰，爱情藏得滴水不漏。你们在无人处相拥，在聚光灯下相视而笑——只有你们知道那微笑的含义。你们把彼此写进歌里，只有彼此听得出来。', icon: '🌙' };
+    }
+  }
+
+  // ── NE 系列 ──
+  // NE1: 和平分手 — 告白过但后期好感冷却
+  if (confessResult === 'accepted' && depth < 3) {
+    return { type: 'ne_breakup', label: '和平分手',
+      text: '聚少离多，默契地松开手。不是不爱了——是爱被日程推散了。最后一次约会，你们交换了对方的专辑。他说"下个季度回归，我会给你留一张票"——然后你们没有再联系。', icon: '🌿' };
+  }
+  // NE2: 远距离 — 未告白 + 中等好感 + 中高事业
+  if (confessResult !== 'accepted' && depth >= 2) {
+    return { type: 'ne_distance', label: '远距离光环',
+      text: '你的巡演和他的回归完美错开。偶尔在音乐节目后台四目相对——点头、微笑、擦肩。你们在不同的平行线里各自闪耀。粉丝说"他们看起来像认识"，你们都知道不是"像"。', icon: '🌌' };
+  }
+  // NE3: 暧昧未明 — 有好感但告白被拖延/未发生
+  if (depth >= 1 && confessResult !== 'accepted') {
+    return { type: 'ne_ambiguous', label: '暧昧未明',
+      text: '谁也没先开口。故事停在最好也最遗憾的节点——那时你总想"下一次"，但他已经在下一个路口。你写的歌里有一句只有他听得懂的词，但你也知道——他不会点开听了。', icon: '🌸' };
+  }
+
+  // ── BE 系列 ──
+  // BE1: 曝光塌房 — 引爆/哗然 + 事业受损
+  if ((tier === '引爆' || tier === '哗然')) {
+    return { type: 'be_collapse', label: '曝光即塌房',
+      text: '恋情在你事业最低谷被曝光。热搜挂了三天，脱粉站开了八个。你删掉了所有泡泡记录，注销了小号。那张偷拍照成了最后一张你们在一起的照片——背景是凌晨三点的汉江。', icon: '⛈️' };
+  }
+  // BE2: 哥哥反对 — 哥哥protective + 中低好感
+  if ((brotherStance === '反对公开' || brotherStance === '反对') && aff < 50) {
+    return { type: 'be_brother_against', label: '哥哥的视线',
+      text: '哥哥发现了。他说"你是偶像，他是队友，你们不可以。"你第一次看到他这样看着你——不是SEVENTEEN的队长，是和你一起长大的哥哥。最终你先放开了手。', icon: '💔' };
+  }
+
+  // ── 默认：事业向 ──
+  if (careerLv === '传奇' || careerLv === '顶流') {
+    return { type: 'ne_solo_rising', label: '独自闪耀',
+      text: '事业正在上升期，恋爱还没开始。站在颁奖台的那一刻你想——也许这就是你的路。未来还很长，恋爱可以等。', icon: '🌱' };
+  }
+
+  // 保底结局
+  return { type: 'be_fade', label: '渐行渐远',
+    text: '你们在同一个娱乐圈里越来越远。偶尔在新闻里看到彼此——那眼神像认识，又像只是听说过。他用你以前常喝的咖啡点了一单杯，店员问他名字——他说不用写。', icon: '🍂' };
+}
+
+// 评估结局（终局调用）
+export function evaluateEnding() {
+  var E = GS.entSim;
+  var tier = getExposureTier().tier; // 安全/暗涌/升温/哗然/引爆
+  var careerLv = careerLevel();       // 新人/稳步/顶流/传奇/挣扎
+  var depth = affectionDepth(E.affection); // 0-5 恋爱深度
+  var confessResult = (E.romance && E.romance.confessionResult) ? E.romance.confessionResult : 'none';
+  var brotherStance = (E.brother && E.brother.stance) ? E.brother.stance : '';
+  var rivalNode = E.npcNetwork && E.npcNetwork.nodes ? E.npcNetwork.nodes['npc_suitor'] : null;
+  var rivalLean = rivalNode ? (rivalNode.intimacy || 0) : 0;
+
+  var ending = pickEnding(tier, careerLv, depth, confessResult, brotherStance, rivalLean);
+
+  // 事业线结局
+  var pop = (E.career && E.career.popularity) ? E.career.popularity : 0;
+  if (pop >= 80) ending.careerOutcome = { tier: '顶流', desc: '你成为无可争议的顶级艺人' };
+  else if (pop >= 50) ending.careerOutcome = { tier: '稳步', desc: '稳扎稳打走着自己的路' };
+  else ending.careerOutcome = { tier: '挣扎', desc: '演艺圈不易，但你还在坚持' };
+
+  E.endings = {
+    hint: ending.label,
+    locked: true,
+    type: ending.type,
+    eligible: true,
+    text: ending.text,
+    icon: ending.icon || ''
+  };
+  return ending;
+}
+
+export function getEndingHint() {
+  return GS.entSim && GS.entSim.endings ? (GS.entSim.endings.hint || '') : '';
+}

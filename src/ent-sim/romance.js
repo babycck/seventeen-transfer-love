@@ -57,7 +57,7 @@ export function applyEntSimAffection(delta) {
     // 已触顶且还未解锁下一阶段，锁定不涨（但在剧情中仍可记录日志提示）
     E._affectionLog = E._affectionLog || [];
     E._affectionLog.push({
-      day: E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0,
+      day: E.cycle._gameDayCount || E.cycle.dayCount || 1, round: E.cycle.roundTotal || 0,
       delta: 0, reason: '🔒阶段锁定：' + (unlock.reason || '需触发关键事件打破瓶颈'), total: oldAff
     });
     if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
@@ -66,8 +66,9 @@ export function applyEntSimAffection(delta) {
   }
 
   // ═══ 层2：单日上限（按阶段分级）═══
-  // 阶段0(初识≤19): 3/天 / 阶段1(暧昧≤49): 4/天 / 阶段2(约会≤69): 5/天 / 阶段3(恋爱≤84): 6/天 / 阶段4(公开≤100): 7/天
-  var dailyCaps = [3, 4, 5, 6, 7];
+  // 阶段0(初识): 5/天 / 阶段1(暧昧): 7/天 / 阶段2(约会): 9/天 / 阶段3(恋爱): 11/天 / 阶段4(公开): 13/天
+  // v4 温和提升1.5倍：0→60约需12-15天
+  var dailyCaps = [5, 7, 9, 11, 13];
   var dailyCap = dailyCaps[Math.min(4, unlock.stage)];
   var today = E.cycle.dayCount || 1;
   if (!E._affDayTotal || E._affDayTotal.day !== today) {
@@ -151,7 +152,7 @@ export function recordRomanceBeat(beat) {
   if (typeof beat.affectionDelta === 'number') applyEntSimAffection(beat.affectionDelta);
   if (beat.emotion) E.romance.emotion = beat.emotion;
   if (beat.note) {
-    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'romance', text: beat.note });
+    E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'romance', text: beat.note });
   }
   if (beat.event) E.romance.seedEvent = E.romance.seedEvent || beat.event;
   saveGame();
@@ -191,7 +192,8 @@ export function tickRomanceTimers() {
 export function tryConfession() {
   var E = GS.entSim;
   var brotherOppose = (E.brother.stance === '反对公开');
-  var canConfess = (E.affection >= 80 && !brotherOppose && !E.flags.coldWar && !E.romance.confessionDone && !E.flags.noMoreConfession);
+  // v4: 告白门槛从80下调至60（与用户设定一致：好感>=60且哥哥非protective可触发）
+  var canConfess = (E.affection >= 60 && !brotherOppose && !E.flags.coldWar && !E.romance.confessionDone && !E.flags.noMoreConfession);
   return {
     canConfess: canConfess,
     affection: E.affection,
@@ -248,9 +250,10 @@ export function applyCover(type) {
     if (rival) rival.intimacy = (rival.intimacy || 0) + 2;
   }
   if (E.misc.suspicion >= 3) {
-    E.npcNetwork.nodes['npc_fanleader'].stance = '吃瓜';
+    var fanNode = E.npcNetwork.nodes['npc_fanleader'];
+    if (fanNode) fanNode.stance = '吃瓜';
   }
-  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'cover', text: '使用掩护：' + mech.label });
+  E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'cover', text: '使用掩护：' + mech.label });
   saveGame();
   return { ok: true, coverUsed: E.romance.coverUsed, cost: mech.cost, remaining: 5 - E.romance.coverUsed };
 }
@@ -382,23 +385,20 @@ export function getRomanceRisk() { return assessRomanceRisk(0); }
 export function getCoverMechanisms() { return COVER_MECHANISMS; }
 // 好感-事业门控：5档关系阶段（仿明星志愿3），综合aff+事业阶段+oneHeartRomanceStage判断
 function checkRomanceUnlock() {
+  // v4: 部分保留门控 — stage1移除tPhase(练习生期可暧昧)，stage2+保留debut出道门控，移除chapter门控
   var E = GS.entSim;
   if (!E) return { stage: 0, label: '初识', unlocked: true, reason: '' };
   var aff = E.affection || 0;
-  var chapter = E.chapter ? (E.chapter.index || 1) : 1;
   var debut = E.career ? (E.career.debutDay || 0) : 0;
-  var tPhase = E.career ? (E.career.traineePhase || 1) : 1;
   // 取 oneHeartRomanceStage 和 entSim 自身判断的较高值（双系统统一）
   var ohs = GS.oneHeartRomanceStage || 0;
   // 0=初识 1=暧昧 2=约会 3=恋爱 4=公开
-  if ((aff >= 85 && chapter >= 4) || ohs >= 3) return { stage: 4, label: '公开', unlocked: true, reason: '' };
-  if ((aff >= 70 && chapter >= 2) || ohs >= 2) return { stage: 3, label: '恋爱', unlocked: true, reason: '' };
+  if (aff >= 85 || ohs >= 3) return { stage: 4, label: '公开', unlocked: true, reason: '' };
+  if (aff >= 70 || ohs >= 2) return { stage: 3, label: '恋爱', unlocked: true, reason: '' };
   if (aff >= 50 && debut > 0) return { stage: 2, label: '约会', unlocked: true, reason: '' };
-  if (aff >= 20 && tPhase >= 2) return { stage: 1, label: '暧昧', unlocked: true, reason: '' };
+  if (aff >= 20) return { stage: 1, label: '暧昧', unlocked: true, reason: '' };
   // 未解锁时返回原因
-  if (aff >= 70 && chapter < 2) return { stage: 2, label: '约会', unlocked: false, reason: '需要崭露头角(人气≥15)' };
-  if (aff >= 50 && debut === 0) return { stage: 1, label: '暧昧', unlocked: false, reason: '需要出道' };
-  if (aff >= 20 && tPhase < 2) return { stage: 0, label: '初识', unlocked: false, reason: '需要练习生中期(day5起)' };
+  if (aff >= 50 && debut === 0) return { stage: 1, label: '暧昧', unlocked: false, reason: '需要出道后才能约会' };
   return { stage: 0, label: '初识', unlocked: true, reason: '' };
 }
 function setEmotion(em) {

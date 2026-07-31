@@ -6,17 +6,17 @@ import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
 import { addExposure, getScandalHeat } from './public-opinion.js';
 import { ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
-import { GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR } from './pools/index.js';
+import { GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, TEAMMATE_BOND_POOL, DATING_SCANDAL_CHAIN, PRESS_INTERVIEW_POOL, SISTER_DAILY_POOL, FAN_NPC_POOL } from './pools/index.js';
 // npc-network 已移除，情敌名改用 rival 字段
 
 // 哥哥事件：15% 概率；成功则注入并应用影响
 export function maybeBrotherEvent() {
   var E = GS.entSim;
-  if (randInt(1, 100) > 15) return false;
+  if (randInt(1, 100) > 9) return false; // v5: 15%→9% 降40%
   var ev = BROTHER_EVENT_POOL[randInt(0, BROTHER_EVENT_POOL.length - 1)];
   if (ev.stance) E.brother.stance = ev.stance;
   // 随机事件只注入剧情，不改支持度——哥哥支持度必须由玩家选项驱动
-  if (ev.text) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle.dayCount, type: 'brother', text: ev.text });
+  if (ev.text) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'brother', text: ev.text });
   GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【哥哥】' + ev.text;
   saveGame();
   return true;
@@ -66,8 +66,8 @@ export function checkOneHeartEvents() {
     ev = cloneEvent(paparazziPool[randInt(0, paparazziPool.length - 1)]);
   }
 
-  // 4.6. 嫉妒事件：好感≥20时15%触发（池子按 minAff 过滤）
-  if (!ev && rnd <= 15 && JEALOUSY_EVENTS_POOL && JEALOUSY_EVENTS_POOL.length) {
+  // 4.6. 嫉妒事件：好感≥20时触发 v5: 15%→9%降40%
+  if (!ev && rnd <= 9 && JEALOUSY_EVENTS_POOL && JEALOUSY_EVENTS_POOL.length) {
     var affNow = E.affection || 0;
     var jp = JEALOUSY_EVENTS_POOL.filter(function(j) { return !j.minAff || affNow >= j.minAff; });
     if (jp.length) ev = cloneEvent(jp[randInt(0, jp.length - 1)]);
@@ -78,9 +78,9 @@ export function checkOneHeartEvents() {
     ev = cloneEvent(BROTHER_SIDE_PLOTS[randInt(0, BROTHER_SIDE_PLOTS.length - 1)]);
   }
 
-  // 6. 女团/行业事件（仅出道后触发，练习生期跳过）
+  // 6. 女团/行业事件（仅出道后触发，练习生期跳过）v5: 25%→15%降40%
   var isDebutEvents = (E.career && E.career.debutDay > 0) || (E.career && E.career.profession === '女团爱豆');
-  if (!ev && rnd <= 25 && isDebutEvents) {
+  if (!ev && rnd <= 15 && isDebutEvents) {
     var pool = [];
     if (E.career && E.career.profession === '女团爱豆') pool = pool.concat(GIRLGROUP_EVENTS);
     pool = pool.concat(INDUSTRY_EVENTS);
@@ -88,15 +88,30 @@ export function checkOneHeartEvents() {
     if (pool.length) ev = cloneEvent(pool[randInt(0, pool.length - 1)]);
   }
 
-  // 7. 好感铺垫（CONTACT_PROGRESSION）：仅出道后触发
-  if (!ev && isDebutEvents && E.affection >= 0 && rnd <= 30 && CONTACT_PROGRESSION && CONTACT_PROGRESSION.length) {
+  // 7. 好感铺垫（CONTACT_PROGRESSION）：仅出道后触发 v5: 30%→18%降40%
+  if (!ev && isDebutEvents && E.affection >= 0 && rnd <= 18 && CONTACT_PROGRESSION && CONTACT_PROGRESSION.length) {
     var cp = CONTACT_PROGRESSION.filter(function(p) { return !p.minAff || E.affection >= p.minAff; });
     if (cp.length) ev = cloneEvent(cp[randInt(0, cp.length - 1)]);
   }
 
-  // 8. ONEHEART_RANDOM_EVENTS（仅出道后触发）
-  if (!ev && isDebutEvents && rnd <= 18 && ONEHEART_RANDOM_EVENTS && ONEHEART_RANDOM_EVENTS.length) {
+  // 8. ONEHEART_RANDOM_EVENTS（仅出道后触发）v5: 18%→11%降40%
+  if (!ev && isDebutEvents && rnd <= 11 && ONEHEART_RANDOM_EVENTS && ONEHEART_RANDOM_EVENTS.length) {
     ev = cloneEvent(ONEHEART_RANDOM_EVENTS[randInt(0, ONEHEART_RANDOM_EVENTS.length - 1)]);
+  }
+
+  // v4: 池子接入⑧ TEAMMATE_BOND_POOL — 女团羁绊，替换队友支线 rnd≤10
+  if (!ev && E.heroineGroup && E.heroineGroup.length && rnd <= 10 && TEAMMATE_BOND_POOL && TEAMMATE_BOND_POOL.length) {
+    ev = cloneEvent(TEAMMATE_BOND_POOL[randInt(0, TEAMMATE_BOND_POOL.length - 1)]);
+  }
+  // v4: 池子接入⑨ DATING_SCANDAL_CHAIN — scandalHeat>=10触发，rnd≤12
+  if (!ev && getScandalHeat() >= 10 && rnd <= 12 && DATING_SCANDAL_CHAIN && DATING_SCANDAL_CHAIN.length) {
+    var dscPool = DATING_SCANDAL_CHAIN.filter(function(d) { return !d.require || !d.require.startsWith('aff>=') || E.affection >= parseInt(d.require.slice(5), 10); });
+    if (dscPool.length) ev = cloneEvent(dscPool[randInt(0, dscPool.length - 1)]);
+  }
+  // v4: 池子接入⑩ PRESS_INTERVIEW_POOL — 出道后人气≥15，rnd≤10
+  if (!ev && isDebutEvents && (E.career.popularity || 0) >= 15 && rnd <= 10 && PRESS_INTERVIEW_POOL && PRESS_INTERVIEW_POOL.length) {
+    var piPool = PRESS_INTERVIEW_POOL.filter(function(p) { return !p.require || !p.require.startsWith('aff>=') || E.affection >= parseInt(p.require.slice(5), 10); });
+    if (piPool.length) ev = cloneEvent(piPool[randInt(0, piPool.length - 1)]);
   }
 
   // 9. 女团队友支线：5 位姐姐偶尔在剧情里出场，增添女团真实感
@@ -104,6 +119,24 @@ export function checkOneHeartEvents() {
     var sis = E.heroineGroup[randInt(0, E.heroineGroup.length - 1)];
     var flavor = TEAMMATE_FLAVOR[sis.roleTag] || '队友找你聊了聊近况';
     ev = { key: 'teammate_' + sis.rel, text: '（队友支线）' + sis.name + '（' + sis.roleTag + '）' + flavor, support: 0 };
+  }
+
+  // 10. 女团日常池 SISTER_DAILY_POOL：每天20%概率触发，注入队友日常互动
+  //     v5修正：不参与 rnd 互斥链（前面已有 rnd<=15/18 拦截），改用独立 Math.random()
+  if (!ev && E.heroineGroup && E.heroineGroup.length && Math.random() < 0.20 && SISTER_DAILY_POOL && SISTER_DAILY_POOL.length) {
+    var sdItem = SISTER_DAILY_POOL[randInt(0, SISTER_DAILY_POOL.length - 1)];
+    if (sdItem && sdItem.text) {
+      ev = { text: '【女团日常】' + sdItem.text, key: 'sister_daily', exposure: 0 };
+    }
+  }
+
+  // 11. 粉丝NPC池 FAN_NPC_POOL：出道后每天15%概率触发，注入粉丝圈具体角色叙事
+  //     v5修正：同上，改用独立 Math.random() 避免被 rnd 链拦截
+  if (!ev && isDebutEvents && Math.random() < 0.15 && FAN_NPC_POOL && FAN_NPC_POOL.length) {
+    var fnItem = FAN_NPC_POOL[randInt(0, FAN_NPC_POOL.length - 1)];
+    if (fnItem && fnItem.text) {
+      ev = { text: '【粉丝圈】' + fnItem.text, key: 'fan_npc', exposure: 0 };
+    }
   }
 
   if (!ev) return false;
@@ -130,7 +163,7 @@ export function checkOneHeartEvents() {
     E.flags[ev.flag] = true;
   }
   // 记录
-  E.careerHistory.push({ round: r, day: E.cycle.dayCount, type: 'event', key: ev.key, text: ev.text });
+  E.careerHistory.push({ round: r, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'event', key: ev.key, text: ev.text });
   GS._entSimPendingEvent = '【事件】' + ev.text + (ev.support ? '（哥哥支持度 +' + ev.support + '）' : '');
   saveGame();
   return true;
@@ -140,7 +173,7 @@ export function checkOneHeartEvents() {
 function pushSupportLog(E, delta, reason) {
   E.brother.supportLog = E.brother.supportLog || [];
   E.brother.supportLog.push({
-    day: E.cycle.dayCount,
+    day: E.cycle._gameDayCount || E.cycle.dayCount,
     delta: delta,
     reason: reason || '未知原因',
     total: E.brother.support,
@@ -211,10 +244,10 @@ function cloneEvent(ev) {
   return out;
 }
 
-// 男主主动互动：10% 概率，按好感阶段解锁类型（作为 checkOneHeartEvents 的补充层）
+// 男主主动互动：25% 概率，按好感阶段解锁类型（v4: 从10%提升至25%，解决练习生期男主过于被动的问题）
 export function maybeMaleLeadInitiative() {
   var E = GS.entSim;
-  if (randInt(1, 100) > 10) return false;
+  if (randInt(1, 100) > 25) return false;
   var aff = E.affection || 0;
   var pool = MALE_LEAD_INITIATIVE_POOL.filter(function(p) { return aff >= p.minAff; });
   if (pool.length === 0) return false;

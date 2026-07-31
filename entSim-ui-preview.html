@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>entSim UI 重新设计预览</title>
+<style>
+  :root {
+    --bg-dark: #0f0a1e;
+    --bg-card: #1a1330;
+    --bg-secondary: #221a3d;
+    --accent-primary: #7c6ff0;
+    --accent-pink: #e87db0;
+    --accent-purple: #9d6bff;
+    --accent-gold: #f0c674;
+    --accent-green: #9ad0a0;
+    --accent-red: #e87d7d;
+    --text-primary: #e8e4f0;
+    --text-secondary: #a09bb8;
+    --text-muted: #6b6680;
+    --border: rgba(124,111,240,.2);
+    --mainline-glow: rgba(240,198,116,.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  .phone-frame {
+    width: 420px;
+    max-width: 100%;
+    background: var(--bg-card);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(124,111,240,.15);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+
+  /* ── 顶部状态栏 ── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .top-left { display:flex; flex-direction:column; gap:2px; }
+  .day-label { font-size:15px; font-weight:700; }
+  .day-label .day-num { color: var(--accent-primary); }
+  .date-label { font-size:10px; color: var(--text-muted); }
+  .top-center { display:flex; gap:8px; }
+  .stat-chip {
+    display:flex; flex-direction:column; align-items:center;
+    padding: 3px 10px; border-radius: 8px; background: rgba(124,111,240,.1);
+    font-size: 11px;
+  }
+  .stat-chip .val { font-weight:700; font-size:13px; }
+  .stat-chip.pop .val { color: var(--accent-gold); }
+  .stat-chip.aff .val { color: var(--accent-pink); }
+  .stat-chip .tag { color: var(--text-muted); font-size:9px; }
+  .top-right .ending-btn {
+    background: linear-gradient(135deg, var(--accent-gold), #d4a943);
+    color: #2a1f0a; border:none; border-radius:8px; padding:6px 12px;
+    font-size:11px; font-weight:700; cursor:pointer;
+    animation: glow 2s ease-in-out infinite;
+  }
+  @keyframes glow { 0%,100%{box-shadow:0 0 4px rgba(240,198,116,.3);} 50%{box-shadow:0 0 12px rgba(240,198,116,.6);} }
+
+  /* ── 主线进度条 ── */
+  .mainline-bar {
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  .mainline-track {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .ml-label { font-size:9px; color:var(--text-muted); width:32px; flex-shrink:0; }
+  .ml-nodes { display:flex; align-items:center; gap:0; flex:1; }
+  .ml-node {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--bg-dark); border: 1px solid var(--border);
+    position: relative; flex-shrink:0;
+  }
+  .ml-node.done.romance { background: var(--accent-pink); border-color: var(--accent-pink); }
+  .ml-node.done.rival { background: var(--accent-purple); border-color: var(--accent-purple); }
+  .ml-node.current {
+    background: var(--accent-gold); border-color: var(--accent-gold);
+    animation: pulse 1.5s ease-in-out infinite;
+    transform: scale(1.3);
+  }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 4px var(--accent-gold);} 50%{box-shadow:0 0 10px var(--accent-gold);} }
+  .ml-line { flex:1; height:1px; background: var(--border); min-width:4px; }
+  .ml-line.done.romance { background: var(--accent-pink); }
+  .ml-line.done.rival { background: var(--accent-purple); }
+  .ml-current-label { font-size:10px; color:var(--accent-gold); margin-top:2px; }
+
+  /* ── 主区域 ── */
+  .main-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+  }
+  .narrative-col { flex:1; display:flex; flex-direction:column; gap:10px; }
+  .side-col { width:110px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+
+  /* 剧情卡 - 主线轮 */
+  .story-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .story-card.mainline {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 1px var(--mainline-glow), 0 4px 16px var(--mainline-glow);
+  }
+  .story-card.rival { border-color: var(--accent-purple); }
+  .story-badge {
+    position: absolute; top: -7px; left: 12px;
+    font-size: 9px; padding: 2px 8px; border-radius: 8px;
+    font-weight: 700;
+  }
+  .story-badge.mainline { background: var(--accent-gold); color: #2a1f0a; }
+  .story-badge.rival { background: var(--accent-purple); color: #fff; }
+  .story-badge.daily { background: var(--bg-card); color: var(--text-muted); border:1px solid var(--border); }
+  .story-title { font-size:12px; color:var(--text-muted); margin-bottom:6px; margin-top:4px; }
+  .story-text {
+    font-size: 13px; line-height: 1.7; color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  .story-text .highlight { color: var(--accent-pink); }
+  .options { display:flex; flex-direction:column; gap:6px; }
+  .option-btn {
+    background: rgba(124,111,240,.08);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    text-align: left;
+  }
+  .option-btn:hover { background: rgba(124,111,240,.15); border-color: var(--accent-primary); }
+  .option-btn .opt-tag { font-size:9px; color:var(--accent-primary); margin-right:6px; }
+  .option-btn.locked { opacity:.4; cursor:not-allowed; }
+  .option-btn.locked .opt-tag { color: var(--accent-red); }
+
+  /* 心理状态卡 */
+  .psyche-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+  }
+  .psyche-title { font-size:10px; color:var(--text-muted); margin-bottom:6px; }
+  .psyche-row { display:flex; align-items:center; gap:4px; margin-bottom:4px; font-size:10px; }
+  .psyche-row .name { width:24px; color:var(--text-secondary); }
+  .psyche-bar { flex:1; height:5px; background:var(--bg-dark); border-radius:3px; overflow:hidden; }
+  .psyche-fill { height:100%; border-radius:3px; }
+  .psyche-fill.stress { background: var(--accent-red); }
+  .psyche-fill.confidence { background: var(--accent-green); }
+  .psyche-fill.anxiety { background: var(--accent-purple); }
+  .psyche-fill.fatigue { background: var(--accent-gold); }
+
+  /* 人气×恋爱双轴卡 */
+  .axis-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+  }
+  .axis-title { font-size:10px; color:var(--text-muted); margin-bottom:6px; }
+  .axis-box {
+    position: relative;
+    width: 90px; height: 70px;
+    background: var(--bg-dark);
+    border-radius: 6px;
+    margin: 0 auto;
+  }
+  .axis-dot {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: var(--accent-pink);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent-pink);
+    left: 35%; top: 45%;
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  @keyframes dotPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
+  .axis-label-x { position:absolute; bottom:-2px; font-size:7px; color:var(--text-muted); }
+  .axis-label-y { position:absolute; left:-2px; font-size:7px; color:var(--text-muted); writing-mode:vertical-lr; }
+  .axis-dilemma { font-size:9px; color:var(--accent-pink); text-align:center; margin-top:6px; line-height:1.3; }
+
+  /* 消息通知 */
+  .msg-notif {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--accent-pink);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .msg-notif .emoji { font-size: 14px; }
+  .msg-notif .text { flex:1; color: var(--text-secondary); }
+  .msg-notif .arrow { color: var(--accent-primary); font-size:12px; }
+
+  /* ── 底部操作栏 ── */
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    gap: 8px;
+  }
+  .tabs { display:flex; gap:4px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    position: relative;
+  }
+  .tab.active { background: var(--accent-primary); color: #fff; }
+  .tab .dot {
+    position:absolute; top:2px; right:4px;
+    width:6px; height:6px; border-radius:50%;
+    background: var(--accent-pink);
+  }
+  .actions { display:flex; gap:6px; }
+  .action-btn {
+    background: rgba(124,111,240,.1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  /* ── 章节跳跃蒙太奇示意 ── */
+  .skip-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15,10,30,.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    border-radius: 20px;
+  }
+  .skip-overlay .calendar {
+    font-size: 48px;
+    animation: flip .8s ease-in-out;
+  }
+  @keyframes flip { 0%{transform:rotateY(0);} 50%{transform:rotateY(90deg);} 100%{transform:rotateY(0);} }
+  .skip-overlay .skip-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin: 12px 0 8px;
+  }
+  .skip-overlay .skip-narrative {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.6;
+  }
+  .skip-overlay .chapter-name {
+    font-size: 14px;
+    color: var(--accent-primary);
+    margin-top: 12px;
+    padding: 6px 16px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+  }
+  .skip-overlay .close-demo {
+    position: absolute; bottom: 16px;
+    font-size: 11px; color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  /* 标注 */
+  .annotation {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 280px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .annotation h3 { font-size:13px; color:var(--accent-primary); margin-bottom:8px; }
+  .annotation .item { margin-bottom:6px; padding-left:12px; position:relative; }
+  .annotation .item::before { content:'→'; position:absolute; left:0; color:var(--accent-gold); }
+  .annotation .item b { color: var(--text-primary); }
+
+  @media (max-width: 800px) {
+    .annotation { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame" style="position:relative;">
+
+  <!-- 顶部状态栏 -->
+  <div class="top-bar">
+    <div class="top-left">
+      <div class="day-label">Day <span class="day-num">15</span></div>
+      <div class="date-label">2024年3月15日 · 春 · 傍晚</div>
+    </div>
+    <div class="top-center">
+      <div class="stat-chip pop">
+        <span class="val">32</span>
+        <span class="tag">二线</span>
+      </div>
+      <div class="stat-chip aff">
+        <span class="val">45</span>
+        <span class="tag">暧昧</span>
+      </div>
+    </div>
+    <div class="top-right">
+      <button class="ending-btn">走向大结局</button>
+    </div>
+  </div>
+
+  <!-- 主线进度条 -->
+  <div class="mainline-bar">
+    <div class="mainline-track">
+      <span class="ml-label" style="color:var(--accent-pink);">爱情</span>
+      <div class="ml-nodes">
+        <div class="ml-node done romance"></div>
+        <div class="ml-line done romance"></div>
+        <div class="ml-node done romance"></div>
+        <div class="ml-line done romance"></div>
+        <div class="ml-node done romance"></div>
+        <div class="ml-line done romance"></div>
+        <div class="ml-node current"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+      </div>
+    </div>
+    <div class="mainline-track">
+      <span class="ml-label" style="color:var(--accent-purple);">情敌</span>
+      <div class="ml-nodes">
+        <div style="width:42px;"></div>
+        <div class="ml-node done rival"></div>
+        <div class="ml-line done rival"></div>
+        <div class="ml-node done rival"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+        <div class="ml-line"></div>
+        <div class="ml-node"></div>
+      </div>
+    </div>
+    <div class="ml-current-label">当前节点：他开始注意你 · 下一节点 ???</div>
+  </div>
+
+  <!-- 主区域 -->
+  <div class="main-area">
+    <div class="narrative-col">
+      <!-- 主线剧情卡 -->
+      <div class="story-card mainline">
+        <span class="story-badge mainline">★ 主线推进</span>
+        <div class="story-title">练习室走廊 · 傍晚</div>
+        <div class="story-text">
+          你抱着一摞乐谱从练习室出来，转角差点撞上一个人——是他。乐谱散落一地，你蹲下去捡，他也蹲下来。手指碰到一起的时候，你们都愣了一下。他抬起头看了你一眼，嘴角微微动了动，像是想说什么。<br><br>
+          <span class="highlight">"你哥说你最近练得很晚。"</span>他只说了这一句，把最后一张乐谱递给你。走廊尽头传来哥哥的声音——他在叫你。<br><br>
+          你站起来的时候，发现自己的心跳比刚才快了一拍。
+        </div>
+        <div class="options">
+          <div class="option-btn">
+            <span class="opt-tag">推进</span>轻声说"谢谢前辈"，多看他一眼
+          </div>
+          <div class="option-btn">
+            <span class="opt-tag">日常</span>匆匆接过乐谱跑向哥哥
+          </div>
+          <div class="option-btn locked">
+            <span class="opt-tag">🔒需好感≥50</span>问他"你是专门来找我的吗"
+          </div>
+        </div>
+      </div>
+
+      <!-- 消息通知 -->
+      <div class="msg-notif">
+        <span class="emoji">💬</span>
+        <span class="text">哥哥：刚才在走廊看到你了，怎么跑那么快</span>
+        <span class="arrow">›</span>
+      </div>
+    </div>
+
+    <!-- 侧栏 -->
+    <div class="side-col">
+      <!-- 心理状态卡 -->
+      <div class="psyche-card">
+        <div class="psyche-title">心理状态</div>
+        <div class="psyche-row">
+          <span class="name">压力</span>
+          <div class="psyche-bar"><div class="psyche-fill stress" style="width:35%"></div></div>
+        </div>
+        <div class="psyche-row">
+          <span class="name">自信</span>
+          <div class="psyche-bar"><div class="psyche-fill confidence" style="width:55%"></div></div>
+        </div>
+        <div class="psyche-row">
+          <span class="name">焦虑</span>
+          <div class="psyche-bar"><div class="psyche-fill anxiety" style="width:25%"></div></div>
+        </div>
+        <div class="psyche-row">
+          <span class="name">疲劳</span>
+          <div class="psyche-bar"><div class="psyche-fill fatigue" style="width:60%"></div></div>
+        </div>
+      </div>
+
+      <!-- 人气×恋爱双轴卡 -->
+      <div class="axis-card">
+        <div class="axis-title">人气 × 恋爱</div>
+        <div class="axis-box">
+          <div class="axis-label-x" style="left:2px;">糊</div>
+          <div class="axis-label-x" style="right:2px;">顶流</div>
+          <div class="axis-label-y" style="top:2px;">深</div>
+          <div class="axis-label-y" style="bottom:2px;">初</div>
+          <div class="axis-dot"></div>
+        </div>
+        <div class="axis-dilemma">二线·暧昧<br>你们各有各忙，但还能见面</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部操作栏 -->
+  <div class="bottom-bar">
+    <div class="tabs">
+      <div class="tab active">剧情</div>
+      <div class="tab">聊天<span class="dot"></span></div>
+      <div class="tab">更多</div>
+    </div>
+    <div class="actions">
+      <button class="action-btn">☰ 行动</button>
+      <button class="action-btn">▶ 下一天</button>
+    </div>
+  </div>
+
+  <!-- 章节跳跃蒙太奇示意（点击触发） -->
+  <div class="skip-overlay" id="skipOverlay" style="display:none;">
+    <div class="calendar">📅</div>
+    <div class="skip-text">4 个月后</div>
+    <div class="skip-narrative">
+      这半年你发了两张单曲，拿了一个一位。人气涨到了 65。但你们见面的次数屈指可数——他忙着亚洲巡演，你忙着跑通告。上一次见面是三个月前哥哥的生日聚会，你们隔着一张桌子，连话都没说上。
+    </div>
+    <div class="chapter-name">Chapter 3 · 稳步上升</div>
+    <div class="close-demo" onclick="document.getElementById('skipOverlay').style.display='none'">点击关闭</div>
+  </div>
+
+</div>
+
+<!-- 设计标注 -->
+<div class="annotation">
+  <h3>UI 重新设计 · 8 大改动</h3>
+  <div class="item"><b>① 主线进度条</b>：22节点双线显示（粉色爱情/紫色情敌），已完成高亮，当前脉冲，未来隐藏???</div>
+  <div class="item"><b>② 人气×恋爱双轴卡</b>：点位置=当前状态，左下糊团自卑/右上顶流忙碌，旁附"当前困境"文字</div>
+  <div class="item"><b>③ 焦点式布局</b>：剧情区为主(80%)，侧栏可折叠(心理+双轴)，不抢注意力</div>
+  <div class="item"><b>④ 主线视觉区分</b>：主线轮金色边框+光效+角标，日常轮普通，情敌轮紫色</div>
+  <div class="item"><b>⑤ 心理状态系统</b>：压力/自信/焦虑/疲劳四值，影响选项可用性(高压力锁选项)和AI剧情基调</div>
+  <div class="item"><b>⑥ 章节跳跃蒙太奇</b>：日历翻页动画+过渡叙述+章节标题，感受时间流逝</div>
+  <div class="item"><b>⑦ 聊天嵌入</b>：消息通知条不遮挡剧情，点击侧滑展开(非全屏弹窗)</div>
+  <div class="item"><b>⑧ 结局抉择时刻</b>：走向大结局按钮金光闪烁，点击进入全屏抉择界面</div>
+  <br>
+  <div style="text-align:center; margin-top:8px;">
+    <button onclick="document.getElementById('skipOverlay').style.display='flex'" style="background:var(--accent-primary);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;">预览章节跳跃蒙太奇</button>
+  </div>
+</div>
+
+</body>
+</html>

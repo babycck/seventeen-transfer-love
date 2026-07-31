@@ -516,6 +516,10 @@ export function migrateSave() {
     if (typeof E._maleContactTimer !== 'number') E._maleContactTimer = 8;
     if (typeof E._lastFanLetterDay !== 'number') E._lastFanLetterDay = 0;
     if (typeof E._lastBrandOfferDay !== 'number') E._lastBrandOfferDay = 0;
+    // v5: _lastPopSnapshot 兜底（跨天人气快照，engine.js:444 读取用）
+    if (typeof E._lastPopSnapshot !== 'number') E._lastPopSnapshot = (E.career && typeof E.career.popularity === 'number') ? E.career.popularity : 0;
+    // v5: _debutTransitionLeft 兜底（旧存档已出道则不再触发过渡事件）
+    if (typeof E._debutTransitionLeft !== 'number') E._debutTransitionLeft = (E.career && E.career.debutDay > 0) ? 0 : 0;
     if (typeof E._releaseCD !== 'number') E._releaseCD = 0;
     if (typeof E._lastAwardDay !== 'number') E._lastAwardDay = 0;
     if (typeof E._lastVarietyDay !== 'number') E._lastVarietyDay = 0;
@@ -533,6 +537,12 @@ export function migrateSave() {
     if (typeof E.cycle.timeOfDay !== 'number') E.cycle.timeOfDay = 0;
     if (typeof E.cycle.dayCount !== 'number') E.cycle.dayCount = 1;
     if (typeof E.cycle.roundTotal !== 'number') E.cycle.roundTotal = 0;
+    // v5: _gameDayCount 兜底（旧存档可能缺失），并清理越界旧 careerHistory 记录
+    if (typeof E.cycle._gameDayCount !== 'number') E.cycle._gameDayCount = E.cycle.dayCount || 1;
+    if (Array.isArray(E.careerHistory) && E.careerHistory.length > 0) {
+      var maxDay = E.cycle._gameDayCount + 10;
+      E.careerHistory = E.careerHistory.filter(function(h) { return !h.day || h.day <= maxDay; });
+    }
 
     if (!E.works) E.works = { slots: {}, nextWorkId: 1 };
     if (!E.dailyBuzz) E.dailyBuzz = { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenRound: -1 };
@@ -806,6 +816,8 @@ export function migrateSave() {
     // [v23-fix] 话题频率追踪 + 当天已用话题
     if (!GS.dailyTopicFrequency || typeof GS.dailyTopicFrequency !== 'object') GS.dailyTopicFrequency = {};
     if (!Array.isArray(GS.todayUsedTopics)) GS.todayUsedTopics = [];
+    // v5: 心理状态系统兼容迁移
+    if (GS.entSim && !GS.entSim.psyche) GS.entSim.psyche = { stress: 0, confidence: 50, anxiety: 0, fatigue: 0 };
     // 约会礼物池与去重缓存
     if (!GS.datingGiftPools) GS.datingGiftPools = {};
     if (!Array.isArray(GS.datingGiftsUsed)) GS.datingGiftsUsed = [];
@@ -818,6 +830,16 @@ export function migrateSave() {
       eventTriggers: false,
       scheduler: false
     };
+    // v5: 旧 careerHistory day 字段迁移 — 旧存档 day=dayCount(真实日历日)，新存档 day=_gameDayCount(游戏天数)
+    // 检测旧格式：若 careerHistory 有数据且首条的 day>=10(大概率是真实日历日而非游戏第1天)，清空历史
+    if (GS.entSim && Array.isArray(GS.entSim.careerHistory) && GS.entSim.careerHistory.length > 0 && !GS.entSim.careerHistory._gdayMigrated) {
+      var firstDay = GS.entSim.careerHistory[0].day || 0;
+      if (firstDay >= 10) {
+        // 旧格式：清空并标记已迁移
+        GS.entSim.careerHistory = [];
+      }
+      GS.entSim.careerHistory._gdayMigrated = true;
+    }
     saveGame();
   }
   // BUG-16: 字段兜底移出版本判断——即使 v22 存档缺新字段也补回默认值，

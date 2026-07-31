@@ -1,5 +1,6 @@
 import { MEMBERS, GS, saveGame, showLoading, hideLoading, showToast, escHtml } from '../core.js';
 import { sendChatMessage } from '../game-engine.js';
+import { getMaleLeadPresetsForChat } from '../ent-sim/pools/index.js';
 
 export function showChatModal() {
   GS._newChat = false;
@@ -143,10 +144,15 @@ export function showChatModal() {
       // 移除已有的话题面板
       var existing = document.getElementById('chatTopicPanel');
       if (existing) { existing.remove(); return; }
+      // v5: 话题引导用池子预设（替换硬编码）
       var _aff = GS.affection[GS.oneHeartMember] || 0;
-      var topics = ['今天过得怎么样', '最近在忙什么', '我喜欢你', '你在干嘛'];
-      if (_aff >= 40) topics = topics.concat(['周末有空吗', '我们见面吧']);
-      if (_aff >= 60) topics = topics.concat(['我想你了', '你觉得我们是什么关系']);
+      var presets = [];
+      try {
+        if (typeof getMaleLeadPresetsForChat === 'function') {
+          presets = getMaleLeadPresetsForChat();
+        }
+      } catch(e) {}
+      var topics = presets.length ? presets.map(function(p) { return p.q || p.t || ''; }).filter(Boolean) : ['今天过得怎么样', '最近在忙什么', '你在干嘛'];
       if (GS.oneHeartColdWar && GS.oneHeartColdWar.active) topics = ['我们谈谈吧', '对不起', '你在生气吗'];
       if (GS.oneHeartRival && GS.oneHeartRival.name) topics.push('关于' + GS.oneHeartRival.name);
       var panel = document.createElement('div');

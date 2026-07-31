@@ -119,18 +119,28 @@ export function pickFromPoolNoRepeat(pool, usedArr, maxAvoid, cat) {
 // ===== 数据驱动调度 =====
 // 解析require条件字符串，判断条目是否可触发
 // 支持：'debut'/'trainee'/'traineePhase=N'/'aff>=N'/'chapter>=N'/'romance>=N'/'season=winter'/'month=N'
-// 复合条件用&&连接（如'month=2&&debut'），全部满足才通过
+// 复合条件：&&=全部满足, ||=任一满足（||优先级高于&&，先拆||再拆&&）
 export function canTrigger(entry, E) {
   if (!entry || !entry.require) return true;
   var req = entry.require;
   if (typeof req !== 'string') return true;
-  // 拆分&&复合条件，逐一检查
+  // 先拆分顶层&&（如 'debut&&month=12||month=1||month=2' → ['debut', 'month=12||month=1||month=2']）
   var parts = req.split('&&');
   for (var pi = 0; pi < parts.length; pi++) {
     var part = parts[pi].trim();
-    if (!_checkSingle(part, E)) return false;
+    if (!_checkOrGroup(part, E)) return false;
   }
   return true;
+}
+// 处理||组：任一子条件满足即通过
+function _checkOrGroup(grp, E) {
+  if (!grp) return true;
+  if (grp.indexOf('||') === -1) return _checkSingle(grp, E);
+  var subParts = grp.split('||');
+  for (var si = 0; si < subParts.length; si++) {
+    if (_checkSingle(subParts[si].trim(), E)) return true;
+  }
+  return false;
 }
 // 单条件检查
 function _checkSingle(req, E) {
@@ -140,16 +150,16 @@ function _checkSingle(req, E) {
   // 'trainee' → debutDay === 0
   if (req === 'trainee') return E && E.career && E.career.debutDay === 0;
   // 'traineePhase=N' → 练习生子阶段
-  var tpMatch = req.match(/traineePhase=(\d)/);
+  var tpMatch = req.match(/^traineePhase=(\d)$/);
   if (tpMatch) return E && E.career && (E.career.traineePhase || 1) === parseInt(tpMatch[1], 10);
   // 'aff>=N' → 好感度门槛
-  var affMatch = req.match(/aff>=(\d+)/);
+  var affMatch = req.match(/^aff>=(\d+)$/);
   if (affMatch) return E && (E.affection || 0) >= parseInt(affMatch[1], 10);
   // 'chapter>=N' → 章节等级门槛
-  var chMatch = req.match(/chapter>=(\d+)/);
+  var chMatch = req.match(/^chapter>=(\d+)$/);
   if (chMatch) return E && E.chapter && (E.chapter.index || 1) >= parseInt(chMatch[1], 10);
   // 'romance>=N' → 好感阶段（0=初识 1=暧昧 2=约会 3=恋爱 4=公开）
-  var romMatch = req.match(/romance>=(\d+)/);
+  var romMatch = req.match(/^romance>=(\d+)$/);
   if (romMatch) {
     var stage = 0;
     var aff = E ? (E.affection || 0) : 0;
@@ -162,7 +172,7 @@ function _checkSingle(req, E) {
     return stage >= parseInt(romMatch[1], 10);
   }
   // 'season=winter|spring|summer|autumn' → 季节过滤（防夏天下雪）
-  var sMatch = req.match(/season=(winter|spring|summer|autumn)/);
+  var sMatch = req.match(/^season=(winter|spring|summer|autumn)$/);
   if (sMatch) {
     var dayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
     var _md = _inlineMonthDay(dayCount);
@@ -170,13 +180,13 @@ function _checkSingle(req, E) {
     return curSeason === sMatch[1];
   }
   // 'month=N' → 月份过滤（防7月过情人节）
-  var mMatch = req.match(/month=(\d+)/);
+  var mMatch = req.match(/^month=(\d+)$/);
   if (mMatch) {
     var _dayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
     return _inlineMonthDay(_dayCount).month === parseInt(mMatch[1], 10);
   }
   // 'birthday=heroine|brother|ml|rival' → 仅今天该人生日时触发
-  var bdMatch = req.match(/birthday=(heroine|brother|ml|rival)/);
+  var bdMatch = req.match(/^birthday=(heroine|brother|ml|rival)$/);
   if (bdMatch) {
     var bDayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
     var bdays = E && E.career ? E.career._birthdays : null;
@@ -184,6 +194,25 @@ function _checkSingle(req, E) {
     var _md2 = _inlineMonthDay(bDayCount);
     var today = _md2.month + '-' + _md2.day;
     return bdays[bdMatch[1]] === today;
+  }
+  // 'popularity>=N' / 'pop>=N' → 人气档位门控
+  var popGeMatch = req.match(/^(?:pop|popularity)>=(\d+)$/);
+  if (popGeMatch) return E && E.career && (E.career.popularity || 0) >= parseInt(popGeMatch[1], 10);
+  // 'popularity<N' / 'pop<N' → 人气上限门控
+  var popLtMatch = req.match(/^(?:pop|popularity)<(\d+)$/);
+  if (popLtMatch) return E && E.career && (E.career.popularity || 0) < parseInt(popLtMatch[1], 10);
+  // 'scandalHeat>=N' → 丑闻热度门控（曝光风险累计值，存储在 E.misc.scandalHeat）
+  var shMatch = req.match(/^scandalHeat>=(\d+)$/);
+  if (shMatch) return E && E.misc && (E.misc.scandalHeat || 0) >= parseInt(shMatch[1], 10);
+  // 'contractRemaining<=N' → 合约剩余年限门控（存储在 E.career.contractRemaining）
+  var crMatch = req.match(/^contractRemaining<=(\d+)$/);
+  if (crMatch) return E && E.career && (E.career.contractRemaining || 99) <= parseInt(crMatch[1], 10);
+  // 'mainline=节点ID' → 主线节点已完成门控（未实现主线系统时默认放行=向后兼容）
+  var mlMatch = req.match(/^mainline=(\w+)$/);
+  if (mlMatch) {
+    var completed = E && E._mainlineCompleted ? E._mainlineCompleted : null;
+    if (!completed) return true; // 主线系统未就绪→放行
+    return completed.indexOf(mlMatch[1]) >= 0;
   }
   return true;
 }

@@ -1886,7 +1886,12 @@ function renderPhoneChatMsgs(ch) {
     }
     if (!hist.length) {
       msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#555;gap:6px;font-size:13px"><div style="font-size:36px">💬</div><div>暂无消息</div></div>';
-      updateQuickReplies(ch, []);
+      // 男主频道：空白状态下仍显示快捷回复按钮（让玩家主动发起对话）
+      if (ch === 'maleLead') {
+        updateQuickReplies(ch, getMaleLeadPresetsForChat());
+      } else {
+        updateQuickReplies(ch, []);
+      }
       return;
     }
   }
@@ -2833,6 +2838,18 @@ window.initChatChannel = function(ch) {
   if (GS._entSimChatHistory[ch] && GS._entSimChatHistory[ch].length) return;
   if (!GS._entSimChatSentIdx) GS._entSimChatSentIdx = {};
   if (ch === 'sasaeng') return; // 私生只读
+  var E = GS.entSim;
+  var isTrainee = E.career && E.career.profession === '练习生';
+  // 练习生期：男主频道不预填对话历史（保留空数组+sentIdx=0，快捷回复按钮仍可用）
+  if (ch === 'maleLead' && isTrainee) {
+    GS._entSimChatHistory[ch] = [];
+    GS._entSimChatSentIdx[ch] = 0;
+    return;
+  }
+  // 练习生期：经纪人频道不预填（未签经纪人）
+  if (ch === 'manager' && isTrainee) return;
+  // 团群聊仅女团编制时预填（练习生无团不推）
+  if (ch === 'group' && !(E.heroineGroup && E.heroineGroup.length > 0)) return;
   var pool = getChatPoolByChannel(ch);
   if (pool && pool.length) {
     var initEntries = [];

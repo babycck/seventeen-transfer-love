@@ -21,7 +21,9 @@ import { MILESTONE_DEBUT, MILESTONE_FIRST_WIN, MILESTONE_AWARDS } from './pools/
 import { ENCOUNTER_ML, ENCOUNTER_RIVAL, ENCOUNTER_BROTHER, ENCOUNTER_OTHERS } from './pools/index.js';
 import { DRAMA_ALMOST, DRAMA_MISUNDERSTAND, DRAMA_COLDWAR, DRAMA_DATING_RUMOR, DRAMA_DILEMMA } from './pools/index.js';
 import { CALENDAR_EVENTS } from './pools/index.js';
+import { JOB_GRADE_POOL } from './pools/index.js';
 import { canTrigger } from './pools/_utils.js';
+import { getMainlineAnchor, getMainlineBanList, MAINLINE_ANCHORS } from './pools/mainline-anchor-text.js';
 
 // ── commit-only 去重：已注入过的场景文本不再重复使用 ──
 var _inspUsedTexts = new Set();
@@ -51,6 +53,21 @@ export function buildEntSimSystemPrompt(mode) {
   var sys = '';
   sys += '你是一个沉浸式娱乐圈恋爱文字游戏的叙事 AI。玩家扮演一名韩国' + careerLabel + '（艺名：' + (hp.name || '你') + '，' + (hp.age || 19) + ' 岁），目前在' + careerDaily + '。' + careerDesc + ' SEVENTEEN 成员「' + (ml ? ml.name : '男主') + '」是她的哥哥的队友，但两人目前只是同行业前辈与后辈的关系——是否通过哥哥见过面、说过话，都是未知数。故事从零开始，感情完全空白，没有任何预设的暧昧或好感。\n';
   sys += '【核心定位】恋爱是主线，娱乐圈是背景层。你的重点是写好「两个陌生人如何从相识走向相爱」：初遇、相识、心动、暧昧、吃醋、试探、告白、在一起后的地下甜蜜。开局没有感情基础，一切从零开始慢热推进。娱乐圈的行程/舆论/曝光只是恋爱的张力来源，不要写成经营模拟。\n';
+  // v5: 心理状态注入——告知AI女主当前压力/焦虑/疲劳，让其调整叙事基调
+  if (E.psyche) {
+    var psy = E.psyche;
+    sys += '【女主心理状态·叙事基调】';
+    if (psy.stress > 60) sys += '高压力（' + psy.stress + '/100），走路脚步沉重、容易被小事触动、独自时会有放空或叹气的片刻，但工作中仍会保持专业态度。';
+    else if (psy.stress > 30) sys += '中等压力（' + psy.stress + '/100），偶尔会在意他人的评价，夜深时想得比白天多。';
+    if (psy.anxiety > 50) sys += '高焦虑（' + psy.anxiety + '/100），对不确定性敏感、可能过度解读信息或回避正面冲突。';
+    if (psy.fatigue > 60) sys += '严重疲劳（' + psy.fatigue + '/100），黑眼圈、反应稍慢、对玩笑话只能勉强配合笑。';
+    else if (psy.fatigue > 30) sys += '中等疲劳（' + psy.fatigue + '/100），结束工作后只想躺平、聊天回得简短一些。';
+    if (psy.confidence < 30) sys += '自信偏低（' + psy.confidence + '/100），怀疑自己的能力、面对夸奖会想"是不是客套"。';
+    else if (psy.confidence > 70) sys += '自信充沛（' + psy.confidence + '/100），舞台上眼神更稳、面对前辈不怯场。';
+    sys += '请在叙事中反映这些状态——让压力落在微动作里（揉太阳穴、靠着墙歇一会、多喝了两杯咖啡、不自觉地转笔等），而非每句话都写"压力很大"。';
+    if (!psy.stress && !psy.anxiety && !psy.fatigue && Math.abs(psy.confidence - 50) < 10) sys += '目前心理状态平稳，日常节奏正常。';
+    sys += '\n';
+  }
   sys += '【' + (isDebut ? '女团队友' : '练习生同期') + '（背景人物）】' + teammateDesc + '\n';
   if (isDebut) {
     sys += '⚠️ 团魂铁则：六人非常团结、互相扶持、没有内斗。禁止写队友翻白眼、阴阳怪气、抢站位、明争暗斗等行为。她们之间的互动永远是温暖的、互相撑腰的。\n';
@@ -88,7 +105,7 @@ export function buildEntSimSystemPrompt(mode) {
   sys += '  - 好感度只在男主实际出场、与女主有实质互动（对话/独处/肢体接触/冲突/心动瞬间）时才能推进，增幅 ±1-3。\n';
   sys += '  - 若本回合剧情中男主未出场、或仅为背景板（如"他在走廊路过""群里有人提到他"），affectionDelta 必须为 0。\n';
   sys += '  - 女主独自刷热搜/看手机/练习/与队友闲聊等独角戏回合，affectionDelta 必须为 0。好感不会凭空产生。\n';
-  sys += '【告白门槛】好感度 ≥ 80（交往）且 未冷战 且 未告白过，下一个或下下个剧情会自然触发告白，不要一到 80 就生硬告白。\n';
+  sys += '【告白门槛·队友妹妹专属】好感度 ≥ 60（明确好感）且哥哥非protective且 未冷战 且 未告白过，即可触发告白。男主会在私下/家中告白。接受→进入恋爱期(哥哥+5)，拒绝→好感-10(情敌+15)，拖延→冷却5回合+哥哥找女主谈话。\n';
   sys += '【心动时刻】好感度跨过「暧昧(50)→心动(60)」时，应有一段约 300 字的沉浸式心动高光描写（粉色氛围、心跳感），插入当前剧情前。\n';
   sys += '【写作风格】现实向、甜宠暗恋、地下恋视角、有压力感。每段正文剧情 800-1800 字，充分铺陈人物心理描写、环境细节、对话与互动，写出细腻的慢热恋爱张力，不要干瘪叙述。禁止滥用「脸红」「脸颊泛红」「耳根发红」——成年人不会每句话都脸红，真正的心动通过眼神躲闪、语速变化、小动作、沉默停顿来体现，脸红一局最多出现 1-2 次且仅在重大表白/极度害羞场景。禁止滥用「心跳加速」「心跳声很大」「心跳漏了一拍」「呼吸急促」「心跳声盖过XXX」等身体应激描写——正常成年人在日常互动中不会频繁出现剧烈生理反应。心动的微妙感应通过心理活动、微表情、对话节奏来传递，而非每次都用心跳/呼吸来强调。\n';
   // v2：亲密接触阶段锁
@@ -324,8 +341,13 @@ export function buildEntSimUserMessage(type, extra) {
 
   // 待注入事件（哥哥/男主主动，由下一回合消费）
   if (GS._entSimPendingEvent) {
-    msg += '\n【本回合应融入的事件】\n' + GS._entSimPendingEvent + '\n';
+    msg += '\n【本回合必须围绕展开的核心事件·强制】以下事件是本回合的核心主线，你必须围绕它展开剧情，将其作为叙事骨架。可丰富细节、对话、心理描写，但不得偏离事件走向、不得用无关日常替代、不得发明新的主线转折。\n' + GS._entSimPendingEvent + '\n';
     GS._entSimPendingEvent = '';
+  }
+  // v5: 上轮validator反馈注入——让AI知道上一轮哪里跑偏了
+  if (GS._entSimPendingCorrections) {
+    msg += '\n' + GS._entSimPendingCorrections;
+    GS._entSimPendingCorrections = '';
   }
 
   msg += '\n\n【当前状态快照】\n' + buildEntSimContextSnapshot();
@@ -348,6 +370,10 @@ export function buildEntSimUserMessage(type, extra) {
   // ── 层3+9：阶段行为禁制卡（recency bias——每轮末尾注入，含范例+公共场合+叙事模式）──
   var banCard = buildStageBanCard(E);
   if (banCard) msg += '\n' + banCard + '\n';
+
+  // ── 层4：主线进度锚定·每回合注入（v5新增）──
+  var mainlineAnchor = buildMainlineAnchor(E);
+  if (mainlineAnchor) msg += '\n' + mainlineAnchor + '\n';
 
   msg += '\n请输出 JSON（narrative + options + entSimExtras）。';
   return msg;
@@ -386,9 +412,10 @@ function buildStageBanCard(E) {
       example: '正确范例：敏珠在角落拉伸，还有两个练习生在讨论编舞。错误：练习室只剩你们两个人。' });
   }
   // 叙事模式约束（层9）
+  // v4: 修复观察模式死循环——允许男主有微弱的注意反应，但仍不能主动搭话/接近
   if (stage === 0) {
-    bans.push({ ban: '【叙事模式·初遇=观察模式】男主只能在场景中"存在"——他在走廊经过、他在休息室里打游戏、他的声音从某个房间传出来。女主通过自己的感官注意到他，不是他注意到女主。他不对女主做任何指向性的行为。',
-      example: '正确范例：他进了录音室，门在你身后关上。错误：他偷偷帮你换了水/他多看了你一眼/他的视线在你这边停留。' });
+    bans.push({ ban: '【叙事模式·初遇=观察模式】男主可以"存在"并被女主注意到——他在走廊经过、休息室打游戏、声音从某房间传出。允许男主偶尔对女主有微弱反应（视线短暂停留/无意间的目光相遇/不经意听到对话后微小的停顿），但**不允许他主动搭话、不允许特意走近、不允许以帮助为名的接近**。他只是作为场景中的"那个人"被女主感知，互动感由女主单向观察产生。',
+      example: '正确范例：他经过时视线在你这边停了半秒，然后转向自己的咖啡。轻微：他停下脚步似乎想说什么，但最终只是推门进了录音室。错误：他主动走过来帮你搬箱子/他特意靠近你问"今天累吗"。' });
   }
   if (!bans.length) return '';
   var result = '【本轮行为禁制·强制】请逐条确认以下行为在本轮不可出现：\n';
@@ -398,6 +425,100 @@ function buildStageBanCard(E) {
   result += '如果上一轮已有的标志性事件与本轮阶段冲突，本轮主角应刻意拉开距离，不要延续上轮的越级行为。';
   return result;
 }
+
+// ── v5·主线进度锚定：每回合注入当前节点+方向+禁忌 ──
+function buildMainlineAnchor(E) {
+  if (!E) return '';
+  // 初始化主线完成列表（首次调用）
+  if (!E._mainlineCompleted) E._mainlineCompleted = [];
+  var completed = E._mainlineCompleted;
+  var stage = GS.oneHeartRomanceStage || 0;
+  var aff = E.affection || 0;
+
+  // 按好感推进主线节点
+  maybeAdvanceMainline(E, completed, stage, aff);
+
+  // 获取当前未完成的最近节点作为锚定目标
+  var allNodes = [];
+  // 爱情线节点
+  if (typeof MAINLINE_ANCHORS !== 'undefined') {
+    for (var key in MAINLINE_ANCHORS) {
+      if (key.indexOf('ml_') === 0) allNodes.push(key);
+    }
+    for (var rvKey in MAINLINE_ANCHORS) {
+      if (rvKey.indexOf('rv_') === 0) allNodes.push(rvKey);
+    }
+  }
+
+  // 找下一个未完成的节点
+  var nextNode = null;
+  for (var ni = 0; ni < allNodes.length; ni++) {
+    if (completed.indexOf(allNodes[ni]) < 0) {
+      nextNode = allNodes[ni];
+      break;
+    }
+  }
+  if (!nextNode) return ''; // 全部完成
+
+  var anchor = getMainlineAnchor(nextNode);
+  if (!anchor) return '';
+
+  var banList = getMainlineBanList(stage);
+  var out = '\n【主线进度·v5锚定】\n';
+  out += '当前聚焦节点：' + nextNode + '（未完成）\n';
+  out += anchor + '\n';
+  if (banList) out += '【阶段通用禁忌】' + banList + '\n';
+  out += '已完成节点数：' + completed.length + ' / ' + allNodes.length + '\n';
+  return out;
+}
+
+// 按好感/阶段推进主线节点完成状态
+function maybeAdvanceMainline(E, completed, stage, aff) {
+  // 自动完成标准：前置节点已全部完成 + 好感达标
+  var nodeAffMin = {
+    ml_first_meet: 0, ml_again_meet: 3, ml_small_talk: 8, ml_notice: 15,
+    ml_help: 20, ml_jealous_1: 25, ml_heart_seed: 30, ml_private_contact: 40,
+    ml_date_first: 45, ml_almost_confess: 50, ml_confess: 60,
+    ml_together: 65, ml_crisis_exposure: 70, ml_crisis_brother: 75, ml_final_choice: 85,
+    rv_first_meet: 5, rv_notice: 10, rv_approach: 20, rv_male_notice: 25,
+    rv_conflict: 30, rv_confess: 35, rv_exit: 40
+  };
+
+  // 从 MAINLINE_BEATS 数据中获取节点依赖关系
+  var allBeats = [];
+  // 尝试获取完整的beat数据（含requires）
+  try {
+    var mlBeats = null, rvBeats = null;
+    // 动态导入避免循环依赖
+    var beats = {};
+    try { beats = require ? require('./pools/mainline-beats.js') : null; } catch(e) {}
+    if (!beats || !beats.MAINLINE_ROMANCE) {
+      // fallback: 内联依赖定义
+    }
+  } catch(e) {}
+
+  // 简化版本：按好感自动解锁（前置by顺序号）
+  var nodeOrder = [
+    'ml_first_meet','ml_again_meet','ml_small_talk','ml_notice',
+    'ml_help','ml_jealous_1','ml_heart_seed','ml_private_contact',
+    'ml_date_first','ml_almost_confess','ml_confess','ml_together',
+    'ml_crisis_exposure','ml_crisis_brother','ml_final_choice',
+    'rv_first_meet','rv_notice','rv_approach','rv_male_notice',
+    'rv_conflict','rv_confess','rv_exit'
+  ];
+
+  for (var oi = 0; oi < nodeOrder.length; oi++) {
+    var nodeId = nodeOrder[oi];
+    if (completed.indexOf(nodeId) >= 0) continue; // 已完成跳过
+    var minAff = nodeAffMin[nodeId] || 0;
+    if (aff >= minAff) {
+      completed.push(nodeId);
+    } else {
+      break; // 好感不够，后续不继续
+    }
+  }
+}
+
 
 // ── 场景灵感注入：从34个池子中按当前状态筛选2-3条最相关的场景素材，
 // 注入到AI的用户消息中作为创作灵感，让AI写剧情时有具体场景可参考。
@@ -450,6 +571,9 @@ function injectPoolInspirations(E) {
     if (E.chapter && E.chapter.index >= 2) addPoolCandidates(candidates, MILESTONE_FIRST_WIN, E, 1, '一位场景');
   }
 
+  // v4: 池子接入⑫ JOB_GRADE_POOL — 按人气分级注入场景素材
+  if (isDebut) addPoolCandidates(candidates, JOB_GRADE_POOL, E, 1, '通告分级场景');
+
   // ── 日历节日池（按今天的日期/生日） ──
   addPoolCandidates(candidates, CALENDAR_EVENTS, E, 1, '今日节日/生日');
 
@@ -457,7 +581,7 @@ function injectPoolInspirations(E) {
   if (!candidates.length) return '';
   var picked = [];
   var tmp = candidates.slice();
-  var max = Math.min(4, tmp.length);
+  var max = Math.min(2, tmp.length); // v4: 从4条降为2条，减少prompt稀释
   for (var i = 0; i < max && tmp.length; i++) {
     var idx = Math.floor(Math.random() * tmp.length);
     picked.push(tmp.splice(idx, 1)[0]);
@@ -470,7 +594,7 @@ function injectPoolInspirations(E) {
     _inspUsedTexts.add(picked[pi].text);
   }
 
-  var out = '\n【场景灵感·素材提示】以下是可以自然融入本回合剧情的场景素材（不要照搬原文，用作灵感和方向指引，自然化用）：\n';
+  var out = '\n【本场核心事件·强引导】以下是本回合必须围绕展开的核心事件素材。你必须以其为剧情主线，可丰富对话/心理/环境细节，但不得替换主线走向、不得自行发明新的主线冲突或新事件。请将这些素材自然融入到剧情中，而非照搬原文：\n';
   for (var pi = 0; pi < picked.length; pi++) {
     out += '- [' + picked[pi].cat + '] ' + picked[pi].text + '\n';
   }
