@@ -169,7 +169,7 @@ export function validateEntSimNarrative(parsed) {
     var _scanText = narrative + ' ' + _note + ' ' + _rev;
     var _contentBans = [
       { pattern: /写歌|写词|为你创作|专属旋律|给你写了/, gate: _stage === 0 && _aff < 20, msg: '当前初遇阶段禁止写歌/写词/创作' },
-      { pattern: /暗号|只有(我|你)懂|秘密约定|只属于(我|你)/, gate: _aff < 20, msg: '当前好感禁止专属暗号/秘密约定' },
+      { pattern: /专属暗号|只有(我|你)懂|秘密约定|只属于(我|你)/, gate: _aff < 20, msg: '当前好感禁止专属暗号/秘密约定（允许普通语境下单独出现"暗号"一词）' },
       { pattern: /雾(?!化|霾|散)/, gate: !_weatherIsFog, msg: '当前天气非雾天禁止雾氛描写（允许写"雾散了/没有雾"等明确否定雾气的表达）' },
       { pattern: /拥抱|牵手|靠(在|着)(肩|怀)|擦(泪|眼角)/, gate: true, msg: '当前阶段禁止肢体亲密接触' },
       { pattern: /审查.*感情|牵线|撮合|推.*Kakao|月老/, gate: _broSup < 20, msg: '哥哥支持度不足禁止牵线/审查行为' },
