@@ -91,7 +91,7 @@ export function buildEntSimSystemPrompt(mode) {
     sys += '【输出格式·辅助任务】你正在执行一个辅助生成任务，不是剧情主线。请直接输出纯文本（不要 JSON、不要 markdown 代码块、不要标题），严格遵循用户消息中给出的格式与分段要求。\n';
   } else {
     sys += '【输出格式·严格约束】你的输出必须且只能是下面这个 JSON 结构，除此之外不能有任何其他字段，不允许使用 blocks 数组格式！\n';
-    sys += '{"narrative":"剧情正文（400-800字）","options":["选项1","选项2","选项3"],"entSimExtras":{';
+    sys += '{"narrative":"剧情正文（400-800字）。必须分段书写：不同场景、对话、心理活动之间用一个空行（\\n\\n）分隔，禁止写成一整段没有换行的大文字。","options":["选项1","选项2","选项3"],"entSimExtras":{';
     sys += '"affectionDelta":0,';
     sys += '"romanceBeat":{"affectionDelta":0,"emotion":"","note":"","event":""},';
     sys += '"npcEncounter":{"type":"","name":"","intimacyDelta":0,"stance":"","event":"","exposure":0},\n（npcEncounter规则：当本轮剧情中出现团内竞争者/情敌与女主的非偶遇互动时——如主动搭话、送东西、单独相处、吃醋表现——必须填写 type="男主情敌"、name=其名、intimacyDelta=±1~3（正向互动+2，尴尬/冷淡-1）、event="简短概括互动内容"。若仅为偶遇/群聊中顺带出现则填 0。）\n';
@@ -119,6 +119,7 @@ export function buildEntSimUserMessage(type, extra) {
     '- 用具体动作和感官细节代替情绪词：不写"她很紧张"，写"她把谱子折了又展开，展开又折"。\n' +
     '- 场景有物理质感：温度、光线、声音、空间大小。让人能"看见"这个练习室。\n' +
     '- 对话少而精，每句话都有信息量或性格辨识度。不写"嗯""哦""好的"等填充句。\n' +
+    '- 正文必须分段：场景切换、对话、心理活动、动作描写之间都要换行，用空行分隔大段落，禁止把所有内容挤成一整段。\n' +
     '- 篇幅500-700字，像一集五分钟的番剧，每轮讲好一件事。\n';
 
   if (type === 'phase') {

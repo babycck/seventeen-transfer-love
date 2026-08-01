@@ -2340,6 +2340,8 @@ body {
   border-radius: 14px; padding: 16px; font-size: 14px; line-height: 1.9;
   color: #e6e1f5; min-height: 220px; white-space: normal; margin-bottom: 10px;
 }
+.es-narrative p { margin: 0 0 1em 0; }
+.es-narrative p:last-child { margin-bottom: 0; }
 .es-loading { color: var(--es-text-dim); padding: 20px; text-align: center; }
 .es-loading-wrap { display: flex; align-items: center; justify-content: center; min-height: 60vh; font-size: 18px; color: var(--es-text-dim); animation: es-pulse 1.4s ease-in-out infinite; }
 .es-loading-inline { color: var(--es-text-dim); padding: 14px; text-align: center; font-size: 13px; animation: es-pulse 1.4s ease-in-out infinite; opacity: .7; }

@@ -360,10 +360,15 @@ function renderCenter(cur, heartPending) {
     }).join('') : '<div class="es-empty">（等待剧情推进…）</div>';
   var romanceBtns = renderRomanceButtons();
   var heartTitle = heartPending ? '<div class="es-heartbeat-title">💗 心动时刻</div>' : '';
-  var nHtml = cur.narrative ? escHtml(cur.narrative).replace(/\n/g, '<br>') : '';
-  nHtml = nHtml.replace(/── (.+?) ──/g, '<div class="es-branch-sep">$1</div>');
-  // 时段过渡标记：🌤️/☀️/🌙 上午·继续 / 下午·继续 / 夜晚·继续
-  nHtml = nHtml.replace(/([🌤️☀️🌙])\s*(上午|下午|夜晚)·继续/g, '<div class="es-branch-sep es-time-sep">$1 $2·继续</div>');
+  var nHtml = cur.narrative ? escHtml(cur.narrative) : '';
+  // 先替换特殊视觉标记（独立成行）
+  nHtml = nHtml.replace(/(?:^|\n)── (.+?) ──(?:\n|$)/g, '<div class="es-branch-sep">$1</div>');
+  nHtml = nHtml.replace(/(?:^|\n)([🌤️☀️🌙])\s*(上午|下午|夜晚)·继续(?:\n|$)/g, '<div class="es-branch-sep es-time-sep">$1 $2·继续</div>');
+  // 双换行分段为<p>，单换行保留为<br>，避免大段文字挤成一坨
+  nHtml = nHtml.split(/\n\n+/).map(function(p) {
+    if (!p.trim()) return '';
+    return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+  }).join('');
   var isDebut2 = E.career && E.career.debutDay > 0;
   return '' +
     '<div class="es-panel es-center-panel">' +
