@@ -205,6 +205,38 @@ export function initEntSimState() {
     rival: _randBday()
   };
 
+  // 测试模式：固定男主/哥哥/情敌为全圆佑/李硕珉/尹净汉
+  if (window.__ENT_SIM_TEST) {
+    var fixedML = null, fixedBro = null, fixedSuit = null;
+    for (var fm = 0; fm < MEMBERS.length; fm++) {
+      if (MEMBERS[fm].id === 'wonwoo') fixedML = MEMBERS[fm];
+      else if (MEMBERS[fm].id === 'dk') fixedBro = MEMBERS[fm];
+      else if (MEMBERS[fm].id === 'jeonghan') fixedSuit = MEMBERS[fm];
+    }
+    if (fixedML) {
+      E.romance.maleLead = { id: fixedML.id, name: fixedML.name, memberId: fixedML.id };
+      E.romance.mannerisms = buildMannerisms(fixedML);
+    }
+    if (fixedBro) {
+      GS.oneHeartRelationCharacter = { id: fixedBro.id, name: fixedBro.name, role: '哥哥', isBrother: true };
+      E.brother.stance = '参谋';
+      E.brother.support = E.brother.support || 0;
+      E.brother.name = fixedBro.name;
+      E.brother.id = fixedBro.id;
+      E.brother.pool = E.brother.pool || [];
+      E.brother.testNudged = E.brother.testNudged || { 1: false, 2: false, 3: false };
+      E.brother.rivalAware = E.brother.rivalAware || false;
+      E.brother.talkPending = E.brother.talkPending || false;
+    }
+    if (fixedSuit && E.npcNetwork && E.npcNetwork.nodes) {
+      E.npcNetwork.nodes.npc_suitor = {
+        id: 'npc_suitor', type: 'suitor', name: fixedSuit.name, memberId: fixedSuit.id,
+        intimacy: E.npcNetwork.nodes.npc_suitor ? E.npcNetwork.nodes.npc_suitor.intimacy : 0,
+        stance: '暗恋你'
+      };
+    }
+  }
+
   saveGame();
   return E;
 }

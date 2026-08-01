@@ -177,6 +177,11 @@ export function applyDiscoveryBlowback(severity) {
   var E = GS.entSim;
   if (!E) return { severity: severity, popDrop: 0 };
   var popDrop = severity * 7;
+  // 保底：单次曝光惩罚不超过当前人气的50%（防止低人气时直接归零锁死）
+  var curPop = (E.career && typeof E.career.popularity === 'number') ? E.career.popularity : 0;
+  if (curPop > 0 && popDrop > Math.floor(curPop / 2)) {
+    popDrop = Math.max(severity, Math.floor(curPop / 2)); // 至少扣 severity 点
+  }
   addPopularity(-popDrop, '恋情曝光反噬·粉丝与舆论淹没（严重度' + severity + '）');
   E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'exposure', text: '恋情曝光反噬·粉丝与舆论淹没（严重度' + severity + '）' });
   saveGame();

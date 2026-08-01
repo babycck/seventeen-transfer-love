@@ -778,11 +778,13 @@ export function bindSetupEvents() {
       });
     }
     document.getElementById('step1Next').addEventListener('click', function() {
-      if (!GS.apiKey.trim()) {
+      // 测试模式（entSim + __ENT_SIM_TEST）跳过 API Key 校验
+      var isEntSimTest = GS.gameMode === 'entSim' && window.__ENT_SIM_TEST;
+      if (!isEntSimTest && !GS.apiKey.trim()) {
         showToast('请输入 API Key');
         return;
       }
-      if (((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') && GS.useSeparateApi) {
+      if (!isEntSimTest && ((GS.gameMode === 'oneHeart' || GS.gameMode === 'entSim') || GS.gameMode === 'entSim') && GS.useSeparateApi) {
         if (!GS.mainApiKey.trim()) {
           showToast('请输入正文专用 API Key');
           return;

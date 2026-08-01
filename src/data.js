@@ -23,12 +23,17 @@ export function buildEntSimHeroineGroup() {
   // SISTER_ROLES 格式: [{ roles:['队长/主唱','主舞',...], size:N }, ...]
   var template = SISTER_ROLES[randInt(0, SISTER_ROLES.length - 1)];
   var roles = (template.roles || template).slice(0, 5);
+  // 如果模板不足 5 个角色，用兜底角色补足（确保女团永远是 5 位姐姐）
+  var DEFAULT_ROLES = ['领唱', '门面/副唱', '领舞/气氛', 'Rapper/制作', '综艺/气氛'];
+  while (roles.length < 5) {
+    roles.push(DEFAULT_ROLES[roles.length] || '队友' + (roles.length + 1));
+  }
   // TEAMMATE_FLAVOR 性格标签池（5种性格，每人分配一种，用于确认弹窗展示）
   var flavorKeys = ['最疼你的大姐', '舞台疯子', '想退团的', '综艺担当', '佛系维他命'];
   var shuffledFlavors = flavorKeys.slice().sort(function() { return Math.random() - 0.5; });
   var used = {};
   var out = [];
-  for (var i = 0; i < roles.length; i++) {
+  for (var i = 0; i < 5; i++) {
     var nm;
     do { nm = namePool[randInt(0, namePool.length - 1)]; } while (used[nm]);
     used[nm] = true;

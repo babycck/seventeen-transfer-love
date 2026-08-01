@@ -97,6 +97,38 @@ var BUZZ_COMMENT_POOL = [
   {t:'不知道该说什么 反正喜欢就完事了',c:'fan'},{t:'这期综艺真的好看 建议反复观看',c:'variety'},
 ];
 
+// 按条目类型倾向性抽选 Buzz 评论（兜底从 common 类随机补）
+function pickBuzzComments(item, count) {
+  count = count || 2;
+  // 确定条目的类别倾向：优先用 item.c，其次从标题关键词推断
+  var cat = '';
+  if (typeof item === 'object' && item.c) {
+    cat = item.c;
+  } else {
+    var title = (typeof item === 'object' && item.t) ? item.t : (item || '');
+    if (title.indexOf('舞台') >= 0 || title.indexOf('直拍') >= 0 || title.indexOf('打歌') >= 0 || title.indexOf('回归') >= 0) cat = 'stage';
+    else if (title.indexOf('颜值') >= 0 || title.indexOf('造型') >= 0 || title.indexOf('穿搭') >= 0 || title.indexOf('机场') >= 0) cat = 'visual';
+    else if (title.indexOf('综艺') >= 0 || title.indexOf('直播') >= 0 || title.indexOf('搞笑') >= 0) cat = 'variety';
+    else if (title.indexOf('绯闻') >= 0 || title.indexOf('曝光') >= 0 || title.indexOf('恋情') >= 0 || title.indexOf('被拍') >= 0 || title.indexOf('争议') >= 0 || title.indexOf('爆料') >= 0) cat = 'gossip';
+    else if (title.indexOf('粉丝') >= 0 || title.indexOf('应援') >= 0 || title.indexOf('官咖') >= 0) cat = 'fan';
+    else if (title.indexOf('练习') >= 0 || title.indexOf('努力') >= 0 || title.indexOf('凌晨') >= 0) cat = 'practice';
+    else cat = 'common';
+  }
+  // 从池子中按类别匹配
+  var matched = BUZZ_COMMENT_POOL.filter(function(b) { return b.c === cat; });
+  var common = BUZZ_COMMENT_POOL.filter(function(b) { return b.c === 'common'; });
+  // 不够时从 common 补充
+  var pool = matched.length >= count ? matched : matched.concat(common);
+  // 去重随机抽取 count 条
+  var copy = pool.slice();
+  var result = [];
+  for (var i = 0; i < count && copy.length; i++) {
+    var idx = randInt(0, copy.length - 1);
+    result.push('· ' + copy[idx].t);
+    copy.splice(idx, 1);
+  }
+  return result.length > 0 ? result : ['· 吃瓜群众路过', '· 蹲一个后续'];
+}
 
 // 判断一条舆论是否与女主相关（含 {name} 或被 fill 替换后的女主名）
 function isHeroineRelated(item) {
@@ -178,8 +210,9 @@ function renderHtml() {
   var tab = currentTab();
   var heartPending = GS._entSimHeartbeatPending;
   // 主剧情：首轮未生成时自动生成（用 started 标志，避免每次渲染都重复触发生成）
+  // 避风头后跳过自动生成（GS._entSimSkipRoundGen = true）
   var E = GS.entSim;
-  if (!E.started && !GS._entSimGenerating && (!GS._entSimCurrent || !GS._entSimCurrent.narrative)) {
+  if (!E.started && !GS._entSimGenerating && !GS._entSimSkipRoundGen && (!GS._entSimCurrent || !GS._entSimCurrent.narrative)) {
     var autoTries0 = GS._entSimAutoTries || 0;
     if (autoTries0 >= 2) {
       // 首轮连续失败：放弃自动重生成，标记 started 交回 bindEntSimEvents 兜底（点击拉回主线重试）
@@ -364,9 +397,14 @@ function renderCenter(cur, heartPending) {
   // 先替换特殊视觉标记（独立成行）
   nHtml = nHtml.replace(/(?:^|\n)── (.+?) ──(?:\n|$)/g, '<div class="es-branch-sep">$1</div>');
   nHtml = nHtml.replace(/(?:^|\n)([🌤️☀️🌙])\s*(上午|下午|夜晚)·继续(?:\n|$)/g, '<div class="es-branch-sep es-time-sep">$1 $2·继续</div>');
-  // 双换行分段为<p>，单换行保留为<br>，避免大段文字挤成一坨
+  // 测试模式标记：池子数据（绿色边框）/ AI 扩写区（金色边框）
+  nHtml = nHtml.replace(/【测试模式】/g, '<span class="es-test-badge">测试模式</span>');
+  nHtml = nHtml.replace(/【池子数据】([\s\S]*?)【\/池子数据】/g, '<div class="es-test-pool">$1</div>');
+  nHtml = nHtml.replace(/【AI扩写区】([\s\S]*?)【\/AI扩写区】/g, '<div class="es-test-ai">$1</div>');
+  // 双换行分段为<p>，单换行保留为<br>；<div>块不再包<p>
   nHtml = nHtml.split(/\n\n+/).map(function(p) {
     if (!p.trim()) return '';
+    if (/^<div/.test(p.trim())) return p.replace(/\n/g, '<br>');
     return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
   }).join('');
   var isDebut2 = E.career && E.career.debutDay > 0;
@@ -804,9 +842,14 @@ function fillDiaryBlanks(framework) {
 function renderDiaryInnerFS() {
   var E2 = GS.entSim;
   var entries = E2._diaryEntries || [];
-  if (!entries.length && DIARY_TEMPLATES && DIARY_TEMPLATES.length) {
-    var tpl = DIARY_TEMPLATES[Math.floor(Math.random() * DIARY_TEMPLATES.length)];
-    E2._diaryEntries = [{ day: E2.cycle ? (E2.cycle._gameDayCount || E2.cycle.dayCount) : 1, text: tpl ? fillDiaryBlanks(tpl.framework) : '今天是成为偶像的第1天。', timestamp: Date.now() }];
+  // 如果 _diaryEntries 为空，尝试从 E.diary（AI日记）中取数据
+  if (!entries.length && E2.diary && E2.diary.length) {
+    E2._diaryEntries = E2.diary.map(function(d) { return { day: d.day || 1, text: (d.content || '').substring(0, 80), timestamp: d.ts || Date.now() }; });
+    entries = E2._diaryEntries;
+  }
+  // 仍然为空，用 diarySummary 生成兜底
+  if (!entries.length && E2.diarySummary && E2.diarySummary.length) {
+    E2._diaryEntries = E2.diarySummary.map(function(s) { return { day: s.day || 1, text: (s.summary || '') + (s.choice ? ' → ' + s.choice : ''), timestamp: Date.now() }; });
     entries = E2._diaryEntries;
   }
   if (!entries.length) return '<div style="color:#666;text-align:center;padding:50px 0;font-size:13px">📔 日记为空<br><small style="color:#555">每日事件会自动生成日记</small></div>';
@@ -1088,7 +1131,12 @@ function onQuick(q) {
         if (typeof activateHidingOut === 'function') activateHidingOut();
         addPopularity(-1, '主动避风头·人气小幅下降');
         showToast('🔒 今天低调行事，减少曝光风险');
-        goEntSimNextDay().then(rerender);
+        // 避风头只推进天数状态，不生成新剧情（用标记跳过 renderHtml 中的自动生成）
+        GS._entSimSkipRoundGen = true;
+        goEntSimNextDay().then(function() {
+          GS._entSimSkipRoundGen = false;
+          rerender();
+        });
       });
     return;
   }

@@ -25,7 +25,7 @@ import { checkAwardCeremony } from './pools/awards.js';
 import { getRandomTeammate, getTeammateDesc } from './pools/teammate-flavor.js';
 import { tickComebackCycle } from './pools/comeback-cycle.js';
 import { calculateMusicShowRank } from './pools/music-show-pool.js';
-import { buildTestNarrative, buildTestOptions } from './test-mode.js';
+import { buildTestNarrative, buildTestOptions, setLastTestOptions, applyTestOptionEffect, buildTestChatReply, buildTestMoment, buildTestTheater } from './test-mode.js';
 
 // 生成中标记（模块级，避免严格模式下的隐式全局报错）
 var _entSimInflight = null;
@@ -81,16 +81,23 @@ export function generateEntSimRound(type, extra) {
     GS.currentDate = { month: GS.gameMonth, day: gameDayOf(E0.cycle.dayCount) };
   }
 
-  // ═══ 测试模式：绕过AI生成，使用池子文本 ═══
+  // ═══ 测试模式：绕过AI生成，真正执行引擎链路，展示全透明追踪 ═══
   if (window.__ENT_SIM_TEST) {
     return Promise.resolve().then(function() {
       var E = GS.entSim;
+      // 步骤1：真正调用 rollDailyAgenda（从池子抽取日程，记录到 E.agenda）
       if (!E.agenda || !E.agenda.main) rollDailyAgenda();
+      // 步骤2：真正调用 checkOneHeartEvents（按概率检测并触发事件，写入 GS._entSimPendingEvent）
+      checkOneHeartEvents();
       maybeCompress();
-      return ensureSeedEvent();
+      return Promise.resolve();
     }).then(function() {
+      if (type === 'choice' && extra && extra.choiceText) {
+        applyTestOptionEffect(extra.choiceText);
+      }
       var narrative = buildTestNarrative(type, extra);
       var options = buildTestOptions();
+      setLastTestOptions(options);
       var current = { narrative: narrative, options: options, extras: {}, type: type };
 
       GS._entSimCurrent = current;
@@ -308,6 +315,7 @@ function updateEntSimPsycheState(extras, parsed) {
 
 function applySideEffects(extras) {
   if (!extras) return;
+  var E = GS.entSim;
   // 情敌 NPC 专属互动场景不应用 affectionDelta 到男主好感
   var isRivalOnly = extras._npcType === 'suitor' && !extras._hasMaleLead;
   // 防双重结算：romanceBeat 有 affectionDelta 时跳过顶层，避免同一回合叠加两次
@@ -319,6 +327,11 @@ function applySideEffects(extras) {
   if (extras.romanceBeat) recordRomanceBeat(extras.romanceBeat);
   if (extras.exposureEvent) {
     var mag = extras.exposureEvent.magnitude || 0;
+    // 好感度门控：低好感时曝光幅度减半（<15时）或降为1/3（<5时）
+    var affNow = E.affection || 0;
+    if (mag > 0 && affNow < 15) {
+      mag = affNow < 5 ? Math.max(1, Math.floor(mag / 3)) : Math.max(1, Math.floor(mag / 2));
+    }
     if (mag !== 0) {
       addExposure(mag, '恋情曝光事件·' + (extras.exposureEvent.label || ''));
       if (mag > 0) {
@@ -573,11 +586,14 @@ function advanceTraineeStage() {
       GS._entSimPendingEvent = debutBaseText;
       E.career.debutDay = E.cycle.dayCount || 1;
       E.career.debutGameDay = E.cycle._gameDayCount || 1;
-      E.career.popularity = 0;
+      // 出道人气不低于 5（练习生期的积累有保底），不归零
+      if ((E.career.popularity || 0) < 5) E.career.popularity = 5 + randInt(0, 5);
       E.career.yearsActive = 0;
       E.chapter = { index: 1, name: '新人出道', icon: '🌱', desc: '刚刚出道的小糊团新人，资源少但冲劲足', roundInChapter: 0, entered: true };
       E.career.profession = '新人偶像';
       E.career.careerKey = 'idol';
+      // 同步 heroineProfile.profession（防止存档中职业不一致）
+      if (GS.heroineProfile) GS.heroineProfile.profession = '新人偶像';
       GS._entSimStageUpPending = { type: 'debut', group: E.groupMeta, timestamp: Date.now() };
       E._debutTransitionLeft = 3;
       showToast('🎀 恭喜出道！你正式成为了' + (E.groupMeta ? E.groupMeta.groupName || '新人女团' : '新人女团') + '的一员！');
@@ -707,13 +723,14 @@ export function goEntSimNextDay() {
   advanceSvtComeback();
   tickRomanceTimers();
   applyDailyDecay();
+  // 出道判定必须在 rollDailyAgenda 之前，否则出道当天 agenda 仍是练习生内容
+  advanceTraineeStage();
   rollDailyAgenda();
   generateDailyBuzz();
   if (window.pushDailyChats) window.pushDailyChats();
 
   applyDebutDailyChecks();
 
-  advanceTraineeStage();
   applySubscriberDrop();
   // 章节跨越检查（人气推进，只进不退）
   var chapterCrossed = checkChapterAdvance();
@@ -750,8 +767,8 @@ export function goEntSimNextDay() {
     addPopularity(ceremonyResult.popDelta, '颁奖典礼·' + ceremonyResult.ceremony.name);
     if (ceremonyResult.win) showToast('🏆 ' + ceremonyResult.ceremony.name + '获奖！人气+' + ceremonyResult.popDelta);
   }
-  // P2 #7: 连续同地约会→狗仔跟拍风险
-  if (E._lastDateDay && E._lastDateDay >= E.cycle.dayCount - 3) {
+  // P2 #7: 连续同地约会→狗仔跟拍风险（好感度>=20才可能有约会行为）
+  if (E._lastDateDay && E._lastDateDay >= E.cycle.dayCount - 3 && (E.affection || 0) >= 20) {
     addExposure(2, '狗仔跟拍·最近约会被盯上');
   }
   // P3 #6: 公司事件检测（每10天概率触发）
@@ -947,8 +964,23 @@ export function goEntSimNextDay() {
   if (!isDebutPopup && TRAINEE_ROMANCE_POOL && TRAINEE_ROMANCE_POOL.length) {
     var traineeMaleLeadChance = 0.6; // 60%概率抽取男主相关事件
     if (Math.random() < traineeMaleLeadChance) {
-      // 男主相关事件：从 TRAINEE_ROMANCE_POOL 抽取
-      var trItem = pickWeighted(TRAINEE_ROMANCE_POOL);
+      // 男主相关事件：从 TRAINEE_ROMANCE_POOL 抽取，按好感度过滤（低好感时不触发亲密互动）
+      var aff = E.affection || 0;
+      var trPool = TRAINEE_ROMANCE_POOL;
+      // 好感度<10：只抽 glimpse/notice/first/event/daily 等低亲密类型
+      if (aff < 10) {
+        trPool = TRAINEE_ROMANCE_POOL.filter(function(it) {
+          return it.cat === 'glimpse' || it.cat === 'notice' || it.cat === 'first' || it.cat === 'event' || it.cat === 'daily' || it.cat === 'rumor';
+        });
+      }
+      // 好感度<20：排除 touch/care/vulnerable/ride 等高互动类型
+      else if (aff < 20) {
+        trPool = TRAINEE_ROMANCE_POOL.filter(function(it) {
+          return it.cat !== 'touch' && it.cat !== 'vulnerable' && it.cat !== 'ride' && it.cat !== 'secret';
+        });
+      }
+      if (!trPool.length) trPool = TRAINEE_ROMANCE_POOL; // 保底
+      var trItem = pickWeighted(trPool);
       if (trItem && trItem.text) {
         GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【练习室日常】' + trItem.text;
       }
@@ -956,8 +988,13 @@ export function goEntSimNextDay() {
     // 40%概率分配给哥哥试探/练习室日常/公司事件/个人成长（由 maybeBrotherEvent + 公司事件自然覆盖）
   }
   // v5 P0: 出道过渡事件链 DEBUT_TRANSITION_POOL — 出道后前3天每天40%概率
+  // 按 _debutTransitionLeft 过滤：3=出道前夜/当天(pre+day), 2=出道后(post+early), 1=出道后(early)
   if (isDebutPopup && E._debutTransitionLeft > 0 && Math.random() < 0.4 && DEBUT_TRANSITION_POOL && DEBUT_TRANSITION_POOL.length) {
-    var dtItem = pickWeighted(DEBUT_TRANSITION_POOL);
+    var allowedCats = E._debutTransitionLeft >= 3 ? ['pre', 'day'] : (E._debutTransitionLeft === 2 ? ['post', 'early'] : ['early']);
+    var dtFiltered = DEBUT_TRANSITION_POOL.filter(function(dt) { return allowedCats.indexOf(dt.cat) >= 0; });
+    // 过滤后为空时 fallback 到全部池（保底）
+    if (!dtFiltered.length) dtFiltered = DEBUT_TRANSITION_POOL;
+    var dtItem = pickWeighted(dtFiltered);
     if (dtItem && dtItem.text) {
       GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【出道过渡】' + dtItem.text;
     }
@@ -1025,7 +1062,21 @@ export function goEntSimNextDay() {
   if (E.cycle._gameDayCount - (E._lastDiaryDay || 0) >= 3 && Math.random() < 0.6) {
     E._lastDiaryDay = E.cycle._gameDayCount;
     if (!E._diaryEntries) E._diaryEntries = [];
-    E._diaryEntries.push({ day: E.cycle._gameDayCount || E.cycle.dayCount, timestamp: Date.now() });
+    // 从 diarySummary 中取当天摘要作为日记文本
+    var summaryText = '';
+    var sums = E.diarySummary || [];
+    var curDay = E.cycle._gameDayCount || E.cycle.dayCount;
+    for (var si2 = sums.length - 1; si2 >= 0; si2--) {
+      if (sums[si2].day === curDay) { summaryText = sums[si2].summary || ''; break; }
+    }
+    // 没有摘要则从 AI 日记 (E.diary) 取当天最新一条
+    if (!summaryText) {
+      var diaries = E.diary || [];
+      for (var di2 = diaries.length - 1; di2 >= 0; di2--) {
+        if (diaries[di2].day === curDay) { summaryText = (diaries[di2].content || '').substring(0, 60); break; }
+      }
+    }
+    E._diaryEntries.push({ day: curDay, text: summaryText || ('第' + curDay + '天的偶像日常'), timestamp: Date.now() });
   }
   // v6：日程事件统一结算（代言/综艺/画报/CD）
   var E = GS.entSim;
@@ -1092,6 +1143,14 @@ export function goEntSimNextDay() {
   }
   // v4: 保存今天末的快照供明天结算对比
   E._lastPopSnapshot = (E.career && typeof E.career.popularity === 'number') ? E.career.popularity : 0;
+  // 测试模式：标记换天已完成（供 buildTestNarrative 展示换天链路）
+  if (window.__ENT_SIM_TEST) {
+    GS._entSimNextDayTrace = {
+      lastPop: lastPop, lastExp: lastExp, lastAff: lastAff,
+      newDay: E.cycle._gameDayCount || 1,
+      chapterCrossed: chapterCrossed
+    };
+  }
   // 压缩昨日记忆（AI 提取，慢不怕），随后清空当天剧情并生成新一天开场
   return compressEntSimMemory().then(function() {
     // 清空前保存前一天结尾剧情（供 nextDayOpening 注入衔接锚点，避免跨天断层）
@@ -1293,29 +1352,21 @@ export function restartEntSim() {
 
 // 通用类型生成（聊天/朋友圈/剧场/约会/告白）：不推进时段、不写主剧情缓冲
 function runEntSimType(type, extra, storeResult) {
-  // ═══ 测试模式：绕过AI，返回轻量内容 ═══
+  // ═══ 测试模式：绕过AI，返回带池子标注的轻量内容 ═══
   if (window.__ENT_SIM_TEST) {
     var mock = '';
     if (type === 'chat') {
-      var chatReplies = [
-        '嗯，刚结束训练。你呢？', '今天练习很累，但想到明天的新编舞又有点兴奋。',
-        '刚才经纪人说下周可能有新行程，但还没定。', '我在吃拉面——你要不要也来一包？',
-        '刚才看到你发的动态了，拍得不错嘛。', '别太累着自己，记得休息。',
-        '你上次说的那个录音棚——我帮你去问了，下周有空档。',
-        '哥哥今天又唠叨我了，说让你管着我点——你站在谁那边？',
-        '刚听到一首歌，副歌部分让我想起你了。', '明天见个面？我有东西想给你。'
-      ];
-      mock = pickWeighted(chatReplies);
-      if (extra && extra.msg) {
-        var userMsg = extra.msg.substring(0, 20);
-        mock = '(回复"' + (userMsg.length > 15 ? userMsg.substring(0,15)+'...' : userMsg) + '") ' + mock;
-      }
+      mock = buildTestChatReply(extra && extra.msg);
+    } else if (type === 'moment') {
+      mock = buildTestMoment();
+    } else if (type === 'theater') {
+      mock = buildTestTheater(extra && extra.theme);
     } else if (type === 'dating') {
-      mock = '你们在便利店坐了一会儿。他买了你最喜欢的饮料——没有问你要什么，但他记得。外面下雨了，你们都没带伞——于是又多待了十五分钟。';
-    } else if (type === 'theater' || type === 'diary' || type === 'diaryHis') {
-      mock = '(测试模式·文本占位)';
+      mock = '【池子数据】\n约会地点：' + (extra && extra.slot ? extra.slot.label || extra.slot.name || '未指定' : '未指定') + '\n【/池子数据】\n\n【AI扩写区】\nAI 会扩写约会场景：对话、小动作、避嫌/被曝光风险、心情变化。\n【/AI扩写区】';
+    } else if (type === 'diary' || type === 'diaryHis') {
+      mock = '【池子数据】\n日记条目：第 ' + ((GS.entSim && GS.entSim.cycle && GS.entSim.cycle._gameDayCount) || 1) + ' 天\n来源：diarySummary / diary\n【/池子数据】\n\n【AI扩写区】\nAI 会将今日事件整理成女主第一人称日记。\n【/AI扩写区】';
     } else {
-      mock = '(测试模式: ' + type + ')';
+      mock = '【池子数据】\ntype: ' + type + '\n来源：runEntSimType\n【/池子数据】\n\n【AI扩写区】\nAI 会按此类型扩写对应文本。\n【/AI扩写区】';
     }
     if (storeResult) storeResult(mock, { narrative: mock, options: [] });
     return Promise.resolve(mock);

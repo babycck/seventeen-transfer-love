@@ -73,20 +73,36 @@ export function rollDailyAgenda() {
       break;
     }
   }
-  var main;
+  var main, mainSource;
   var up = ensureUsedPools();
   if (scheduledMain) {
     main = { key: scheduledMain, loc: scheduledLoc };
+    mainSource = '_scheduledEvents';
   } else if (!isDebut) {
     // 练习生三分阶段：按traineePhase用filterByRequire分池抽取
     var tp = E.career.traineePhase || 1;
     var phasePool = tp === 1 ? TRAINEE_EARLY_POOL : tp === 2 ? TRAINEE_MID_POOL : TRAINEE_LATE_POOL;
     var validPool = filterByRequire(phasePool, E);
-    main = pickFromPoolNoRepeat(validPool.length ? validPool : TRAINEE_EARLY_POOL, up.traineeMain, 6);
+    // fallback：当前阶段池从已用去重池随机，不回退到早期池（避免后期抽到第一天迷路等）
+    if (!validPool.length) validPool = phasePool;
+    mainSource = tp === 1 ? 'TRAINEE_EARLY_POOL' : tp === 2 ? 'TRAINEE_MID_POOL' : 'TRAINEE_LATE_POOL';
+    main = pickFromPoolNoRepeat(validPool, up.traineeMain, 6);
   } else {
     var r = randInt(1, 100);
-    if (r <= 70) main = pickFromPoolNoRepeat(chapterPoolByIndex(chapterIdx), up.main, 10); // 70% 阶段专属
-    else main = pickFromPoolNoRepeat(COMMON_POOL, up.common, 10);          // 30% 跨阶段通用
+    if (r <= 70) {
+      main = pickFromPoolNoRepeat(chapterPoolByIndex(chapterIdx), up.main, 10); // 70% 阶段专属
+      mainSource = 'CHAPTER' + chapterIdx + '_POOL';
+    } else {
+      // 30% 跨阶段通用池：先按 require 过滤，避免出道后抽到练习生专属
+      var commonValid = filterByRequire(COMMON_POOL, E);
+      if (commonValid.length) {
+        main = pickFromPoolNoRepeat(commonValid, up.common, 10);
+        mainSource = 'COMMON_POOL';
+      } else {
+        main = pickFromPoolNoRepeat(chapterPoolByIndex(chapterIdx), up.main, 10);
+        mainSource = 'CHAPTER' + chapterIdx + '_POOL';
+      }
+    }
   }
   if (isDebut) {
     var relatedItem = pickFromPoolNoRepeat(RELATED_POOL, up.related, 10);
@@ -103,16 +119,17 @@ export function rollDailyAgenda() {
     var relatedItem = pickFromPoolNoRepeat(validPool, up.traineeRelated, 6);
     var related = relatedItem ? relatedItem.key : '基础训练';
     var relatedLoc = relatedItem ? (relatedItem.loc || '练习室') : '练习室';
+    var relatedSource = mainSource;
     var rival = ''; var rivalLoc = '公司';
     var maleLead = '个人练习'; var maleLeadLoc = '练习室';
     var brother = null; var brotherLoc = '练习室';
   }
   E.agenda = {
-    main: main.key, mainLoc: main.loc,
-    related: related, relatedLoc: relatedLoc,
-    rival: rival, rivalLoc: rivalLoc,
-    maleLead: maleLead, maleLeadLoc: maleLeadLoc,
-    brother: brother ? brother.key : '', brotherLoc: brother ? brother.loc : brotherLoc,
+    main: main.key, mainLoc: main.loc, mainSource: mainSource,
+    related: related, relatedLoc: relatedLoc, relatedSource: isDebut ? 'RELATED_POOL' : relatedSource,
+    rival: rival, rivalLoc: rivalLoc, rivalSource: 'RIVAL_POOL',
+    maleLead: maleLead, maleLeadLoc: maleLeadLoc, maleLeadSource: 'MALE_LEAD_POOL',
+    brother: brother ? brother.key : '', brotherLoc: brother ? brother.loc : brotherLoc, brotherSource: brother ? 'BROTHER_POOL' : '',
     doneFlags: {}
   };
   saveGame();
