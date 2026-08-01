@@ -75,16 +75,30 @@ export function applyEntSimAffection(delta) {
     E._affDayTotal = { day: today, total: 0 };
   }
   var effectiveDelta = delta;
+  // plan #21: 高光事件可突破单日好感上限（心动时刻/危机共患难/生日约会/84突破等）
+  var isHighMoment = arguments.length >= 2 && arguments[1] && arguments[1]._isHighMoment === true;
   if (delta > 0 && E._affDayTotal.total >= dailyCap) {
-    effectiveDelta = 0; // 今日已达上限
-    E._affectionLog = E._affectionLog || [];
-    E._affectionLog.push({
-      day: today, round: E.cycle.roundTotal || 0,
-      delta: 0, reason: '📊今日好感已达上限(' + dailyCap + '/天)，明日继续', total: oldAff
-    });
-    if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
-    saveGame();
-    return oldAff;
+    if (isHighMoment) {
+      // 高光事件可突破上限，最多突破50%（即额外增加 dailyCap * 0.5）
+      var breakRoom = Math.floor(dailyCap * 0.5);
+      effectiveDelta = Math.min(delta, breakRoom);
+      if (effectiveDelta <= 0) effectiveDelta = 1; // 至少+1
+      E._affectionLog = E._affectionLog || [];
+      E._affectionLog.push({
+        day: today, round: E.cycle.roundTotal || 0,
+        delta: effectiveDelta, reason: '✨高光事件突破日上限(+' + effectiveDelta + '，上限' + dailyCap + '突破幅度' + breakRoom + ')', total: oldAff + effectiveDelta
+      });
+    } else {
+      effectiveDelta = 0; // 今日已达上限
+      E._affectionLog = E._affectionLog || [];
+      E._affectionLog.push({
+        day: today, round: E.cycle.roundTotal || 0,
+        delta: 0, reason: '📊今日好感已达上限(' + dailyCap + '/天)，明日继续', total: oldAff
+      });
+      if (E._affectionLog.length > 30) E._affectionLog = E._affectionLog.slice(-30);
+      saveGame();
+      return oldAff;
+    }
   }
   if (delta > 0) {
     var room = dailyCap - E._affDayTotal.total;
@@ -210,7 +224,8 @@ export function applyConfessionResult(result) {
   E.romance.confessionResult = result;
   E.romance.confessionTimes = (E.romance.confessionTimes || 0) + 1;
   if (result === 'accepted') {
-    E.affection = Math.max(0, Math.min(100, (E.affection || 0) + 10));
+    // plan #21: 告白接受为高光事件，可突破日上限
+    applyEntSimAffection(10, { _isHighMoment: true, _affReason: '告白接受·关系升级' });
     E.romance.stage = affectionStageLabel(E.affection);
     E.romance.emotion = '坚定';
     // 交往后依旧地下恋（尊重职业），不公开
@@ -282,8 +297,8 @@ export function checkIntimacyUnlock(affection) {
   var milestones = [
     { key: 'hand', label: '牵手', icon: '🤝', minAff: 15 },
     { key: 'hug', label: '拥抱', icon: '🤗', minAff: 30 },
-    { key: 'kiss', label: '接吻', icon: '💋', minAff: 50 },
-    { key: 'bed', label: '同床', icon: '🛏️', minAff: 65 },
+    { key: 'kiss', label: '接吻', icon: '💋', minAff: 60 },
+    { key: 'bed', label: '同床', icon: '🛏️', minAff: 80 },
     { key: 'live', label: '同居', icon: '🏠', minAff: 80 },
     { key: 'public', label: '公开恋情', icon: '📣', minAff: 90 },
     { key: 'marry', label: '求婚结婚', icon: '💍', minAff: 100 }
@@ -383,23 +398,77 @@ export function getRomanceStageIcon() {
 function getRomanceEmotion() { return (GS.entSim && GS.entSim.romance && GS.entSim.romance.emotion) || '平静'; }
 export function getRomanceRisk() { return assessRomanceRisk(0); }
 export function getCoverMechanisms() { return COVER_MECHANISMS; }
-// 好感-事业门控：5档关系阶段（仿明星志愿3），综合aff+事业阶段+oneHeartRomanceStage判断
+// 好感-事业门控：5档关系阶段（仿明星志愿3），综合aff+事业阶段判断
+// plan #7：移除 oneHeartRomanceStage 读取，改用 affectionStageIndex 作为唯一阶段来源
 function checkRomanceUnlock() {
-  // v4: 部分保留门控 — stage1移除tPhase(练习生期可暧昧)，stage2+保留debut出道门控，移除chapter门控
   var E = GS.entSim;
   if (!E) return { stage: 0, label: '初识', unlocked: true, reason: '' };
   var aff = E.affection || 0;
   var debut = E.career ? (E.career.debutDay || 0) : 0;
-  // 取 oneHeartRomanceStage 和 entSim 自身判断的较高值（双系统统一）
-  var ohs = GS.oneHeartRomanceStage || 0;
+  var stageIdx = affectionStageIndex(aff);
   // 0=初识 1=暧昧 2=约会 3=恋爱 4=公开
-  if (aff >= 85 || ohs >= 3) return { stage: 4, label: '公开', unlocked: true, reason: '' };
-  if (aff >= 70 || ohs >= 2) return { stage: 3, label: '恋爱', unlocked: true, reason: '' };
+  // 84突破事件：好感>=80但stage<4且未触发突破事件时，锁定stage=3
+  if (aff >= 84) return { stage: 4, label: '公开', unlocked: true, reason: '' };
+  if (aff >= 80 && stageIdx >= 5) {
+    // 好感>=80且阶段>=追求，但未达84：检查是否需要突破事件
+    if (!E.flags.break84Triggered) {
+      return { stage: 3, label: '恋爱·待突破', unlocked: false, reason: '好感已达瓶颈，需要「84突破事件」（确认关系/公开抉择/见家长）才能进入下一阶段' };
+    }
+    return { stage: 4, label: '公开', unlocked: true, reason: '' };
+  }
+  if (aff >= 70) return { stage: 3, label: '恋爱', unlocked: true, reason: '' };
   if (aff >= 50 && debut > 0) return { stage: 2, label: '约会', unlocked: true, reason: '' };
   if (aff >= 20) return { stage: 1, label: '暧昧', unlocked: true, reason: '' };
   // 未解锁时返回原因
   if (aff >= 50 && debut === 0) return { stage: 1, label: '暧昧', unlocked: false, reason: '需要出道后才能约会' };
   return { stage: 0, label: '初识', unlocked: true, reason: '' };
+}
+
+// 84突破事件触发：当好感达到80-83且flags.break84Triggered=false时，注入突破事件选项
+export function check84BreakEvent() {
+  var E = GS.entSim;
+  if (!E) return null;
+  var aff = E.affection || 0;
+  if (aff >= 80 && aff < 84 && !E.flags.break84Triggered && !E.flags.break84Pending) {
+    E.flags.break84Pending = true;
+    return {
+      type: 'break84',
+      title: '关系的关键转折点',
+      prompt: '好感度达到瓶颈，你感觉两人之间只差最后一步——但作为女团爱豆，确认关系意味着巨大的风险。',
+      options: [
+        { text: '确认关系（接受告白，正式在一起）', affDelta: 5, flag: 'break84_accept' },
+        { text: '暂时维持现状（再观察一段时间）', affDelta: 0, flag: 'break84_wait' },
+        { text: '公开抉择（告诉他你的顾虑和真心）', affDelta: 3, flag: 'break84_talk' }
+      ]
+    };
+  }
+  return null;
+}
+
+// 84突破事件结果处理
+export function apply84BreakResult(choiceFlag) {
+  var E = GS.entSim;
+  if (!E) return;
+  E.flags.break84Triggered = true;
+  E.flags.break84Pending = false;
+  if (choiceFlag === 'break84_accept') {
+    E.affection = 84; // 突破到84
+    E.romance.stage = affectionStageLabel(E.affection);
+    E.romance.emotion = '坚定';
+    if (E.brother && E.brother.support !== undefined) E.brother.support = Math.min(100, E.brother.support + 5);
+    E._romanceMilestones = E._romanceMilestones || {};
+    E._romanceMilestones.break84Day = E.cycle.dayCount || 1;
+  } else if (choiceFlag === 'break84_talk') {
+    E.affection = 83; // 接近突破但还差一步
+    E.romance.emotion = '坦诚';
+    E.flags.break84TalkDone = true;
+  } else {
+    // 维持现状：好感不变，解锁冷却后仍可再次触发
+    E.flags.break84Triggered = false; // 重置，允许再次触发
+    E.flags.break84Pending = false;
+    E.flags.break84Cooldown = E.cycle.roundTotal + 3; // 3回合冷却
+  }
+  saveGame();
 }
 function setEmotion(em) {
   if (!GS.entSim || !GS.entSim.romance) return;

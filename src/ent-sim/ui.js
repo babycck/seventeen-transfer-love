@@ -10,7 +10,7 @@ import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
 import { showActionInfoModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
-import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, getMaleLeadPresetsForChat, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
+import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, getChatAckByMember, getMaleLeadPresetsForChat, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { MEMBERS } from '../data.js';
 import { getTimeOfDayLabel } from './cycle.js';
 import { getDailyBuzz, generateFanReaction, generateBuzzRepliesAI, buzzTitle, buzzContent } from './immersion.js';
@@ -18,7 +18,7 @@ import {
   getRomanceStageLabel, getRomanceStageIcon, affectionStageIndex,
   tryConfession, applyConfessionResult, assessRomanceRisk, getCoverMechanisms, applyCover, canUseCover, getCoverRemaining, getJealousLabel
 } from './romance.js';
-import { addCareerPublicity, getCareerPublicity } from './public-opinion.js';
+import { addCareerPublicity, getCareerPublicity, activateHidingOut } from './public-opinion.js';
 import {
   getEntSimCurrent, handleEntSimChoice, handleEntSimFreeInput,
   continueEntSimMain, triggerEntSimEvent, enterEntSimEnding,
@@ -416,6 +416,11 @@ function renderQuickActions() {
     { q: 'visit', label: '探班' },
     { q: 'nextday', label: '下一天' }
   ];
+  // 避风头按钮：曝光热度>0时显示，消耗1天行动降温
+  var scandalHeat = E.misc && E.misc.scandalHeat || 0;
+  if (isDebut && scandalHeat > 0 && !E.misc._hidingOut) {
+    row2.push({ q: 'hidingout', label: '🔒避风头(-曝光)' });
+  }
   if (isTrainee) row2.push({ q: 'fastforward', label: '🎀速通出道' });
   var row2Html = row2.map(function(b) {
     return '<button class="es-quick-btn" data-q="' + b.q + '">' + b.label + '</button>';
@@ -511,7 +516,7 @@ function intimacyIcons() {
 // 约定面板：显示待履行约会，支持确认履行/编辑/删除
 function renderAptPanel() {
   var E = GS.entSim;
-  var apts = E._aptCards || [];
+  var apts = E.appointments || [];
   var html = '<div class="es-col-title" style="margin-top:4px">📅 约定（' + apts.length + '）</div>';
   if (!apts.length) {
     html += '<div style="color:var(--text-muted);font-size:12px;padding:6px 8px;line-height:1.5">暂无约定。与角色互动中对方可能会主动提出约定。</div>';
@@ -532,7 +537,7 @@ function renderAptPanel() {
 // 约定操作：确认履行
 window.__aptFulfill = function(idx) {
   var E = GS.entSim;
-  var apts = E._aptCards || [];
+  var apts = E.appointments || [];
   if (!apts[idx]) return;
   var apt = apts[idx];
   showEntSimModal('✅ 确定履行约定？',
@@ -543,7 +548,7 @@ window.__aptFulfill = function(idx) {
     ]).then(function(r) {
       if (r !== 'confirm') return;
       apts.splice(idx, 1);
-      E._aptCards = apts;
+      // 向后兼容（与 E.appointments 同一引用，splice 已同步修改）
       saveGame();
       showNarrativeLoading();
       triggerEntSimEvent('赴约·' + (apt.place || '未知地点') + '：' + (apt.summary || ''),
@@ -554,7 +559,7 @@ window.__aptFulfill = function(idx) {
 // 约定编辑
 window.__aptEdit = function(idx) {
   var E = GS.entSim;
-  var apts = E._aptCards || [];
+  var apts = E.appointments || [];
   if (!apts[idx]) return;
   var apt = apts[idx];
   var html = '<div style="display:flex;flex-direction:column;gap:8px">' +
@@ -573,7 +578,7 @@ window.__aptEdit = function(idx) {
     if (summaryEl) apt.summary = summaryEl.value.trim();
     if (placeEl) apt.place = placeEl.value.trim();
     if (timeEl) apt.timeHint = timeEl.value.trim();
-    E._aptCards = apts;
+    E.appointments = apts;
     saveGame();
     rerender();
     showToast('约定已更新');
@@ -582,7 +587,7 @@ window.__aptEdit = function(idx) {
 // 约定删除
 window.__aptDelete = function(idx) {
   var E = GS.entSim;
-  var apts = E._aptCards || [];
+  var apts = E.appointments || [];
   if (!apts[idx]) return;
   showEntSimModal('🗑️ 删除约定？',
     '<p style="text-align:center;padding:8px 0">确定删除「' + escHtml(apts[idx].summary || apts[idx].place || '赴约') + '」吗？</p>',
@@ -592,7 +597,7 @@ window.__aptDelete = function(idx) {
     ]).then(function(r) {
       if (r !== 'confirm') return;
       apts.splice(idx, 1);
-      E._aptCards = apts;
+      // 向后兼容（与 E.appointments 同一引用，splice 已同步修改）
       saveGame();
       rerender();
       showToast('约定已删除');
@@ -1071,6 +1076,17 @@ function onQuick(q) {
 
   showNarrativeLoading();
   if (q === 'event') { triggerEntSimEvent('随机事件：今天发生了一件意料之外的小事').then(rerender); }
+  if (q === 'hidingout') {
+    showConfirmModal('确定今天避风头吗？今天不会出门约会/探班，明天曝光热度额外降低。但人气会小幅度下降。', '避风头·低调行事')
+      .then(function(ok) {
+        if (!ok) return;
+        if (typeof activateHidingOut === 'function') activateHidingOut();
+        addPopularity(-1, '主动避风头·人气小幅下降');
+        showToast('🔒 今天低调行事，减少曝光风险');
+        goEntSimNextDay().then(rerender);
+      });
+    return;
+  }
 }
 
 // 探班 3 选 1：从日程构建选项，返回 Promise 链
@@ -1120,7 +1136,10 @@ function onRomanceAct(act) {
     var available = DATE_VENUES.filter(function(v) { return !v.chapterMin || v.chapterMin <= chap; });
     if (!available.length) available = DATE_VENUES;
     var venue = available[Math.floor(Math.random() * available.length)];
-    showCoverPanel(function() { initiateEntSimDate(venue).then(rerender); });
+    showCoverPanel(function() {
+      var p = initiateEntSimDate(venue);
+      if (p && typeof p.then === 'function') p.then(rerender);
+    });
   } else if (act === 'confess') {
     generateEntSimConfession().then(rerender);
   } else if (act === 'ending') {
@@ -1309,7 +1328,7 @@ function onPopLog() {
   setTimeout(function() { drawPopChart(E); }, 100);
 }
 
-// Canvas 人气走势折线图（最近7天）
+// Canvas 人气走势折线图（最近7天，使用真实每日历史快照）
 function drawPopChart(E) {
   try {
     var canvas = document.getElementById('es-pop-chart');
@@ -1318,18 +1337,26 @@ function drawPopChart(E) {
     var w = canvas.width, h = canvas.height;
     var pad = { top: 12, right: 16, bottom: 18, left: 32 };
     var data = [];
-    // 从 careerHistory 提取每天的人气值（按 day 分组取最新）
-    var dayPop = {};
-    for (var i = 0; i < (E.careerHistory || []).length; i++) {
-      var item = E.careerHistory[i];
-      if (item.type === 'popularity' && typeof item.day === 'number') {
-        dayPop[item.day] = E.career.popularity; // 近似：用当前人气代表
+    // v6: 从 _popHistory 读取真实历史快照（不再用当前值回填）
+    var popHistory = E._popHistory || [];
+    var curDay = E.cycle._gameDayCount || 1;
+    // 建立 day→pop 映射
+    var dayPopMap = {};
+    for (var i = 0; i < popHistory.length; i++) {
+      dayPopMap[popHistory[i].day] = popHistory[i].pop;
+    }
+    // 如果 _popHistory 为空（旧存档迁移），fallback 到 careerHistory
+    if (popHistory.length === 0) {
+      for (var j = 0; j < (E.careerHistory || []).length; j++) {
+        var item = E.careerHistory[j];
+        if (item.type === 'popularity' && typeof item.day === 'number') {
+          dayPopMap[item.day] = E.career.popularity; // 旧版兜底
+        }
       }
     }
     // 补最近7天
-    var curDay = E.cycle._gameDayCount || 1;
     for (var d = Math.max(1, curDay - 6); d <= curDay; d++) {
-      data.push({ day: d, pop: (dayPop[d] != null) ? dayPop[d] : null });
+      data.push({ day: d, pop: (dayPopMap[d] != null) ? dayPopMap[d] : null });
     }
     if (data.length < 2) return;
     // 背景网格
@@ -1348,26 +1375,26 @@ function drawPopChart(E) {
     ctx.strokeStyle = '#9d8bff';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    for (var j = 0; j < validData.length; j++) {
-      var x = pad.left + (validData[j].day - data[0].day) * xStep;
-      var yVal = pad.top + (1 - (validData[j].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
-      if (j === 0) ctx.moveTo(x, yVal);
+    for (var k = 0; k < validData.length; k++) {
+      var x = pad.left + (validData[k].day - data[0].day) * xStep;
+      var yVal = pad.top + (1 - (validData[k].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
+      if (k === 0) ctx.moveTo(x, yVal);
       else ctx.lineTo(x, yVal);
     }
     ctx.stroke();
     // 数据点
     ctx.fillStyle = '#d8cdf0';
-    for (var k = 0; k < validData.length; k++) {
-      var px = pad.left + (validData[k].day - data[0].day) * xStep;
-      var py = pad.top + (1 - (validData[k].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
+    for (var l = 0; l < validData.length; l++) {
+      var px = pad.left + (validData[l].day - data[0].day) * xStep;
+      var py = pad.top + (1 - (validData[l].pop - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
       ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
     }
     // X 轴标签
     ctx.fillStyle = 'rgba(255,255,255,.35)';
     ctx.font = '9px sans-serif';
     ctx.textAlign = 'center';
-    for (var l = 0; l < data.length; l++) {
-      ctx.fillText('D' + data[l].day, pad.left + l * xStep, h - 4);
+    for (var m = 0; m < data.length; m++) {
+      ctx.fillText('D' + data[m].day, pad.left + m * xStep, h - 4);
     }
   } catch(e) { /* 静默失败 */ }
 }
@@ -1769,20 +1796,20 @@ function showBusinessPanel() {
     }
     if (!replyContent) {
       // 池子未命中：从男主 acks 池取
-      var mlAckPool = getChatAckByChannel('maleLead');
+      var mlAckPool = getChatAckByMember('maleLead');
       replyContent = mlAckPool[Math.floor(Math.random() * mlAckPool.length)];
     }
     // 清除 pending（本轮对话结束）
     if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
   } else if (isPaired) {
     // 哥哥/情敌频道：按成员 ID 取对应 ACK 池
-    var ackPool = getChatAckByChannel(ch);
+    var ackPool = getChatAckByMember(ch);
     replyContent = ackPool[Math.floor(Math.random() * ackPool.length)];
     // 清除 pending（本轮对话结束，不再显示预设）
     if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
   } else {
     // 未命中 → 按成员 ID 取 ACK 池
-    var ackPoolML = getChatAckByChannel('maleLead');
+    var ackPoolML = getChatAckByMember('maleLead');
     replyContent = ackPoolML[Math.floor(Math.random() * ackPoolML.length)];
   }
   // 3. 延迟推对方回复
@@ -1836,7 +1863,7 @@ window.__phoneSend = function() {
           renderPhoneChatMsgs(ch);
         }
       } else if (ch === 'brother' || ch === 'rival') {
-        var ackPool2 = getChatAckByChannel(ch);
+        var ackPool2 = getChatAckByMember(ch);
         replyContent = ackPool2[Math.floor(Math.random() * ackPool2.length)];
         if (GS._entSimPendingChat) delete GS._entSimPendingChat[ch];
       }
@@ -3116,6 +3143,7 @@ function checkAndShowPendingPopups() {
     case 'musicShow': showGenericEventPopup('🎬 打歌节目', item.data); injectFanReactions(item.data); break;
     case 'setback': showGenericEventPopup('⚠️ 事业波折', item.data); injectFanReactions(item.data); break;
     case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); generateFanReaction(item.data.t || '今日营业', '').catch(function(){}); break;
+    case 'break84': show84BreakPopup(item.data); break;
     default: break;
   }
   showNext();
@@ -3359,6 +3387,47 @@ function showBrandSchedule() { scheduleEvent('brand'); }
 function showReleaseSchedule() { scheduleEvent('release'); }
 
 // 通用事件弹窗（签售/演唱会/回归/打歌/挫折）
+// ── 84突破事件弹窗：好感80-83时触发，提供3个选项推动关系进展 ──
+function show84BreakPopup(data) {
+  if (!data) return;
+  var overlay = document.createElement('div');
+  overlay.className = 'es-stageup-overlay';
+  var optionsHtml = '';
+  if (data.options && data.options.length) {
+    for (var i = 0; i < data.options.length; i++) {
+      var opt = data.options[i];
+      optionsHtml += '<button class="es-stageup-btn" data-flag="' + escHtml(opt.flag || '') + '" data-aff="' + (opt.affDelta || 0) + '" style="display:block;width:100%;margin:6px 0;padding:10px;border-radius:8px;border:1px solid rgba(180,160,220,.3);background:rgba(30,25,60,.8);color:#d8cdf0;cursor:pointer;text-align:left;font-size:13px;transition:all .2s">' + escHtml(opt.text) + '</button>';
+    }
+  }
+  overlay.innerHTML = '<div class="es-stageup-card" style="max-width:480px;border-color:rgba(220,100,120,.5)">' +
+    '<div class="es-stageup-icon">💫</div>' +
+    '<div class="es-stageup-label">' + escHtml(data.title || '关系的关键转折点') + '</div>' +
+    '<div class="es-stageup-desc">' + escHtml(data.prompt || '') + '</div>' +
+    optionsHtml +
+    '<button class="primary" style="margin-top:10px" onclick="var p=this.closest(\'.es-stageup-overlay\');if(p)p.remove();">暂不决定</button>' +
+  '</div>';
+  document.body.appendChild(overlay);
+  // 绑定选项点击
+  var btns = overlay.querySelectorAll('.es-stageup-btn');
+  for (var j = 0; j < btns.length; j++) {
+    btns[j].addEventListener('click', function() {
+      var flag = this.getAttribute('data-flag');
+      var affDelta = parseInt(this.getAttribute('data-aff'), 10) || 0;
+      if (flag && typeof apply84BreakResult === 'function') {
+        apply84BreakResult(flag);
+      }
+      if (affDelta && GS.entSim) {
+        GS.entSim.affection = Math.max(0, Math.min(100, (GS.entSim.affection || 0) + affDelta));
+      }
+      if (typeof saveGame === 'function') saveGame();
+      overlay.remove();
+      if (typeof showToast === 'function') {
+        showToast('💫 你做出了选择——关系进入了新的阶段');
+      }
+    });
+  }
+}
+
 function showGenericEventPopup(title, data) {
   if (!data) return;
   var text = (data.t || data.text || '').slice(0, 180);

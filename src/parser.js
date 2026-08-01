@@ -73,6 +73,14 @@ export function safeParseJson(raw) {
   if (!raw || typeof raw !== 'string') return null;
   var s = raw.trim();
   if (!s) return null;
+  // plan #18: 中文冒号预处理 — 在 JSON 键值对上下文中替换中文冒号为英文冒号
+  if (s.indexOf('：') >= 0) {
+    s = s.replace(/"\s*：\s*"/g, '":"');
+    s = s.replace(/"\s*：\s*(\d)/g, '":$1');
+    s = s.replace(/"\s*：\s*(true|false|null)/g, '":$1');
+    s = s.replace(/"\s*：\s*\{/g, '":{');
+    s = s.replace(/"\s*：\s*\[/g, '":[');
+  }
   try { return JSON.parse(s); } catch (e) {}
   var balanced = extractBalancedObject(s);
   if (balanced) {

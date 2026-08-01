@@ -22,6 +22,25 @@ export function maybeBrotherEvent() {
   return true;
 }
 
+// ── 哥哥立场按 support 区间自动推导（每日换天时调用） ──
+// 区间：>=30→参谋(supportive) / 0~29→观望(observing) / -15~-1→疑虑(testing) / <-15→反对(protective)
+export function autoUpdateBrotherStance() {
+  var E = GS.entSim;
+  if (!E || !E.brother || !E.brother.name) return;
+  var sup = E.brother.support || 0;
+  var oldStance = E.brother.stance;
+  var newStance = oldStance;
+  if (sup >= 30) newStance = '参谋';
+  else if (sup >= 0) newStance = '观望';
+  else if (sup >= -15) newStance = '疑虑';
+  else newStance = '反对';
+  if (newStance !== oldStance) {
+    E.brother.stance = newStance;
+    pushSupportLog(E, 0, '立场自动切换：' + oldStance + ' → ' + newStance + '（支持度=' + sup + '）');
+    saveGame();
+  }
+}
+
 // 系统事件总调度：每日一次，按优先级注入下一段剧情。
 // 优先触发高影响事件（男主小动作、哥哥递进考验、情敌主动），再随机触发行业/女团事件。
 export function checkOneHeartEvents() {

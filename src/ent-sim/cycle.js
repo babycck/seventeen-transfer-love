@@ -14,10 +14,14 @@ import { filterByRequire, pickFromPoolNoRepeat } from './pools/_utils.js';
 var TIME_SLOTS = ['上午', '下午', '夜晚'];
 var SLOTS_PER_DAY = 3;
 
-// 防重复usedArr（每个池独立追踪近N轮已用key）
-var _usedTraineeMain = [], _usedTraineeRelated = [];
-var _usedMain = [], _usedCommon = [];
-var _usedRelated = [], _usedRival = [], _usedMaleLead = [], _usedBrother = [];
+// ── 辅助：确保 GS.entSim._usedPools 存在 ──
+function ensureUsedPools() {
+  var E = GS.entSim;
+  if (!E._usedPools) {
+    E._usedPools = { traineeMain: [], traineeRelated: [], main: [], common: [], related: [], rival: [], maleLead: [], brother: [] };
+  }
+  return E._usedPools;
+}
 
 // 恋爱风险倍率
 export function getRomanceRiskMultiplier() { return 1.0; }
@@ -70,6 +74,7 @@ export function rollDailyAgenda() {
     }
   }
   var main;
+  var up = ensureUsedPools();
   if (scheduledMain) {
     main = { key: scheduledMain, loc: scheduledLoc };
   } else if (!isDebut) {
@@ -77,25 +82,25 @@ export function rollDailyAgenda() {
     var tp = E.career.traineePhase || 1;
     var phasePool = tp === 1 ? TRAINEE_EARLY_POOL : tp === 2 ? TRAINEE_MID_POOL : TRAINEE_LATE_POOL;
     var validPool = filterByRequire(phasePool, E);
-    main = pickFromPoolNoRepeat(validPool.length ? validPool : TRAINEE_EARLY_POOL, _usedTraineeMain, 6);
+    main = pickFromPoolNoRepeat(validPool.length ? validPool : TRAINEE_EARLY_POOL, up.traineeMain, 6);
   } else {
     var r = randInt(1, 100);
-    if (r <= 70) main = pickFromPoolNoRepeat(chapterPoolByIndex(chapterIdx), _usedMain, 10); // 70% 阶段专属
-    else main = pickFromPoolNoRepeat(COMMON_POOL, _usedCommon, 10);          // 30% 跨阶段通用
+    if (r <= 70) main = pickFromPoolNoRepeat(chapterPoolByIndex(chapterIdx), up.main, 10); // 70% 阶段专属
+    else main = pickFromPoolNoRepeat(COMMON_POOL, up.common, 10);          // 30% 跨阶段通用
   }
   if (isDebut) {
-    var relatedItem = pickFromPoolNoRepeat(RELATED_POOL, _usedRelated, 10);
+    var relatedItem = pickFromPoolNoRepeat(RELATED_POOL, up.related, 10);
     var related = relatedItem;
     var relatedLoc = (relatedItem && relatedItem.loc) ? relatedItem.loc : '练习室';
-    var rivalItem = pickFromPoolNoRepeat(RIVAL_POOL, _usedRival, 10);
+    var rivalItem = pickFromPoolNoRepeat(RIVAL_POOL, up.rival, 10);
     var rival = rivalItem.key; var rivalLoc = rivalItem.loc || '公司';
-    var maleItem = pickFromPoolNoRepeat(MALE_LEAD_POOL, _usedMaleLead, 10);
+    var maleItem = pickFromPoolNoRepeat(MALE_LEAD_POOL, up.maleLead, 10);
     var maleLead = maleItem.key; var maleLeadLoc = maleItem.loc || '公司';
-    var brother = (E.brother && E.brother.name) ? pickFromPoolNoRepeat(BROTHER_POOL, _usedBrother, 10) : null;
+    var brother = (E.brother && E.brother.name) ? pickFromPoolNoRepeat(BROTHER_POOL, up.brother, 10) : null;
     var brotherLoc = brother ? (brother.loc || '公司') : '';
   } else {
     // 练习生阶段：related从当前阶段池子抽，不重复
-    var relatedItem = pickFromPoolNoRepeat(validPool, _usedTraineeRelated, 6);
+    var relatedItem = pickFromPoolNoRepeat(validPool, up.traineeRelated, 6);
     var related = relatedItem ? relatedItem.key : '基础训练';
     var relatedLoc = relatedItem ? (relatedItem.loc || '练习室') : '练习室';
     var rival = ''; var rivalLoc = '公司';

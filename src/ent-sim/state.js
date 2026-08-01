@@ -54,6 +54,7 @@ export function initEntSimState() {
     careerLevel: '新人',
     resourcesLevel: '新人',
     debutDay: 0,
+    debutGameDay: 0,    // 出道时的_gamedayCount，用于"出道第N天"计算
     yearsActive: 0,
     contractYears: 7,
     contractRemaining: 7,
@@ -102,6 +103,7 @@ export function initEntSimState() {
   E.romance.mannerisms = buildMannerisms(maleLead); // 男主小动作池：1主 + 1备
   E.dailyBuzz = { hotSearch: [], fanDiscussion: [], mediaTitle: [], lastGenDay: -1 };
   E.appointments = []; // { with, place, timeHint, summary, roundCreated, done }
+  E._aptCards = E.appointments; // 向后兼容引用（ui.js 旧路径读取），与 appointments 同一引用
   E._svtTodaySeen = []; // 今天出场的 SVT 队友（name+desc），防同一天重复出场
   // 粉丝泡泡系统（替代旧营业反馈）
   // 练习生无粉丝基数；出道后 100-1000
@@ -129,20 +131,26 @@ export function initEntSimState() {
 
   E.agenda = { main: '', mainLoc: '', related: '', relatedLoc: '', rival: '', rivalLoc: '', brother: '', brotherLoc: '', doneFlags: {} };
   // 记忆系统：每日压缩的关键词摘要 + 关键事件累积（不过期）
-  E.memory = { dailySummaries: [], eventLog: [], milestones: [], phaseSummaries: [], lastCompressDay: 0 };
+  E.memory = { dailySummaries: [], eventLog: [], milestones: [], phaseSummaries: [], lastCompressDay: 0, openLoops: [] };
+  // openLoops：未完成剧情线 [{id, type, text, round, resolved}]
+  E.openLoops = [];
   // 女团队友（5 位姐姐）：仅女团爱豆职业生成，练习生不生成
   E.heroineGroup = careerKey === '女团爱豆' ? buildEntSimHeroineGroup() : [];
   E.groupMeta = careerKey === '女团爱豆' ? buildEntSimGroupMeta() : null;
-  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, scandalHeat: 0, careerPublicity: 0, cpRealProgress: 0, cpRealTriggered: false };
+  E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, scandalHeat: 0, careerPublicity: 0, cpRealProgress: 0, cpRealTriggered: false, lastCaughtDay: 0, _hidingOut: false, _exposureDecayTimer: 0, highMomentFlags: {}, usedPools: {}, subscriberHistory: [] };
   // v2 新增：吃醋值系统
   E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
   E._jealousLastUpdateDay = 0;
   // v2 新增：亲密行为阶段锁
-  E._intimacyUnlocked = { hand: false, hug: false, kiss: false }; // 牵手≥15/拥抱≥30/接吻≥50
+  E._intimacyUnlocked = { hand: false, hug: false, kiss: false }; // 牵手≥15/拥抱≥30/接吻≥60/同床≥80
   // v2 新增：纪念日记录
   E._romanceMilestones = {}; // { firstDateDay, firstConfessDay, firstKissDay, firstHandDay, firstHugDay }
+  // v2 新增：日程池防重复追踪（移入GS.entSim避免模块级变量在多存档间串扰）
+  E._usedPools = { traineeMain: [], traineeRelated: [], main: [], common: [], related: [], rival: [], maleLead: [], brother: [] };
   // v4: 每日人气结算快照（用于跨天弹窗delta计算）
   E._lastPopSnapshot = 0;
+  // v6: 每日人气历史记录（用于折线图真实历史值）
+  E._popHistory = [];
   // v2 新增：男主主动联络倒计时从8-18天降为3-5天
   E._maleContactTimer = 3 + randInt(0, 2);
   // v2 新增：粉丝来信/品牌代言/作品发布/季度颁奖CD

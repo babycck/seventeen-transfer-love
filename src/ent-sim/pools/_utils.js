@@ -176,7 +176,7 @@ function _checkSingle(req, E) {
   if (sMatch) {
     var dayCount = E && E.cycle ? (E.cycle.dayCount || 1) : 1;
     var _md = _inlineMonthDay(dayCount);
-    var curSeason = _md.month === 12 || _md.month <= 2 ? 'winter' : _md.month >= 3 && _md.month <= 5 ? 'spring' : _md.month >= 5 && _md.month <= 7 ? 'summer' : 'autumn';
+    var curSeason = _md.month === 12 || _md.month <= 2 ? 'winter' : _md.month >= 3 && _md.month <= 5 ? 'spring' : _md.month >= 6 && _md.month <= 8 ? 'summer' : 'autumn';
     return curSeason === sMatch[1];
   }
   // 'month=N' → 月份过滤（防7月过情人节）
@@ -225,4 +225,53 @@ export function filterByRequire(pool, E) {
     if (canTrigger(pool[i], E)) out.push(pool[i]);
   }
   return out.length ? out : pool;
+}
+
+// ===== plan #15: 加权抽取（按 weight 字段，默认 weight=1） =====
+// 替代 Math.random() * pool.length 的纯随机抽取，控制日常/稀有/史诗事件频率
+export function pickWeighted(pool, rng) {
+  if (!pool || !pool.length) return null;
+  var total = 0;
+  for (var i = 0; i < pool.length; i++) {
+    total += (typeof pool[i].weight === 'number' && pool[i].weight > 0) ? pool[i].weight : 1;
+  }
+  var r = (rng || Math.random)() * total;
+  var sum = 0;
+  for (var j = 0; j < pool.length; j++) {
+    sum += (typeof pool[j].weight === 'number' && pool[j].weight > 0) ? pool[j].weight : 1;
+    if (r <= sum) return pool[j];
+  }
+  return pool[pool.length - 1];
+}
+
+// plan #14: 按 key 去重抽取（强 no-repeat 保护，用于练习生池等短期场景）
+export function pickWeightedNoRepeat(pool, usedArr, maxAvoid, rng) {
+  usedArr = usedArr || [];
+  maxAvoid = maxAvoid || pool.length; // 默认全池去重
+  if (!pool || !pool.length) return null;
+  if (pool.length < maxAvoid * 2) maxAvoid = Math.max(1, Math.floor(pool.length / 2));
+  // 过滤已用的 key
+  var usedSet = {};
+  for (var i = 0; i < usedArr.length; i++) usedSet[usedArr[i]] = true;
+  var candidates = pool.filter(function(p) { return !usedSet[p.key]; });
+  // 候选不足时清空历史
+  if (!candidates.length) {
+    usedArr.length = 0;
+    candidates = pool.slice();
+  }
+  var pick = pickWeighted(candidates, rng);
+  if (pick && pick.key) {
+    usedArr.push(pick.key);
+    if (usedArr.length > maxAvoid) usedArr.shift();
+  }
+  return pick;
+}
+
+// 去重列表辅助：从池子中按 key 收集已用
+export function dedupByKey(pool) {
+  var keys = [];
+  for (var i = 0; i < pool.length; i++) {
+    if (pool[i] && pool[i].key) keys.push(pool[i].key);
+  }
+  return keys;
 }

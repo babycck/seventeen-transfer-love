@@ -39,15 +39,15 @@ design:
 todos:
   - id: ui-redesign
     content: 精简 entSim UI 至预览样式：删除 Header 3 按钮+3 badge、左栏晚档区+开新作品、中栏 5 快捷指令、右栏 4 冗余区块；新增 4 底部 Tab（剧情/聊天/朋友圈/剧场）+ Tab 切换逻辑；日程按钮加地点标签；新增 bindClass 修复 Bug 1；条件推进时段修复 Bug 6；人气行可点击+onPopLog 修复 Bug 9；约会降速修复 Bug 4；UI 按预览 Glassmorphism 暗紫风格重做
-    status: in_progress
+    status: completed
   - id: tabs-and-memory
     content: 实现 4 Tab 内容：engine.js 新增 sendEntSimChat/generateEntSimMoment/generateEntSimTheater/compressEntSimYesterday；prompts.js 新增 chat/moment/theater message type + 记忆注入（昨日摘要+事件列表）；state.js 增 chatHistory/moments/theaterHistory/dailySummaries/eventLog；修复 Bug 8（ent-sim/parser.js 正则提取 + parser.js repairJson 深度 + engine.js maxTokens 4000）+ Bug 3（choice 场景连续性）
-    status: pending
+    status: completed
     dependencies:
       - ui-redesign
   - id: romance-refocus
     content: Prompt 恋爱聚焦：romance.js tryConfession depth>=4+confessionDone 门控修复 Bug 4/7；prompts.js 韩文名禁令修复 Bug 2 + depth 阶段差异化写作指引；5 个 addPopularity 调用点传 reason + public-opinion.js 删重复 push；src/state.js migrateSave 兜底所有新字段
-    status: pending
+    status: completed
     dependencies:
       - tabs-and-memory
 ---

@@ -50,17 +50,51 @@ function _addBlocks(result) {
 
 // 解析整段 AI 返回：优先 JSON，否则用叙事/截断正则兜底
 // 返回值始终包含 blocks 字段（与 validator.js 期望的 {narrative,options,blocks,extras} 对齐）
+// plan #18: 增强容错 — 中文冒号兼容、缺失 affectionDelta 默认 0、options 非数组降级
 export function parseEntSimResponse(rawText) {
   var result = { narrative: '', options: [], extras: {}, blocks: [] };
   if (!rawText) return result;
-  var json = safeParseJson(rawText);
+  // 中文冒号兼容：将中文冒号替换为英文冒号（仅 JSON 上下文，不破坏 narrative 正文）
+  var preprocessed = rawText;
+  if (preprocessed.indexOf('：') >= 0 && preprocessed.indexOf('{') >= 0) {
+    // 在 JSON 键值对上下文中替换中文冒号：只替换冒号前后是引号或数字的情况
+    preprocessed = preprocessed.replace(/"\s*：\s*"/g, '":"');
+    preprocessed = preprocessed.replace(/"\s*：\s*(\d)/g, '":$1');
+    preprocessed = preprocessed.replace(/"\s*：\s*(true|false|null)/g, '":$1');
+    preprocessed = preprocessed.replace(/"\s*：\s*\{/g, '":{');
+    preprocessed = preprocessed.replace(/"\s*：\s*\[/g, '":[');
+  }
+  var json = safeParseJson(preprocessed);
   if (json && typeof json === 'object') {
     // 标准格式：{narrative, options, entSimExtras}
     if (typeof json.narrative === 'string' || Array.isArray(json.options) || json.entSimExtras) {
+      // plan #18: 缺失 affectionDelta 默认 0
+      var extras = json.entSimExtras && typeof json.entSimExtras === 'object' ? json.entSimExtras : {};
+      if (!('affectionDelta' in extras) || typeof extras.affectionDelta !== 'number') {
+        extras.affectionDelta = 0;
+      }
+      // plan #18: options 非数组降级为字符串数组
+      var opts = json.options;
+      if (!Array.isArray(opts)) {
+        if (typeof opts === 'string' && opts.trim()) {
+          opts = [opts.trim()];
+        } else if (opts && typeof opts === 'object') {
+          // 对象形式的选项（如 {text: "..."}），提取 text 字段
+          var convertedOpts = [];
+          for (var key in opts) {
+            if (opts[key] && typeof opts[key].text === 'string') {
+              convertedOpts.push(opts[key].text);
+            }
+          }
+          opts = convertedOpts.length > 0 ? convertedOpts : ['继续'];
+        } else {
+          opts = ['继续', '换个话题', '自由行动'];
+        }
+      }
       result = {
         narrative: typeof json.narrative === 'string' ? json.narrative : '',
-        options: Array.isArray(json.options) ? json.options : [],
-        extras: json.entSimExtras && typeof json.entSimExtras === 'object' ? json.entSimExtras : {},
+        options: opts,
+        extras: extras,
         blocks: []
       };
       _addBlocks(result);

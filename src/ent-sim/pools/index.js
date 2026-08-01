@@ -4,7 +4,7 @@
 // ============================================================
 
 export { pickFromPool, pickFromPoolMulti, pickFanReactions, pickFromPoolRotate } from './_utils.js';
-export { canTrigger, filterByRequire } from './_utils.js';
+export { canTrigger, filterByRequire, pickWeighted, pickWeightedNoRepeat, dedupByKey } from './_utils.js';
 
 // ── 一、世界设定 (6个) ──
 export { GROUP_NAMES } from './group-names.js';
@@ -36,8 +36,8 @@ export { getChatPresetsByChannel, getChatAckByChannel, getMaleLeadPresetsForChat
 export { MALE_LEAD_INITIATIVE_POOL } from './male-lead-init.js';
 export { CONTACT_TYPE_POOL } from './male-contact.js';
 export { CONTACT_PROGRESSION } from './contact-progression.js';
-export { JEALOUSY_EVENTS_POOL } from './jealousy-events.js';
-export { RUMOR_POOL } from './dating-rumors.js';
+export { JEALOUSY_EVENTS_POOL, ROMANCE_JEALOUSY_POOL } from './jealousy-pool.js';
+export { RUMOR_POOL, DATING_SCANDAL_CHAIN, DRAMA_DATING_RUMOR, NEWS_TEMPLATES } from './dating-rumor-pool.js';
 export { ONEHEART_RANDOM_EVENTS } from './oneheart-events.js';
 
 // ── 七、哥哥线 (3个) ──
@@ -57,13 +57,12 @@ export { GIRLGROUP_EVENTS } from './girlgroup-events.js';
 export { INCIDENT_EVENTS_POOL } from './incident-events.js';
 export { DAILY_ENGAGEMENT_POOL } from './daily-engagement.js';
 
-// ── 十、媒体/舆论 (7个) ──
-export { DAILY_BUZZ } from './daily-buzz.js';
-export { DAILY_BUZZ_TEMPLATES } from './daily-buzz-templates.js';
+// ── 十、媒体/舆论 (5个) ──
+export { DAILY_BUZZ, DAILY_BUZZ_TEMPLATES } from './daily-buzz-pool.js';
 export { HOT_SEARCH_REPLY_POOL } from './hot-search-replies.js';
 export { DISPATCH_POOL } from './dispatch-news.js';
 export { EXTERNAL_HOT } from './external-hot.js';
-export { NEWS_TEMPLATES } from './news-templates.js';
+// NEWS_TEMPLATES 已合并至 dating-rumor-pool.js（六、男主/感情线）
 
 // ── 十一、作品/品牌/奖项 (4个) ──
 export { RELEASE_POOL } from './releases.js';
@@ -87,13 +86,13 @@ export { DIARY_TEMPLATES } from './diary-templates.js';
 export { CALENDAR_EVENTS } from './calendar-events.js';
 export { JOB_OFFER_POOL } from './job-offers.js';
 
-// ── 十五、恋爱场景 (6个) NEW ──
+// ── 十五、恋爱场景 (5个) NEW ──
 export { ROMANCE_BACKSTAGE } from './romance-backstage.js';
 export { ROMANCE_LATENIGHT } from './romance-latenight.js';
 export { ROMANCE_PUBLIC } from './romance-public.js';
 export { ROMANCE_CRISIS } from './romance-crisis.js';
-export { ROMANCE_JEALOUSY_POOL } from './romance-jealousy.js';
 export { ROMANCE_CONFESSION } from './romance-confession.js';
+// ROMANCE_JEALOUSY_POOL 已合并至 jealousy-pool.js（六、男主/感情线）
 
 // ── 十六~二十 待续（新建池子持续追加） ──
 
@@ -123,29 +122,36 @@ export { ENCOUNTER_RIVAL } from './encounter-rival.js';
 export { ENCOUNTER_BROTHER } from './encounter-brother.js';
 export { ENCOUNTER_OTHERS } from './encounter-others.js';
 
-// ── 二十、剧情节奏 (5个) NEW ──
+// ── 二十、剧情节奏 (4个) NEW ──
 export { DRAMA_ALMOST } from './drama-almost.js';
 export { DRAMA_MISUNDERSTAND } from './drama-misunderstand.js';
 export { DRAMA_COLDWAR } from './drama-coldwar.js';
-export { DRAMA_DATING_RUMOR } from './drama-dating-rumor.js';
 export { DRAMA_DILEMMA } from './drama-dilemma.js';
+// DRAMA_DATING_RUMOR 已合并至 dating-rumor-pool.js（六、男主/感情线）
 
-// ── 二十一、新增池子 (13个) 2026-07-26 ──
+// ── 二十一、新增池子 (12个) 2026-07-26 ──
 export { CHEER_CULTURE_POOL } from './cheer-culture.js';
 export { SASAENG_ESCALATION_POOL } from './sasaeng-escalation.js';
 export { HEALTH_INJURY_POOL } from './health-injury.js';
 export { TEAMMATE_BOND_POOL } from './teammate-bond.js';
 export { TOXIC_FAN_WAR_POOL } from './toxic-fan-war.js';
-export { DATING_SCANDAL_CHAIN } from './dating-scandal-chain.js';
 export { HIATUS_ANXIETY_POOL } from './hiatus-anxiety.js';
+export { HIATUS_DAILY_POOL } from './hiatus-daily-pool.js';
 export { VARIETY_MOMENT_POOL } from './variety-moment.js';
 export { JOB_GRADE_POOL } from './job-grade.js';
 export { YEAR_END_REVIEW_POOL } from './year-end-review.js';
 export { MV_FILMING_POOL } from './mv-filming.js';
 export { PRESS_INTERVIEW_POOL } from './press-interview.js';
 export { HIDDEN_ROUTE_POOL } from './hidden-route.js';
+// DATING_SCANDAL_CHAIN 已合并至 dating-rumor-pool.js（六、男主/感情线）
 
-// ── 二十二、v5新增池子 (17个) ──
+// ── 二十二、公司/经纪人 (1个) ──
+export { COMPANY_EVENT_POOL } from './company-events.js';
+
+// ── 二十三、chat-ack 按成员人设兜底回复 (1个) ──
+export { getChatAckByChannel as getChatAckByMember } from './chat-ack/index.js';
+
+// ── 二十四、v5新增池子 (17个) ──
 export { MAINLINE_ROMANCE, MAINLINE_RIVAL } from './mainline-beats.js';
 export { INSECURITY_POOL } from './insecurity-pool.js';
 export { FAME_PRESSURE_POOL } from './fame-pressure-pool.js';

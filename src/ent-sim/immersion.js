@@ -57,7 +57,7 @@ export function generateDailyBuzz() {
       if (!buzzByTitle(traineeStarHot, tTitle) && E._lastHotTitles.indexOf(tTitle) < 0) traineeStarHot.push(te);
     }
     E._lastHotTitles = traineeStarHot.map(buzzTitle);
-    E.dailyBuzz = { hotSearch:[], starHot:traineeStarHot, fanDiscussion:[], mediaTitle:[], chartItem:null, lastGenDay:E.cycle.dayCount, buzzReplies:{} };
+    E.dailyBuzz = { hotSearch:[], starHot:traineeStarHot, fanDiscussion:[], mediaTitle:[], chartItem:null, lastGenDay:E.cycle._gameDayCount || E.cycle.dayCount, buzzReplies:{} };
     return E.dailyBuzz;
   }
   var hsCount = Math.max(3, Math.round(pop / 20));
@@ -134,7 +134,7 @@ export function generateDailyBuzz() {
     fanDiscussion: fanDiscussion,
     mediaTitle: mediaTitle,
     chartItem: chartItem,
-    lastGenDay: E.cycle.dayCount
+    lastGenDay: E.cycle._gameDayCount || E.cycle.dayCount
   };
   saveGame();
   return E.dailyBuzz;
@@ -142,7 +142,7 @@ export function generateDailyBuzz() {
 
 export function getDailyBuzz() {
   var E = GS.entSim;
-  if (!E.dailyBuzz || E.dailyBuzz.lastGenDay !== E.cycle.dayCount) return generateDailyBuzz();
+  if (!E.dailyBuzz || E.dailyBuzz.lastGenDay !== (E.cycle._gameDayCount || E.cycle.dayCount)) return generateDailyBuzz();
   return E.dailyBuzz;
 }
 
