@@ -8,7 +8,7 @@ import { popularity, careerLevel, addPopularity, formatGameDate, formatTraineeDa
 import { buildEntSimHeroineGroup, buildEntSimGroupMeta } from '../data.js';
 import { escHtml, showToast, randInt } from '../utils.js';
 import { showApiSettingsModal } from '../modals.js';
-import { showActionInfoModal } from '../modals/confirm-modal.js';
+import { showActionInfoModal, showConfirmModal } from '../modals/confirm-modal.js';
 import { showVisitChoiceModal } from '../modals/visit-choice-modal.js';
 import { RELEASE_POOL, FAN_LETTER_POOL, BRAND_OFFER_POOL, AWARD_POOL, VARIETY_SHOW_POOL, DISPATCH_POOL, MAGAZINE_POOL, RUMOR_POOL, COMEBACK_CYCLE_POOL, CONCERT_POOL, FANSIGN_POOL, CHAT_MALE_LEAD, CHAT_BROTHER, CHAT_RIVAL, CHAT_MANAGER, GROUP_CHAT, CHAT_SASAENG, getChatPresetsByChannel, getChatAckByChannel, getChatAckByMember, getMaleLeadPresetsForChat, CHAT_ML_DAILY_STARTERS, HOT_SEARCH_REPLY_POOL, DIARY_TEMPLATES, MEMBER_SCOUPS, MEMBER_JEONGHAN, MEMBER_JOSHUA, MEMBER_JUN, MEMBER_HOSHI, MEMBER_WONWOO, MEMBER_WOOZI, MEMBER_DK, MEMBER_MINGYU, MEMBER_THE8, MEMBER_SEUNGKWAN, MEMBER_VERNON, MEMBER_DINO, pickFromPool } from './pools/index.js';
 import { MEMBERS } from '../data.js';
