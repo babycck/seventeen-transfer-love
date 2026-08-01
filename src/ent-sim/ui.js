@@ -1708,10 +1708,20 @@ function showBusinessPanel() {
   });
 
   // 泡泡内容
-  document.getElementById('es-phone-bubble-content').innerHTML = renderBubbleChat(
+  var bubbleContentEl = document.getElementById('es-phone-bubble-content');
+  bubbleContentEl.innerHTML = renderBubbleChat(
     bubble.messages || [], bubble.subscribers || 0, bubble.streak || 0,
     bubble.todayCount || 0, 5, (bubble.todayCount || 0) < 5
   );
+  // 用事件委托绑定发送按钮，避免重渲染后内联 onclick 失效
+  bubbleContentEl.addEventListener('click', function(e) {
+    var btn = e.target.closest('#es-bubble-send');
+    if (btn && !btn.disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.__phoneBubbleSend();
+    }
+  });
   // 反馈内容
   document.getElementById('es-phone-feedback-content').innerHTML = renderFeedbackContent(E);
 
@@ -1878,7 +1888,9 @@ window.__phoneSend = function() {
     }, 500 + Math.random() * 800);
   };
   window.__phoneBubbleSend = function() {
-    sendBubbleMessage().then(function() {
+    var btn = document.getElementById('es-bubble-send');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 发送中…'; }
+    sendBubbleMessage().then(function(result) {
       var E2 = GS.entSim;
       var b2 = E2.bubble || {};
       var bcEl = document.getElementById('es-phone-bubble-content');
@@ -1886,6 +1898,11 @@ window.__phoneSend = function() {
         b2.messages || [], b2.subscribers || 0, b2.streak || 0,
         b2.todayCount || 0, 5, (b2.todayCount || 0) < 5
       );
+      if (!result && btn) { btn.disabled = false; btn.textContent = '💬 发送泡泡消息'; }
+    }).catch(function(err) {
+      console.error('[__phoneBubbleSend]', err);
+      showToast('发送失败：' + (err && err.message ? err.message : '请重试'));
+      if (btn) { btn.disabled = false; btn.textContent = '💬 发送泡泡消息'; }
     });
   };
   overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
@@ -2267,7 +2284,7 @@ function renderBubbleChat(messages, sub, streak, _todayCount, _maxDaily, canSend
     (histHtml || '<div class="bubble-empty">还没有发过泡泡～发第一条消息给粉丝吧 💜</div>') +
     '</div>';
   var sendHtml = '<div class="bubble-send-bar">' +
-      '<button id="es-bubble-send" class="bubble-send-btn"' + (canSend ? ' onclick="window.__phoneBubbleSend()"' : ' disabled') + '>' +
+      '<button id="es-bubble-send" class="bubble-send-btn"' + (canSend ? '' : ' disabled') + '>' +
       (canSend ? '💬 发送泡泡消息' : '今日已发满') +
       '</button>' +
     '</div>';
