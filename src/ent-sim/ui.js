@@ -384,11 +384,15 @@ function renderCenter(cur, heartPending) {
   var nCls = heartPending ? 'es-narrative es-heartbeat' : 'es-narrative';
   var optionsHtml = (cur.options && cur.options.length) ?
     cur.options.map(function(o, i) {
-      var rb = optionRiskBadge(o);
+      var optText = (typeof o === 'object' && o !== null) ? (o.text || '') : String(o || '');
+      var optLabel = (typeof o === 'object' && o !== null && o.label) ? o.label : '';
+      var rb = optionRiskBadge(optText);
       var barCls = 'c' + (i + 1);
       return '<button class="es-option' + (rb ? ' es-opt-risk' : '') + '" data-idx="' + i + '"' + (rb ? ' data-risk="1"' : '') + '>' +
         '<span class="es-opt-bar ' + barCls + '"></span>' +
-        '<span class="es-opt-body">' + escHtml(o) + (rb ? ' <span class="es-risk">' + rb + '</span>' : '') + '</span>' +
+        '<span class="es-opt-body">' + escHtml(optText) +
+        (optLabel ? ' <span class="es-opt-label">' + escHtml(optLabel) + '</span>' : '') +
+        (rb ? ' <span class="es-risk">' + rb + '</span>' : '') + '</span>' +
         '</button>';
     }).join('') : '<div class="es-empty">（等待剧情推进…）</div>';
   var romanceBtns = renderRomanceButtons();
@@ -910,7 +914,8 @@ function bindStoryEvents() {
       btn.addEventListener('click', function() {
         if (GS._entSimGenerating) { showToast('生成中，请稍候'); return; }
         var idx = parseInt(btn.dataset.idx, 10);
-        var text = getEntSimCurrent().options[idx] || btn.textContent;
+        var rawOpt = getEntSimCurrent().options[idx];
+        var text = (typeof rawOpt === 'object' && rawOpt !== null) ? (rawOpt.text || '') : String(rawOpt || btn.textContent || '');
         var cur = getEntSimCurrent();
         if (cur.type === 'confess') { onConfessChoice(idx); return; }
         onOptionPreview(idx, text, btn);
