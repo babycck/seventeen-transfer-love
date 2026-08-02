@@ -200,22 +200,23 @@ function buildEventTrace(E) {
 
 // ── 步骤3：选项生成规则 ──
 function buildOptionTrace(E) {
-  var aff = E.affection || 0;
   var lines = [];
-  lines.push('── 选项生成逻辑 ──');
-  lines.push('基于当前好感度 ' + aff + ' 分段：');
-  lines.push('· 好感 < 10（初识）：3 选项 — 认真/观察/偷偷看手机。affectionDelta=0~2, popularityDelta=0~1');
-  lines.push('· 好感 10-39（认识）：3 选项 — 回应/借哥哥掩护/低头。affectionDelta=1~3, broDelta=0~2');
-  lines.push('· 好感 ≥ 40（在意以上）：3 选项 — 主动搭话/交换眼神/退开避嫌。affectionDelta=2~4, exposure=0~1, broDelta=1~2, rivalDelta=0~2');
+  var mlName = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '男主';
+  var broName = (E.brother && E.brother.name) || '哥哥';
+  var rivalName = (E.rival && E.rival.name) || '情敌';
+  lines.push('── 选项生成逻辑（测试版固定三轴）──');
+  lines.push('测试版每轮固定 3 个选项：');
+  lines.push('· 选项A：+' + mlName + '好感度 +3（affection delta=3）');
+  lines.push('· 选项B：+' + broName + '支持度 +2（brother.support delta=2）');
+  lines.push('· 选项C：+' + rivalName + '倾向 +2（rivalDelta=2 → _jealousLevel）');
   lines.push('');
   lines.push('── 选项效果映射（选择后真正影响数值）──');
   lines.push('· 好感度（affection）：delta 直接加减，范围 [0, 100]');
-  lines.push('· 人气（popularity）：popDelta 直接加减，最低 0');
+  lines.push('· 人气（popularity）：隔天换天时基础+1（测试版保底）');
   lines.push('· 哥哥支持度（brother.support）：broDelta 直接加减，范围 [-100, 100]');
-  lines.push('· 情敌嫉妒（_jealousLevel）：rivalDelta 直接加减，范围 [0, 10]');
-  lines.push('· 曝光累积（exposureAccum）：exposure 直接累加 → 影响 scandalHeat → 触发狗仔偷拍概率');
+  lines.push('· 情敌倾向（_jealousLevel）：rivalDelta 直接加减，范围 [0, 10]');
 
-  return wrapPool('步骤3：选项生成规则', lines.join('\n'));
+  return wrapPool('步骤3：选项生成规则（测试版·三轴固定）', lines.join('\n'));
 }
 
 // ── 步骤4：AI 扩写区（说明 AI 会收到什么、遵守什么、生成什么）──
@@ -403,24 +404,14 @@ export function buildTestOptions() {
   var agenda = E.agenda || {};
   var isDebut = E.career && E.career.debutDay > 0;
   var main = agenda.main || (isDebut ? '今日行程' : '练习');
-  if (aff < 10) {
-    return [
-      { text: '把「' + main + '」做到最好，不让自己分心', type: 'good', delta: 2, popDelta: 1 },
-      { text: '在间隙观察一下练习室里的人', type: 'neutral', delta: 0 },
-      { text: '偷偷看了眼手机，又迅速塞回口袋', type: 'shy', delta: 0 }
-    ];
-  }
-  if (aff < 40) {
-    return [
-      { text: '在「' + main + '」场合自然地回应他', type: 'good', delta: 3 },
-      { text: '和哥哥聊两句，借他打掩护', type: 'brother', delta: 1, broDelta: 2 },
-      { text: '假装没注意到他，低头整理东西', type: 'bad', delta: 0 }
-    ];
-  }
+  var mlName = (E.romance && E.romance.maleLead && E.romance.maleLead.name) || '男主';
+  var broName = (E.brother && E.brother.name) || '哥哥';
+  var rivalName = (E.rival && E.rival.name) || '情敌';
+  // 测试版固定三轴选项：+男主好感 / +哥哥支持度 / +情敌倾向
   return [
-    { text: '借着「' + main + '」的由头，和他多说几句话', type: 'good', delta: 4, exposure: 1 },
-    { text: '哥哥在附近——你收敛一点，只交换一个眼神', type: 'brother', delta: 2, broDelta: 1 },
-    { text: '情敌好像在看这边，你故意退开半步', type: 'rival', delta: 0, rivalDelta: 2 }
+    { text: '借着「' + main + '」的机会，和他多聊几句', type: 'good', delta: 3, popDelta: 0, label: '+' + mlName + '好感' },
+    { text: '和' + broName + '聊两句，听听他的看法', type: 'brother', delta: 0, broDelta: 2, popDelta: 0, label: '+' + broName + '支持' },
+    { text: '感觉到' + rivalName + '的视线——你迎了上去', type: 'rival', delta: 0, rivalDelta: 2, popDelta: 0, label: '+' + rivalName + '倾向' }
   ];
 }
 
