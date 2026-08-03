@@ -16,8 +16,9 @@ export var SEASON_ROMANCE_POOL = [
   { text: '樱花季——你们被安排在同一天去汝矣岛拍外景。你在樱花树下等他换机位——他经过时花瓣落在他肩头。你没忍住伸手帮他拍掉了。', require: 'month=3||month=4||month=5', cat: 'spring' },
   { text: '白色情人节——他提了一盒马卡龙给你。"不是我做的，挑的。"——但你认得那家店，是你三个月前随口说"想吃"的那家。', require: 'month=3', cat: 'whiteday' },
   { text: '春天凌晨——你在工作室写歌词。他走过来:"还在忙？"然后坐了半小时——没说几句话但陪着你。', require: 'month=3||month=4||month=5', cat: 'spring' },
-  { text: '你的生日在春天——他送了一盆多肉。"这个不用特别照顾"——你照顾了它半年还活着。他说"我说了不用特别照顾吧"。', require: 'birthday=heroine||month=3||month=4||month=5', cat: 'birthday' },
+  { text: '你的生日在春天——他送了一盆多肉。"这个不用特别照顾"——你照顾了它半年还活着。他说"我说了不用特别照顾吧"。', require: 'birthday=heroine', cat: 'birthday' },
   { text: '汉江边——你们趁夜色在人少的地方走了走。桥上的灯光洒在他侧脸上——你觉得这个晚上值一整年的疲惫。', require: 'month=4||month=5', cat: 'spring' },
+  { text: '春天的某个傍晚——练习室窗外的天光特别长。他说"今天结束得早，要不要去江边走走"。', require: 'month=3||month=4||month=5', cat: 'spring' },
   { text: '你换了个新发型——他看了两秒才说"好看"。这两秒的暂停，你捕捉到了。', require: 'month=3||month=4||month=5', cat: 'spring' },
   { text: '春天的练习室——打开窗户会有淡淡的樱花味飘进来。他在你对角线拉了张椅子坐着——说是想借你们练习室的音响。但你知道你们练习室音响很旧。', require: 'month=3||month=4||month=5', cat: 'spring' },
   // —— 夏季 ——

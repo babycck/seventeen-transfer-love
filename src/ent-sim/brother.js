@@ -6,17 +6,53 @@ import { GS, saveGame } from '../state.js';
 import { randInt } from '../utils.js';
 import { addExposure, getScandalHeat } from './public-opinion.js';
 import { ENT_SIM_RIVAL_STAGES, ENT_SIM_RIVAL_ACTIONS } from './data.js';
-import { GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, TEAMMATE_BOND_POOL, DATING_SCANDAL_CHAIN, PRESS_INTERVIEW_POOL, SISTER_DAILY_POOL, FAN_NPC_POOL } from './pools/index.js';
+import { pickWeighted, GIRLGROUP_EVENTS, BROTHER_EVENT_POOL, MALE_LEAD_INITIATIVE_POOL, CONTACT_PROGRESSION, SPECIAL_EVENTS, INCIDENT_EVENTS_POOL, ONEHEART_RANDOM_EVENTS, JEALOUSY_EVENTS_POOL, INDUSTRY_EVENTS, RIVAL_ADVANCE_EVENTS, SECRET_DISCOVERY_EVENTS, BROTHER_ADVANCE_TESTS, BROTHER_SIDE_PLOTS, TEAMMATE_FLAVOR, TEAMMATE_BOND_POOL, DATING_SCANDAL_CHAIN, PRESS_INTERVIEW_POOL, SISTER_DAILY_POOL, FAN_NPC_POOL } from './pools/index.js';
 // npc-network 已移除，情敌名改用 rival 字段
+
+// v8: 事件去重辅助函数
+function eventKey(item) {
+  if (!item) return '';
+  if (item.key) return item.key;
+  var txt = item.text || item.t || String(item);
+  return (txt || '').slice(0, 40);
+}
+function recordEventKey(usedKeys, item, poolName) {
+  if (!usedKeys || !item) return;
+  var k = (poolName ? poolName + ':' : '') + eventKey(item);
+  usedKeys[k] = true;
+}
+function pickUnusedEvent(pool, usedKeys, poolName) {
+  if (!pool || !pool.length) return null;
+  var prefix = poolName ? poolName + ':' : '';
+  var available = pool.filter(function(item) { return !usedKeys[prefix + eventKey(item)]; });
+  if (!available.length) {
+    pool.forEach(function(item) { delete usedKeys[prefix + eventKey(item)]; });
+    available = pool.slice();
+  }
+  return available[randInt(0, available.length - 1)];
+}
+function pickWeightedUnused(pool, usedKeys, poolName) {
+  if (!pool || !pool.length) return null;
+  var prefix = poolName ? poolName + ':' : '';
+  var available = pool.filter(function(item) { return !usedKeys[prefix + eventKey(item)]; });
+  if (!available.length) {
+    pool.forEach(function(item) { delete usedKeys[prefix + eventKey(item)]; });
+    available = pool.slice();
+  }
+  return pickWeighted(available);
+}
+export { eventKey, recordEventKey, pickUnusedEvent, pickWeightedUnused };
 
 // 哥哥事件：15% 概率；成功则注入并应用影响
 export function maybeBrotherEvent() {
   var E = GS.entSim;
   if (randInt(1, 100) > 9) return false; // v5: 15%→9% 降40%
-  var ev = BROTHER_EVENT_POOL[randInt(0, BROTHER_EVENT_POOL.length - 1)];
+  var ev = pickUnusedEvent(BROTHER_EVENT_POOL, E._triggeredEventKeys, 'brother_event');
+  if (!ev) return false;
   if (ev.stance) E.brother.stance = ev.stance;
   // 随机事件只注入剧情，不改支持度——哥哥支持度必须由玩家选项驱动
   if (ev.text) E.careerHistory.push({ round: E.cycle.roundTotal, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'brother', text: ev.text });
+  recordEventKey(E._triggeredEventKeys, ev, 'brother_event');
   GS._entSimPendingEvent = (GS._entSimPendingEvent ? GS._entSimPendingEvent + '\n' : '') + '【哥哥】' + ev.text;
   saveGame();
   return true;
@@ -77,7 +113,7 @@ export function checkOneHeartEvents() {
   // 4. 女主秘密被撞破（男主发现）——合并 data.js + 池子（宿舍/家里/练习室）
   if (!ev && E.secret && E.secret.items && E.secret.items.length && rnd <= 15 && locMatch('宿舍','家里','练习室')) {
     var secretPool = SECRET_DISCOVERY_EVENTS.concat(SPECIAL_EVENTS.filter(function(e) { return e.key && e.key.indexOf('secret_') === 0; }));
-    ev = cloneEvent(secretPool[randInt(0, secretPool.length - 1)]);
+    ev = cloneEvent(pickUnusedEvent(secretPool, E._triggeredEventKeys, 'secret'));
   }
 
   // 4.5. 狗仔偷拍：恋情曝光风险≥暗涌(5) 时概率触发（放送局/待机室/停车场/公司外）
@@ -88,19 +124,19 @@ export function checkOneHeartEvents() {
       { text: '有人拍到你们在停车场同时上车，虽然中间隔了五分钟——粉丝做了逐帧分析：「就是同一个停车场」。', key: 'paparazzi', exposure: 2 },
       { text: '队友帮你挡镜头的样子反而被拍下来成了热搜——粉丝评论：「这掩护也太明显了吧」。', key: 'paparazzi_hidden', exposure: 1 }
     ];
-    ev = cloneEvent(paparazziPool[randInt(0, paparazziPool.length - 1)]);
+    ev = cloneEvent(pickUnusedEvent(paparazziPool, E._triggeredEventKeys, 'paparazzi'));
   }
 
   // 4.6. 嫉妒事件：好感≥20时触发 v5: 15%→9%降40%（练习室/待机室/放送局）
   if (!ev && rnd <= 9 && JEALOUSY_EVENTS_POOL && JEALOUSY_EVENTS_POOL.length && locMatch('练习室','待机室','放送局')) {
     var affNow = E.affection || 0;
     var jp = JEALOUSY_EVENTS_POOL.filter(function(j) { return !j.minAff || affNow >= j.minAff; });
-    if (jp.length) ev = cloneEvent(jp[randInt(0, jp.length - 1)]);
+    if (jp.length) ev = cloneEvent(pickUnusedEvent(jp, E._triggeredEventKeys, 'jealousy'));
   }
 
   // 5. 哥哥支线（练习室/公司/家里）
   if (!ev && E.brother && E.brother.name && rnd <= 12 && locMatch('练习室','公司','家里','宿舍')) {
-    ev = cloneEvent(BROTHER_SIDE_PLOTS[randInt(0, BROTHER_SIDE_PLOTS.length - 1)]);
+    ev = cloneEvent(pickUnusedEvent(BROTHER_SIDE_PLOTS, E._triggeredEventKeys, 'brother_side'));
   }
 
   // 6. 女团/行业事件（仅出道后触发，练习生期跳过）v5: 25%→15%降40%（放送局/待机室/公司）
@@ -110,33 +146,33 @@ export function checkOneHeartEvents() {
     if (E.career && E.career.profession === '女团爱豆') pool = pool.concat(GIRLGROUP_EVENTS);
     pool = pool.concat(INDUSTRY_EVENTS);
     pool = pool.concat(INCIDENT_EVENTS_POOL);
-    if (pool.length) ev = cloneEvent(pool[randInt(0, pool.length - 1)]);
+    if (pool.length) ev = cloneEvent(pickUnusedEvent(pool, E._triggeredEventKeys, 'industry_mixed'));
   }
 
   // 7. 好感铺垫（CONTACT_PROGRESSION）：仅出道后触发 v5: 30%→18%降40%（练习室/待机室/放送局）
   if (!ev && isDebutEvents && E.affection >= 0 && rnd <= 18 && CONTACT_PROGRESSION && CONTACT_PROGRESSION.length && locMatch('练习室','待机室','放送局')) {
     var cp = CONTACT_PROGRESSION.filter(function(p) { return !p.minAff || E.affection >= p.minAff; });
-    if (cp.length) ev = cloneEvent(cp[randInt(0, cp.length - 1)]);
+    if (cp.length) ev = cloneEvent(pickWeightedUnused(cp, E._triggeredEventKeys, 'contact'));
   }
 
   // 8. ONEHEART_RANDOM_EVENTS（仅出道后触发）v5: 18%→11%降40%（练习室/待机室/放送局/公司）
   if (!ev && isDebutEvents && rnd <= 11 && ONEHEART_RANDOM_EVENTS && ONEHEART_RANDOM_EVENTS.length && locMatch('练习室','待机室','放送局','公司')) {
-    ev = cloneEvent(ONEHEART_RANDOM_EVENTS[randInt(0, ONEHEART_RANDOM_EVENTS.length - 1)]);
+    ev = cloneEvent(pickUnusedEvent(ONEHEART_RANDOM_EVENTS, E._triggeredEventKeys, 'oneheart_random'));
   }
 
   // v4: 池子接入⑧ TEAMMATE_BOND_POOL — 女团羁绊，替换队友支线 rnd≤10（练习室/宿舍/待机室）
   if (!ev && E.heroineGroup && E.heroineGroup.length && rnd <= 10 && TEAMMATE_BOND_POOL && TEAMMATE_BOND_POOL.length && locMatch('练习室','宿舍','待机室')) {
-    ev = cloneEvent(TEAMMATE_BOND_POOL[randInt(0, TEAMMATE_BOND_POOL.length - 1)]);
+    ev = cloneEvent(pickUnusedEvent(TEAMMATE_BOND_POOL, E._triggeredEventKeys, 'teammate_bond'));
   }
   // v4: 池子接入⑨ DATING_SCANDAL_CHAIN — scandalHeat>=10触发，rnd≤12（公共场合）
   if (!ev && getScandalHeat() >= 10 && rnd <= 12 && DATING_SCANDAL_CHAIN && DATING_SCANDAL_CHAIN.length && locMatch('放送局','待机室','商场','街头','机场','公司')) {
     var dscPool = DATING_SCANDAL_CHAIN.filter(function(d) { return !d.require || !d.require.startsWith('aff>=') || E.affection >= parseInt(d.require.slice(5), 10); });
-    if (dscPool.length) ev = cloneEvent(dscPool[randInt(0, dscPool.length - 1)]);
+    if (dscPool.length) ev = cloneEvent(pickUnusedEvent(dscPool, E._triggeredEventKeys, 'dating_scandal'));
   }
   // v4: 池子接入⑩ PRESS_INTERVIEW_POOL — 出道后人气≥15，rnd≤10（放送局/待机室/媒体间/公司）
   if (!ev && isDebutEvents && (E.career.popularity || 0) >= 15 && rnd <= 10 && PRESS_INTERVIEW_POOL && PRESS_INTERVIEW_POOL.length && locMatch('放送局','待机室','媒体间','公司','录影')) {
     var piPool = PRESS_INTERVIEW_POOL.filter(function(p) { return !p.require || !p.require.startsWith('aff>=') || E.affection >= parseInt(p.require.slice(5), 10); });
-    if (piPool.length) ev = cloneEvent(piPool[randInt(0, piPool.length - 1)]);
+    if (piPool.length) ev = cloneEvent(pickUnusedEvent(piPool, E._triggeredEventKeys, 'press'));
   }
 
   // 9. 女团队友支线：5 位姐姐偶尔在剧情里出场，增添女团真实感（练习室/宿舍/待机室）
@@ -150,7 +186,7 @@ export function checkOneHeartEvents() {
   //     v6: 日常事件独立于主事件，最多1个主事件+1个日常
   var dailyEv = null;
   if (E.heroineGroup && E.heroineGroup.length && Math.random() < 0.20 && SISTER_DAILY_POOL && SISTER_DAILY_POOL.length && locMatch('宿舍','练习室','待机室')) {
-    var sdItem = SISTER_DAILY_POOL[randInt(0, SISTER_DAILY_POOL.length - 1)];
+    var sdItem = pickUnusedEvent(SISTER_DAILY_POOL, E._triggeredEventKeys, 'sister_daily');
     if (sdItem && sdItem.text) {
       dailyEv = { text: '【女团日常】' + sdItem.text, key: 'sister_daily', exposure: 0 };
     }
@@ -158,7 +194,7 @@ export function checkOneHeartEvents() {
 
   // 11. 粉丝NPC池 FAN_NPC_POOL：出道后每天15%概率触发（放送局/待机室/签售会场/场馆外）
   if (!dailyEv && isDebutEvents && Math.random() < 0.15 && FAN_NPC_POOL && FAN_NPC_POOL.length && locMatch('放送局','待机室','签售会','场馆','会场')) {
-    var fnItem = FAN_NPC_POOL[randInt(0, FAN_NPC_POOL.length - 1)];
+    var fnItem = pickUnusedEvent(FAN_NPC_POOL, E._triggeredEventKeys, 'fan_npc');
     if (fnItem && fnItem.text) {
       dailyEv = { text: '【粉丝圈】' + fnItem.text, key: 'fan_npc', exposure: 0 };
     }
@@ -188,6 +224,9 @@ export function checkOneHeartEvents() {
     E.flags = E.flags || {};
     E.flags[ev.flag] = true;
   }
+  // v8: 记录事件 key 到去重集合
+  if (ev && (ev.key || ev.text)) recordEventKey(E._triggeredEventKeys, ev, 'main');
+  if (dailyEv && (dailyEv.key || dailyEv.text)) recordEventKey(E._triggeredEventKeys, dailyEv, 'daily');
   // 记录主事件
   E.careerHistory.push({ round: r, day: E.cycle._gameDayCount || E.cycle.dayCount, type: 'event', key: ev.key, text: ev.text });
   var eventText = '【事件】' + ev.text + (ev.support ? '（哥哥支持度 +' + ev.support + '）' : '');

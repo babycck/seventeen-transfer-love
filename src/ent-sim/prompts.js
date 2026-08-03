@@ -498,7 +498,9 @@ function injectPoolInspirations(E) {
   // ── 里程碑池（按章节/出道状态） ──
   var isDebut = E.career && E.career.debutDay > 0;
   if (isDebut) {
-    if (!E.chapter || E.chapter.index <= 1) addPoolCandidates(candidates, MILESTONE_DEBUT, E, 1, '出道日场景');
+    // 出道日场景只在出道后3天内注入，避免长期重复
+    var debutDays = E.career.debutGameDay ? (E.cycle._gameDayCount - E.career.debutGameDay) : 999;
+    if (debutDays <= 3) addPoolCandidates(candidates, MILESTONE_DEBUT, E, 1, '出道日场景');
     addPoolCandidates(candidates, MILESTONE_AWARDS, E, 1, '颁奖场景');
     if (E.chapter && E.chapter.index >= 2) addPoolCandidates(candidates, MILESTONE_FIRST_WIN, E, 1, '一位场景');
   }

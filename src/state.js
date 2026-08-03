@@ -459,6 +459,8 @@ export function migrateSave() {
     if (!E.groupMeta) E.groupMeta = buildEntSimGroupMeta();
 
     if (!E.career) E.career = { popularity: 22, careerLevel: '新人', resourcesLevel: '新人' };
+    if (typeof E._lastPopSnapshot !== 'number') E._lastPopSnapshot = E.career.popularity || 0;
+    if (!E._triggeredEventKeys || typeof E._triggeredEventKeys !== 'object') E._triggeredEventKeys = {};
     if (typeof E.career.popularity !== 'number') E.career.popularity = 22;
     if (typeof E.career.debutGameDay !== 'number') E.career.debutGameDay = 0; // 出道时的游戏天数
     if (typeof E.career._traineeDayCount !== 'number') E.career._traineeDayCount = 0;

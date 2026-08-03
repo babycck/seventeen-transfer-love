@@ -1358,7 +1358,7 @@ function onChatSend() {
     msgs.scrollTop = msgs.scrollHeight;
   }
   setTimeout(function() {
-    generateEntSimChat(msg).then(function() { rerender(); });
+    generateEntSimChat(msg, 'maleLead').then(function() { rerender(); });
   }, delay);
 }
 
@@ -1911,7 +1911,7 @@ window.__phoneSend = function() {
         // 2. 池子未命中 → 调用 AI
         if (typeof generateEntSimChat === 'function') {
           input.placeholder = 'AI 正在回复...';
-          generateEntSimChat(msg).then(function(aiReply) {
+          generateEntSimChat(msg, ch).then(function(aiReply) {
             input.placeholder = '输入回复...';
             if (aiReply && aiReply !== 'dailyLimit' && typeof aiReply === 'string') {
               GS._entSimChatHistory.maleLead.push({ role: 'ai', content: resolveChatTemplates(aiReply) });
@@ -2679,12 +2679,19 @@ function showStageUpCeremony() {
 
 // 出道仪式 overlay：粉色渐变 + 团名/队友/概念/出道曲 展示
 function showDebutCeremonyOverlay(meta) {
-  var groupName = meta.groupName || 'HORIZON';
-  var company = meta.company || 'Konnect Entertainment';
-  var concept = meta.concept || 'City Pop Retro';
-  var fanName = meta.fanName || 'VOYAGERS';
-  var debutSong = meta.hitSongs && meta.hitSongs.length ? meta.hitSongs[0] : 'First Light';
-  var members = meta.members ? meta.members.split(/\s*,\s*/) : [];
+  var E = GS.entSim;
+  var groupName = (meta && meta.groupName) || (E.groupMeta && E.groupMeta.groupName) || 'HORIZON';
+  var company = (meta && meta.company) || (E.groupMeta && E.groupMeta.company) || 'Konnect Entertainment';
+  var concept = (meta && meta.concept) || (E.groupMeta && E.groupMeta.concept) || 'City Pop Retro';
+  var fanName = (meta && (meta.fanName || meta.fandom)) || (E.groupMeta && (E.groupMeta.fanName || E.groupMeta.fandom)) || 'VOYAGERS';
+  var songs = (meta && (meta.songs || meta.hitSongs)) || (E.groupMeta && (E.groupMeta.songs || E.groupMeta.hitSongs)) || [];
+  var debutSong = songs.length ? songs[0] : 'First Light';
+  var members = [];
+  if (E.heroineGroup && E.heroineGroup.length) {
+    members = E.heroineGroup.map(function(m) { return m.name; });
+  } else if (meta && meta.members) {
+    members = String(meta.members).split(/\s*,\s*/);
+  }
 
   var overlay = document.createElement('div');
   overlay.className = 'es-stageup-overlay';
@@ -3190,11 +3197,13 @@ function pushPairedChat(ch, pool, condition) {
 }
 
 function checkAndShowPendingPopups() {
+  // v8: 结算弹窗显示期间不显示其他弹窗
+  if (GS._entSimShowingDailySettlement) return;
   var queue = GS._entSimPopupQueue;
   if (!queue || !queue.length) return;
   var item = queue[0];
   if (!item) { queue.shift(); return; }
-  
+
   var showNext = function() {
     queue.shift();
     setTimeout(function() { checkAndShowPendingPopups(); }, 200);
@@ -3202,26 +3211,30 @@ function checkAndShowPendingPopups() {
   
   var today = (GS.entSim && GS.entSim.cycle) ? (GS.entSim.cycle._gameDayCount || 1) : 1;
   
-  switch (item.type) {
-    case 'fanLetter': showFanLetterPopup(item.data); if (!GS._entSimLetterHistory) GS._entSimLetterHistory = []; GS._entSimLetterHistory.push({ day: today, data: item.data }); break;
-    case 'brandOffer': scheduleEvent('brand', item.data); break;
-    case 'award': showAwardPopup(item.data); if (!GS._entSimAwardHistory) GS._entSimAwardHistory = []; GS._entSimAwardHistory.push({ day: today, data: item.data }); break;
-    case 'variety': scheduleEvent('variety', item.data); break;
-    case 'dispatch': showDispatchPopup(item.data); injectFanReactions(item.data); break;
-    case 'magazine': scheduleEvent('magazine', item.data); break;
-    case 'rumor': showRumorPopup(item.data); injectFanReactions(item.data); break;
-    case 'maleContact': showMaleContactPopup(item.data, item.label); break;
-    case 'jobOffer': showGenericEventPopup('📋 通告邀约', item.data); injectFanReactions(item.data); break;
-    case 'fansign': showGenericEventPopup('💜 粉丝签售会', item.data); injectFanReactions(item.data); break;
-    case 'concert': showGenericEventPopup('🎪 演唱会后记', item.data); injectFanReactions(item.data); break;
-    case 'comeback': showGenericEventPopup('🎵 回归周期', item.data); injectFanReactions(item.data); break;
-    case 'musicShow': showGenericEventPopup('🎬 打歌节目', item.data); injectFanReactions(item.data); break;
-    case 'setback': showGenericEventPopup('⚠️ 事业波折', item.data); injectFanReactions(item.data); break;
-    case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); generateFanReaction(item.data.t || '今日营业', '').catch(function(){}); break;
-    case 'break84': show84BreakPopup(item.data); break;
-    default: break;
+  function finish() {
+    showNext();
   }
-  showNext();
+
+  switch (item.type) {
+    case 'fanLetter': showFanLetterPopup(item.data); if (!GS._entSimLetterHistory) GS._entSimLetterHistory = []; GS._entSimLetterHistory.push({ day: today, data: item.data }); finish(); break;
+    case 'brandOffer': scheduleEvent('brand', item.data).then(finish).catch(finish); break;
+    case 'award': showAwardPopup(item.data); if (!GS._entSimAwardHistory) GS._entSimAwardHistory = []; GS._entSimAwardHistory.push({ day: today, data: item.data }); finish(); break;
+    case 'variety': scheduleEvent('variety', item.data).then(finish).catch(finish); break;
+    case 'dispatch': showDispatchPopup(item.data); injectFanReactions(item.data); finish(); break;
+    case 'magazine': scheduleEvent('magazine', item.data).then(finish).catch(finish); break;
+    case 'rumor': showRumorPopup(item.data); injectFanReactions(item.data); finish(); break;
+    case 'maleContact': showMaleContactPopup(item.data, item.label); finish(); break;
+    case 'jobOffer': showGenericEventPopup('📋 通告邀约', item.data); injectFanReactions(item.data); finish(); break;
+    case 'fansign': showGenericEventPopup('💜 粉丝签售会', item.data); injectFanReactions(item.data); finish(); break;
+    case 'concert': showGenericEventPopup('🎪 演唱会后记', item.data); injectFanReactions(item.data); finish(); break;
+    case 'comeback': showGenericEventPopup('🎵 回归周期', item.data); injectFanReactions(item.data); finish(); break;
+    case 'musicShow': showGenericEventPopup('🎬 打歌节目', item.data); injectFanReactions(item.data); finish(); break;
+    case 'setback': showGenericEventPopup('⚠️ 事业波折', item.data); injectFanReactions(item.data); finish(); break;
+    case 'dailyEngage': showGenericEventPopup('📱 今日营业', item.data); injectFanReactions(item.data); generateFanReaction(item.data.t || '今日营业', '').catch(function(){}); finish(); break;
+    case 'break84': show84BreakPopup(item.data); finish(); break;
+    case 'sasaeng': showGenericEventPopup('👁️ 私生警告', item.data); finish(); break;
+    default: finish(); break;
+  }
 }
 
 function showVarietyPopupFromItem(item) {
@@ -3405,7 +3418,7 @@ function scheduleEvent(type, passedItem) {
   else if (type === 'magazine') { pool = MAGAZINE_POOL; label = '画报邀约'; icon = '📸'; textFn = function(d) { return '拍摄' + (d.mag || '画报'); }; locFn = function(d) { return '摄影棚'; }; }
   else if (type === 'brand') { pool = BRAND_OFFER_POOL; label = '代言邀约'; icon = '💼'; textFn = function(d) { return '代言拍摄：' + (d.brand || '品牌'); }; locFn = function(d) { return '摄影棚'; }; }
   else if (type === 'release') { pool = RELEASE_POOL; label = '作品发布'; icon = '📀'; textFn = function(d) { return '发布' + (d.t || '作品'); }; locFn = function(d) { return '工作室/公司'; }; }
-  else return;
+  else return Promise.resolve();
   // 优先使用 passedItem（弹窗推送）或 pending（上次关闭暂存的）
   var pendingOffers = (typeof GS !== 'undefined' && GS._entSimPendingOffers) || {};
   var pending = pendingOffers[type];
@@ -3419,17 +3432,17 @@ function scheduleEvent(type, passedItem) {
   } else {
     // 品牌/综艺/画报：不再随机抽→提示没有
     if (type === 'release') {
-      if (!pool || !pool.length) { showToast('暂无发布内容'); return; }
+      if (!pool || !pool.length) { showToast('暂无发布内容'); return Promise.resolve(); }
       item = pool[Math.floor(Math.random() * pool.length)];
       if (Array.isArray(item)) item = item[Math.floor(Math.random() * item.length)];
     }
-    if (!item) { showToast('暂无' + label + '邀约，只能等经纪人联系'); return; }
+    if (!item) { showToast('暂无' + label + '邀约，只能等经纪人联系'); return Promise.resolve(); }
     t = textFn(item);
     l = locFn(item);
   }
   var detail = (item.show || item.brand || item.mag || item.t || '') + ' · 人气+' + (item.pop || 2) + (item.exp ? ' 曝光+' + item.exp : '');
   // 确认弹窗
-  showEntSimModal(icon + ' ' + label, '<p style="text-align:center;padding:8px 0">' + escHtml(detail) + '<br><small style="color:var(--text-muted)">接受后将排入明日日程，AI自动生成工作剧情并结算奖励</small></p>', [
+  return showEntSimModal(icon + ' ' + label, '<p style="text-align:center;padding:8px 0">' + escHtml(detail) + '<br><small style="color:var(--text-muted)">接受后将排入明日日程，AI自动生成工作剧情并结算奖励</small></p>', [
     { id: 'dismiss', label: '关闭' },
     { id: 'cancel', label: '拒绝' },
     { id: 'confirm', label: '接受', primary: true }

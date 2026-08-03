@@ -10,6 +10,7 @@
 import { GS } from '../state.js';
 import { MEMBERS } from '../data.js';
 import { randInt } from '../utils.js';
+import { affectionStageLabel } from './romance.js';
 
 // 固定测试角色：男主/哥哥/情敌
 export var TEST_FIXED_ROLES = {
@@ -282,15 +283,7 @@ function buildAIExpandTrace(E, type, extra) {
 
 // ── 阶段标签 ──
 function stageLabel(aff) {
-  if (aff < 10) return '初识👋';
-  if (aff < 20) return '认识🤝';
-  if (aff < 30) return '朋友💚';
-  if (aff < 40) return '在意💙';
-  if (aff < 50) return '暧昧💗';
-  if (aff < 60) return '心动💓';
-  if (aff < 70) return '热恋🔥';
-  if (aff < 80) return '深爱❤️';
-  return '灵魂伴侣💍';
+  return affectionStageLabel(aff);
 }
 
 // ── 状态快照 ──
@@ -458,20 +451,45 @@ export function applyTestOptionEffect(choiceText) {
 // ═══════════════════════════════════════════════
 // 聊天/朋友圈/剧场测试回复
 // ═══════════════════════════════════════════════
-function poolReply(type, msg) {
+function poolReply(type, msg, channel) {
   var E = GS.entSim;
   var aff = E.affection || 0;
   var ml = E.romance && E.romance.maleLead ? E.romance.maleLead.name : '全圆佑';
-  var snippets = {
-    low: [ml + '：……嗯。', ml + '：注意身体。', ml + '：早点休息。'],
-    mid: [ml + '：看到你今天的练习视频了，跳得不错。', ml + '：哥哥又唠叨你了吗？', ml + '：下次带你去那家店。'],
-    high: [ml + '：想你了。', ml + '：今晚能出来吗？', ml + '：哥哥今天问了我好多问题。']
+  var bro = E.brother ? E.brother.name : '哥哥';
+  var suit = E.rival ? E.rival.name : '情敌';
+  channel = channel || 'maleLead';
+
+  var snippetsByChannel = {
+    maleLead: {
+      low: [ml + '：……嗯。', ml + '：注意身体。', ml + '：早点休息。'],
+      mid: [ml + '：看到你今天的练习视频了，跳得不错。', ml + '：哥哥又唠叨你了吗？', ml + '：下次带你去那家店。'],
+      high: [ml + '：想你了。', ml + '：今晚能出来吗？', ml + '：哥哥今天问了我好多问题。']
+    },
+    brother: {
+      low: [bro + '：回家吃饭。', bro + '：别练太晚。', bro + '：钱够吗？'],
+      mid: [bro + '：今天又在练习室看到他，你们没怎样吧？', bro + '：妈问你周末回不回来。', bro + '：我帮你挡了记者。'],
+      high: [bro + '：你们俩的事我不管了，但别让他欺负你。', bro + '：要是他对你不好，告诉我。', bro + '：家庭聚会带他吗？']
+    },
+    broker: {
+      low: ['经纪人：明天上午彩排别迟到。', '经纪人：公司通知下午开会。', '经纪人：最近少发朋友圈。'],
+      mid: ['经纪人：那个综艺邀约我帮你推了，最近不适合。', '经纪人：狗仔拍到你们同车，我先压下来了。', '经纪人：下个月回归，注意身材管理。'],
+      high: ['经纪人：恋情曝光的话，公关方案你选一个。', '经纪人：粉丝那边我安排人去引导了。', '经纪人：颁奖典礼的座位安排好了，别乱跑。']
+    },
+    rival: {
+      low: [suit + '：练习室空调有点冷。', suit + '：你今天妆画得不错。', suit + '：哥又说起你。'],
+      mid: [suit + '：他对你好吗？我怎么看不出。', suit + '：下一场打歌，我们要同台了。', suit + '：你看起来很累。'],
+      high: [suit + '：如果先遇到你的是我，结局会不会不一样。', suit + '：你真的选择他？', suit + '：我不会放弃的。']
+    }
   };
+
+  var snippets = snippetsByChannel[channel] || snippetsByChannel.maleLead;
   var bucket = aff < 10 ? 'low' : aff < 40 ? 'mid' : 'high';
   var arr = snippets[bucket] || snippets.low;
+  var roleName = channel === 'maleLead' ? ml : channel === 'brother' ? bro : channel === 'broker' ? '经纪人' : suit;
 
   var lines = [];
   lines.push('── AI 收到的聊天 Prompt ──');
+  lines.push('· 聊天对象：' + roleName);
   lines.push('· 最近 15 条对话上下文已注入');
   lines.push('· 女主消息：' + (msg || '（无）'));
   lines.push('· 好感阶段：' + stageLabel(aff) + ' → 回复语气按阶段递进');
@@ -483,8 +501,8 @@ function poolReply(type, msg) {
   return wrapAI(lines.join('\n'));
 }
 
-export function buildTestChatReply(msg) {
-  return poolReply('chat', msg);
+export function buildTestChatReply(msg, channel) {
+  return poolReply('chat', msg, channel);
 }
 
 export function buildTestMoment() {

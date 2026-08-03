@@ -134,9 +134,9 @@ export function initEntSimState() {
   E.memory = { dailySummaries: [], eventLog: [], milestones: [], phaseSummaries: [], lastCompressDay: 0, openLoops: [] };
   // openLoops：未完成剧情线 [{id, type, text, round, resolved}]
   E.openLoops = [];
-  // 女团队友（5 位姐姐）：仅女团爱豆职业生成，练习生不生成
+  // 女团队友（5 位姐姐）与团设：练习生开局也预生成，避免出道仪式无团名
   E.heroineGroup = careerKey === '女团爱豆' ? buildEntSimHeroineGroup() : [];
-  E.groupMeta = careerKey === '女团爱豆' ? buildEntSimGroupMeta() : null;
+  E.groupMeta = buildEntSimGroupMeta();
   E.misc = { suspicion: 0, manualPRUsed: 0, prRemaining: 2, exposureAccum: 0, scandalHeat: 0, careerPublicity: 0, cpRealProgress: 0, cpRealTriggered: false, lastCaughtDay: 0, _hidingOut: false, _exposureDecayTimer: 0, highMomentFlags: {}, usedPools: {}, subscriberHistory: [] };
   // v2 新增：吃醋值系统
   E._jealousLevel = 0; // 0-10，情敌互动+1/天 衰减-1/天
@@ -151,6 +151,8 @@ export function initEntSimState() {
   E._lastPopSnapshot = 0;
   // v6: 每日人气历史记录（用于折线图真实历史值）
   E._popHistory = [];
+  // v8: 事件去重记录（key -> true）
+  E._triggeredEventKeys = {};
   // v2 新增：男主主动联络倒计时从8-18天降为3-5天
   E._maleContactTimer = 3 + randInt(0, 2);
   // v2 新增：粉丝来信/品牌代言/作品发布/季度颁奖CD
